@@ -1,8 +1,8 @@
 -- Offline test of RavenquillExpedition (core) + RavenquillExpedition_Highlights against a mock of the Forever API.
--- Run from anywhere:  lua "<AddOns>/RavenquillExpedition/dev/harness_highlights.lua"
+-- Run from anywhere:  lua RavenquillExpedition_Highlights/dev/harness.lua
 -- Exits 1 on any failure. Uses a virtual clock; German client strings (positional %1$s) on purpose.
 unpack = table.unpack
-local DIR = (arg and arg[0] or ""):match("^(.*)[/\\]RavenquillExpedition[/\\]dev[/\\]") or "."
+local DIR = (arg[0]:gsub("[^/\\]*$", "")) .. "../.."
 local fails, passes = 0, 0
 local function check(cond, label)
   if cond then passes = passes + 1 else fails = fails + 1; io.write("  FAIL ", label, "\n") end
@@ -138,7 +138,7 @@ function IsInRaid() return G.raid end
 C_ChatInfo = {
   RegisterAddonMessagePrefix = function() return true end,
   SendAddonMessage = function(prefix, msg, chan)
-    if G.sendResult == 0 then G.sent[#G.sent + 1] = { prefix = prefix, msg = msg, chan = chan } end
+    if G.sendResult == 0 then G.sent[#G.sent + 1] = { prefix = prefix, msg = msg, chan = chan, t = now } end
     return G.sendResult
   end,
 }
@@ -206,9 +206,7 @@ local function load(addon, file, ns)
   chunk(addon, ns)
 end
 local coreNS, hlNS = {}, {}
-load("RavenquillExpedition", "Core.lua", coreNS)
-load("RavenquillExpedition", "Comm.lua", coreNS)
-load("RavenquillExpedition", "Overview.lua", coreNS)
+for _, f in ipairs(dofile(DIR .. "/RavenquillExpedition/dev/toc.lua")(DIR .. "/RavenquillExpedition")) do load("RavenquillExpedition", f, coreNS) end
 for _, f in ipairs({ "Locale.lua", "Highlights.lua", "Wire.lua", "Detectors.lua", "LogWindow.lua" }) do load("RavenquillExpedition_Highlights", f, hlNS) end
 local GS, H = RavenquillExpedition, hlNS.H
 
@@ -269,9 +267,16 @@ check(count() == 2, "unloaded item waits")
 G.items[301].unloaded = nil; advance(2)
 check(count() == 3 and last().item == 301, "logged after the item data arrives (empty slot + epic)")
 advance(3)
-check(sentKind("g") == 2, "two highlights sent in the burst")
+-- the core's bucket (BURST 3, a token every 5 s): three highlights logged within 16 s all go out as they come; the
+-- third one 4 s after the second, closer than one refill, on a token left from the burst
+local CC = GS.CommConst
+local gTimes = {}
+for _, x in ipairs(G.sent) do if x.msg:find("H;1;g;", 1, true) then gTimes[#gTimes + 1] = x.t end end
+check(CC.BURST >= 3 and #gTimes == 3, "three highlights sent within the burst (" .. #gTimes .. ")")
+check(gTimes[3] and gTimes[3] - gTimes[2] < 1 / CC.RATE, ("the third without waiting for a refill (%s s after the second)"):format(
+  gTimes[3] and tostring(gTimes[3] - gTimes[2]) or "-"))
 advance(40)
-check(sentKind("g") == 3, "third one after the token refill")
+check(sentKind("g") == 3, "nothing sent twice while waiting for the echo")
 check(G.sent[1].prefix == "RQE1" and G.sent[1].chan == "GUILD", "shared prefix on GUILD")
 echoAll(); advance(20)
 check(outboxSize() == 0, "echo clears the outbox")
@@ -279,8 +284,9 @@ check(outboxSize() == 0, "echo clears the outbox")
 advance(120)
 C_ChatInfo.SendAddonMessage("RQEMap1", "x", "GUILD")
 C_ChatInfo.SendAddonMessage("GCAdv1", "y", "WHISPER")
--- a full bucket (2) minus one
-check(GS.Comm.foreign == 1 and GS.Comm.tokens <= 1.01, "a foreign GUILD send costs a token, a whisper doesn't")
+-- a full bucket (BURST) minus one
+check(GS.Comm.foreign == 1 and math.abs(GS.Comm.tokens - (CC.BURST - 1)) < 0.01,
+  ("a foreign GUILD send costs a token, a whisper doesn't (%.2f of %d)"):format(GS.Comm.tokens, CC.BURST))
 
 ---------------------------------------------------------------------------
 -- epics in the bags
@@ -408,7 +414,8 @@ n = count()
 fire("CHAT_MSG_LOOT", "Bud Stone bekommt Beute: " .. link(303) .. ".", "Bud Stone")
 check(count() == n, "loot of a known suite user is left to them")
 fire("CHAT_MSG_LOOT", "Dora Dunn bekommt Beute: " .. link(303) .. ".", "Dora Dunn")
-advance(200)
+-- the guild echoes what we send (otherwise the core counts it lost and slows down, Comm.lua's watchdog)
+for _ = 1, 20 do advance(10); echoAll() end
 check(sentKind("l") == sentLoot + 1 and sendsOf(";w;Dora Dunn;") == 1, "unreported guildie loot sent as a witness report")
 G.group = { party1 = { "Rando", "Pug" } }
 n = count()
@@ -535,7 +542,7 @@ advance(200); echoAll(); advance(5)
 -- options (all settings live in the /rq window: user decision 2026-11-14)
 ---------------------------------------------------------------------------
 check(H.db.diag.seen.ENCOUNTER_END and H.db.diag.last.QUEST_TURNED_IN, "event diagnostics recorded")
-check(RavenquillExpeditionDB.peers["Cara Moss"] and RavenquillExpeditionDB.diagSender ~= nil, "peers and raw sender recorded")
+check(GS:Peers()["Cara Moss"] and RavenquillExpeditionDB.diagSender ~= nil, "peers and raw sender recorded")
 local function opt(label)
   for i, o in ipairs(H.options) do if o.label == label then return i, o end end
 end
@@ -662,6 +669,20 @@ SlashCmdList.RAVENQUILL("")
 SlashCmdList.RAVENQUILL("")
 check(not ov:IsShown(), "/rq on the overview closes it")
 check(#errors == 0, "no Lua errors (" .. #errors .. ")")
+
+-- core API rules (rework Stage 0b)
+local probe = GS:NewModule("Probe", { addon = "Probe" })
+local okDup, errDup = pcall(probe.NewChannel, probe, { tag = "H" })
+check(not okDup and tostring(errDup):find("already taken", 1, true), "a channel on Highlights' tag raises")
+check(pcall(probe.NewChannel, probe, { tag = "ZZ" }), "a channel on a free tag works")
+check(not pcall(probe.NewChannel, probe, { tag = "a;b" }), "a tag with ';' is rejected")
+check(GS.TakeSendToken == nil, "the unused TakeSendToken is gone")
+local peers = GS:Peers()
+peers.Old, peers.Fresh, peers.Broken = GS:Now() - GS.PEER_MAX_AGE - 1, GS:Now() - 60, "x"
+GS:PrunePeers()
+check(peers.Old == nil and peers.Broken == nil and peers.Fresh,
+  "PrunePeers drops peers older than PEER_MAX_AGE and broken entries")
+check(type(GS.version) == "string" and GS.version ~= "", "core version comes from the .toc metadata (or 'dev')")
 
 io.write(("%d passed, %d failed\n"):format(passes, fails))
 if fails > 0 then os.exit(1) end

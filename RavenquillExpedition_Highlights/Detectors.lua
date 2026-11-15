@@ -139,7 +139,7 @@ local function TakeSnapshot()
       MarkEpic(f and f.q, id)
     end
   end
-  -- first run: whatever is already in the bags was "worn before" (review #4), and owned epics aren't loot
+  -- first run: whatever is already in the bags was "worn before", and owned epics aren't loot
   if not H.cdb.bagsSeeded then
     EachItem(BagList(), function(_, q, id) if id then H.cdb.everEquipped[id] = true; MarkEpic(q, id) end end)
     H.cdb.bagsSeeded = true
@@ -176,7 +176,7 @@ local function OnEquipmentChanged(slot)
 end
 
 ---------------------------------------------------------------------------
--- Epics that show up in the bags (review #5): catches loot whose chat line is secret, quest rewards,
+-- Epics that show up in the bags: catches loot whose chat line is secret, quest rewards,
 -- trades, mail. Not while the bank is open (taking out ≠ getting). The loot dedupe merges it with the
 -- loot line when both are seen.
 ---------------------------------------------------------------------------
@@ -197,7 +197,7 @@ local function OnBankOpened()
   EachItem(BankList(), function(_, q, id)
     if id then
       MarkEpic(q, id)
-      if not H.cdb.bankSeeded then H.cdb.everEquipped[id] = true end -- a second gear set in the bank (review #4)
+      if not H.cdb.bankSeeded then H.cdb.everEquipped[id] = true end -- a second gear set in the bank
     end
   end)
   H.cdb.bankSeeded = true
@@ -209,7 +209,7 @@ end
 -- (Spoken_Bosses\Events.lua:25-30); both are handled, whichever names a kill first wins for 60 s.
 -- Raid kill: a group report – one elected suite user sends "X and n guildies defeated Y".
 -- Dungeon kill: only a levelling character's FIRST kill of that boss (a max-level char installing late
---   would otherwise announce farmed bosses as firsts – review #11). Every other kill goes to the activity log.
+--   would otherwise announce farmed bosses as firsts). Every other kill goes to the activity log.
 ---------------------------------------------------------------------------
 local recentKill = {}
 
@@ -408,7 +408,7 @@ local function OnLoot(text, playerName)
     if k == who then inGroup = true else others[#others + 1] = k end
   end
   if not inGroup then return end
-  local r = GS.roster[who] or {}
+  local r = GS:RosterEntry(who) or {}
   local t = GS:Now()
   H:Add({ k = "loot", t = t, who = who, by = me, cls = r.class, lvl = r.level, item = f.id, link = link, q = f.q,
     id = H.WitnessID(who, f.id, t) }, "witness", { group = true, rank = (GS:ElectionRank(others)) })
@@ -417,11 +417,9 @@ end
 ---------------------------------------------------------------------------
 -- Events
 ---------------------------------------------------------------------------
-local frame = CreateFrame("Frame")
 local EVENTS = { "PLAYER_ENTERING_WORLD", "PLAYER_EQUIPMENT_CHANGED", "ENCOUNTER_END", "BOSS_KILL", "QUEST_LOG_UPDATE",
   "QUEST_ACCEPTED", "QUEST_COMPLETE", "QUEST_TURNED_IN", "PLAYER_LEVEL_UP", "CHAT_MSG_LOOT", "GET_ITEM_INFO_RECEIVED",
   "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED" }
-for _, e in ipairs(EVENTS) do pcall(frame.RegisterEvent, frame, e) end
 local QUIET = { QUEST_LOG_UPDATE = true, GET_ITEM_INFO_RECEIVED = true, BAG_UPDATE_DELAYED = true }
 
 local armed = {}
@@ -432,7 +430,7 @@ local function Soon(key, delay, fn)
 end
 
 local wasInInstance = false
-frame:SetScript("OnEvent", function(_, event, ...)
+local function OnEvent(event, ...)
   if not H.db then return end
   if not QUIET[event] then Diag(event, ...) end
   if event == "PLAYER_ENTERING_WORLD" then
@@ -472,7 +470,9 @@ frame:SetScript("OnEvent", function(_, event, ...)
       Soon("refresh", 0.5, function() H.waitingItems = false; H:Refresh() end)
     end
   end
-end)
+end
+-- the core's module events (an event this client lacks is skipped, as before)
+for _, e in ipairs(EVENTS) do H:RegisterEvent(e, function(_, ...) OnEvent(e, ...) end) end
 
 function H:OnLogin()
   LootPatterns()

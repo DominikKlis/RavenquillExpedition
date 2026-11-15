@@ -1,0 +1,10 @@
+## Interface: 16001
+## Title: Ravenquill Expedition: Example
+## Notes: Template for a new suite module: shares your level-ups with guildmates who run it.
+## Author: you
+## Version: dev
+## X-License: GPL-3.0
+## Dependencies: RavenquillExpedition
+## SavedVariables: RavenquillExpeditionExampleDB
+
+Example.lua

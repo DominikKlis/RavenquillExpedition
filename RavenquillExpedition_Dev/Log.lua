@@ -1,0 +1,143 @@
+-- Ravenquill Expedition: Dev - the log. Never released (scripts/package.ps1 refuses this folder).
+-- Everything the suite traces (RavenquillExpedition:Trace), every suite addon message sent or heard, and every chat
+-- line, into a ring of LOG_MAX entries in RavenquillExpeditionDevDB. The game writes SavedVariables on /reload and
+-- logout; scripts/devlog.sh reads the file from disk, so nothing has to be copied out of the game by hand.
+-- Entry: { time(), GetTime(), category, message, data } (message and data cut to 120 bytes, secrets never stored).
+local ADDON, ns = ...
+local RQ = RavenquillExpedition
+local Dev = {}
+ns.Dev = Dev
+
+Dev.LOG_MAX = 2000
+Dev.CUT = 120
+Dev.SESSIONS_MAX = 10
+local SUITE_PREFIXES = { RQE1 = true, RQEMap1 = true, GCAdv1 = true }
+
+local db -- RavenquillExpeditionDevDB, set at our ADDON_LOADED
+local pending = {} -- entries traced before the SavedVariables were ready (the core loads first)
+
+local function Text(v)
+  if v == nil then return nil end
+  if RQ.IsSecret(v) then return "<secret>" end
+  local s = tostring(v):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("[%c]", " ")
+  return RQ.Cut(s, Dev.CUT)
+end
+
+local function Store(e)
+  local log = db.log
+  log.e[log.head] = e
+  log.head = log.head % log.max + 1
+  if log.n < log.max then log.n = log.n + 1 end
+end
+
+function Dev.Add(cat, msg, data)
+  if db and not db.on then return end
+  local e = { time(), GetTime(), tostring(cat or "?"), Text(msg) or "", Text(data) }
+  if db then Store(e) elseif #pending < 300 then pending[#pending + 1] = e end
+end
+
+-- The core's no-op becomes the logger. Never raises: a broken trace must not break the caller.
+function RQ:Trace(cat, msg, data) pcall(Dev.Add, cat, msg, data) end
+
+-- Log entries in order, oldest first.
+function Dev.Entries()
+  local out, log = {}, db and db.log
+  if not log then return out end
+  local start = log.n < log.max and 1 or log.head
+  for i = 0, log.n - 1 do out[#out + 1] = log.e[(start - 1 + i) % log.max + 1] end
+  return out
+end
+
+function Dev.Clear()
+  db.log = { head = 1, n = 0, max = Dev.LOG_MAX, e = {} }
+end
+
+---------------------------------------------------------------------------
+-- What the log listens to (all hooks are post-hooks and never raise)
+---------------------------------------------------------------------------
+if DEFAULT_CHAT_FRAME and hooksecurefunc then
+  hooksecurefunc(DEFAULT_CHAT_FRAME, "AddMessage", function(_, text)
+    pcall(function() if type(text) == "string" and not RQ.IsSecret(text) then Dev.Add("chat", text) end end)
+  end)
+end
+if C_ChatInfo and C_ChatInfo.SendAddonMessage and hooksecurefunc then
+  hooksecurefunc(C_ChatInfo, "SendAddonMessage", function(prefix, msg, chan)
+    pcall(function()
+      if RQ.Plain(prefix, "string") and SUITE_PREFIXES[prefix] then Dev.Add("wire.tx", prefix .. " " .. tostring(chan), msg) end
+    end)
+  end)
+end
+
+local frame = CreateFrame("Frame")
+frame:RegisterEvent("CHAT_MSG_ADDON")
+frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+frame:RegisterEvent("PLAYER_LOGOUT")
+frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
+  pcall(function()
+    if event == "CHAT_MSG_ADDON" then
+      if RQ.Plain(a1, "string") and SUITE_PREFIXES[a1] then
+        Dev.Add("wire.rx", a1 .. " " .. tostring(Text(a4)), a2)
+      end
+    elseif event == "PLAYER_ENTERING_WORLD" then
+      Dev.Add("event", "PLAYER_ENTERING_WORLD", "instance=" .. tostring(RQ:InInstance()))
+    else
+      Dev.Add("event", "PLAYER_LOGOUT")
+    end
+  end)
+end)
+
+---------------------------------------------------------------------------
+-- Module: SavedVariables, session header, /rq dev
+---------------------------------------------------------------------------
+local mod = RQ:NewModule("Dev", { addon = ADDON, slash = "dev", title = "Dev tools",
+  icon = "Interface\\Icons\\INV_Misc_Gear_01" })
+Dev.mod = mod
+
+function mod:OnLoad()
+  db = type(RavenquillExpeditionDevDB) == "table" and RavenquillExpeditionDevDB or {}
+  RavenquillExpeditionDevDB = db
+  if db.on == nil then db.on = true end
+  if type(db.log) ~= "table" or type(db.log.e) ~= "table" then Dev.Clear() end
+  db.log.max = Dev.LOG_MAX
+  db.runs = type(db.runs) == "table" and db.runs or {}
+  db.sessions = type(db.sessions) == "table" and db.sessions or {}
+  Dev.db = db
+  local _, build, _, iface = GetBuildInfo()
+  table.insert(db.sessions, { started = time(), gt = GetTime(), build = build, interface = iface, core = RQ.version })
+  while #db.sessions > Dev.SESSIONS_MAX do table.remove(db.sessions, 1) end
+  for _, e in ipairs(pending) do Store(e) end
+  pending = {}
+  Dev.Add("session", "loaded", "core " .. tostring(RQ.version))
+end
+
+function mod:OnLogin()
+  local s = db.sessions[#db.sessions]
+  s.char, s.guild = RQ:PlayerKey(), RQ:GuildKey()
+  s.modules = {} -- at login every addon has loaded (at our ADDON_LOADED only those before us had)
+  for _, name in ipairs(RQ.moduleOrder) do
+    local m = RQ.modules[name]
+    s.modules[name] = m.addon and RQ:AddOnVersion(m.addon) or "?"
+  end
+  Dev.Add("session", "login", tostring(s.char) .. " @ " .. tostring(s.guild))
+  if Dev.OnLoginTests then RQ:Call(Dev.OnLoginTests, Dev) end
+end
+
+function mod:OverviewStatus()
+  return ("logging %s, %d entries"):format(db and db.on and "on" or "off", db and db.log.n or 0)
+end
+
+mod.options = {
+  { type = "header", label = "Log" },
+  { type = "toggle", label = "Log to SavedVariables", tooltip = "Traces, suite addon messages and chat lines go into RavenquillExpeditionDevDB.",
+    get = function() return db and db.on or false end, set = function(v) db.on = v and true or false end },
+  { type = "button", label = "Clear the log", func = function() Dev.Clear() end },
+  { type = "button", label = "Run all tests (then /reload to save)", func = function() if Dev.RunAll then Dev:RunAll() end end },
+  { type = "text", label = "Last 50 entries", lines = function()
+    local out, all = {}, Dev.Entries()
+    for i = math.max(1, #all - 49), #all do
+      local e = all[i]
+      out[#out + 1] = ("%s %s %s %s"):format(date("%H:%M:%S", e[1]), e[3], e[4], e[5] or "")
+    end
+    return out
+  end },
+}

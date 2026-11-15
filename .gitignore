@@ -8,10 +8,16 @@
 !/README.md
 !/CONTRIBUTING.md
 !/scripts/
+!/docs/
+!/templates/
+!/.luacheckrc
+!/.editorconfig
 !/RavenquillExpedition/
 !/RavenquillExpedition_Map/
 !/RavenquillExpedition_Highlights/
 !/RavenquillExpedition_CraftAdvisor/
+# Developer tools (never packaged, see scripts/package.ps1)
+!/RavenquillExpedition_Dev/
 
 # Internal working notes and assistant instructions: kept locally, not shared (for now).
 PLAN.md
@@ -21,5 +27,5 @@ CLAUDE.md
 # ...except the shared root CLAUDE.md, which Claude Code loads for every contributor.
 !/CLAUDE.md
 
-# Build output
+# Build output (scripts/package.ps1) and local caches (.cache/simgear for the score harness) stay ignored by /*.
 /RavenquillExpedition/dev/release/

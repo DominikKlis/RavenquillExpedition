@@ -1,0 +1,660 @@
+-- Shared setup for the UI harnesses (dev/harness_ui_*.lua): a WoW mock in which frames only have the methods
+-- listed below (any other method call is nil and recorded in `missing`, so a template field we rely on can't
+-- silently "exist"), a virtual clock, the real suite core and the addon (without Sync.lua), and the helpers the
+-- tests share. Every test file starts from this fresh state:
+--   local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "uikit.lua")
+-- State the tests change lives in H: H.templateMode ("ok" / "fail": PortraitFrameTemplate), H.atlasMode ("ok" /
+-- "missing"), H.tip / H.hyper (the captured tooltip), the counters. H.finish() prints the summary.
+local ROOT = (arg[0]:gsub("[^/\\]*$", "")) .. "../"
+unpack = table.unpack
+local H = { passes = 0, fails = 0, skips = 0 }
+local missing = {}
+local function check(cond, label)
+  if cond then H.passes = H.passes + 1; print("  ok   " .. label) else H.fails = H.fails + 1; print("  FAIL " .. label) end
+end
+
+---------------------------------------------------------------------------
+-- virtual clock + timers
+---------------------------------------------------------------------------
+local now, timers = 1000, {}
+function GetTime() return now end
+function GetServerTime() return 1800000000 + now end
+time = function() return 1800000000 + now end
+C_Timer = { After = function(d, fn) timers[#timers + 1] = { at = now + d, fn = fn } end }
+local function advance(sec)
+  local target = now + sec
+  while true do
+    table.sort(timers, function(a, b) return a.at < b.at end)
+    local t = timers[1]
+    if not t or t.at > target then break end
+    table.remove(timers, 1); now = t.at; t.fn()
+  end
+  now = target
+end
+
+---------------------------------------------------------------------------
+-- frame mock
+---------------------------------------------------------------------------
+local Frame = {}
+local FrameMT = { __index = function(t, k)
+  if Frame[k] then return Frame[k] end
+  if type(k) == "string" and k:match("^%u") then missing[k] = (missing[k] or 0) + 1 end
+  return nil
+end }
+local function New(otype, parent, name)
+  local o = setmetatable({ _type = otype or "Frame", _parent = parent, _children = {}, _scripts = {},
+    _shown = true, _w = 0, _h = 0, _points = {}, _level = parent and (parent._level or 0) + 1 or 0,
+    _strata = parent and parent._strata or "MEDIUM", _scale = 1 }, FrameMT)
+  if parent and parent._children then table.insert(parent._children, o) end
+  if name then _G[name] = o; o._name = name end
+  return o
+end
+local function Tex()
+  local t = New("Texture")
+  t.SetAtlas = function(self, a, useSize)
+    if not C_Texture.GetAtlasInfo(a) then badAtlas = badAtlas + 1 end
+    self._atlas, self._atlasSize = a, useSize
+  end
+  return t
+end
+for _, m in ipairs({ "SetTexCoord", "SetVertexColor", "SetDesaturated", "SetJustifyH",
+  "SetHighlightTexture", "SetNormalTexture", "SetPushedTexture", "SetUserPlaced", "RegisterForClicks", "RegisterForDrag", "SetToplevel", "SetClampedToScreen", "SetMovable",
+  "EnableMouse", "StartMoving", "StopMovingOrSizing", "SetScrollChild", "SetTextColor", "SetFixedFrameStrata",
+  "SetFixedFrameLevel", "SetChecked", "SetBackdropColor", "SetBackdropBorderColor", "RegisterEvent",
+  "UnregisterEvent", "SetColorTexture", "SetAllPoints",
+  -- Slider (survival slider, plan F8.3)
+  "SetOrientation", "SetMinMaxValues", "SetValueStep", "SetObeyStepOnDrag", "SetThumbTexture",
+  -- H: single-line font strings, clipped header, edit boxes (whisper editor)
+  "SetWordWrap", "SetMaxLines", "SetNonSpaceWrap", "SetClipsChildren", "SetAutoFocus", "SetMaxLetters", "ClearFocus",
+  "SetCursorPosition",
+  -- K6: native-look helpers (blend mode of hover textures, mouse wheel on the plain scroll frame, draw layer)
+  "SetBlendMode", "EnableMouseWheel", "SetDrawLayer" }) do
+  Frame[m] = function(self, ...) self["_" .. m] = { ... } end
+end
+function Frame:SetTexture(t) self._tex = t end
+function Frame:GetTexture() return self._tex end
+function Frame:SetText(t) self._text = t end
+function Frame:SetValue(v) local old = self._value; self._value = v; if old ~= v and self._scripts.OnValueChanged then self._scripts.OnValueChanged(self, v) end end
+function Frame:GetValue() return self._value end
+-- K6: the list scroll frames are plain ScrollFrames (MinimalScrollBar), scrolled by SetVerticalScroll
+function Frame:SetVerticalScroll(v) self._vscroll = v end
+function Frame:GetVerticalScroll() return self._vscroll or 0 end
+function Frame:GetText() return self._text end
+-- J2: a size change fires OnSizeChanged (as in the game); SetWidth/SetHeight are recorded and change the size too
+local function sized(self, w, h)
+  local changed = w ~= self._w or h ~= self._h
+  self._w, self._h = w, h
+  if changed and self._scripts.OnSizeChanged then self._scripts.OnSizeChanged(self, w, h) end
+end
+function Frame:SetSize(w, h) sized(self, w, h) end
+function Frame:SetWidth(w) self._SetWidth = { w }; sized(self, w, self._h) end
+function Frame:SetHeight(h) self._SetHeight = { h }; sized(self, self._w, h) end
+function Frame:GetWidth() return self._w end
+function Frame:GetHeight() return self._h end
+-- resizing (J2): SetResizable/StartSizing/SetResizeBounds exist on 10.0+ clients; tests remove them to try the
+-- older SetMinResize path and "no API at all"
+function Frame:SetResizable(v) self._resizable = v end
+function Frame:StartSizing(point) self._sizingFrom = point end
+function Frame:SetResizeBounds(...) self._bounds = { ... } end
+-- GetLeft/GetTop of a window anchored to UIParent (CENTER or TOPLEFT to BOTTOMLEFT); others: _left/_top
+function Frame:GetLeft()
+  local p = self._points[1]
+  if self._parent == UIParent and p then
+    if p[1] == "CENTER" then return (UIParent._w - self._w) / 2 end
+    if p[1] == "TOPLEFT" and p[2] == UIParent and p[3] == "BOTTOMLEFT" then return p[4] end
+  end
+  return self._left
+end
+function Frame:GetTop()
+  local p = self._points[1]
+  if self._parent == UIParent and p then
+    if p[1] == "CENTER" then return (UIParent._h + self._h) / 2 end
+    if p[1] == "TOPLEFT" and p[2] == UIParent and p[3] == "BOTTOMLEFT" then return p[5] end
+  end
+  return self._top
+end
+function Frame:SetPoint(...) self._points[#self._points + 1] = { ... } end
+function Frame:ClearAllPoints() self._points = {} end
+function Frame:Show() local was = self._shown; self._shown = true; if not was and self._scripts.OnShow then self._scripts.OnShow(self) end end
+function Frame:Hide() local was = self._shown; self._shown = false; if was and self._scripts.OnHide then self._scripts.OnHide(self) end end
+function Frame:SetShown(v) if v then self:Show() else self:Hide() end end
+function Frame:IsShown() return self._shown end
+function Frame:IsVisible() local f = self; while f do if not f._shown then return false end f = f._parent end return true end
+function Frame:SetScript(ev, fn) self._scripts[ev] = fn end
+function Frame:GetScript(ev) return self._scripts[ev] end
+function Frame:HookScript(ev, fn)
+  local old = self._scripts[ev]
+  self._scripts[ev] = function(...) if old then old(...) end fn(...) end
+end
+function Frame:CreateTexture() local t = Tex(); t._parent = self; return t end
+function Frame:CreateFontString() local t = New("FontString"); t._parent = self; return t end
+function Frame:SetFrameStrata(s) self._strata = s end
+function Frame:GetFrameStrata() return self._strata end
+function Frame:SetFrameLevel(l) self._level = l end
+function Frame:GetFrameLevel() return self._level end
+function Frame:GetName() return self._name end
+function Frame:GetObjectType() return self._type end
+function Frame:GetChildren() return unpack(self._children) end
+function Frame:GetEffectiveScale() return self._scale end
+function Frame:GetCenter() return self._cx, self._cy end
+function Frame:IsForbidden() return self._forbidden or false end
+function Frame:GetChecked() return self._checked end
+function Frame:SetBackdrop(b) self._backdrop = b end
+function Frame:SetChecked(v) self._checked = v and true or false end
+function Frame:SetAlpha(a) self._alpha = a end
+function Frame:GetAlpha() return self._alpha or 1 end
+function Frame:GetParent() return self._parent end
+-- SetAtlas exists on textures only; it "draws" only atlases the client has (atlas mock below)
+badAtlas = 0
+H.atlasMode = "ok" -- "ok": the Forever profession atlases exist; "missing": GetAtlasInfo returns nil
+local ATLASES = { ["Profession-Background-Overview"] = true, ["Profession-Background-Template2"] = true,
+  ["Professions-Slot-Frame"] = true, ["common-dropdown-bg"] = true,
+  -- K6: atlases the in-game probe found in the client's own ProfessionsFrame / CharacterFrame
+  ["Professions-Slot-bg"] = true, ["Professions-background-summarylist"] = true, ["search-highlight"] = true,
+  ["Professions-skillbar-bg"] = true, ["Professions-skillbar-frame"] = true, ["common-dropdown-a-button"] = true,
+  ["UI-Character-Info-GearSlot"] = true,
+  -- K7: the inner nine-slice border (probe: RecipeList.BackgroundNineSlice / SchematicForm.NineSlice)
+  ["UI-Frame-InnerTopLeft"] = true, ["UI-Frame-InnerTopRight"] = true, ["UI-Frame-InnerBotLeftCorner"] = true,
+  ["UI-Frame-InnerBotRight"] = true, ["_UI-Frame-InnerTopTile"] = true, ["_UI-Frame-InnerBotTile"] = true,
+  ["!UI-Frame-InnerLeftTile"] = true, ["!UI-Frame-InnerRightTile"] = true,
+  ["Skillbar_Fill_Flipbook_Leatherworking"] = true, ["Skillbar_Flare_Leatherworking"] = true,
+  -- K8: the recipe list's row / category art (probe tpl:ProfessionsRecipeList*Template) and the filter reset badge
+  ["Professions_Recipe_Hover"] = true, ["Professions_Recipe_Active"] = true, ["common-button-list-collapseExpand"] = true, ["common-insideframe"] = true, ["Profession-background-card-"] = true, ["Profession-background-card-leatherworking"] = true,
+  ["auctionhouse-ui-filter-redx"] = true }
+C_Texture = { GetAtlasInfo = function(name)
+  if H.atlasMode == "ok" and ATLASES[name] then return { width = 100, height = 100, file = 1 } end
+  return nil
+end }
+
+H.templateMode = "ok" -- "ok": PortraitFrameTemplate works; "fail": CreateFrame with it errors
+-- K6: the native templates the probe confirmed; each can be switched to "fail" (CreateFrame errors) to test fallbacks
+nativeMode = { dropdown = "ok", search = "ok", category = "ok", scroll = "ok", check = "ok" }
+ScrollUtil = { InitScrollFrameWithScrollBar = function(sf, bar) sf._linkedBar = bar end }
+function CreateFrame(otype, name, parent, template)
+  if otype == "DropdownButton" then
+    if nativeMode.dropdown == "fail" then error("Unknown frame type 'DropdownButton'") end
+    local f = New(otype, parent, name)
+    f._template = template
+    function f:SetupMenu(gen) self._gen = gen end
+    function f:GenerateMenu() self._generated = (self._generated or 0) + 1 end
+    function f:OverrideText(t) self._override = t end
+    f._scripts.OnEnter = function(self) self._nativeEnter = (self._nativeEnter or 0) + 1 end
+    f._scripts.OnLeave = function() end
+    return f
+  end
+  if template == "SearchBoxTemplate" and nativeMode.search == "fail" then error("Couldn't find inherited node 'SearchBoxTemplate'") end
+  if template == "ProfessionsRecipeListCategoryTemplate" and nativeMode.category == "fail" then error("Couldn't find inherited node") end
+  if template == "MinimalScrollBar" and nativeMode.scroll == "fail" then error("Couldn't find inherited node 'MinimalScrollBar'") end
+  if template == "MinimalCheckboxTemplate" and nativeMode.check == "fail" then error("Couldn't find inherited node 'MinimalCheckboxTemplate'") end
+  if template == "SearchBoxTemplate" or template == "ProfessionsRecipeListCategoryTemplate" or template == "MinimalScrollBar" then
+    local f = New(otype, parent, name)
+    f._template = template
+    if template == "SearchBoxTemplate" then f.Instructions = New("FontString", f); f.clearButton = New("Button", f) end
+    if template == "ProfessionsRecipeListCategoryTemplate" then
+      f.ButtonText = New("FontString", f); f.CollapseButton = New("Button", f); f.RankBar = New("Frame", f)
+      function f:SetHeaderText(t) self.ButtonText._text = t end
+      function f:UpdateCollapsedState(c) self._collapsed = c end
+      f._scripts.OnEnter = function(self) self._nativeEnter = (self._nativeEnter or 0) + 1 end
+      f._scripts.OnLeave = function() end
+    end
+    if template == "MinimalScrollBar" then
+      function f:ScrollStepInDirection(d) self._step = d end
+      function f:SetHideIfUnscrollable(v) self._hideIf = v end
+    end
+    return f
+  end
+  if template == "PortraitFrameTemplate" then
+    if H.templateMode == "fail" then error("Couldn't find inherited node 'PortraitFrameTemplate'") end
+    local f = New(otype, parent, name)
+    f.Bg = Tex()
+    f.NineSlice = New("Frame", f)
+    f.PortraitContainer = { portrait = Tex() }
+    f.CloseButton = New("Button", f)
+    f.CloseButton._scripts.OnClick = function() error("protected HideUIPanel called in combat") end
+    function f:SetTitle(t) self._title = t end
+    function f:SetPortraitToAsset(p) self.PortraitContainer.portrait._tex = p end
+    return f
+  end
+  local f = New(otype, parent, name)
+  if template == "InsetFrameTemplate" then f.NineSlice = New("Frame", f); f.Bg = Tex() end
+  if template == "UIPanelScrollFrameTemplate" then f.ScrollBar = New("Slider", f) end
+  return f
+end
+
+---------------------------------------------------------------------------
+-- game API stubs needed to load the core, Core.lua and UI.lua
+---------------------------------------------------------------------------
+function GetBuildInfo() return "1.60.1", "70938", "", 16001 end
+function wipe(t) for k in pairs(t) do t[k] = nil end return t end
+tinsert = table.insert
+UISpecialFrames = {}
+UIParent = New("Frame"); UIParent._w, UIParent._h = 1920, 1080; GameTooltip = New("GameTooltip"); GameTooltip_Hide = function() end
+for _, m in ipairs({ "SetOwner", "AddLine", "AddDoubleLine", "SetHyperlink" }) do GameTooltip[m] = function() end end
+function InCombatLockdown() return false end
+function IsInGuild() return true end
+function GetRealmName() return "Realm" end
+function UnitName(u) if u == "player" then return "Me", "Stone" end end
+function UnitNameUnmodified(u) return UnitName(u) end
+function UnitClass(u) if u == "player" then return "Schurke", "ROGUE" end end
+function UnitLevel(u) if u == "player" then return 36 end end
+function UnitIsUnit(a, b) return a == b end
+function UnitIsPlayer(u) return u == "player" end
+function UnitGUID(u) if u == "player" then return "G-me" end end
+function GetInventoryItemLink(u, slot) if u == "player" and slot == 5 then return "item:4244::::::::36:1488::11" end end
+function GetInventorySlotInfo(t) return 1, "Interface\\PaperDoll\\UI-PaperDoll-Slot-" .. t end
+function GetNumGuildMembers() return 0 end
+function GetProfessions() return nil end
+SlashCmdList = {}
+C_Item = {
+  GetItemInfoInstant = function(item) return 4244, "Armor", "x", "INVTYPE_CHEST", 134, 4, 2 end,
+  GetItemInfo = function(item) return "Hillman's Vest", "|Hitem:4244|h[Hillman's Vest]|h", 2, 20, 20, nil, nil, nil, "INVTYPE_CHEST", 134, nil, 4, 2, 2 end,
+  GetItemStats = function() return {} end,
+}
+C_SpellBook = { IsSpellKnown = function() return false end }
+
+Minimap = New("Frame", nil, "Minimap")
+Minimap._w, Minimap._h, Minimap._cx, Minimap._cy, Minimap._scale = 140, 140, 1000, 700, 1
+
+---------------------------------------------------------------------------
+-- load the addon
+---------------------------------------------------------------------------
+local ns = {}
+local K = dofile(ROOT .. "dev/corekit.lua")() -- the real suite core, in this (global) environment
+local Files = dofile(ROOT .. "dev/files.lua") -- the addon's files, from its .toc
+Files.load(Files.list({ except = { "Sync.lua" } }), ns)
+-- Data/Sources.lua knows the real recipe the fixtures borrow (3762, a pattern); the K7 section tests the sources,
+-- everything else runs without them, on the fixtures' own coarse src field
+local SOURCES = ns.Sources
+ns.Sources = nil
+K.done()
+local GCA = ns.GCA
+local fire = function(_, ev, ...) K.fire(ev, ...) end
+RavenquillExpeditionCraftDB = { settings = { minimapAngle = 200 } } -- a v0.1 user with the untouched default
+fire(GCA, "ADDON_LOADED", "RavenquillExpedition_CraftAdvisor")
+fire(GCA, "PLAYER_LOGIN")
+advance(3) -- CaptureSelf
+
+-- the minimap button is the core's launcher now: RavenquillExpedition/dev/harness_launcher.lua tests it
+
+-- all frames below `f` (the window's content frame holds our panels since H1)
+-- K6: run a native dropdown's menu generator on a recording menu description; entries get :on() and :click()
+local function menuOf(dd)
+  local entries, root = {}, {}
+  local function add(kind, text, isSel, set, data)
+    local e = { kind = kind, text = text, isSel = isSel, set = set, data = data }
+    function e:SetTooltip(fn) self.tip = fn end
+    function e:on() return self.isSel ~= nil and self.isSel(self.data) and true or false end
+    function e:click() return self.set(self.data) end
+    -- K11: a button can carry a submenu (radio entries in e.sub, not in the flat list)
+    e.sub = {}
+    function e:CreateRadio(t, i, s2, d)
+      local r = { kind = "radio", text = t, isSel = i, set = s2, data = d }
+      function r:on() return r.isSel(r.data) and true or false end
+      function r:click() return r.set(r.data) end
+      e.sub[#e.sub + 1] = r
+      return r
+    end
+    entries[#entries + 1] = e
+    return e
+  end
+  function root:CreateRadio(t, i, s, d) return add("radio", t, i, s, d) end
+  function root:CreateCheckbox(t, i, s, d) return add("check", t, i, s, d) end
+  function root:CreateButton(t, s, d) return add("button", t, nil, s, d) end
+  function root:CreateDivider() return add("divider") end
+  function root:CreateTitle(t) return add("title", t) end
+  dd._gen(dd, root)
+  return entries
+end
+local function menuTexts(entries, kind)
+  local out = {}
+  for _, e in ipairs(entries) do if e.text and (not kind or e.kind == kind) then out[#out + 1] = (tostring(e.text):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end end
+  return table.concat(out, "|")
+end
+local function descendants(f, out)
+  out = out or {}
+  for _, c in ipairs(f._children or {}) do out[#out + 1] = c; descendants(c, out) end
+  return out
+end
+
+local function plain(t) return (tostring(t or ""):gsub("|T.-|t ?", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end -- (|T: the online/offline dot)
+local function windowChecks(label)
+  print("== Window: " .. label)
+  GCA.UI.frame = nil
+  GCA.UI:Toggle()
+  advance(1)
+  local f = GCA.UI.frame
+  check(f and f._shown, "window opens")
+  check(f._w == 980 and f._h == 640 and f._points[1][1] == "CENTER", "J2: nothing saved -> default size 980x640, centred")
+  if H.templateMode == "ok" then
+    check(f._title == "Guild Craft Advisor", "title set via SetTitle")
+    check(f.PortraitContainer.portrait._tex == "Interface\\Icons\\Trade_LeatherWorking", "portrait set")
+    -- H1 art: canvas at the window level, header clipped, NineSlice above, Bg hidden
+    local art = f.gcaArt
+    check(art and art.overview and art.overview._atlas == "Profession-Background-Overview", "overview atlas drawn")
+    check(art and art.pageArt and art.pageArt._atlas == "Profession-Background-Template2" and art.header == nil
+      and art.page._points[1][4] == 3 and art.page._points[1][5] == -21, "K6: Template2 over the whole page from 3,-21 as the client's CraftingPage (no 54 px clipped strip)")
+    check(art and art.fill._SetColorTexture and art.fill._SetColorTexture[4] == 1, "dark fill under the art")
+    check(not f.Bg._shown, "template Bg hidden under the art")
+    check(art and f.NineSlice._level > art.canvas._level and f.NineSlice._level > art.page._level
+      and f.content._level > art.page._level, "levels: canvas < page < content, border above the art")
+  else
+    check(f._backdrop ~= nil, "fallback backdrop")
+  end
+  -- close works "in combat": our OnClick must not call the template's protected handler
+  local ok, err = pcall(f.CloseButton._scripts.OnClick, f.CloseButton)
+  check(ok and not f._shown, "close button hides the window" .. (ok and "" or (": " .. tostring(err))))
+  GCA.UI:Toggle(); advance(1)
+  check(f._shown, "reopens")
+  -- K6: the three list panels are the recipe list's panel (Professions-background-summarylist), each scroll list
+  -- with the client's MinimalScrollBar linked by ScrollUtil
+  local insets = 0
+  for _, c in ipairs(descendants(f)) do
+    if c.native and c.bg and c.bg._atlas == "Professions-background-summarylist" then
+      insets = insets + 1
+      local sf
+      for _, cc in ipairs(c._children) do if cc.minimalBar then sf = cc end end
+      check(sf and sf._linkedBar == sf.minimalBar and sf.minimalBar._template == "MinimalScrollBar" and sf._scripts.OnMouseWheel
+        and sf.ScrollBar == nil, "K6: list panel holds a plain scroll frame + MinimalScrollBar (ScrollUtil), wheel scrolls")
+    end
+  end
+  check(insets == 2, "K8: two list panels on Professions-background-summarylist: guild needs, member list (the suggestions sit in the member's detail panel) (" .. insets .. ")")
+  -- K8: both views have the detail panel right of the list, framed by the skin role detailBorder (default: inner border)
+  local nd, md = GCA.UI.needDetail, GCA.UI.memberDetail
+  check(nd and md and nd.NineSlice and md.NineSlice and nd.NineSlice.role == "detailBorder" and md.NineSlice.role == "detailBorder"
+    and nd.NineSlice.how == "atlas1" and nd.NineSlice.frameTex._atlas == "common-insideframe" and nd.cardBg and md.cardBg
+    and nd.bg == nil and md.bg == nil and GCA.UI.sugInset._parent == md and GCA.UI.sugInset.bg == nil,
+    "K9: craft + member detail panels framed by common-insideframe with the profession card behind, the list/sheet inside")
+  -- J1: the gear-slot icon row is gone (no slot buttons, no click-to-jump), the list starts 36 px higher
+  local slotLike = 0
+  for _, c in ipairs(descendants(f)) do if c.slot ~= nil and c.up ~= nil then slotLike = slotLike + 1 end end
+  check(GCA.UI.slotButtons == nil and GCA.UI.ScrollToSlot == nil and GCA.UI.sugList.ScrollToAnchor == nil and slotLike == 0,
+    "J1: no gear-slot buttons, no ScrollToSlot/ScrollToAnchor (" .. slotLike .. " slot-like frames)")
+  check(GCA.DISPLAY_SLOTS == nil, "J1: Core's DISPLAY_SLOTS (only the gear row used it) removed")
+  local ins = GCA.UI.sugInset
+  check(ins._points[1][5] == -76 and GCA.UI.sugHeader._points[1][5] == -54 and GCA.UI.infoIcon._points[1][5] == -52
+    and GCA.UI.sourceText == nil, "K1/K8: header -54 beside the (i) icon, list area -76 inside the member detail panel")
+  check((GCA.UI.subText._text or ""):find("self%-reported"), "source line says self-reported: " .. tostring(GCA.UI.subText._text))
+  -- spec picker (F4/F8.2): unknown -> button says so; picking Combat stores a manual spec and is shown
+  local sb = GCA.UI.specButton
+  GCA.db.specManual = {}; GCA:InvalidateScores(); GCA.UI:Refresh()
+  local sdd = sb.dropdown
+  check(sb._shown and sdd.native and sdd._template == "WowStyle1DropdownTemplate" and plain(sdd._override):find("unknown – pick", 1, true)
+    and sb.small == nil, "K6: spec picker = native WowStyle1DropdownTemplate, text 'unknown – pick' (no 'SPEC' label box): " .. plain(sdd._override))
+  check((GCA.UI.emptyText._text or ""):find("Spec unknown"), "empty text asks for a spec")
+  local sm = menuOf(sdd)
+  check(#sm == 4 and sm[1].kind == "radio" and sm[1]:on() and menuTexts(sm):find("^Automatic.*|Assassination|Combat|Subtlety$"),
+    "K6: spec menu radios: Automatic (selected) + 3 Rogue specs: " .. menuTexts(sm))
+  sm[3]:click() -- COMBAT
+  GCA.UI:Refresh()
+  check(GCA.db.specManual["Me Stone"] and GCA.db.specManual["Me Stone"].spec == "COMBAT", "manual pick saved")
+  check(menuOf(sdd)[3]:on() and not menuOf(sdd)[1]:on(), "K6: the Combat radio is selected now")
+  check(plain(sdd._override):find("Combat") and not sb.icon._shown and sb.iconKind == nil,
+    "spec dropdown shows the pick; no class icon in this mock (no atlas, no CLASS_ICON_TCOORDS): " .. plain(sdd._override))
+  check((GCA.UI.sourceLine or ""):find("SimGear Forever 0.14.0 · Combat Lv40 %(nearest set for Lv36%) · simmed · leveling bonus 50%%")
+    and GCA.UI.infoIcon._shown, "K1: source line in the (i) icon's tooltip: " .. tostring(GCA.UI.sourceLine))
+  -- survival slider (F8.3)
+  local sl = GCA.UI.survival.slider
+  check(sl._value == 50 and (GCA.UI.survival.label._text or ""):find("50%%"), "slider starts at 50 %")
+  -- K0/M3: dragging over several steps applies once, 0.4 s after the last change
+  local invN, realInv = 0, GCA.InvalidateScores
+  GCA.InvalidateScores = function(...) invN = invN + 1; return realInv(...) end
+  sl:SetValue(60); advance(0.1); sl:SetValue(70); advance(0.1); sl:SetValue(80)
+  check(math.abs(GCA.db.settings.survival - 0.5) < 1e-9 and (GCA.UI.survival.label._text or ""):find("80%%"),
+    "slider: label follows at once, value not applied yet (debounce)")
+  GCA.UI.survival:Sync()
+  check(sl._value == 80, "slider: a refresh during the debounce doesn't snap the slider back")
+  advance(0.3)
+  check(invN == 0, "slider: nothing recomputed 0.3 s after the last change")
+  advance(0.2)
+  check(math.abs(GCA.db.settings.survival - 0.8) < 1e-9 and invN == 1, "slider sets survival 0.8, one recompute for 3 steps (" .. invN .. ")")
+  GCA.InvalidateScores = realInv
+  GCA.UI:Refresh()
+  check((GCA.UI.sourceLine or ""):find("leveling bonus 80%%"), "source line follows the slider: " .. tostring(GCA.UI.sourceLine))
+  sl:SetValue(50); advance(0.5)
+  -- automatic again
+  menuOf(sdd)[1]:click()
+  check(GCA.db.specManual["Me Stone"] == nil, "Automatic clears the pick")
+  f:Hide()
+end
+
+-- H: suggestion rows, crafted mark, offline Offer, filter menu, whisper editor, help, legend
+H.tip, H.hyper = {}, {}
+local function captureTip()
+  H.tip, H.hyper = {}, {}
+  GameTooltip.AddLine = function(_, t) H.tip[#H.tip + 1] = tostring(t) end
+  GameTooltip.AddDoubleLine = function(_, a, b) H.tip[#H.tip + 1] = tostring(a) .. " | " .. tostring(b) end
+  GameTooltip.SetText = function(_, t) H.tip[#H.tip + 1] = tostring(t) end
+  GameTooltip.SetHyperlink = function(_, l) H.hyper[#H.hyper + 1] = tostring(l) end
+end
+local function tipText() return table.concat(H.tip, "\n") end
+-- K17: an item tooltip = exactly one SetHyperlink (containing `frag`) and no line of ours
+-- user 2026-11-15: ... plus the "Stat changes for X:" block (green/red stat lines) under it, nothing else
+local function onlyChanges()
+  if #H.tip == 0 then return true end
+  -- a blank line, the header, then only stat lines (any text: "+6 Agility", "Speed 2.60 → 3.40")
+  local head = tostring(H.tip[2] or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+  return H.tip[1] == " " and (head:find("^Stat changes") or head:find("^Werteänderungen")) ~= nil and #H.tip >= 3
+end
+local function plainTip(frag) return onlyChanges() and #H.hyper == 1 and (frag == nil or H.hyper[1]:find(frag, 1, true) ~= nil) end
+local function plain(t) return (tostring(t or ""):gsub("|T.-|t ?", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
+local function fakeSug(over)
+  local d = { kind = "item", cand = { spellID = 3762, itemID = 4244, recipe = { skill = 100, src = "trainer", r = {} } },
+    info = { name = "Hillman's Leather Vest", link = "|Hitem:4244|h[Hillman's Leather Vest]|h", quality = 2, icon = "x", minLevel = 20 },
+    slot = 5, known = true, status = "upgrade", pct = 0.12, points = 12, tier = 1, oldScore = 1, newScore = 2 }
+  for k, v in pairs(over or {}) do d[k] = v end
+  -- user 2026-11-14: rows sort by points; the older fixtures give their size as sortPct (a "+38%" row = 38 points)
+  if over and over.sortPct and over.points == nil then d.points = over.sortPct end
+  d.sortPct = nil
+  return d
+end
+
+-- Section I: a suggestion list grouped per slot, shaped like Core's (list + list.sections). rowsBySlot = { [key] = rows }.
+-- Worn: chest vest (score 12.34), wrist bracers, Ring A + Ring B, trinket 13 not loaded + 14 empty, the rest empty.
+local function fakeSections(rowsBySlot, totals)
+  local worn = {
+    [5] = { { slot = 5, link = "item:4244", info = { name = "Worn Vest", quality = 2, link = "|Hitem:4244|h[Worn Vest]|h" }, score = 12.34 } },
+    [9] = { { slot = 9, link = "item:4245", info = { name = "Bracers", quality = 1 }, score = 3 } },
+    [11] = { { slot = 11, link = "item:5001", info = { name = "Ring A", quality = 3 }, score = 4 },
+      { slot = 12, link = "item:5002", info = { name = "Ring B", quality = 2 }, score = 2 } },
+    [13] = { { slot = 13, link = "item:5003", unknown = true }, { slot = 14 } },
+  }
+  local list, with, without = {}, {}, {}
+  for _, slots in ipairs(GCA.SECTION_SLOTS) do
+    local key = slots[1]
+    local rows = rowsBySlot[key] or {}
+    local w = worn[key]
+    if not w then w = {}; for _, sl in ipairs(slots) do w[#w + 1] = { slot = sl } end end
+    local s = { key = key, slots = slots, rows = rows, total = (totals and totals[key]) or #rows, worn = w, unknown = key == 13 }
+    if #rows > 0 then with[#with + 1] = s else without[#without + 1] = s end
+    for _, r in ipairs(rows) do list[#list + 1] = r end
+  end
+  for _, s in ipairs(without) do with[#with + 1] = s end
+  list.sections = with
+  return list
+end
+
+-- Plan J2: resizable window. A small anchor resolver turns the mock's SetPoint/SetSize records into rectangles
+-- (window coordinates: x right, y down from the window's top-left), so overlaps and "fills the panel" can be
+-- checked at different sizes. Font strings have no height in the mock: 12 px (one line of the small/normal fonts).
+local FS_H = 12
+local function rectOf(fr, win, depth)
+  depth = (depth or 0) + 1
+  assert(depth < 30, "anchor loop")
+  if fr == win then return { l = 0, t = 0, r = win._w, b = win._h } end
+  if fr._SetAllPoints then return rectOf(fr._SetAllPoints[1] or fr._parent, win, depth) end
+  local w, h = fr._w or 0, fr._h or 0
+  if fr._type == "FontString" and h == 0 then h = FS_H end
+  local l, r, t, b, cx, cy
+  for _, p in ipairs(fr._points) do
+    local point, rel, relPoint, x, y
+    if type(p[2]) == "table" then point, rel, relPoint, x, y = p[1], p[2], p[3] or p[1], p[4] or 0, p[5] or 0
+    else point, rel, relPoint, x, y = p[1], fr._parent, p[1], p[2] or 0, p[3] or 0 end
+    local R = rectOf(rel, win, depth)
+    local ax = relPoint:find("LEFT") and R.l or (relPoint:find("RIGHT") and R.r or (R.l + R.r) / 2)
+    local ay = relPoint:find("TOP") and R.t or (relPoint:find("BOTTOM") and R.b or (R.t + R.b) / 2)
+    ax, ay = ax + x, ay - y
+    if point:find("LEFT") then l = ax elseif point:find("RIGHT") then r = ax else cx = ax end
+    if point:find("TOP") then t = ay elseif point:find("BOTTOM") then b = ay else cy = ay end
+  end
+  if not (l and r) then
+    if l then r = l + w elseif r then l = r - w else l, r = cx - w / 2, cx + w / 2 end
+  end
+  if not (t and b) then
+    if t then b = t + h elseif b then t = b - h else t, b = cy - h / 2, cy + h / 2 end
+  end
+  return { l = l, t = t, r = r, b = b }
+end
+local function overlap(a, b) return a.l < b.r and b.l < a.r and a.t < b.b and b.t < a.b end
+local function rstr(a) return string.format("(%g,%g)-(%g,%g)", a.l, a.t, a.r, a.b) end
+
+-- a long sectioned list (15 headers + 15 rows) and 40 members, to count visible rows
+local function longList()
+  local rows = {}
+  for _, slot in ipairs({ 1, 3, 5, 7, 8 }) do
+    rows[slot] = { fakeSug({ slot = slot }), fakeSug({ slot = slot }), fakeSug({ slot = slot }) }
+  end
+  return fakeSections(rows)
+end
+local function manyMembers()
+  local m = {}
+  -- K2: recorded (member set), so they are listed on top, not in the collapsed "Not recorded" group
+  for i = 1, 40 do m[i] = { key = "Member" .. i .. " Stone", level = 30, class = "ROGUE", online = true, member = { items = {} } } end
+  return m
+end
+
+local function layoutChecks(UIx, f, label)
+  local W, H = f._w, f._h
+  local R = function(fr) return rectOf(fr, f) end
+  -- K1/K2: the header strip (profession selector + sync dot), the bottom bar and each view's controls: inside the
+  -- window and no overlaps (checked per view, since only one view is shown at a time)
+  local common = {
+    { "drag bar", UIx.dragBar }, { "profession selector", UIx.profButton }, { "sync dot", UIx.syncDot },
+    { "K6 leveling-bonus slider", UIx.survival }, -- K5: the "Inspect target" / "Scan group" buttons are gone; K6: Options too
+    { "resize grip", UIx.resizeGrip },
+  }
+  if not UIx.tabsTemplated then
+    for i, t in ipairs(UIx.tabs) do common[#common + 1] = { "view button " .. i, t } end
+  end
+  -- K8: per view the list panel and the detail panel's controls (the detail panel itself contains them, so it is
+  -- checked separately: right of the list panel, filling to the window's edges)
+  local views = {
+    member = { { "member panel", UIx.memberInset }, { "name", UIx.nameText }, { "spec button", UIx.specButton },
+      { "sub-line", UIx.subText }, { "(i) icon", UIx.infoIcon }, { "list header", UIx.sugHeader }, { "suggestion panel", UIx.sugInset },
+      { "K4 view switch", UIx.modeToggle } },
+    needs = { { "needs panel", UIx.needsInset }, { "craft detail panel", UIx.needDetail } },
+  }
+  for _, vname in ipairs({ "member", "needs" }) do
+    local named = {}
+    for _, x in ipairs(common) do named[#named + 1] = x end
+    for _, x in ipairs(views[vname]) do named[#named + 1] = x end
+    local bad, outside = {}, {}
+    for i, a in ipairs(named) do
+      local ra = R(a[2])
+      if ra.l < 0 or ra.t < 0 or ra.r > W or ra.b > H then outside[#outside + 1] = a[1] .. rstr(ra) end
+      for j = i + 1, #named do
+        local rb = R(named[j][2])
+        if overlap(ra, rb) then bad[#bad + 1] = a[1] .. rstr(ra) .. " x " .. named[j][1] .. rstr(rb) end
+      end
+    end
+    check(#bad == 0, label .. " (" .. vname .. " view): no overlaps among " .. #named .. " controls " .. table.concat(bad, "; "))
+    check(#outside == 0, label .. " (" .. vname .. " view): every control inside the window " .. table.concat(outside, "; "))
+  end
+  -- K8 header: the rank bar centred under the title (27..56), the sync label right of it on the same line
+  local pb, dot = R(UIx.profButton), R(UIx.syncDot)
+  check(pb.l + pb.r == W and pb.t == 27 and pb.b == 56 and pb.r + 10 <= dot.l and dot.r == W - 20 and dot.b <= 62,
+    label .. ": K8 rank bar centred under the title, sync label right of it, both above the panels (62) " .. rstr(pb) .. " " .. rstr(dot))
+  -- tabs under the window (PanelTabButtonTemplate path)
+  if UIx.tabsTemplated then
+    local t1, t2 = R(UIx.tabs[1]), R(UIx.tabs[2])
+    check(t1.t == H - 2 and t1.l == 12 and t2.l >= t1.r, label .. ": view tabs hang under the window's bottom edge, side by side")
+  end
+  -- member view: the list panel keeps its width; the detail panel fills to the right, both down to the bottom bar
+  local mi, md, si = R(UIx.memberInset), R(UIx.memberDetail), R(UIx.sugInset)
+  check(mi.l == 10 and mi.r - mi.l == 260 and mi.t == 62 and mi.b == H - 40, label .. ": K8 member list panel 260 wide, 62..H-40 " .. rstr(mi))
+  check(md.l == 278 and md.r == W - 12 and md.t == 62 and md.b == H - 40, label .. ": K8 member detail panel fills 278..W-12, 62..H-40 " .. rstr(md))
+  check(si.l == md.l + 6 and si.r == md.r - 6 and si.t == md.t + 76 and si.b == md.b - 6,
+    label .. ": K8 sheet / list area inside the detail panel, below its header (76) " .. rstr(si))
+  local ml, sl = R(UIx.memberList), R(UIx.sugList)
+  check(ml.b == mi.b - 5 and ml.r == mi.r - 25 and sl.b == si.b - 5 and sl.r == si.r - 29,
+    label .. ": both scroll frames fill their panel (25 / 29 px left for the scroll bar, as in 0.5.0) " .. rstr(ml) .. " " .. rstr(sl))
+  check(UIx.sugList.content._w == UIx.sugList.viewW and UIx.memberList.content._w == UIx.memberList.viewW and UIx.listW == UIx.sugList.viewW,
+    label .. ": scroll content as wide as the view (rows anchored to its right edge)")
+  -- texts that grow with the width
+  local nt, sb = R(UIx.nameText), R(UIx.specButton)
+  local ic, hd0, tg = R(UIx.infoIcon), R(UIx.sugHeader), R(UIx.modeToggle)
+  check(nt.r < sb.l and R(UIx.subText).r == W - 12 - 224 and R(UIx.subText).r < sb.l and hd0.r == tg.l - 10 and tg.r == W - 24 and ic.r <= hd0.l
+    and UIx.emptyText._w == (W - 302) - 60 and nt.l == md.l + 14 and sb.r == md.r - 12,
+    label .. ": header texts span the detail panel, (i) icon left of the list header, K4 switch right of it")
+  -- K8 guild-needs view: list panel (search | Filter on top, list, count at the bottom) + the craft detail panel
+  local ni, nl, sbx, cnt, nd = R(UIx.needsInset), R(UIx.needsList), R(UIx.searchBox), R(UIx.needsCount), R(UIx.needDetail)
+  check(ni.l == 10 and ni.r == 270 and ni.t == 62 and ni.b == H - 40 and nl.r == ni.r - 25 and nl.b == ni.b - 23 and nl.t == ni.t + 34,
+    label .. ": K8 guild-needs list panel 10..270, 62..H-40, its list between the search and the count " .. rstr(ni) .. " " .. rstr(nl))
+  check(nd.l == 278 and nd.r == W - 12 and nd.t == 62 and nd.b == H - 40 and UIx.needDetail.w == W - 290 and UIx.needDetail.h == H - 102,
+    label .. ": K8 craft detail panel fills 278..W-12, 62..H-40 " .. rstr(nd))
+  local obx = R(UIx.filterButton)
+  check(sbx.l >= ni.l and sbx.t >= ni.t and sbx.b <= nl.t and obx.r == ni.r - 8 and obx.b <= nl.t and sbx.r < obx.l
+    and cnt.t >= nl.b and cnt.b <= ni.b and cnt.l == ni.l + 10 and cnt.r == ni.r - 10
+    and UIx.needsList.content._w == UIx.needsList.viewW and UIx.needsW == UIx.needsList.viewW,
+    label .. ": K8 search | Filter above the list, the count under it, all inside the list panel " .. rstr(sbx) .. " " .. rstr(obx) .. " " .. rstr(cnt))
+  -- K5: the member search sits in the member panel above the list
+  local ms = R(UIx.memberSearch)
+  check(ms.l >= mi.l and ms.r <= mi.r and ms.t >= mi.t and ms.b <= ml.t, label .. ": member search inside the member panel, above the list " .. rstr(ms))
+  -- art follows the window
+  local art = f.gcaArt
+  local cv, hd = R(art.canvas), R(art.page)
+  check(cv.l == 2 and cv.t == 21 and cv.r == W - 2 and cv.b == H - 3 and hd.l == 3 and hd.r == W - 3 and hd.t == 21 and hd.b == H - 3,
+    label .. ": K6 art canvas (Overview, 2,-21) and the Template2 page (3,-21) fill the window at every size " .. rstr(cv) .. " " .. rstr(hd))
+  local g = R(UIx.resizeGrip)
+  check(g.r == W - 4 and g.b == H - 4 and g.t >= md.b and g.t >= nd.b, label .. ": grip in the bottom-right corner, below the panels")
+end
+
+-- mocks the tests from the tooltip sweep on rely on
+function H.lateGlobals()
+  IsShiftKeyDown = function() return false end
+  HandleModifiedItemClick = function() end
+  GetNumSubgroupMembers = function() return 0 end
+  IsInRaid = function() return false end
+end
+
+-- the summary every test file ends with. atlasCheck: also check that no SetAtlas call named an atlas the client
+-- lacks (the single harness checked that once, after the member-view tests, for everything before them)
+function H.finish(atlasCheck)
+  if atlasCheck then check(badAtlas == 0, "SetAtlas was never called for an atlas the client lacks (" .. badAtlas .. ")") end
+  print("== Keys looked up that the mock lacks (nil here; fine if the addon checks for them):")
+  local names = {}
+  for k in pairs(missing) do names[#names + 1] = k end
+  table.sort(names)
+  print("  " .. (#names > 0 and table.concat(names, ", ") or "(none)"))
+  print(("%d passed, %d failed, %d skipped"):format(H.passes, H.fails, H.skips))
+  print(H.fails == 0 and "ALL PASSED" or (H.fails .. " FAILED"))
+end
+
+-- for the test files
+H.ATLASES = ATLASES
+H.Files = Files
+H.Frame = Frame
+H.GCA = GCA
+H.New = New
+H.ROOT = ROOT
+H.SOURCES = SOURCES
+H.Tex = Tex
+H.advance = advance
+H.captureTip = captureTip
+H.check = check
+H.descendants = descendants
+H.fakeSections = fakeSections
+H.fakeSug = fakeSug
+H.layoutChecks = layoutChecks
+H.longList = longList
+H.manyMembers = manyMembers
+H.menuOf = menuOf
+H.menuTexts = menuTexts
+H.ns = ns
+H.overlap = overlap
+H.plain = plain
+H.plainTip = plainTip
+H.rectOf = rectOf
+H.rstr = rstr
+H.tipText = tipText
+H.windowChecks = windowChecks
+return H

@@ -1,11 +1,20 @@
 -- WoW API mock for the RavenquillExpedition_Map harnesses: one shared clock and GUILD channel ("bus") for many
--- virtual clients ("worlds"), each loading the addon files into its own environment.
+-- virtual clients ("worlds"), each loading the REAL core (through its .toc) and then the Map files into its own
+-- environment. Kept next to RavenquillExpedition/dev/testkit.lua because of the HereBeDragons / C_Map specifics and
+-- because the golden send times in harness_compat.lua were recorded on this scheduler.
 -- HereBeDragons is mocked (records placements); real map math is only testable in game.
 local Mock = {}
 
 function Mock.Scheduler()
   local s = { t = 0, timers = {} }
-  function s:at(t, fn, every) self.timers[#self.timers + 1] = { at = t, fn = fn, every = every } end
+  -- returns a handle with :Cancel() (C_Timer.NewTicker's ticker)
+  function s:at(t, fn, every)
+    local tm = { at = t, fn = fn, every = every }
+    self.timers[#self.timers + 1] = tm
+    return { Cancel = function()
+      for i, x in ipairs(self.timers) do if x == tm then table.remove(self.timers, i) return end end
+    end }
+  end
   function s:advance(sec)
     local target = self.t + sec
     while true do
@@ -83,7 +92,7 @@ local function NewFrameFactory(world)
   return NewFrame
 end
 
--- opts: sched, bus, name ("First Surname"), class, level, locale, core (bool), pos {mapID, x, y}, guild, dir
+-- opts: sched, bus, name ("First Surname"), class, level, locale, pos {mapID, x, y}, guild, dir, setup(env, world)
 function Mock.NewWorld(opts)
   local sched = opts.sched or Mock.Scheduler()
   local bus = opts.bus
@@ -100,7 +109,7 @@ function Mock.NewWorld(opts)
   env.GetServerTime = env.time
   env.C_Timer = {
     After = function(t, fn) sched:at(sched.t + t, fn) end,
-    NewTicker = function(t, fn) sched:at(sched.t + t, fn, t) end,
+    NewTicker = function(t, fn) return sched:at(sched.t + t, fn, t) end,
   }
   env.print = function(...)
     local t = {}
@@ -189,54 +198,52 @@ function Mock.NewWorld(opts)
   local HBD = {
     GetPlayerZone = function() return world.pos and world.pos[1], 3 end,
     GetPlayerZonePosition = function() local p = world.pos; if p then return p[2] + 0.001, p[3], p[1], 3 end end,
+    -- world pins are drawn by Pins.lua's own layer from these (the map math itself is only testable in game)
+    GetWorldCoordinatesFromZone = function(_, x, y, mapID)
+      if mapID == 999999 then return nil, nil, nil end
+      return x * 1000, y * 1000, 0
+    end,
   }
-  world.canvas = {} -- [icon] = canvas pins acquired for it on the (open) world map
-  local function add(store, isWorld)
+  local function add(store)
     return function(_, ref, icon, mapID, x, y)
       assert(ref and type(icon) == "table" and type(mapID) == "number" and type(x) == "number" and type(y) == "number",
         "HBD would raise: bad args")
       if mapID == 999999 then return false end
       store[icon] = { mapID = mapID, x = x, y = y }
-      if isWorld then world.canvas[icon] = (world.canvas[icon] or 0) + 1 end
       icon.shown = true
       return true
     end
   end
+  -- world pin frames per member (Pins.lua moves one frame per member; more would be orphans, code review #1)
   function world.maxCanvas()
-    local m = 0
-    for _, n in pairs(world.canvas) do m = math.max(m, n) end
+    local per, m = {}, 0
+    for f in pairs(world.hbdWorld) do per[f.key] = (per[f.key] or 0) + 1; m = math.max(m, per[f.key]) end
     return m
   end
+  -- HBD's world map API registers a data provider on WorldMapFrame, which tainted Blizzard's map-show path
+  -- (ADDON_ACTION_BLOCKED SetPassThroughButtons, Pins.lua header): calling it is a bug
+  local function noWorldMapApi() error("mock: HBD world map API used (taints the world map)", 2) end
   local Pins = {
-    AddWorldMapIconMap = add(world.hbdWorld, true), AddMinimapIconMap = add(world.hbdMini),
-    RemoveWorldMapIcon = function(_, _, icon) world.hbdWorld[icon] = nil; world.canvas[icon] = nil end,
+    AddMinimapIconMap = add(world.hbdMini),
     RemoveMinimapIcon = function(_, _, icon) world.hbdMini[icon] = nil; icon.shown = false end,
+    AddWorldMapIconMap = noWorldMapApi, AddWorldMapIconWorld = noWorldMapApi,
+    RemoveWorldMapIcon = noWorldMapApi, RemoveAllWorldMapIcons = noWorldMapApi,
   }
   env.HBD_PINS_WORLDMAP_SHOW_WORLD = 3
-  env.LibStub = setmetatable({ minors = { ["HereBeDragons-2.0"] = 35, ["HereBeDragons-Pins-2.0"] = 17 } }, {
-    __call = function(_, name) return name == "HereBeDragons-2.0" and HBD or Pins end })
+  env.LibStub = setmetatable({ minors = { ["HereBeDragons-2.0-RQE"] = 35, ["HereBeDragons-Pins-2.0-RQE"] = 17 } }, {
+    __call = function(_, name) return name == "HereBeDragons-2.0-RQE" and HBD or Pins end })
 
-  if opts.core then
-    local core = { version = "0.2.0", modules = {}, roster = {} }
-    core.SafeCall = function(fn, ...) if type(fn) ~= "function" then return end
-      local r = table.pack(pcall(fn, ...)); if r[1] then return table.unpack(r, 2, r.n) end end
-    core.IsSecret = function() return false end
-    core.Print = function(tag, ...) env.print("[core]", tag, ...) end
-    function core:Now() return env.time() end
-    function core:PlayerKey() return world.name end
-    function core:NewModule(name, mod) mod.name = name; self.modules[name] = mod; return mod end
-    env.RavenquillExpedition = core
-  end
+  if opts.setup then opts.setup(env, world) end
 
-  if opts.realCore then
-    env.Enum = env.Enum or {}
-    local coreNs = {}
-    world.coreName = "RavenquillExpedition"
-    for _, file in ipairs({ "Core.lua", "Comm.lua" }) do
-      local chunk = assert(loadfile(opts.dir .. "/../" .. world.coreName .. "/" .. file, "t", env))
-      chunk(world.coreName, coreNs)
-    end
+  -- the real core, as the .toc requires it (## Dependencies)
+  env.Enum = env.Enum or {}
+  world.coreName = "RavenquillExpedition"
+  world.coreNs = {}
+  local coreDir = opts.dir .. "/../" .. world.coreName
+  for _, file in ipairs(dofile(coreDir .. "/dev/toc.lua")(coreDir)) do
+    assert(loadfile(coreDir .. "/" .. file, "t", env))(world.coreName, world.coreNs)
   end
+  world.RQ = env.RavenquillExpedition
 
   world.env, world.sched, world.bus = env, sched, bus
   world.ns = {}
@@ -245,6 +252,9 @@ function Mock.NewWorld(opts)
     chunk("RavenquillExpedition_Map", world.ns)
   end
   world.M, world.L = world.ns.Map, world.ns.L
+  world.mod = world.M.mod
+  -- world map pins: Pins.lua's own layer ([frame] = { mapID, x, y, ... }), not HBD
+  world.hbdWorld = world.M.worldPlaced or {}
   function world.fire(event, ...)
     for _, f in ipairs(world.frames) do
       if f.events[event] and f.scripts.OnEvent then f.scripts.OnEvent(f, event, ...) end
@@ -252,13 +262,13 @@ function Mock.NewWorld(opts)
   end
   -- the settings view in the /rq overview: set an option, read the diagnostics box
   function world.set(id, v)
-    local o = world.M:Option(id)
+    local o = world.mod:Option(id)
     assert(o and o.set, "no option " .. tostring(id))
     o.set(v)
   end
-  function world.diag() return table.concat(world.M:Option("diag").lines(), "\n") end
+  function world.diag() return table.concat(world.mod:Option("diag").lines(), "\n") end
   function world.login()
-    if opts.realCore then world.fire("ADDON_LOADED", world.coreName) end
+    world.fire("ADDON_LOADED", world.coreName)
     world.fire("ADDON_LOADED", "RavenquillExpedition_Map")
     world.fire("PLAYER_LOGIN")
     world.fire("PLAYER_ENTERING_WORLD")

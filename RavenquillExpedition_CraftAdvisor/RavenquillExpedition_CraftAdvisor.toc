@@ -5,7 +5,8 @@
 ## Author: domin
 ## Version: 0.6.0
 ## X-License: GPL-3.0
-## OptionalDeps: RavenquillExpedition
+## Dependencies: RavenquillExpedition
+## OptionalDeps: Auctionator
 ## SavedVariables: RavenquillExpeditionCraftDB
 ## IconTexture: Interface\Icons\Trade_LeatherWorking
 ## AddonCompartmentFunc: RavenquillExpedition_CraftAdvisor_OnCompartmentClick
@@ -19,9 +20,36 @@ Data\Engineering.lua
 Data\Enchanting.lua
 Data\Enchants.lua
 Data\Weights.lua
+Data\Sources.lua
+Data\ExtraSources.lua
 Scoring.lua
 Core.lua
+Core\Items.lua
+Core\Roster.lua
+Core\Inspect.lua
+Core\Professions.lua
+Core\Rules.lua
+Core\Enchants.lua
+Core\Suggestions.lua
+Core\Crafted.lua
+Core\Debug.lua
+Core\Options.lua
+Auction.lua
 Spec.lua
 Sync.lua
-UI.lua
-Minimap.lua
+RecipeSources.lua
+UI\Theme.lua
+UI\Text.lua
+UI\Whisper.lua
+UI\Frames.lua
+UI\ScrollList.lua
+UI\MemberList.lua
+UI\Sources.lua
+UI\Tooltips.lua
+UI\CraftRows.lua
+UI\Sections.lua
+UI\Needs.lua
+UI\Sheet.lua
+UI\Dropdowns.lua
+UI\Dialogs.lua
+UI\Window.lua

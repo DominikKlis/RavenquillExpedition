@@ -1,4 +1,4 @@
--- Scoring: item stats -> canonical stats -> score with SimGear Forever's weights (plan F3/F5/F8).
+-- Scoring: item stats -> canonical stats -> score with SimGear Forever's weights.
 -- Pure: no WoW API access, so the offline harness can run it next to SimGear's own code.
 --
 -- Parts of this file are ported from SimGear Forever 0.14.0 (Stats.lua, Score.lua, Plan.lua):
@@ -152,7 +152,7 @@ function Scoring.value(stats, set)
 end
 
 ---------------------------------------------------------------------------
--- Weapon speed (SimGear Score.lua:159-199 speedKind/speedFactor/speedValue, Stats.lua:143-160; plan W3)
+-- Weapon speed (SimGear Score.lua:159-199 speedKind/speedFactor/speedValue, Stats.lua:143-160)
 ---------------------------------------------------------------------------
 Scoring.SPEED_KINDS = {
   twoHand = { ref = 3.3, min = 2.8, max = 3.9 }, oneHand = { ref = 2.4, min = 1.5, max = 2.9 },
@@ -364,7 +364,7 @@ function Scoring.setChanges(before, after, sets, set)
 end
 
 ---------------------------------------------------------------------------
--- Compare (SimGear Score.compareLinear + compareWeapon + applySets; plan W4)
+-- Compare (SimGear Score.compareLinear + compareWeapon + applySets)
 ---------------------------------------------------------------------------
 local SINGLE = {
   INVTYPE_HEAD = 1, INVTYPE_NECK = 2, INVTYPE_SHOULDER = 3, INVTYPE_CHEST = 5, INVTYPE_ROBE = 5,
@@ -392,7 +392,7 @@ local function isTwoHand(item) return item ~= nil and item.equipLoc == "INVTYPE_
 
 -- The main hand + off hand pair (SimGear Score.compareWeapon): a two-hander against both worn hands; a one-hander or
 -- off hand against a worn two-hander is scored alone, status "needs-partner" (SimGear takes the best partner from
--- your bags; GCA can't see a guildie's bags, so there never is one: plan W4 / W8.2). opts.dualWield: a one-hander
+-- your bags; GCA can't see a guildie's bags, so there never is one). opts.dualWield: a one-hander
 -- (INVTYPE_WEAPON) may also replace the off hand; opts.hand "main"/"off" picks the hand, otherwise the better of the
 -- two (result.hand = "off" when used).
 local function compareWeapon(candidate, equipped, set, opts)

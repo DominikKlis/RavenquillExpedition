@@ -6,7 +6,12 @@ local GS = RavenquillExpedition
 local L = ns.L
 local SafeCall, Plain = GS.SafeCall, GS.Plain
 
-local H = GS:NewModule("Highlights", { addon = ADDON, slash = "hl", title = L.TITLE, icon = "Interface\\Icons\\INV_Misc_Note_01" })
+local H = GS:NewModule("Highlights", {
+  addon = ADDON, api = 2, slash = "hl", title = L.TITLE, icon = "Interface\\Icons\\INV_Misc_Note_01",
+  sv = "RavenquillExpeditionHighlightsDB", svChar = "RavenquillExpeditionHighlightsCharDB", dbVersion = 2,
+  locale = ns.Locales,
+  charDefaults = { everEquipped = {}, ownedEpics = {}, kills = {}, quests = {}, outbox = {}, shareLog = {}, activity = {} },
+})
 ns.H = H
 
 H.MAX_EVENTS = 1500           -- per guild
@@ -30,6 +35,16 @@ H.DEFAULTS = {
   logOnlyHighlights = false, -- the log window shows everything (user 2026-11-14); this hides the plain activity
 }
 H.KINDS = { gear = true, loot = true, boss = true, quest = true, level = true }
+H.defaults = H.DEFAULTS -- filled into db.settings by the core (missing or wrong-typed values)
+
+-- v2: "red" quests counted from 4 levels above by default; now off. Only an untouched old 4 is reset.
+H.migrations = {
+  [2] = function(db)
+    if type(db.settings) ~= "table" then db.settings = {} end
+    if db.settings.questRedLevels == 4 and not db.settings.migratedV2 then db.settings.questRedLevels = 0 end
+    db.settings.migratedV2 = true -- kept: older versions read it
+  end,
+}
 
 local function Print(...) GS.Print(L.TITLE, ...) end
 H.Print = Print
@@ -39,24 +54,13 @@ H.Print = Print
 ---------------------------------------------------------------------------
 local function Table(t) return type(t) == "table" and t or {} end
 
+-- The core has set up self.db / self.settings / self.cdb (sv, svChar, defaults, charDefaults, migrations above).
 function H:OnLoad()
-  local db = Table(RavenquillExpeditionHighlightsDB)
-  RavenquillExpeditionHighlightsDB = db
-  db.v = 2
-  db.settings = Table(db.settings)
-  for k, v in pairs(self.DEFAULTS) do if db.settings[k] == nil then db.settings[k] = v end end
-  if db.settings.questRedLevels == 4 and not db.settings.migratedV2 then db.settings.questRedLevels = 0 end -- review #3
-  db.settings.migratedV2 = true
+  local db, cdb = self.db, self.cdb
   db.guilds = Table(db.guilds)
   db.diag = Table(db.diag)
-  self.db = db
-
-  local cdb = Table(RavenquillExpeditionHighlightsCharDB)
-  RavenquillExpeditionHighlightsCharDB = cdb
-  for _, k in ipairs({ "everEquipped", "ownedEpics", "kills", "quests", "outbox", "shareLog", "activity" }) do cdb[k] = Table(cdb[k]) end
   cdb.seq = tonumber(cdb.seq) or 0
   cdb.installedAt = cdb.installedAt or time()
-  self.cdb = cdb
 
   self.idIndex = {} -- [guildKey] = { [id] = event } (rebuilt, not saved)
 end
@@ -300,10 +304,7 @@ function H:Announce(e)
   Print(self:Format(e))
 end
 
-function H.TimeText(t)
-  if GetLocale() == "deDE" then return date("%d.%m. %H:%M", t) end
-  return date("%m/%d %H:%M", t)
-end
+function H.TimeText(t) return date(L.FMT_TIME, t) end
 
 ---------------------------------------------------------------------------
 -- Test entries (/rq hl test): one of each kind, local only

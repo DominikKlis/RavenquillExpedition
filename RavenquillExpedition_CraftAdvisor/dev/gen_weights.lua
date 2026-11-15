@@ -13,9 +13,9 @@
 -- Class weapons (plan W2): SimGear's SimGearForever/Classes.lua per class: equip.weapons (weapon subclass IDs),
 -- equip.noHoldable, dualWield, dualWieldFrom, dualWieldSets -> `classWeapons`, written after `itemSets` so every
 -- line before it stays byte-identical.
-local ROOT = "C:/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/RavenquillExpedition_CraftAdvisor/"
-local SG = arg[1] or "C:/Users/domin/AppData/Local/Temp/claude/c3eb6a3b93e84048/70dabcec-7ea2-45c3-96bc-081d254b7578/scratchpad/simgear_dl/x/"
-if not SG:match("[/\\]$") then SG = SG .. "/" end
+local P = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "paths.lua")
+local ROOT = P.ROOT
+local SG = assert(P.SimGear(arg[1]), "SimGear Forever not found: pass it as argument 1, set RQ_SIMGEAR or unzip it into <repo>/.cache/simgear/")
 local SG_VERSION = "0.14.0"
 
 -- Recipe data files whose crafted items decide which item sets are kept: { file, table name }.

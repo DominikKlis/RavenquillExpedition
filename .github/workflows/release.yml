@@ -31,8 +31,9 @@ jobs:
 
       - name: Run offline harnesses
         run: |
-          sudo apt-get update && sudo apt-get install -y lua5.4
-          RQ_SKIP=RavenquillExpedition_CraftAdvisor bash scripts/run-tests.sh lua5.4
+          sudo apt-get update && sudo apt-get install -y lua5.4 liblua5.4-dev luarocks
+          sudo luarocks install luacheck
+          LUAC=luac5.4 bash scripts/run-tests.sh lua5.4
 
       - name: Work out version, release type and changelog
         id: meta
@@ -48,11 +49,11 @@ jobs:
           if [ ! -s changelog.md ]; then echo "Version ${version}" > changelog.md; fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "type=$type" >> "$GITHUB_OUTPUT"
-          echo "zip=RavenquillExpedition/dev/release/RavenquillExpedition-${version}.zip" >> "$GITHUB_OUTPUT"
+          echo "zip=dist/RavenquillExpedition-${version}.zip" >> "$GITHUB_OUTPUT"
 
       - name: Build zip (core, Map, Highlights; no dev folders)
         shell: pwsh
-        run: ./RavenquillExpedition/dev/package.ps1 -Version '${{ steps.meta.outputs.version }}'
+        run: ./scripts/package.ps1 -Version '${{ steps.meta.outputs.version }}'
 
       - name: Upload to CurseForge
         env:

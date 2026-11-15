@@ -1,6 +1,8 @@
 -- HereBeDragons is a data API for the World of Warcraft mapping system
 
-local MAJOR, MINOR = "HereBeDragons-2.0", 35
+-- RavenquillExpedition_Map modification (NOTICE.txt): a private LibStub name, so this copy never becomes the one
+-- other addons share (their pins would then run our code, and ours would write their state: taint).
+local MAJOR, MINOR = "HereBeDragons-2.0-RQE", 35
 assert(LibStub, MAJOR .. " requires LibStub")
 
 local HereBeDragons, oldversion = LibStub:NewLibrary(MAJOR, MINOR)

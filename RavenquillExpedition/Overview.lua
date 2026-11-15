@@ -4,61 +4,20 @@
 --
 -- Home view: guild, sync state, guildies running Ravenquill, one row per Ravenquill addon (loaded modules and
 -- known ones that are disabled / not installed), the latest highlights.
--- Options view: drawn from mod.options (contract agreed with the map session):
---   { type = "header", label }
---   { type = "toggle", label, tooltip?, get = fn() -> bool, set = fn(bool) }
---   { type = "range",  label, tooltip?, min, max, step, format? ("%.1f"), get = fn() -> number, set = fn(number) }
---   { type = "button", label, tooltip?, func = fn() }
---   { type = "text",   label, tooltip?, lines = fn() -> { string, ... } }   -- read-only copyable box (diagnostics)
---   any entry: disabled = fn() -> bool. get()/disabled() are re-read when the view shows and after every change.
+-- Options view: drawn from mod.options by Options.lua.
 -- Other optional hooks: mod.icon, mod:Open(), mod:OverviewStatus(), mod:OverviewRecent(n). All calls go through GS:Call.
-local GS = RavenquillExpedition
+local ADDON, ns = ...
+local GS = ns.GS
 local SafeCall, Plain = GS.SafeCall, GS.Plain
+local L = GS.OverviewL
 
-local L = {
-  TITLE = "Ravenquill Expedition",
-  MODULES = "Modules", RECENT = "Latest highlights", NO_RECENT = "Nothing yet.",
-  OPEN = "Open", OPTIONS = "Options", BACK = "< Back",
-  ENABLE_HINT = "Disabled – enable it in the AddOns list at character select.",
-  MISSING = "Not installed.", DISABLED = "Disabled", NOT_INSTALLED = "Not installed",
-  SYNC = "Guild sync: %s", SYNC_OK = "|cff33ff33ok|r", SYNC_PAUSED = "|cffff8800paused (instance)|r",
-  SYNC_SLOW = "|cffff8800slow – our messages don't come back|r", SYNC_IDLE = "|cffaaaaaanothing sent yet|r",
-  SYNC_DETAIL = "%d delivered, %d waiting", PEERS = "%d guildies with Ravenquill (%d online)",
-  NO_GUILD = "no guild", LEGACY = "older version – update it to get its options here", LOADED = "loaded",
-  NO_OPTIONS = "This module has no options.", DIAG = "Diagnostics",
-  COPY_HINT = "Ctrl+A, then Ctrl+C to copy. Esc closes.",
-}
-if GetLocale() == "deDE" then
-  local de = {
-    MODULES = "Module", RECENT = "Neueste Highlights", NO_RECENT = "Noch nichts.",
-    OPEN = "Öffnen", OPTIONS = "Optionen", BACK = "< Zurück",
-    ENABLE_HINT = "Deaktiviert – in der AddOn-Liste bei der Charakterauswahl einschalten.",
-    MISSING = "Nicht installiert.", DISABLED = "Deaktiviert", NOT_INSTALLED = "Nicht installiert",
-    SYNC = "Gilden-Sync: %s", SYNC_OK = "|cff33ff33ok|r", SYNC_PAUSED = "|cffff8800pausiert (Instanz)|r",
-    SYNC_SLOW = "|cffff8800langsam – unsere Nachrichten kommen nicht zurück|r", SYNC_IDLE = "|cffaaaaaanoch nichts gesendet|r",
-    SYNC_DETAIL = "%d zugestellt, %d wartend", PEERS = "%d Gildenmitglieder mit Ravenquill (%d online)",
-    NO_GUILD = "keine Gilde", LEGACY = "ältere Version – aktualisieren, dann erscheinen ihre Optionen hier", LOADED = "geladen",
-    NO_OPTIONS = "Dieses Modul hat keine Optionen.", DIAG = "Diagnose",
-    COPY_HINT = "Strg+A, dann Strg+C zum Kopieren. Esc schließt.",
-  }
-  for k, v in pairs(de) do L[k] = v end
-end
-GS.OverviewL = L
 
 -- Ravenquill addons we know about, so a disabled or missing one still gets a row.
 GS.KNOWN = {
   { module = "Highlights", addon = "RavenquillExpedition_Highlights", slash = "hl", icon = "Interface\\Icons\\INV_Misc_Note_01" },
   { module = "Map", addon = "RavenquillExpedition_Map", slash = "map", icon = "Interface\\Icons\\INV_Misc_Map_01" },
-  -- The craft advisor registers as the "Craft" module (GCA session, 2026-11-14). It moved from
-  -- AddOns\GuildCraftAdvisor to AddOns\RavenquillExpedition_CraftAdvisor; the GuildCraftAdvisor global and
-  -- GuildCraftAdvisor_OnCompartmentClick stay as aliases, so the legacy* fallbacks still work.
   { module = "Craft", addon = "RavenquillExpedition_CraftAdvisor", slash = "craft", title = "Guild Craft Advisor",
-    icon = "Interface\\Icons\\Trade_LeatherWorking",
-    legacyOpen = function() if GuildCraftAdvisor_OnCompartmentClick then GuildCraftAdvisor_OnCompartmentClick() end end,
-    legacyStatus = function()
-      local g = _G.GuildCraftAdvisor
-      return g and g.SyncStatusLine and Plain(SafeCall(g.SyncStatusLine, g), "string")
-    end },
+    icon = "Interface\\Icons\\Trade_LeatherWorking" },
 }
 
 local function AddonState(name)
@@ -107,21 +66,20 @@ function GS:OverviewRows()
 end
 
 function GS:OverviewSyncLine()
-  local S, state = self.Comm, L.SYNC_OK
-  local waiting = #S.q
-  for _ in pairs(S.echo) do waiting = waiting + 1 end
+  local st, state = self:CommState(), L.SYNC_OK
+  local waiting = st.queued + st.chunks + st.inflight
   if self:InInstance() then state = L.SYNC_PAUSED
-  elseif S.slow then state = L.SYNC_SLOW
-  elseif S.sent == 0 then state = L.SYNC_IDLE end
+  elseif st.slow then state = L.SYNC_SLOW
+  elseif st.sent == 0 then state = L.SYNC_IDLE end
   local line = L.SYNC:format(state)
-  if S.sent > 0 or waiting > 0 then line = line .. "  ·  " .. L.SYNC_DETAIL:format(S.echoed, waiting) end
+  if st.sent > 0 or waiting > 0 then line = line .. "  ·  " .. L.SYNC_DETAIL:format(st.delivered, waiting) end
   return line
 end
 
 function GS:OverviewPeersLine()
   local total, online = 0, 0
   local now = self:Now()
-  for key, t in pairs((RavenquillExpeditionDB and RavenquillExpeditionDB.peers) or {}) do
+  for key, t in pairs(self:Peers() or {}) do
     if now - t <= self.PEER_MAX_AGE and self.roster[key] then
       total = total + 1
       if self.roster[key].online then online = online + 1 end
@@ -141,7 +99,7 @@ function GS:DiagLines()
       .. "  first roster name: " .. tostring(db.diagRosterName) .. "  first sender: " .. tostring(db.diagSender),
   }
   local peers = {}
-  for k, t in pairs(db.peers or {}) do peers[#peers + 1] = k .. " (" .. date("%d.%m. %H:%M", t) .. ")" end
+  for k, t in pairs(self:Peers() or {}) do peers[#peers + 1] = k .. " (" .. date("%d.%m. %H:%M", t) .. ")" end
   table.sort(peers)
   out[#out + 1] = "peers: " .. (peers[1] and table.concat(peers, ", ") or "-")
   local names = {}
@@ -154,183 +112,6 @@ function GS:DiagLines()
   return out
 end
 
----------------------------------------------------------------------------
--- Copy box: read-only multi-line text the user can select and copy
----------------------------------------------------------------------------
-local copy
-local function CopyBox()
-  if copy then return copy end
-  local f = CreateFrame("Frame", "RavenquillExpeditionCopyBox", UIParent, "BackdropTemplate")
-  if f.SetBackdrop then
-    f:SetBackdrop({ bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background", edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-      tile = true, tileSize = 32, edgeSize = 32, insets = { left = 11, right = 12, top = 12, bottom = 11 } })
-  end
-  f:SetSize(560, 380)
-  f:SetPoint("CENTER")
-  f:SetFrameStrata("DIALOG")
-  f:SetToplevel(true)
-  f:EnableMouse(true)
-  f:SetMovable(true)
-  f:RegisterForDrag("LeftButton")
-  f:SetScript("OnDragStart", f.StartMoving)
-  f:SetScript("OnDragStop", f.StopMovingOrSizing)
-  tinsert(UISpecialFrames, "RavenquillExpeditionCopyBox")
-  local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
-  close:SetPoint("TOPRIGHT", -4, -4)
-  f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  f.title:SetPoint("TOP", 0, -18)
-  local hint = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  hint:SetPoint("BOTTOM", 0, 16)
-  hint:SetText(L.COPY_HINT)
-  local sf = CreateFrame("ScrollFrame", nil, f)
-  sf:SetPoint("TOPLEFT", 20, -40)
-  sf:SetPoint("BOTTOMRIGHT", -20, 34)
-  local eb = CreateFrame("EditBox", nil, sf)
-  eb:SetMultiLine(true)
-  eb:SetAutoFocus(false)
-  eb:SetFontObject(ChatFontNormal or GameFontHighlightSmall)
-  eb:SetWidth(510)
-  eb:SetScript("OnEscapePressed", function() f:Hide() end)
-  eb:SetScript("OnTextChanged", function(self, user) if user then self:SetText(f.text or "") self:HighlightText() end end)
-  sf:SetScrollChild(eb)
-  sf:EnableMouseWheel(true)
-  sf:SetScript("OnMouseWheel", function(self, delta)
-    local max = math.max(0, (eb:GetHeight() or 0) - (self:GetHeight() or 0))
-    self:SetVerticalScroll(math.max(0, math.min(max, self:GetVerticalScroll() - delta * 40)))
-  end)
-  f.eb = eb
-  f:Hide()
-  copy = f
-  return f
-end
-
-function GS:ShowCopyBox(title, lines)
-  local f = CopyBox()
-  f.title:SetText(title or "")
-  f.text = table.concat(type(lines) == "table" and lines or { tostring(lines) }, "\n")
-  f.eb:SetText(f.text)
-  f:Show()
-  f.eb:SetFocus()
-  f.eb:HighlightText()
-end
-
----------------------------------------------------------------------------
--- Option widgets
----------------------------------------------------------------------------
-local function Tooltip(frame, title, text)
-  if not text then return end
-  frame:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText(title, 1, 0.82, 0)
-    GameTooltip:AddLine(text, 1, 1, 1, true)
-    GameTooltip:Show()
-  end)
-  frame:SetScript("OnLeave", function() GameTooltip:Hide() end)
-end
-
-local function Get(o) local v = GS:Call(o.get); return v end
-local function IsDisabled(o) return o.disabled and GS:Call(o.disabled) and true or false end
-
-local function SetLabelEnabled(fs, on)
-  if on then fs:SetTextColor(1, 1, 1) else fs:SetTextColor(0.5, 0.5, 0.5) end
-end
-
-local Build = {}
-
-function Build.header(parent, o, y)
-  local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  fs:SetPoint("TOPLEFT", 4, y - 8)
-  fs:SetText(o.label or "")
-  return 30, function() end, fs
-end
-
-function Build.toggle(parent, o, y, refreshAll)
-  local cb = CreateFrame("CheckButton", nil, parent)
-  cb:SetSize(24, 24)
-  cb:SetPoint("TOPLEFT", 8, y)
-  cb:SetNormalTexture("Interface\\Buttons\\UI-CheckBox-Up")
-  cb:SetPushedTexture("Interface\\Buttons\\UI-CheckBox-Down")
-  cb:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight", "ADD")
-  cb:SetCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check")
-  cb:SetDisabledCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check-Disabled")
-  local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  fs:SetPoint("LEFT", cb, "RIGHT", 4, 0)
-  fs:SetText(o.label or "")
-  cb:SetScript("OnClick", function(self)
-    GS:Call(o.set, self:GetChecked() and true or false)
-    refreshAll()
-  end)
-  Tooltip(cb, o.label, o.tooltip)
-  return 26, function()
-    cb:SetChecked(Get(o) and true or false)
-    local off = IsDisabled(o)
-    if off then cb:Disable() else cb:Enable() end
-    SetLabelEnabled(fs, not off)
-  end, cb
-end
-
--- a stepper (− value +): no slider template needed, works for small integer and 0.1 ranges
-function Build.range(parent, o, y, refreshAll)
-  local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  fs:SetPoint("TOPLEFT", 12, y - 5)
-  fs:SetText(o.label or "")
-  local plus = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  plus:SetSize(26, 22)
-  plus:SetPoint("TOPRIGHT", -8, y)
-  plus:SetText("+")
-  local val = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  val:SetPoint("RIGHT", plus, "LEFT", -6, 0)
-  val:SetWidth(44)
-  val:SetJustifyH("CENTER")
-  local minus = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  minus:SetSize(26, 22)
-  minus:SetPoint("RIGHT", val, "LEFT", -6, 0)
-  minus:SetText("-")
-  fs:SetPoint("RIGHT", minus, "LEFT", -8, 0)
-  fs:SetJustifyH("LEFT")
-  local step = o.step or 1
-  local function Change(dir)
-    local v = tonumber(Get(o)) or o.min or 0
-    v = v + dir * step
-    v = math.floor(v / step + 0.5) * step -- no 0.30000000000000004
-    v = math.max(o.min or v, math.min(o.max or v, v))
-    GS:Call(o.set, v)
-    refreshAll()
-  end
-  minus:SetScript("OnClick", function() Change(-1) end)
-  plus:SetScript("OnClick", function() Change(1) end)
-  Tooltip(minus, o.label, o.tooltip)
-  Tooltip(plus, o.label, o.tooltip)
-  return 28, function()
-    local v = tonumber(Get(o))
-    val:SetText(v and (o.format or "%d"):format(v) or "?")
-    local off = IsDisabled(o)
-    if off or not v or v <= (o.min or -math.huge) then minus:Disable() else minus:Enable() end
-    if off or not v or v >= (o.max or math.huge) then plus:Disable() else plus:Enable() end
-    SetLabelEnabled(fs, not off)
-  end, { minus = minus, plus = plus }
-end
-
-local function ButtonWidget(parent, o, y, onClick)
-  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  b:SetSize(220, 22)
-  b:SetPoint("TOPLEFT", 10, y)
-  b:SetText(o.label or "")
-  b:SetScript("OnClick", onClick)
-  Tooltip(b, o.label, o.tooltip)
-  return 28, function() if IsDisabled(o) then b:Disable() else b:Enable() end end, b
-end
-
-function Build.button(parent, o, y, refreshAll)
-  return ButtonWidget(parent, o, y, function() GS:Call(o.func); refreshAll() end)
-end
-
-function Build.text(parent, o, y)
-  return ButtonWidget(parent, o, y, function()
-    local lines = GS:Call(o.lines)
-    GS:ShowCopyBox(o.label, type(lines) == "table" and lines or {})
-  end)
-end
 
 ---------------------------------------------------------------------------
 -- Window
@@ -488,38 +269,7 @@ local function CreateWindow()
   return f
 end
 
--- one scroll child per module, built once; refresh() re-reads every get()/disabled()
-local function Panel(mod)
-  local opt = win.optView
-  local p = opt.panels[mod.name]
-  if p then return p end
-  p = CreateFrame("Frame", nil, opt.scroll)
-  p:SetWidth(440)
-  p.refreshers, p.controls = {}, {}
-  local function refreshAll() for _, fn in ipairs(p.refreshers) do GS:Call(fn) end end
-  p.refreshAll = refreshAll
-  local y = 0
-  local list = type(mod.options) == "table" and mod.options or {}
-  for _, o in ipairs(list) do
-    local build = type(o) == "table" and Build[o.type]
-    if build then
-      local h, refresh, control = build(p, o, y, refreshAll)
-      y = y - h
-      p.refreshers[#p.refreshers + 1] = refresh
-      p.controls[#p.controls + 1] = control or false
-    end
-  end
-  if not list[1] then
-    local fs = p:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-    fs:SetPoint("TOPLEFT", 6, -6)
-    fs:SetText(L.NO_OPTIONS)
-    y = -30
-  end
-  p:SetHeight(-y + 10)
-  p:Hide()
-  opt.panels[mod.name] = p
-  return p
-end
+local function Panel(mod) return ns.Panel(win.optView, mod) end
 
 function GS:ShowHome()
   if not win then win = CreateWindow() end
@@ -604,10 +354,19 @@ function GS:RefreshOverview()
   if m.ScrollToBottom then m:ScrollToBottom() end
 end
 
--- keeps the home view current while it is open (sync numbers, new highlights)
+-- keeps the home view current while it is open (sync numbers, new highlights). One chain at most: closing and
+-- reopening within 3 s used to start a second one.
+local tickArmed = false
 local function Tick()
+  tickArmed = false
   if not (win and win:IsShown()) then return end
   if not GS.optionsModule then GS:Call(GS.RefreshOverview, GS) end
+  tickArmed = true
+  C_Timer.After(3, Tick)
+end
+local function StartTick()
+  if tickArmed then return end
+  tickArmed = true
   C_Timer.After(3, Tick)
 end
 
@@ -615,13 +374,18 @@ function GS:ToggleOverview()
   if not win then win = CreateWindow() end
   if win:IsShown() and not self.optionsModule then win:Hide() return end
   self:ShowHome()
-  if not win:IsShown() then win:Show(); C_Timer.After(3, Tick) end
+  if not win:IsShown() then win:Show(); StartTick() end
+end
+
+-- true while the /rq window is open; second value: the module whose options it shows (nil = home view)
+function GS:OverviewShown()
+  return (win and win:IsShown()) and true or false, self.optionsModule
 end
 
 function GS:OpenModule(name)
   local wasShown = win and win:IsShown()
   self:ShowModuleOptions(name)
-  if not wasShown then C_Timer.After(3, Tick) end
+  if not wasShown then StartTick() end
 end
 
 -- the AddOns compartment button (## AddonCompartmentFunc in the .toc) [U: compartment on Forever; GCA uses it too]

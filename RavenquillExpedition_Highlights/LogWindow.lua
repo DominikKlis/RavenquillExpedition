@@ -131,7 +131,7 @@ function H:Refresh()
     local day = date("%Y-%m-%d", e.t)
     if day ~= lastDay then
       m:AddMessage(" ")
-      m:AddMessage(date(GetLocale() == "deDE" and "%d.%m.%Y" or "%Y-%m-%d", e.t), 1, 0.82, 0)
+      m:AddMessage(date(L.FMT_DAY, e.t), 1, 0.82, 0)
       lastDay = day
     end
     local line = "|cff888888" .. date("%H:%M", e.t) .. "|r  " .. (e.act and ACT_MARK or HL_MARK) .. self:Format(e)

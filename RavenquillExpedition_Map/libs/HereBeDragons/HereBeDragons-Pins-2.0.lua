@@ -1,12 +1,13 @@
 -- HereBeDragons-Pins is a library to show pins/icons on the world map and minimap
 
-local MAJOR, MINOR = "HereBeDragons-Pins-2.0", 17
+-- RavenquillExpedition_Map modification (NOTICE.txt): private LibStub names (see HereBeDragons-2.0.lua).
+local MAJOR, MINOR = "HereBeDragons-Pins-2.0-RQE", 17
 assert(LibStub, MAJOR .. " requires LibStub")
 
 local pins, oldversion = LibStub:NewLibrary(MAJOR, MINOR)
 if not pins then return end
 
-local HBD = LibStub("HereBeDragons-2.0")
+local HBD = LibStub("HereBeDragons-2.0-RQE")
 
 local MinimapRadiusAPI = C_Minimap and C_Minimap.GetViewRadius
 
@@ -23,6 +24,8 @@ pins.worldmapPinRegistry  = pins.worldmapPinRegistry or {}
 
 pins.worldmapProvider     = pins.worldmapProvider or CreateFromMixins(MapCanvasDataProviderMixin)
 pins.worldmapProviderPin  = pins.worldmapProviderPin or CreateFromMixins(MapCanvasPinMixin)
+-- RavenquillExpedition_Map modification: an older copy loaded first registered the provider already (AttachWorldMap)
+if pins.worldmapProvider.owningMap then pins.worldmapAttached = true end
 
 -- make sure the pool is refreshed
 if oldversion and oldversion < 15 and pins.worldmapProvider and CreateUnsecuredRegionPoolInstance then
@@ -366,15 +369,26 @@ end
 worldmapPinsPool.creationFunc = worldmapPinsPool.createFunc
 worldmapPinsPool.resetterFunc = worldmapPinsPool.resetFunc
 
--- register pin pool with the world map
-WorldMapFrame.pinPools["HereBeDragonsPinsTemplate"] = worldmapPinsPool
+-- RavenquillExpedition_Map modification (NOTICE.txt): the pin pool and the data provider are registered with the
+-- world map only when the first world map icon is added (AttachWorldMap below), not at load. A registered provider
+-- runs its (addon) RefreshAllData inside Blizzard's secure map-show path (ShowUIPanel -> RefreshAllDataProviders);
+-- that taints the providers after it, and Blizzard's quest pins then hit ADDON_ACTION_BLOCKED on
+-- SetPassThroughButtons. An addon that uses only the minimap pins no longer touches WorldMapFrame at all.
+local function AttachWorldMap()
+    if pins.worldmapAttached then return end
+    pins.worldmapAttached = true
+    WorldMapFrame.pinPools["HereBeDragonsPinsTemplate"] = worldmapPinsPool
+    WorldMapFrame:AddDataProvider(worldmapProvider)
+end
 
--- provider base API
+-- provider base API (RavenquillExpedition_Map modification: no-ops while not attached, GetMap() is nil then)
 function worldmapProvider:RemoveAllData()
+    if not self:GetMap() then return end
     self:GetMap():RemoveAllPinsByTemplate("HereBeDragonsPinsTemplate")
 end
 
 function worldmapProvider:RemovePinByIcon(icon)
+    if not self:GetMap() then return end
     for pin in self:GetMap():EnumeratePinsByTemplate("HereBeDragonsPinsTemplate") do
         if pin.icon == icon then
             self:GetMap():RemovePin(pin)
@@ -383,6 +397,7 @@ function worldmapProvider:RemovePinByIcon(icon)
 end
 
 function worldmapProvider:RemovePinsByRef(ref)
+    if not self:GetMap() then return end
     for pin in self:GetMap():EnumeratePinsByTemplate("HereBeDragonsPinsTemplate") do
         if pin.icon and worldmapPinRegistry[ref][pin.icon] then
             self:GetMap():RemovePin(pin)
@@ -399,6 +414,7 @@ function worldmapProvider:RefreshAllData(fromOnShow)
 end
 
 function worldmapProvider:HandlePin(icon, data)
+    if not self:GetMap() then return end
     local uiMapID = self:GetMap():GetMapID()
 
     -- check for a valid map
@@ -487,8 +503,8 @@ end
 -- hack to avoid in-combat error on 10.1.5
 worldmapProviderPin.SetPassThroughButtons = function() end
 
--- register with the world map
-WorldMapFrame:AddDataProvider(worldmapProvider)
+-- register with the world map: deferred to the first world map icon (AttachWorldMap, RavenquillExpedition_Map
+-- modification); upstream calls WorldMapFrame:AddDataProvider(worldmapProvider) here
 
 -- map event handling
 local function UpdateMinimap()
@@ -717,6 +733,7 @@ function pins:AddWorldMapIconWorld(ref, icon, instanceID, x, y, showFlag, frameL
 
     worldmapPins[icon] = t
 
+    AttachWorldMap() -- RavenquillExpedition_Map modification
     worldmapProvider:HandlePin(icon, t)
 
     return true
@@ -765,6 +782,7 @@ function pins:AddWorldMapIconMap(ref, icon, uiMapID, x, y, showFlag, frameLevel)
 
     worldmapPins[icon] = t
 
+    AttachWorldMap() -- RavenquillExpedition_Map modification
     worldmapProvider:HandlePin(icon, t)
 
     return true
@@ -810,7 +828,7 @@ function pins:GetVectorToIcon(icon)
 end
 
 if oldversion then
-    if WorldMapFrame:IsShown() then
+    if pins.worldmapAttached and WorldMapFrame:IsShown() then
         worldmapProvider:RefreshAllData(false)
     end
 end

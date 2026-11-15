@@ -9,12 +9,11 @@
 -- Row filter (explicit, G7.4): negative recipe IDs (Enchanting's shard conversions) are skipped,
 -- `intermediate = true` rows are skipped, rows without `out` are items for nobody except Enchanting
 -- (those are the enchants). Row counts are asserted per profession; a changed source fails loudly.
-local ROOT = "C:/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/RavenquillExpedition_CraftAdvisor/"
+local P = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "paths.lua")
+local ROOT = P.ROOT
 local function argv(i) return arg[i] ~= "" and arg[i] or nil end
-local CJ = argv(1) or "C:/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/CraftersJournal/Data/"
-local SG = argv(2) or "C:/Users/domin/AppData/Local/Temp/claude/c3eb6a3b93e84048/70dabcec-7ea2-45c3-96bc-081d254b7578/scratchpad/simgear_dl/x/"
-if not CJ:match("[/\\]$") then CJ = CJ .. "/" end
-if not SG:match("[/\\]$") then SG = SG .. "/" end
+local CJ = assert(P.CraftersJournal(argv(1)), "CraftersJournal's Data folder not found: pass it as argument 1 or set RQ_CRAFTERSJOURNAL")
+local SG = assert(P.SimGear(argv(2)), "SimGear Forever not found: pass it as argument 2, set RQ_SIMGEAR or unzip it into <repo>/.cache/simgear/")
 local OUT = argv(3) or ROOT -- tests point this at a scratch folder
 
 -- name, skill line, expected non-intermediate rows with a non-negative ID, expected rows with `out`

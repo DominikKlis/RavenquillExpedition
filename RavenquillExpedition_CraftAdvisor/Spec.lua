@@ -1,4 +1,4 @@
--- Spec per member (plan F4 / F8.2, F8.4, F8.6, F8.7): own talents (C_Traits), synced spec, inspected
+-- Spec per member: own talents (C_Traits), synced spec, inspected
 -- talents (only when the data looks plausible), manual pick (wins). Unknown -> no suggestions.
 --
 -- Spec.pointsFromNodes / infer are ported from SimGear Forever 0.14.0 Spec.lua,
@@ -105,14 +105,15 @@ function GCA:InferTree(points, class)
 end
 
 ---------------------------------------------------------------------------
--- Tree -> spec, with the variant rules the user chose (F8.7). Returns spec, assumedText or nil.
+-- Tree -> spec, with the variant rules the user chose. Returns spec, assumedText or nil.
 ---------------------------------------------------------------------------
 local ONE_HAND = { INVTYPE_WEAPON = true, INVTYPE_WEAPONOFFHAND = true, INVTYPE_WEAPONMAINHAND = true }
 
 function GCA:OffHandIsWeapon(items)
   local link = items and items[17]
   if not link then return false end
-  local _, _, _, equipLoc = SafeCall(self.ItemAPI.Instant, link)
+  local instant = self.ItemAPI.Instant
+  local _, _, _, equipLoc = SafeCall(instant, link)
   return ONE_HAND[equipLoc or ""] == true
 end
 
@@ -211,13 +212,13 @@ function GCA:RefreshOwnSpec()
   local changed = not old or old.spec ~= o.spec
   if changed then
     self:InvalidateScores()
-    if self.CheckOwnSpec then SafeCall(self.CheckOwnSpec, self) end
+    if self.CheckOwnSpec then self:CheckOwnSpec() end
   end
   return changed
 end
 
 ---------------------------------------------------------------------------
--- Inspected talents (F8.6): only kept when plausible
+-- Inspected talents: only kept when plausible
 ---------------------------------------------------------------------------
 -- node-by-node fingerprint of the ranked nodes
 local function NodeSig(nodes)
@@ -271,7 +272,7 @@ function GCA:TryInspectTalents(key, class, level, guid, gen)
     self.lastInspectTalents = { key = key, class = class, level = level, tree = tree, why = why, read = read, at = GetTime() }
     if tree then
       done = true
-      -- off by default (F8.6 "used only if verified in game"): still read, for /gca spec debug
+      -- off by default (used only once verified in game): still read, for the spec debug box (/rq craft options)
       if self:InspectTalentsOn() then
         self:StoreSpec(key, class, { tree = tree, src = "inspect", ts = self:Now() })
       end
@@ -284,7 +285,7 @@ end
 
 ---------------------------------------------------------------------------
 -- Stored specs: db.specs[key] = { class, spec | tree, src = "sync"|"self"|"inspect", ts }; db.specManual[key] = spec
--- src "self" (K0/L5) = written by that character itself on this account, so your alts know your main's spec;
+-- src "self" = written by that character itself on this account, so your alts know your main's spec;
 -- it ranks like "sync".
 ---------------------------------------------------------------------------
 -- Order: newer ts wins, except on the SAME talent tree a synced spec always beats an inspect read (S carries
@@ -302,7 +303,7 @@ function GCA:StoreSpec(key, class, rec)
   rec.class = class
   local same = cur and cur.class == class and cur.spec == rec.spec and cur.tree == rec.tree
   self.db.specs[key] = rec
-  -- K0/M3: the suggestion cache signature includes the spec (Core MemberSuggestions) and weight sets are cached
+  -- the suggestion cache signature includes the spec (Core MemberSuggestions) and weight sets are cached
   -- per class|spec|level|share, so a refresh is enough; no need to drop every member's cached scores
   if not same then self:Invalidate() end
   return not same
@@ -312,7 +313,7 @@ function GCA:SetManualSpec(key, class, spec)
   if not key then return end
   if spec and not self:ValidSpec(class, spec) then return end
   self.db.specManual[key] = spec and { class = class, spec = spec } or nil
-  if key == self.playerKey and self.CheckOwnSpec then SafeCall(self.CheckOwnSpec, self) end
+  if key == self.playerKey and self.CheckOwnSpec then self:CheckOwnSpec() end
   self:InvalidateScores()
 end
 
@@ -338,7 +339,7 @@ function GCA:MemberSpec(key, class, items)
   return nil, "unknown"
 end
 
--- K0/L5: persist the spec this character announces under its own key, so alts on the account see it.
+-- persist the spec this character announces under its own key, so alts on the account see it.
 function GCA:StoreOwnSpec(spec, ts)
   if not (spec and self.playerKey and self.playerClass and self.db and self.db.specs) then return false end
   return self:StoreSpec(self.playerKey, self.playerClass, { spec = spec, src = "self", ts = ts or self:Now() })
@@ -352,7 +353,7 @@ function GCA:OwnAnnouncedSpec()
 end
 
 ---------------------------------------------------------------------------
--- /gca spec debug
+-- Spec debug (the options' "Talents" box)
 ---------------------------------------------------------------------------
 local function fmtPoints(points, class)
   local parts = {}
@@ -360,8 +361,8 @@ local function fmtPoints(points, class)
   return table.concat(parts, " / ")
 end
 
-function GCA:SpecDebug()
-  local P = self.Print
+function GCA:SpecDebug(P)
+  P = P or function(line) self:Print(line) end -- P(line): where the lines go (the options' copy box), default chat
   local read, why = self:ReadOwnTalents()
   if read then
     P(string.format("Own talents: config %s, tree %s, %d nodes, ranksPurchased %d, activeRank %d (using %s).",
@@ -382,8 +383,8 @@ function GCA:SpecDebug()
       li.key, tostring(li.class), tostring(li.level), tostring(r.configID), tostring(r.treeID), tostring(r.nodeCount),
       tostring(r.purchased), tostring(r.active), tostring(li.tree), tostring(li.why)))
     if r.points then P("  points: " .. fmtPoints(r.points, li.class) .. (r.unplaced and r.unplaced > 0 and (" (+" .. r.unplaced .. " outside the trees)") or "")) end
-    P("  inspected talents are " .. (self:InspectTalentsOn() and "used when plausible" or "ignored (off by default)") .. (self.onCore and " (option 'spec from inspected talents')." or " (/gca spec inspect on|off)."))
+    P("  inspected talents are " .. (self:InspectTalentsOn() and "used when plausible" or "ignored (off by default)") .. " (option 'spec from inspected talents').")
   else
-    P("No inspect read yet: inspect a guild member, then " .. (self.onCore and "open this box again." or "run /gca spec debug again."))
+    P("No inspect read yet: inspect a guild member, then " .. "open this box again.")
   end
 end

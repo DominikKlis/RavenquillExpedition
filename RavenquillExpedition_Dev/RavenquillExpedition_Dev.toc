@@ -1,0 +1,13 @@
+## Interface: 16001
+## Title: Ravenquill Expedition: Dev
+## Notes: Developer tools (never released): a log of the suite's sync, events, errors and chat in SavedVariables, and in-game tests run from an inbox file.
+## Author: domin
+## Version: dev
+## X-License: GPL-3.0
+## Dependencies: RavenquillExpedition
+## SavedVariables: RavenquillExpeditionDevDB
+
+Inbox.lua
+Log.lua
+Test.lua
+Tests.lua

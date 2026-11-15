@@ -2,6 +2,8 @@ local ADDON, ns = ...
 
 local L = {
   TITLE = "Guild Highlights",
+  FMT_TIME = "%m/%d %H:%M", -- os.date formats
+  FMT_DAY = "%Y-%m-%d",
   EMPTY = "Nothing logged yet – nothing counted as a highlight since you installed it.\n\nWhat counts: a boss killed for the first time, epic loot, a rare+ item at least 8 item levels better than the old one, group / elite / dungeon quests, level 10, 20, 30 ... (change it under /rq hl).\nGuildies running Ravenquill show up here too.\n\nTo see how it looks: /rq hl > Add test entries.",
   NO_GUILD = "(no guild)",
 
@@ -55,6 +57,8 @@ local L = {
 }
 
 local deDE = {
+  FMT_TIME = "%d.%m. %H:%M",
+  FMT_DAY = "%d.%m.%Y",
   TITLE = "Gilden-Highlights",
   EMPTY = "Noch nichts protokolliert – seit der Installation zählte noch nichts als Highlight.\n\nWas zählt: ein Boss zum ersten Mal besiegt, epische Beute, ein blaues (oder besseres) Teil mindestens 8 Gegenstandsstufen über dem alten, Gruppen-/Elite-/Dungeon-Quests, Stufe 10, 20, 30 ... (änderbar unter /rq hl).\nGildenmitglieder mit Ravenquill erscheinen hier auch.\n\nZum Ansehen: /rq hl > Testeinträge hinzufügen.",
   NO_GUILD = "(keine Gilde)",
@@ -105,7 +109,6 @@ local deDE = {
   OV_WAITING = "%d warten aufs Senden",
 }
 
-if GetLocale() == "deDE" then
-  for k, v in pairs(deDE) do L[k] = v end
-end
-ns.L = L
+-- the core picks the client's language, falls back to English, then to the key (Module.lua / Locale.lua)
+ns.Locales = { enUS = L, deDE = deDE }
+ns.L = RavenquillExpedition.NewLocale(ns.Locales)

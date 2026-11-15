@@ -1,25 +1,21 @@
 -- Ravenquill Expedition: Map – settings (shown in the /rq overview), member store, own position, test pins.
 -- Pins.lua draws ns.Map.members on the world map and minimap (HereBeDragons).
--- Sync.lua (step 2) sends our position and fills members from guildmates' messages.
---
--- Runs standalone; when the Ravenquill Expedition core is loaded (## OptionalDeps) its helpers are used instead of
--- the local shims below (the shims keep the offline harness running without the core; in game the core is
--- required, ## Dependencies).
+-- Sync.lua sends our position and fills members from guildmates' messages (through the core's state lane).
+-- A module on the core API 2 (docs/module-api.md): SavedVariables, locale, events, options and sync are the core's.
 local ADDON, ns = ...
 local L = ns.L
--- The suite core (AddOns\RavenquillExpedition); nil when it isn't installed.
-local GS = _G.RavenquillExpedition
+local GS = RavenquillExpedition
+local IsSecret, SafeCall, Bool = GS.IsSecret, GS.SafeCall, GS.Bool
 
 local M = {}
 ns.Map = M
-_G.RavenquillExpeditionMap = M -- for /dump only
+_G.RavenquillExpeditionMap = M -- for /dump and the Dev addon's tests
 
-M.core = GS
-M.version = "0.2.0"
+M.version = GS:AddOnVersion(ADDON)
 
 M.C = {
   TICK = 2,             -- s between refreshes (own position, fades, minimap rule)
-  INTERVAL_MIN = 30,    -- step 2 computes the adaptive interval; step 1 uses the floor
+  INTERVAL_MIN = 5,     -- floor of the adaptive send interval (Sync.lua); user choice 2026-11-15: 5 s while moving
   HEARTBEAT = 300,      -- standing still: one message per max(HEARTBEAT, interval)
   FADE_MIN = 180,       -- moving pins fade at max(FADE_MIN, 2 × interval)
   STATIONARY_FADE = 1.5,-- stationary pins fade at 1.5 × heartbeat
@@ -39,203 +35,28 @@ M.DEFAULTS = {
 }
 
 ---------------------------------------------------------------------------
--- Helpers: the core when present, else local shims with the same names and calling conventions
--- (SafeCall / IsSecret / Print are plain functions; the rest are methods). Plan section M.
+-- The module (core Module.lua). SavedVariables hold settings only – other players' positions are never saved.
 ---------------------------------------------------------------------------
--- Same as core Core.lua:16-20 (v0.2.0).
-local function IsSecretShim(v)
-  if issecretvalue and issecretvalue(v) then return true end
-  if canaccessvalue and v ~= nil and not canaccessvalue(v) then return true end
-  return false
-end
-local function pack(...) return { n = select("#", ...), ... } end
-local function SafeCallShim(fn, ...)
-  if type(fn) ~= "function" then return end
-  local r = pack(pcall(fn, ...))
-  if not r[1] then return end
-  return unpack(r, 2, r.n)
-end
-local function PrintShim(tag, ...)
-  local head = "|cff33ff99Ravenquill Expedition|r"
-  if tag then head = head .. " |cffbbbbbb" .. tag .. "|r" end
-  print(head .. ":", ...)
-end
+local mod = GS:NewModule("Map", {
+  addon = ADDON, api = 2, slash = "map", title = L.TITLE, icon = "Interface\\Icons\\INV_Misc_Map_01",
+  sv = "RavenquillExpeditionMapDB", dbVersion = 1, defaults = M.DEFAULTS, locale = ns.Locales,
+})
+M.mod = mod
 
-local IsSecret = (GS and GS.IsSecret) or IsSecretShim
-local SafeCall = (GS and GS.SafeCall) or SafeCallShim
-local PrintRaw = (GS and GS.Print) or PrintShim
-M.IsSecret, M.SafeCall = IsSecret, SafeCall
-function M.Print(...) PrintRaw(L.TITLE, ...) end
-
--- A plain boolean from an API result: secret or non-boolean values count as false (a secret can't be tested).
-local function Bool(v) if IsSecret(v) then return false end return v and true or false end
-M.Bool = Bool
-
--- Our own realm in every spelling a "-Realm" suffix might use (as core Core.lua:81-93). Stripping only these
--- keeps hyphenated surnames ("Anna Müller-Lee") intact (code review #6).
-local realmSuffixes
-local function RealmSuffixes()
-  if realmSuffixes then return realmSuffixes end
-  local out = {}
-  for _, fn in ipairs({ GetNormalizedRealmName or false, GetRealmName or false }) do
-    local r = fn and SafeCall(fn)
-    if type(r) == "string" and not IsSecret(r) and r ~= "" then
-      out[#out + 1] = "-" .. r
-      out[#out + 1] = "-" .. r:gsub("[%s%-]", "")
-    end
-  end
-  if out[1] then realmSuffixes = out end
-  return out
-end
--- key without our own "-Realm" suffix, or nil when it has none
-function M.StripRealm(key)
-  if type(key) ~= "string" then return end
-  for _, suffix in ipairs(RealmSuffixes()) do
-    if #key > #suffix and key:sub(-#suffix) == suffix then return key:sub(1, -#suffix - 1) end
-  end
-end
-
-local Shim = {}
-local build = select(4, GetBuildInfo()) or 0
-Shim.IS_FOREVER = build >= 16000 and build < 20000
-function Shim:Now() return (GetServerTime and SafeCall(GetServerTime)) or time() end
-function Shim:NormName(n)
-  if type(n) ~= "string" or IsSecret(n) or n == "" then return end
-  if Ambiguate then
-    local a = SafeCall(Ambiguate, n, "none")
-    if type(a) == "string" and not IsSecret(a) then n = a end
-  end
-  return M.StripRealm(n) or n
-end
-local function SurnameSeparator()
-  local c = Constants and Constants.CharacterNameSeparatorConsts
-  local sep = c and c.CHARACTERNAME_SURNAME_SEPARATOR
-  if type(sep) == "string" and sep ~= "" and not IsSecret(sep) then return sep end
-  return " "
-end
--- Same logic as core Core.lua:69-78 (Forever: 2nd value of UnitName is a surname).
-function Shim:UnitKey(unit)
-  local read = UnitNameUnmodified or UnitName
-  local name, second = SafeCall(read, unit)
-  if type(name) ~= "string" or IsSecret(name) or name == "" or name == UNKNOWNOBJECT then return end
-  if type(second) == "string" and not IsSecret(second) and second ~= "" then
-    local sep = self.IS_FOREVER and SurnameSeparator() or "-"
-    if name:sub(-(#sep + #second)) ~= sep .. second then name = name .. sep .. second end
-  end
-  return self:NormName(name)
-end
-function Shim:PlayerKey()
-  if not self.playerKey then self.playerKey = self:UnitKey("player") end
-  return self.playerKey
-end
-function Shim:InInstance() return Bool(SafeCall(IsInInstance)) end
-
--- Guild roster, same shape and logic as core Core.lua:138-171: roster[key] = { class, level, online }
-Shim.roster = {}
-function Shim:RequestRoster()
-  local now = GetTime()
-  if self.rosterAsked and now - self.rosterAsked < 15 then return end
-  self.rosterAsked = now
-  if C_GuildInfo and C_GuildInfo.GuildRoster then SafeCall(C_GuildInfo.GuildRoster)
-  elseif GuildRoster then SafeCall(GuildRoster) end
-end
-function Shim:ReadRoster()
-  local n = SafeCall(GetNumGuildMembers) or 0
-  if type(n) ~= "number" or IsSecret(n) then return end
-  local roster = {}
-  for i = 1, n do
-    local name, _, _, level, _, _, _, _, online, _, classFile = SafeCall(GetGuildRosterInfo, i)
-    local key = self:NormName(name)
-    if key then
-      roster[key] = { level = (not IsSecret(level)) and level or nil, class = (not IsSecret(classFile)) and classFile or nil,
-        online = (not IsSecret(online)) and online and true or false }
-    end
-  end
-  if n > 0 then self.roster = roster end
-  self.rosterRead = GetTime()
-end
--- true / false, or nil while the roster is still unknown
-function Shim:IsGuildMember(key)
-  if not key then return false end
-  if key == self:PlayerKey() then return Bool(SafeCall(IsInGuild)) end
-  if not next(self.roster) then self:RequestRoster(); return nil end
-  if self.roster[key] then return true end
-  local first = M.StripRealm(key)
-  return first and self.roster[first] and true or false
-end
-
-for _, name in ipairs({ "Now", "NormName", "UnitKey", "PlayerKey", "InInstance", "IsGuildMember", "RequestRoster" }) do
-  M[name] = function(_, ...)
-    if GS and type(GS[name]) == "function" then return GS[name](GS, ...) end
-    return Shim[name](Shim, ...)
-  end
-end
-
-function M:Roster() return (GS and type(GS.roster) == "table" and GS.roster) or Shim.roster end
--- GetTime() of the last roster read, or nil (core Core.lua:200 keeps the same field).
-function M:RosterReadAt()
-  if GS then return type(GS.rosterRead) == "number" and GS.rosterRead or nil end
-  return Shim.rosterRead
-end
-
--- Online members in the roster (0 while unknown); cached 30 s because it's read often (code review #7).
-function M:OnlineCount()
-  local now = GetTime()
-  if self.onlineAt and now - self.onlineAt < 30 then return self.online end
-  local n = 0
-  for _, e in pairs(self:Roster()) do if e.online then n = n + 1 end end
-  self.online, self.onlineAt = n, now
-  return n
-end
-
--- Roster entry for a key (also "Name-<our realm>" style senders), or nil.
-function M:RosterEntry(key)
-  if not key then return end
-  local roster = self:Roster()
-  local first = M.StripRealm(key)
-  return roster[key] or (first and roster[first])
-end
-
--- Loud call: our own bugs reach BugSack and db.lastError.
-function M.Call(fn, ...)
-  local args = pack(...)
-  local r = pack(xpcall(function() return fn(unpack(args, 1, args.n)) end, function(err)
-    local msg = tostring(err)
-    if M.db then M.db.lastError = { t = time(), msg = msg, trace = debugstack and debugstack(2, 8, 4) } end
-    local h = geterrorhandler and geterrorhandler()
-    if h then pcall(h, msg) end
-    return msg
-  end))
-  if not r[1] then return end
-  return unpack(r, 2, r.n)
-end
-
----------------------------------------------------------------------------
--- SavedVariables (settings only – other players' positions are never saved, plan section 1)
----------------------------------------------------------------------------
-function M:InitDB()
-  local db = type(RavenquillExpeditionMapDB) == "table" and RavenquillExpeditionMapDB or {}
-  RavenquillExpeditionMapDB = db
-  db.v = 1
-  db.settings = type(db.settings) == "table" and db.settings or {}
-  for k, v in pairs(self.DEFAULTS) do
-    if type(db.settings[k]) ~= type(v) then db.settings[k] = v end
-  end
-  local s = db.settings.size
-  if s < 0.5 or s > 2 then db.settings.size = 1.0 end
-  self.db, self.settings = db, db.settings
+function mod:OnLoad()
+  local s = self.settings
+  if s.size < 0.5 or s.size > 2 then s.size = 1.0 end
+  M.db, M.settings = self.db, s
 end
 
 ---------------------------------------------------------------------------
 -- Member store: members[key] = { key, name, mapID, x, y, level, class, heard (GetTime),
 --   flags = { s = stationary, t = taxi, g = ghost }, fake = bool, isSelf = bool }
--- Step 2 fills it from received messages; step 1 only from the own and test pins.
+-- Sync.lua fills it from received messages; Map.lua adds the own and test pins.
 ---------------------------------------------------------------------------
 M.members = {}
 
-function M:Interval() return self.C.INTERVAL_MIN end -- step 2: adaptive
-
--- Seconds after the last news at which a pin fades (dimmed) – plan section 1, "Staleness".
+-- Seconds after the last news at which a pin fades (dimmed). M:Interval is Sync.lua's.
 function M:FadeAfter(m)
   local C = self.C
   if m.flags and m.flags.s then return C.STATIONARY_FADE * math.max(C.HEARTBEAT, self:Interval()) end
@@ -254,7 +75,7 @@ function M:State(m)
 end
 
 ---------------------------------------------------------------------------
--- Own position. nil (or 0,0) means "no position" (instances, some loading states) – WarEffortScout Geo.lua:73.
+-- Own position. nil (or 0,0) means "no position" (instances, some loading states).
 ---------------------------------------------------------------------------
 local function ReadNumber(v) if type(v) == "number" and not IsSecret(v) then return v end end
 
@@ -285,7 +106,7 @@ function M:UpdateSelfPin()
   if not mapID then self.members[key] = nil; return end
   local _, class = SafeCall(UnitClass, "player")
   self.members[key] = {
-    key = key, name = self:PlayerKey() or UNKNOWNOBJECT, mapID = mapID, x = x, y = y,
+    key = key, name = GS:PlayerKey() or UNKNOWNOBJECT, mapID = mapID, x = x, y = y,
     level = ReadNumber(SafeCall(UnitLevel, "player")) or 0, class = (not IsSecret(class)) and class or nil,
     heard = GetTime(), flags = PlayerFlags(), isSelf = true,
   }
@@ -313,7 +134,7 @@ function M:Fake(on)
   self.fakeOn = false
   if not on then self:Refresh(); return end
   local mapID, x, y = self:ReadOwnPosition()
-  if not mapID then self.Print(L.FAKE_NOPOS); return end
+  if not mapID then mod:Print(L.FAKE_NOPOS); return end
   local now = GetTime()
   for i, f in ipairs(FAKES) do
     local key = "~fake" .. i
@@ -324,6 +145,7 @@ function M:Fake(on)
   end
   self.fakeOn, self.fakeMovedAt = true, now
   self:Refresh()
+  self:Wake()
 end
 
 function M:MoveFakes()
@@ -339,10 +161,13 @@ function M:MoveFakes()
 end
 
 ---------------------------------------------------------------------------
--- Refresh loop
+-- Refresh loop: a 2 s ticker that runs only while there is something to do (sharing on, pins shown or held).
+-- C_Timer.NewTicker rather than mod:Every: a ticker keeps its place among timers that fire at the same moment,
+-- so a tick sees the same position as before (the send times in harness_compat.lua depend on it).
 ---------------------------------------------------------------------------
 function M:Refresh()
-  if self.UpdateSelfPin then self:UpdateSelfPin() end
+  if not self.settings then return end
+  self:UpdateSelfPin()
   if self.DropOffline then self:DropOffline() end
   for key, m in pairs(self.members) do
     if self:State(m) == "gone" then self.members[key] = nil end
@@ -350,25 +175,42 @@ function M:Refresh()
   if self.RefreshPins then self:RefreshPins() end
 end
 
+function M:NeedsTick()
+  local s = self.settings
+  if not s then return false end
+  return s.share or s.selfPin or self.fakeOn or next(self.members) ~= nil
+    or (self.sync ~= nil and next(self.sync.pending) ~= nil)
+end
+
 function M:Tick()
   self:MoveFakes()
   if self.SyncTick then self:SyncTick() end
   self:Refresh()
+  if not self:NeedsTick() and self.ticker then
+    self.ticker:Cancel()
+    self.ticker = nil
+  end
+end
+
+-- start the ticker when it's needed and not running (after login only)
+function M:Wake()
+  if self.ticker or not self.loggedIn or not self:NeedsTick() then return end
+  self.ticker = C_Timer.NewTicker(self.C.TICK, function() GS:Call(M.Tick, M) end)
 end
 
 ---------------------------------------------------------------------------
--- Privacy notice (plan section 5): once, before the first send. Step 1 sends nothing yet.
+-- Privacy notice: once, before the first send.
 ---------------------------------------------------------------------------
 function M:MaybeNotice()
   if self.db.noticeShown or not self.settings.share then return end
   self.db.noticeShown = true
-  self.Print(L.NOTICE)
+  mod:Print(L.NOTICE)
 end
 
 ---------------------------------------------------------------------------
 -- Settings: shown in the /rq overview (user 2026-11-14: options belong in the UI, no chat commands).
--- mod.options follows the core's options contract: header / toggle / range / button / text entries with get/set.
--- `id` is ours (tests and SetOption); the core ignores it.
+-- Entries follow the core's options contract (header / toggle / range / button / text); `id` names them for
+-- mod:Option(id).
 ---------------------------------------------------------------------------
 function M:SetOption(key, v)
   local s = self.settings
@@ -384,6 +226,7 @@ function M:SetOption(key, v)
   if key == "share" and self.OnShareChanged then self:OnShareChanged(v) end
   if key == "size" and self.ApplySize then self:ApplySize() end
   self:Refresh()
+  self:Wake()
 end
 
 local function Toggle(id, label, tooltip, disabled)
@@ -392,7 +235,7 @@ local function Toggle(id, label, tooltip, disabled)
     set = function(v) M:SetOption(id, v) end }
 end
 
-M.options = {
+mod:SetOptions({
   { type = "header", label = L.SEC_SHARING },
   Toggle("share", "SETTING_SHARE", "TT_SHARE"),
   { type = "header", label = L.SEC_DISPLAY },
@@ -409,28 +252,19 @@ M.options = {
     set = function(v) M:Fake(v) end },
   { id = "diag", type = "text", label = L.SETTING_DIAG, tooltip = L.TT_DIAG,
     lines = function() return M:DebugLines() end },
-}
+})
 
-function M:Option(id)
-  for _, o in ipairs(self.options) do if o.id == id then return o end end
-end
-
--- Part of the suite: the core owns /rq, the overview window and its settings view (## Dependencies).
-if GS and GS.NewModule then
-  -- addon = ADDON is required, or the core never fires OnLoad (core Core.lua:235). We init from our own
-  -- ADDON_LOADED below either way.
-  local mod = GS:NewModule("Map", { addon = ADDON, slash = "map", title = L.TITLE,
-    icon = "Interface\\Icons\\INV_Misc_Map_01", options = M.options })
-  -- Overview window hooks (core Overview.lua): the button opens the world map; one status line.
-  function mod:Open() M:OpenMap() end
-  function mod:OverviewStatus() return M:StatusLine() end
-  M.module = mod
-end
+-- Overview window hooks (core Overview.lua): the button opens the world map; one status line.
+function mod:Open() M:OpenMap() end
+function mod:OverviewStatus() return M:StatusLine() end
 
 ---------------------------------------------------------------------------
--- Overview helpers (also usable without the core)
+-- Overview helpers
 ---------------------------------------------------------------------------
+-- Opening the map from addon code runs Blizzard's whole show path tainted; in combat its protected calls (quest pins:
+-- SetPassThroughButtons) are then blocked (ADDON_ACTION_BLOCKED). So in combat we only point to the key.
 function M:OpenMap()
+  if InCombatLockdown and InCombatLockdown() then mod:Print(L.MAP_COMBAT); return end
   if ToggleWorldMap then
     if not pcall(ToggleWorldMap) and WorldMapFrame then pcall(WorldMapFrame.Show, WorldMapFrame) end
   elseif WorldMapFrame then
@@ -446,12 +280,12 @@ function M:StatusLine()
   end
   local share = self.settings and self.settings.share
   local line = L.OV_STATUS:format(n, share and L.ON or L.OFF)
-  if self.sync and self.sync.slow then line = line .. L.OV_SLOW end
+  if GS:CommState().slow then line = line .. L.OV_SLOW end
   return line
 end
 
 ---------------------------------------------------------------------------
--- Debug (Step 1 in-game checks: plan section 2 "Risk to check first")
+-- Diagnostics (the copy box in /rq map)
 ---------------------------------------------------------------------------
 local function F(v)
   if v == nil then return "nil" end
@@ -464,19 +298,18 @@ function M:DebugLines()
   local lines = {}
   local function P(s) lines[#lines + 1] = (s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
   local _, buildNum, _, iface = GetBuildInfo()
-  P(("v%s, client %s, interface %s, core: %s"):format(self.version, F(buildNum), F(iface),
-    GS and F(GS.version) or "not loaded"))
+  P(("v%s, client %s, interface %s, core: %s"):format(self.version, F(buildNum), F(iface), F(GS.version)))
   P(("WOW_PROJECT_ID=%s  CAMELOT=%s  MAINLINE=%s  CLASSIC=%s"):format(F(WOW_PROJECT_ID), F(WOW_PROJECT_CAMELOT),
     F(WOW_PROJECT_MAINLINE), F(WOW_PROJECT_CLASSIC)))
   local hbdForever = WOW_PROJECT_CAMELOT ~= nil and WOW_PROJECT_ID == WOW_PROJECT_CAMELOT
   P("HereBeDragons takes its Forever branch: " .. (hbdForever and "|cff00ff00yes|r" or "|cffff4040NO (retail/other branch)|r"))
   local minors = LibStub and LibStub.minors or {}
-  P(("LibStub: HereBeDragons-2.0 minor %s, Pins minor %s"):format(F(minors["HereBeDragons-2.0"]), F(minors["HereBeDragons-Pins-2.0"])))
+  P(("LibStub: our HereBeDragons-2.0 minor %s, Pins minor %s (private names); shared Pins minor %s"):format(F(minors["HereBeDragons-2.0-RQE"]), F(minors["HereBeDragons-Pins-2.0-RQE"]), F(minors["HereBeDragons-Pins-2.0"])))
 
   local mapID, x, y = self:ReadOwnPosition()
   local info = mapID and SafeCall(C_Map.GetMapInfo, mapID)
   P(("Client: map %s (%s) x=%s y=%s"):format(F(mapID), info and F(info.name) or "?", F(x), F(y)))
-  local HBD = LibStub and LibStub("HereBeDragons-2.0", true)
+  local HBD = LibStub and LibStub("HereBeDragons-2.0-RQE", true)
   if HBD then
     local hz, htype = SafeCall(HBD.GetPlayerZone, HBD)
     local hx, hy, hmap = SafeCall(HBD.GetPlayerZonePosition, HBD)
@@ -505,31 +338,22 @@ function M:DebugLines()
     n, fresh, stale, F(w), F(mm), F(Minimap and SafeCall(Minimap.GetZoom, Minimap)), F(SafeCall(IsIndoors)),
     F(C_CVar and SafeCall(C_CVar.GetCVar, "rotateMinimap"))))
   if self.SyncDebug then self:SyncDebug(P) end
-  if self.db and self.db.lastError then P("Last error: " .. F(self.db.lastError.msg)) end
+  local err = RavenquillExpeditionDB and RavenquillExpeditionDB.lastError
+  if err then P("Last error (suite): " .. F(err.msg)) end
   return lines
 end
 
 ---------------------------------------------------------------------------
--- Events
+-- Lifecycle (the core calls these; events through mod:RegisterEvent run under RQ:Call)
 ---------------------------------------------------------------------------
-local frame = CreateFrame("Frame")
-M.frame = frame
-frame:RegisterEvent("ADDON_LOADED")
-frame:RegisterEvent("PLAYER_LOGIN")
-frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-frame:RegisterEvent("GUILD_ROSTER_UPDATE")
-frame:SetScript("OnEvent", function(_, event, arg1)
-  if event == "GUILD_ROSTER_UPDATE" then
-    if not GS then M.Call(Shim.ReadRoster, Shim) end -- the core reads its own roster
-  elseif event == "ADDON_LOADED" then
-    if arg1 == ADDON then M.Call(M.InitDB, M) end
-  elseif event == "PLAYER_LOGIN" then
-    if not M.db then M.Call(M.InitDB, M) end
-    C_Timer.NewTicker(M.C.TICK, function() M.Call(M.Tick, M) end)
-    C_Timer.After(M.C.NOTICE_DELAY, function() M.Call(M.MaybeNotice, M) end)
-    M.Call(M.Refresh, M)
-  elseif M.db then
-    M.Call(M.Refresh, M)
-  end
-end)
+function mod:OnLogin()
+  M.loggedIn = true
+  M:Wake()
+  self:After(M.C.NOTICE_DELAY, function() M:MaybeNotice() end)
+  M:Refresh()
+  if M.SyncLogin then M:SyncLogin() end
+end
+
+local function Refresh() M:Refresh() end
+mod:RegisterEvent("PLAYER_ENTERING_WORLD", Refresh)
+mod:RegisterEvent("ZONE_CHANGED_NEW_AREA", Refresh)

@@ -10,7 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Lua 5.4
-        run: sudo apt-get update && sudo apt-get install -y lua5.4
-      - name: Run offline harnesses
-        run: RQ_SKIP=RavenquillExpedition_CraftAdvisor bash scripts/run-tests.sh lua5.4
+      - name: Install Lua 5.4, luac and luacheck
+        run: |
+          sudo apt-get update && sudo apt-get install -y lua5.4 liblua5.4-dev luarocks
+          sudo luarocks install luacheck
+      # SimGear Forever is not in the repository (29 MB): harness_score shows a named SKIP here.
+      - name: Offline harnesses, luacheck, architecture scorecard
+        run: LUAC=luac5.4 bash scripts/run-tests.sh lua5.4

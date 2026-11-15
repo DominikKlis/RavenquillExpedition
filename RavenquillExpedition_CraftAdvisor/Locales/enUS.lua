@@ -1,11 +1,11 @@
--- Locale machinery + English texts (plan H4). Loaded first: every other file reads ns.L.
+-- Locale machinery + English texts. Loaded first: every other file reads ns.L.
 --   ns.L[KEY]      -> text of the client's language; a key missing there falls back to English (enUS),
 --                     a key missing in English too returns the key itself (and is noted in ns.missingL).
 --   ns.LGet(KEY)   -> the same lookup, but nil when no table has the key (for optional texts).
 --   ns.G(NAME, K)  -> the client's global string NAME when it exists (a non-empty, non-secret string),
 --                     else L[K or NAME]. Never assumes a global exists.
 -- Only plain words are taken from client globals; client FORMAT strings are never passed to string.format
--- (deDE uses positional "%1$s" specifiers, see dev/HANDOFF.md).
+-- (deDE uses positional "%1$s" specifiers, which Lua 5.1's string.format doesn't support).
 local ADDON, ns = ...
 
 ns.Locales = ns.Locales or {}
@@ -42,6 +42,7 @@ function ns.G(name, key)
 end
 
 ns.Locales.enUS = {
+  ADDON_TITLE = "Guild Craft Advisor",
   -- generic words (client globals win where they exist: LEVEL, FRIENDS_LIST_ONLINE/OFFLINE, UNKNOWN, ...)
   LEVEL = "Level",
   FRIENDS_LIST_ONLINE = "Online",
@@ -138,15 +139,15 @@ ns.Locales.enUS = {
   -- gain
   GAIN_EMPTY = "(empty slot)",
 
-  -- worn item in a slot section (the gear-slot icon row is gone, plan J1)
+  -- worn item in a slot section (the gear-slot icon row is gone)
   SLOT_EMPTY = "%s (empty / unknown)",
   NOT_LEARNED = "Not learned",
 
-  -- resize grip (plan J2)
+  -- resize grip
   RESIZE_TIP_TITLE = "Resize",
   RESIZE_TIP = "Drag to resize the window. Right-click: back to the default size.",
 
-  -- slot sections (plan I): header = slot + worn item(s) + score; slots without an upgrade = one grey line
+  -- slot sections: header = slot + worn item(s) + score; slots without an upgrade = one grey line
   SECTION_RINGS = "Rings",
   SECTION_TRINKETS = "Trinkets",
   SECTION_NOTHING = "nothing equipped",
@@ -212,7 +213,6 @@ ns.Locales.enUS = {
   HEAD_CRAFTS = "Craftable upgrades (%d)",
   HEAD_ENCHANTS = "Enchants and crafts (%d)",
   HEAD_BROWSE = "browsing %s: all shown as not learned",
-  EMPTY_NOGEAR = "No gear recorded for this member yet.\n\nIt is read automatically when they are in your group, under your mouse or targeted (out of combat, nearby), or /gca inspect with them targeted.",
   EMPTY_NOSPEC = "Spec unknown – pick one with the \"Spec\" button above.\n\nIt is filled in automatically when they run this addon (sync) or, if it works on Forever, when you inspect them.",
   EMPTY_NOLEVEL = "Level unknown, so no suggestions. It is filled in when the guild roster or an inspect shows it.",
   EMPTY_NOWEIGHTS = "No stat weights for this class/spec.",
@@ -222,7 +222,7 @@ ns.Locales.enUS = {
   EMPTY_ENCHANT = "No enchant you know would be an upgrade right now (slots with an enchant we can't value, e.g. a proc, utility or unknown one, are skipped).",
   EMPTY_NONE = "Nothing you can craft would be an upgrade right now.",
 
-  -- slider (H0/U4)
+  -- slider
   SLIDER_LABEL = "Leveling bonus (%s/%s): %d%%",
   SLIDER_TIP_TITLE = "Leveling bonus (%s/%s)",
   SLIDER_TIP = "How much extra weight %s and %s get while leveling, on top of the damage/healing weights (SimGear's leveling layer: surviving and drinking less matter more than raw damage). 0 %% = pure damage/healing weights. It fades out from level 50 to 58; Warrior Protection and healers have none.",
@@ -239,7 +239,6 @@ ns.Locales.enUS = {
   EDIT_WHISPER = "Edit whisper text…",
   EDIT_WHISPER_TIP = "Change the text the Offer button writes.",
   HELP_TITLE = "Guild Craft Advisor – help",
-  HELP_LINES = "/gca – open / close this window\n/gca inspect – inspect your target\n/gca scan – inspect guildies in your group\n/gca sync – guild sync status\n/gca whisper – edit the offer whisper\n/gca minimap – show / hide the map button\n/gca reset – forget stored gear\n/gca help – all commands (incl. debug ones)",
   HELP_ROWS = "Guild needs: one row per craft; click it to see who needs it, click a name to open that member. Rows: hover for details (hold Shift for the stat breakdown), shift-click to link, whisper icon / \"Offer\" = whisper the offer (online members only), check box = \"Crafted\", your own reminder mark.",
 
   -- whisper editor (U2)
@@ -252,25 +251,18 @@ ns.Locales.enUS = {
   CLOSE = "Close",
   WHISPER_SAVED = "Offer whisper saved.",
   WHISPER_RESET = "Offer whisper reset to the default.",
-  WHISPER_DRAFT_KEPT = "Offer whisper not saved - your draft is kept. /gca whisper to continue, Save to use it.",
   WHISPER_DRAFT_NOTE = "Unsaved draft: Save uses it, Reset to default drops it.",
   WHISPER_TOO_LONG = "The offer whisper is longer than 255 bytes (the chat limit), so it was cut. Shorten it: Filter -> Edit whisper text.",
 
   -- sync status line (Sync.lua)
   SYNC_OFF = "Guild sync off",
   SYNC_NOGUILD = "Guild sync: not in a guild",
-  SYNC_PAUSED = "Guild sync paused: delivery not confirmed",
+  SYNC_PAUSED = "Guild sync slow: delivery not confirmed",
   SYNC_PEERS = "Guild sync: %d guildie(s) with the addon seen",
 
   -- minimap tooltip
-  MM_RECORDED = "%d guildies recorded",
-  MM_COUNT = "%s: %d upgrade(s) you can craft for %d guildie(s)",
-  MM_NONE = "No gear profession on this character (browse in the window)",
-  MM_LEFT = "|cffffd100Left-click:|r open / close",
-  MM_RIGHT = "|cffffd100Right-click:|r inspect target",
-  MM_DRAG = "|cffffd100Drag:|r move button",
 
-  -- K1/K2 redesign: views, guild needs, member list groups, folded no-upgrade line, header dot, (i) icon
+  -- redesign: views, guild needs, member list groups, folded no-upgrade line, header dot, (i) icon
   VIEW_NEEDS = "Guild needs",
   VIEW_MEMBER = "By member",
   NEEDS_SEARCH = "Search", -- K8: the profession window's own placeholder (the tooltip says: item or name)
@@ -337,25 +329,15 @@ ns.Locales.enUS = {
 
   -- chat (Core)
   CMD_RESET = "Stored guild gear cleared.",
-  CMD_MM_HIDDEN = "Minimap button hidden",
-  CMD_MM_SHOWN = "Minimap button shown",
   CMD_MM_MOVED = "Minimap button moved to the largest free gap (%.0f°).",
-  CMD_INSPECT_TALENTS_ON = "Talents read on inspect are used when plausible.",
-  CMD_INSPECT_TALENTS_OFF = "Talents read on inspect are ignored.",
   CMD_SYNC_NOT_LOADED = "Sync not loaded (needs a full game restart after installing).",
-  CMD_SYNC_NOT_PAUSED = "Guild sync is not paused; checking for anything owed.",
-  CMD_VERBOSE_ON = "Verbose on",
-  CMD_VERBOSE_OFF = "Verbose off",
   MSG_PRUNED = "Removed %d character(s) no longer in the guild (not seen for 30 days).",
-  CMD_HELP = "/gca – toggle window | /gca inspect – inspect target | /gca scan – inspect guildies in your group | /gca reset – forget stored gear | /gca minimap – show/hide map button | /gca minimap debug – list minimap buttons | /gca minimap reset – move to a free spot | /gca sync – guild sync status | /gca whisper – edit the offer whisper | /gca stats <item link> – raw and scored item stats | /gca spec debug – talent reading | /gca spec inspect on|off | /gca known debug – which recipes/enchants the game says you know | /gca enchant debug [item link] – does an enchanted link's stats include the enchant | /gca verbose",
-  MSG_RECORDED = "Recorded gear of %s. /gca to view.",
   MSG_TARGET_FIRST = "Target a guild member first.",
   MSG_NOT_GUILD = "Your target is not in your guild.",
   MSG_CANT_INSPECT = "Can't inspect that target right now.",
   MSG_INSPECTING = "Inspecting %s...",
   MSG_QUEUED = "Queued %d guild members for inspection.",
   MSG_NONE_IN_GROUP = "No guild members in your group to inspect.",
-  SYNC_STOPPED_MSG = "Guild sync: our messages don't seem to arrive - sync paused. /gca sync retry to try again.",
   SYNC_RESUMED = "Guild sync resumed.",
   ERROR_IN = "Error in %s:",
   ERROR_SAVED = "(saved; /reload so it can be read)",
@@ -393,7 +375,7 @@ ns.Locales.enUS = {
   CARDS_WORN_CAPS = "EQUIPPED",
   CARDS_COUNT = "%d upgrades",
   CARDS_COUNT_1 = "%d upgrade",
-  -- K7: where to get a missing recipe (sources from the addon Crafter's Journal when it is loaded)
+  -- K7: where to get a missing recipe (Data/Sources.lua, Data/ExtraSources.lua)
   SRC_LINE_TRAINER = "Trainer (skill %d)",
   SRC_LINE_TRAINER_HAVE = "Trainer (skill %d, you have %d)",
   SRC_LINE_TRAINER_OK = "Trainer (skill %d, reached)",
@@ -410,37 +392,42 @@ ns.Locales.enUS = {
   SRC_LINE_WORLD = "World drop",
   SRC_LINE_WORLD_LVL = "World drop (creatures level %d-%d)",
   SRC_LINE_OBJECTS = "In chests/objects (%d)",
+  SRC_LINE_CONTAINER = "Found in: %s",
   SRC_LINE_MORE = "+%d more",
   SRC_TIP_HEAD = "Where to get it",
-  SRC_TIP_TRAINER = "Trainer: skill %d",
+  SRC_TIP_SKILL = "Skill %d",
+  SRC_TIP_PATTERN_LABEL = "Pattern",
+  PRICE_HEAD = "Price",
+  PRICE_VENDOR = "At the vendor",
+  PRICE_TRAINER = "At the trainer",
+  PRICE_AH = "In the auction house",
+  TIP_HINT_MAP = "Click: set a map marker",
+  TIP_HINT_MENU = "Right-click: all sources",
   SRC_TIP_HAVE = "you have %d",
   SRC_TIP_REACHED = "reached",
-  SRC_TIP_FEE = "Training cost",
-  SRC_TIP_COST = "Price",
   SRC_TIP_VENDORS_MORE = "+%d more vendors",
   SRC_TIP_DROP = "Drop: %s",
   SRC_TIP_DROPS_MORE = "+%d more creatures",
   SRC_TIP_REP = "Requires %s with %s",
-  SRC_TIP_PATTERN = "Pattern: %s",
   SRC_TIP_WAYPOINT = "Click a source: show it on the map (sets a waypoint) · Right-click: menu",
   COMPARE_WORN_BY = "Equipped by %s",
   TIP_CHANGES_FOR = "Stat changes for %s:",
   TIP_CHANGES = "Stat changes:",
   SLOT_EMPTY_COMPARE = "Nothing equipped in this slot",
-  NL_TIP_CLICK ="Click: set a map marker on the source · Right-click: all sources",
-  SRC_TIP_SHOWMAP = "Click: show %s on the map (sets a waypoint)",
-  SRC_TIP_LINK = "Shift-right-click: link the pattern in chat",
-  SRC_TIP_NO_CJ = "Exact sources come from the addon \"Crafter's Journal\" (not loaded).",
+  AH_TO_CRAFT = "To craft:",
+  AH_PROFIT = "Profit:",
+  AH_MISSING = "(%d without a price)",
+  OPEN_NOT_KNOWN = "You haven't learned this recipe, so it can't be opened.",
+  OPEN_COMBAT = "Professions can't be opened in combat.",
+  OPEN_FAIL = "Couldn't open the recipe - open your profession window and look it up there.",
   SRC_TIP_UNKNOWN = "No source known.",
   SRC_KIND_TRAINER = "trainer",
   SRC_KIND_VENDOR = "vendor",
   SRC_KIND_QUEST = "quest giver",
   SRC_KIND_DROP = "drop",
   SRC_MENU_WAYPOINT = "Show on map: %s (%s)",
-  SRC_MENU_LINK = "Link pattern in chat",
   SRC_WAYPOINT_SET = "Waypoint set: %s, %s.",
-  SRC_WAYPOINT_FAIL = "Couldn't set a waypoint for %s.",
-  SRC_LINK_LOADING = "The pattern item is still loading - click again.",
+  SRC_WAYPOINT_FAIL = "Couldn't set a waypoint: %s is at %s.",
   NEEDS_MISSING = "%d missing recipes would be upgrades",
   NEEDS_MISSING_1 = "1 missing recipe would be an upgrade",
   -- K15: Ravenquill Expedition core. Options shown in the core's /rq window (mod.options).
@@ -457,12 +444,12 @@ ns.Locales.enUS = {
   OPT_RESET_TIP = "Deletes the gear of ALL stored guild members (yours is read again right away). Cannot be undone; it comes back only by inspecting or via guild sync.",
   OPT_H_SYNC = "Guild sync",
   OPT_SYNC_RETRY = "Retry sync",
-  OPT_SYNC_RETRY_TIP = "Only active while sync is paused because our messages did not come back.",
+  OPT_SYNC_RETRY_TIP = "Only active while sync sends slowly because our messages did not come back: back to the normal pace.",
   OPT_SYNC_STATUS = "Sync status",
   OPT_H_WINDOW = "Window",
   OPT_OPEN = "Open window",
-  OPT_MINIMAP = "Show minimap button",
-  OPT_MM_RESET = "Re-place minimap button",
+  OPT_MINIMAP = "Show the Ravenquill minimap button",
+  OPT_MM_RESET = "Re-place the Ravenquill minimap button",
   OPT_MM_RESET_TIP = "Moves the minimap button to the largest free spot around the minimap.",
   OPT_H_DIAG = "Diagnostics",
   OPT_VERBOSE = "Verbose chat messages",
@@ -472,11 +459,11 @@ ns.Locales.enUS = {
   OPT_DIAG_MINIMAP = "Minimap",
   OPT_DIAG_ERROR = "Last error",
   OPT_NO_ERROR = "No error recorded.",
-  -- K15: texts that name a command, variants used on the core (swapped in at load, Core.lua)
-  EMPTY_NOGEAR_RQ = "No gear recorded for this member yet.\n\nIt is read automatically when they are in your group, under your mouse or targeted (out of combat, nearby), or with \"Inspect target now\" in /rq craft while they are your target.",
-  HELP_LINES_RQ = "/rq craft – options (window, reading gear, sync, minimap button, diagnostics)\n/rq craft stats <item link> – raw and scored item stats\n/rq craft enchant debug [item link] – enchant check\nMinimap button or the Open button in /rq – this window",
-  WHISPER_DRAFT_KEPT_RQ = "Offer whisper not saved - your draft is kept. Filter → \"Edit whisper text…\" to continue, Save to use it.",
-  CMD_HELP_RQ = "/rq craft – options | /rq craft stats <item link> – raw and scored item stats | /rq craft enchant debug [item link] – does an enchanted link's stats include the enchant | anything else after /rq craft opens the window",
-  MSG_RECORDED_RQ = "Recorded gear of %s. Click the minimap button to view.",
-  SYNC_STOPPED_MSG_RQ = "Guild sync: our messages don't seem to arrive - sync paused. /rq craft → \"Retry sync\" to try again.",
+  -- texts that name a command (/rq craft)
+  EMPTY_NOGEAR = "No gear recorded for this member yet.\n\nIt is read automatically when they are in your group, under your mouse or targeted (out of combat, nearby), or with \"Inspect target now\" in /rq craft while they are your target.",
+  HELP_LINES = "/rq craft – options (window, reading gear, sync, minimap button, diagnostics)\n/rq craft stats <item link> – raw and scored item stats\n/rq craft enchant debug [item link] – enchant check\nRight-click the Ravenquill minimap button, or Open in /rq – this window",
+  WHISPER_DRAFT_KEPT = "Offer whisper not saved - your draft is kept. Filter → \"Edit whisper text…\" to continue, Save to use it.",
+  CMD_HELP = "/rq craft – options | /rq craft stats <item link> – raw and scored item stats | /rq craft enchant debug [item link] – does an enchanted link's stats include the enchant | anything else after /rq craft opens the window",
+  MSG_RECORDED = "Recorded gear of %s. Right-click the Ravenquill minimap button to view.",
+  SYNC_STOPPED_MSG = "Guild sync: our messages don't seem to arrive - sending continues slowly (1 message per 5 min). /rq craft → \"Retry sync\" to send at the normal pace again.",
 }

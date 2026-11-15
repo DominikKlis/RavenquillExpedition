@@ -1,20 +1,38 @@
--- Ravenquill Expedition: Map – draws ns.Map.members as pins on the world map and minimap via HereBeDragons-Pins.
--- Always placed by map ID (AddWorldMapIconMap / AddMinimapIconMap), never world coordinates: Forever's added zones
--- overlap old ones in world coordinates (WarEffortScout MapPins.lua:1300-1303), plan section 2.
+-- Ravenquill Expedition: Map – draws ns.Map.members as pins on the world map (our own layer on the map canvas) and
+-- the minimap (HereBeDragons-Pins). Always placed from the member's map ID, never from raw world coordinates: Forever's
+-- added zones overlap old ones in world coordinates (WarEffortScout MapPins.lua:1300-1303).
+--
+-- World map and taint (BugGrabber, 2026-11: ADDON_ACTION_BLOCKED 'Button:SetPassThroughButtons()' on opening the
+-- map): we no longer use HBDPins:AddWorldMapIcon*. That registers a data provider on WorldMapFrame, and Blizzard
+-- calls every provider's RefreshAllData inside the secure show path (ToggleWorldMap -> ShowUIPanel ->
+-- RefreshAllDataProviders). Our (addon) code there tainted the rest of that execution, so Blizzard's own quest pins,
+-- acquired after us, were blocked when AcquirePin -> CheckMouseButtonPassthrough called SetPassThroughButtons.
+-- Now Blizzard's map code never calls into us: our pins sit on a plain child frame of the canvas that draws them
+-- from its own OnUpdate (a separate execution, only while the map is visible). We only read from WorldMapFrame
+-- (GetCanvas, GetMapID, GetCanvasScale); no AddDataProvider, AcquirePin, pinPools, hooks or SetPassThroughButtons.
 local ADDON, ns = ...
 local M = ns.Map
 local L = ns.L
-local SafeCall, IsSecret = M.SafeCall, M.IsSecret
+local SafeCall, IsSecret = RavenquillExpedition.SafeCall, RavenquillExpedition.IsSecret
 
-local HBD = LibStub("HereBeDragons-2.0")
-local HBDPins = LibStub("HereBeDragons-Pins-2.0")
+-- our own copies under private names (libs/HereBeDragons): Map never writes into the copy other addons share,
+-- whose world-map provider runs inside Blizzard's map show (in-game ADDON_ACTION_BLOCKED, 2026-11-15)
+local HBD = LibStub("HereBeDragons-2.0-RQE")
+local HBDPins = LibStub("HereBeDragons-Pins-2.0-RQE")
 local REF = "RavenquillExpedition_Map"
 local DOT = "Interface\\AddOns\\RavenquillExpedition_Map\\Media\\dot"
 local SIZE = { world = 14, mini = 10 }
-local SHOW_FLAG = HBD_PINS_WORLDMAP_SHOW_WORLD or 3 -- zone, continent and world map
+local WORLD_MAP_ID = 947 -- the Azeroth world map (HereBeDragons-Pins-2.0.lua WORLD_MAP_ID)
+local LAYER_LEVEL = 500  -- frame levels above the canvas: over the map's own pins [VERIFY IN GAME]
 
 local pins = {}                       -- [key] = { world = frame, mini = frame }
 local pool = { world = {}, mini = {} }
+-- [world pin frame] = { mapID, x, y (as received), wx, wy, inst (HBD world coordinates) }; read by the harnesses
+local placed = {}
+M.worldPlaced = placed
+local layer                           -- our frame on the world map canvas (created with the first world pin)
+local drawn = {}                      -- the view the layer last drew: mapID, scale, w, h
+local dirty = true
 
 ---------------------------------------------------------------------------
 -- Look
@@ -104,11 +122,87 @@ end
 ---------------------------------------------------------------------------
 -- Frames
 ---------------------------------------------------------------------------
+---------------------------------------------------------------------------
+-- World map layer
+---------------------------------------------------------------------------
+-- A world pin's position on the map being shown (0-1), or nil when it isn't on that map. The same rules as
+-- HereBeDragons-Pins' HandlePin with HBD_PINS_WORLDMAP_SHOW_WORLD: its own map, any map above it (parent zone,
+-- continent) and the Azeroth world map.
+local function Project(d, uiMapID)
+  if uiMapID == WORLD_MAP_ID then return HBD:GetAzerothWorldMapCoordinatesFromWorld(d.wx, d.wy, d.inst) end
+  local mapData = HBD.mapData
+  if not (mapData and mapData[uiMapID]) then return end
+  if uiMapID ~= d.mapID then
+    local parent = mapData[d.mapID] and mapData[d.mapID].parent
+    while parent and parent ~= uiMapID do parent = mapData[parent] and mapData[parent].parent end
+    if parent ~= uiMapID then return end
+    local t, UT = mapData[uiMapID].mapType, Enum and Enum.UIMapType
+    if UT and t ~= UT.Zone and t ~= UT.Dungeon and t ~= UT.Micro and t ~= UT.Continent then return end
+  end
+  return HBD:GetZoneCoordinatesFromWorldInstance(d.wx, d.wy, d.inst, uiMapID)
+end
+
+local function MapView()
+  local map = WorldMapFrame
+  local mapID = SafeCall(map.GetMapID, map)
+  local scale = SafeCall(map.GetCanvasScale, map) or 1
+  return mapID, scale, layer:GetWidth(), layer:GetHeight()
+end
+
+local function DrawWorld()
+  local mapID, scale, w, h = MapView()
+  dirty = false
+  drawn.mapID, drawn.scale, drawn.w, drawn.h = mapID, scale, w, h
+  local ok = type(mapID) == "number" and type(scale) == "number" and scale > 0 and type(w) == "number" and w > 0
+    and type(h) == "number" and h > 0
+  for f, d in pairs(placed) do
+    local x, y
+    if ok then
+      local okP, px, py = pcall(Project, d, mapID)
+      if okP and type(px) == "number" and type(py) == "number" then x, y = px, py end
+    end
+    if x then
+      -- the same size at every zoom level; SetPoint offsets are in the pin's own (scaled) units
+      f:SetScale(1 / scale)
+      f:ClearAllPoints()
+      f:SetPoint("CENTER", layer, "TOPLEFT", x * w * scale, -y * h * scale)
+      f:Show()
+    else
+      f:Hide()
+    end
+  end
+end
+
+-- Runs only while the map is visible (the layer is a child of the canvas), once per frame: redraws when our pins
+-- changed or the map shows another map or zoom level.
+local function OnLayerUpdate()
+  if not dirty then
+    local mapID, scale, w, h = MapView()
+    if mapID == drawn.mapID and scale == drawn.scale and w == drawn.w and h == drawn.h then return end
+  end
+  DrawWorld()
+end
+
+local function Layer()
+  if layer then return layer end
+  local map = WorldMapFrame
+  local canvas = map and map.GetCanvas and SafeCall(map.GetCanvas, map)
+  if not canvas then return end
+  layer = CreateFrame("Frame", nil, canvas)
+  layer:SetAllPoints(canvas)
+  layer:SetFrameLevel((canvas:GetFrameLevel() or 0) + LAYER_LEVEL)
+  layer:SetScript("OnUpdate", OnLayerUpdate)
+  for f in pairs(placed) do f:SetParent(layer) end
+  for _, f in ipairs(pool.world) do f:SetParent(layer) end
+  M.worldLayer = layer
+  return layer
+end
+
 local function NewPin(kind)
   local f = table.remove(pool[kind])
   if f then return f end
-  f = CreateFrame("Button", nil, kind == "mini" and Minimap or UIParent)
-  f:Hide() -- HBD shows it once placed (Pins-2.0.lua:172, :475)
+  f = CreateFrame("Button", nil, kind == "mini" and Minimap or Layer() or UIParent)
+  f:Hide() -- shown once placed: by HBD on the minimap (Pins-2.0.lua:172), by DrawWorld on the world map
   f.kind = kind
   f.bg = f:CreateTexture(nil, "BACKGROUND")
   f.bg:SetTexture(DOT)
@@ -132,7 +226,7 @@ end
 local function Release(p, kind)
   local f = p[kind]
   if not f then return end
-  if kind == "world" then SafeCall(HBDPins.RemoveWorldMapIcon, HBDPins, REF, f)
+  if kind == "world" then placed[f] = nil; dirty = true
   else SafeCall(HBDPins.RemoveMinimapIcon, HBDPins, REF, f) end
   f:Hide()
   f.key, f.at = nil, nil
@@ -140,9 +234,19 @@ local function Release(p, kind)
   pool[kind][#pool[kind] + 1] = f
 end
 
--- Place (or move) a pin. The minimap updates an icon in place when it's added again (Pins-2.0.lua:575), but the
--- world map acquires a NEW canvas pin on every add (HandlePin -> AcquirePin, :768/:457), so a moved world pin is
--- removed first - otherwise the old one stays behind until the map is reopened (code review #1).
+-- A world pin: remember where it is in world coordinates (the layer draws it); false when HBD doesn't know the map.
+local function PlaceWorld(f, m)
+  local wx, wy, inst = HBD:GetWorldCoordinatesFromZone(m.x, m.y, m.mapID)
+  if type(wx) ~= "number" or type(wy) ~= "number" then return false end
+  local l = Layer()
+  if l then f:SetParent(l) end
+  placed[f] = { mapID = m.mapID, x = m.x, y = m.y, wx = wx, wy = wy, inst = inst }
+  dirty = true
+  return true
+end
+
+-- Place (or move) a pin. The minimap updates an icon in place when it's added again (Pins-2.0.lua:575); a world pin
+-- is one frame per member that the layer moves (no orphan pins after a move).
 local function Place(p, kind, m)
   local f = p[kind]
   if not f then f = NewPin(kind); p[kind] = f end
@@ -151,8 +255,7 @@ local function Place(p, kind, m)
   if f.at ~= at then
     local ok, added
     if kind == "world" then
-      if f.at then SafeCall(HBDPins.RemoveWorldMapIcon, HBDPins, REF, f) end
-      ok, added = pcall(HBDPins.AddWorldMapIconMap, HBDPins, REF, f, m.mapID, m.x, m.y, SHOW_FLAG)
+      ok, added = pcall(PlaceWorld, f, m)
     else
       -- showInParentZone: someone in a cave/sub-map still shows for a viewer in the zone around it
       ok, added = pcall(HBDPins.AddMinimapIconMap, HBDPins, REF, f, m.mapID, m.x, m.y, true, false)
@@ -192,7 +295,7 @@ function M:RefreshPins()
     else
       Release(p, "world")
     end
-    -- minimap: only fresh (< 45 s) or stationary positions, plan section 3
+    -- minimap: only fresh (< 45 s) or stationary positions (older ones would be in the wrong place)
     local miniOk = ok and s.minimap and (m.isSelf or (m.flags and m.flags.s) or self:Age(m) < self.C.MINIMAP_FRESH)
     if miniOk then
       local f = Place(p, "mini", m)

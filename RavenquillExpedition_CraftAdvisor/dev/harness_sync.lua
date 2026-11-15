@@ -1,8 +1,8 @@
--- Step 2 harness (plan rev 4, D6): three simulated clients on a loopback GUILD channel,
--- virtual clock, real item links from SavedVariables as fixtures.
+-- Guild sync between simulated clients: each one a testkit client (RavenquillExpedition/dev/testkit.lua) running the
+-- real suite core and this addon, on one GUILD channel with a virtual clock; the core paces and checks the echo.
+-- A released 0.2.0 client (dev/fixtures/compat_0.2.0) joins without the core. Real, anonymised gear as fixtures.
 -- Run from the addon folder: lua dev/harness_sync.lua
-local ROOT = "C:/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/RavenquillExpedition_CraftAdvisor/"
-local SV = "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/TERLOK55/SavedVariables/RavenquillExpedition_CraftAdvisor.lua"
+local ROOT = (arg[0]:gsub("[^/\\]*$", "")) .. "../"
 
 local fails, passes = 0, 0
 local function check(cond, label)
@@ -14,12 +14,11 @@ local function section(s) print("== " .. s) end
 ---------------------------------------------------------------------------
 -- Fixtures: real links
 ---------------------------------------------------------------------------
-local svEnv = {}
-assert(loadfile(SV, "t", svEnv))()
+-- dev/fixtures/gear_sets.lua: real, anonymised gear sets (scripts/extract-gear-fixture.lua)
 local realSets, allLinks, seen = {}, {}, {}
-for key, m in pairs(svEnv.RavenquillExpeditionCraftDB.members) do
-  if m.items and next(m.items) then realSets[#realSets + 1] = { key = key, items = m.items } end
-  for _, l in pairs(m.items or {}) do if not seen[l] then seen[l] = true; allLinks[#allLinks + 1] = l end end
+for i, items in ipairs(dofile(ROOT .. "dev/fixtures/gear_sets.lua")) do
+  realSets[#realSets + 1] = { key = ("Member%02d"):format(i), items = items }
+  for _, l in pairs(items) do if not seen[l] then seen[l] = true; allLinks[#allLinks + 1] = l end end
 end
 table.sort(realSets, function(a, b) return a.key < b.key end)
 table.sort(allLinks)
@@ -83,134 +82,120 @@ local function deliver(from, prefix, msg)
 end
 
 ---------------------------------------------------------------------------
--- A client = its own Lua environment with the WoW API it needs
+-- A client = RavenquillExpedition/dev/testkit.lua's client (its own Lua environment, the REAL suite core) on this
+-- harness's clock and bus, plus the WoW API the addon needs
 ---------------------------------------------------------------------------
-local function strsplit(sep, s)
-  local out, pos = {}, 1
-  while true do
-    local i = s:find(sep, pos, true)
-    if not i then out[#out + 1] = s:sub(pos) break end
-    out[#out + 1] = s:sub(pos, i - 1); pos = i + 1
-  end
-  return table.unpack(out)
+local Kit = dofile(ROOT .. "../RavenquillExpedition/dev/testkit.lua")
+-- the kit's scheduler and bus interface, backed by this harness's clock (now / addTimer) and deliver()
+local kitSched = setmetatable({}, { __index = function(_, k) if k == "t" then return now end end })
+function kitSched.at(_, t, fn) addTimer(t - now, fn) end
+local kitBus = { clients = {} }
+function kitBus.member() end
+function kitBus.send(_, client, prefix, msg, chat)
+  assert(chat == "GUILD", "non-GUILD send: " .. tostring(chat))
+  deliver(client, prefix, msg)
 end
+
+local CA = "RavenquillExpedition_CraftAdvisor"
+local Files = dofile(ROOT .. "dev/files.lua") -- the addon's files, from its .toc
+local FILES = Files.list({ except = { "Data/Sources.lua", "Data/ExtraSources.lua", "Auction.lua", "RecipeSources.lua", "UI" } })
 
 local function NewClient(name, gear, db, opts)
   opts = opts or {}
   local first, surname = name:match("^(%S+) (%S+)$")
   local g = GUILD_BY[name]
-  local c = { name = name, online = true, gear = gear, units = {}, instance = false, combat = false,
-    rosterReady = opts.rosterReady ~= false, prints = {} }
-  local env = setmetatable({}, { __index = _G })
-  c.env = env
-  local frames = {}
-  local Frame = {}
-  Frame.__index = Frame
-  function Frame:SetScript(ev, fn) self.scripts[ev] = fn end
-  function Frame:RegisterEvent(ev) self.events[ev] = true end
-  function Frame:UnregisterEvent(ev) self.events[ev] = nil end
-  env.CreateFrame = function()
-    local f = setmetatable({ scripts = {}, events = {} }, Frame)
-    frames[#frames + 1] = f
-    return f
-  end
-  c.fire = function(ev, ...)
-    for _, f in ipairs(frames) do
-      if f.events[ev] and f.scripts.OnEvent then f.scripts.OnEvent(f, ev, ...) end
+  local files = {}
+  for i, f in ipairs(opts.files or FILES) do files[i] = { ROOT .. f, CA } end
+  local c
+  c = Kit.Client(kitSched, kitBus, name, { class = g.class, level = g.level, files = files,
+    noCore = opts.files ~= nil, -- the 0.2.0 client brings its own code (dev/fixtures/compat_0.2.0)
+    random = math.random, setup = function(env, kc)
+    c = kc
+    kc.gear, kc.units, kc.rosterReady, kc.prints = gear, {}, opts.rosterReady ~= false, {}
+    env.print = function(...) local t = {} for i = 1, select("#", ...) do t[i] = tostring(select(i, ...)) end kc.prints[#kc.prints + 1] = table.concat(t, " ") end
+    env.time = function() return 1800000000 + math.floor(now) end
+    env.GetServerTime = env.time
+    env.C_Timer = { After = function(d, fn) addTimer(d, function() if kc.online then fn() end end) end }
+    env.Ambiguate = function(n) return n end
+    env.GetNumSubgroupMembers = function() return 0 end
+    -- units: "player" plus whatever the test puts in c.units
+    local function U(u)
+      if u == "player" then return { first = first, surname = surname, class = g.class, level = kc.level or g.level, guid = "G-" .. name, items = kc.gear } end
+      return kc.units[u]
     end
-  end
-  env.print = function(...) local t = {} for i = 1, select("#", ...) do t[i] = tostring(select(i, ...)) end c.prints[#c.prints + 1] = table.concat(t, " ") end
-  env.unpack = table.unpack
-  env.strsplit = strsplit
-  env.wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
-  env.tinsert = table.insert
-  env.time = function() return 1800000000 + math.floor(now) end
-  env.GetTime = function() return now end
-  env.GetServerTime = function() return 1800000000 + math.floor(now) end
-  env.C_Timer = { After = function(d, fn) addTimer(d, function() if c.online then fn() end end) end }
-  env.GetBuildInfo = function() return "1.60.1", "70938", "", 16001 end
-  env.Constants = { CharacterNameSeparatorConsts = { CHARACTERNAME_SURNAME_SEPARATOR = " " } }
-  env.Ambiguate = function(n) return n end
-  env.SlashCmdList = {}
-  env.IsInGuild = function() return true end
-  env.IsInInstance = function() return c.instance end
-  env.InCombatLockdown = function() return c.combat end
-  env.GetRealmName = function() return "Realm" end
-  env.IsInRaid = function() return false end
-  env.GetNumSubgroupMembers = function() return 0 end
-  -- units: "player" plus whatever the test puts in c.units
-  local function U(u)
-    if u == "player" then return { first = first, surname = surname, class = g.class, level = c.level or g.level, guid = "G-" .. name, items = c.gear } end
-    return c.units[u]
-  end
-  env.UnitName = function(u) local x = U(u); if x then return x.first, x.surname end end
-  env.UnitNameUnmodified = env.UnitName
-  env.UnitClass = function(u) local x = U(u); if x then return x.class, x.class end end
-  env.UnitLevel = function(u) local x = U(u); return x and x.level end
-  env.UnitGUID = function(u) local x = U(u); return x and x.guid end
-  env.UnitIsPlayer = function(u) return U(u) ~= nil end
-  env.UnitIsUnit = function(a, b) local x, y = U(a), U(b); return x ~= nil and y ~= nil and x.guid == y.guid end
-  env.UnitIsInMyGuild = function(u) return U(u) ~= nil end
-  env.CanInspect = function() return true end
-  env.NotifyInspect = function() end
-  env.GetInventoryItemLink = function(u, slot) local x = U(u); return x and x.items and x.items[slot] end
-  env.GetNumGuildMembers = function() return c.rosterReady and #GUILD or 0 end
-  env.GetGuildRosterInfo = function(i)
-    local m = GUILD[i]
-    local online = clients[m.name] and clients[m.name].online or (m.name:match("^[DEFG]") ~= nil)
-    return m.name, "Member", 1, m.level, m.class, "Zone", "", "", online, 0, m.class
-  end
-  env.C_GuildInfo = { GuildRoster = function() end }
-  env.C_Item = {
-    GetItemInfoInstant = function() return nil end,
-    GetItemInfo = function() return nil end,
-    GetItemStats = function() return {} end,
-  }
-  env.C_SpellBook = { IsSpellKnown = function() return false end }
-  if opts.knownSpells then
-    env.IsPlayerSpell = function(id) for _, k in ipairs(opts.knownSpells) do if k == id then return true end end return false end
-  end
-  if opts.talents then
-    -- fake C_Traits: c.talents = { {posX, ranks}, ... } (changeable during the test)
-    c.talents = opts.talents
-    env.C_ClassTalents = { GetActiveConfigID = function() return 7 end }
-    env.C_Traits = {
-      GetConfigInfo = function(id) if id == 7 then return { treeIDs = { 70 } } end end,
-      GetTreeNodes = function() local ids = {} for i in ipairs(c.talents) do ids[i] = i end return ids end,
-      GetNodeInfo = function(_, i) local n = c.talents[i]; if n then return { posX = n[1], ranksPurchased = n[2] } end end,
+    env.UnitName = function(u) local x = U(u); if x then return x.first, x.surname end end
+    env.UnitNameUnmodified = env.UnitName
+    env.UnitClass = function(u) local x = U(u); if x then return x.class, x.class end end
+    env.UnitLevel = function(u) local x = U(u); return x and x.level end
+    env.UnitGUID = function(u) local x = U(u); return x and x.guid end
+    env.UnitIsPlayer = function(u) return U(u) ~= nil end
+    env.UnitIsUnit = function(a, b) local x, y = U(a), U(b); return x ~= nil and y ~= nil and x.guid == y.guid end
+    env.UnitIsInMyGuild = function(u) return U(u) ~= nil end
+    env.CanInspect = function() return true end
+    env.NotifyInspect = function() end
+    env.GetInventoryItemLink = function(u, slot) local x = U(u); return x and x.items and x.items[slot] end
+    env.GetNumGuildMembers = function() return kc.rosterReady and #GUILD or 0 end
+    env.GetGuildRosterInfo = function(i)
+      local m = GUILD[i]
+      if not m then return end
+      local online = clients[m.name] and clients[m.name].online or (m.name:match("^[DEFG]") ~= nil)
+      return m.name, "Member", 1, m.level, m.class, "Zone", "", "", online, 0, m.class
+    end
+    env.C_GuildInfo = { GuildRoster = function() end }
+    env.C_Item = {
+      GetItemInfoInstant = function() return nil end,
+      GetItemInfo = function() return nil end,
+      GetItemStats = function() return {} end,
     }
-  end
-  env.C_ChatInfo = {
-    RegisterAddonMessagePrefix = function() return true end,
-    SendAddonMessage = function(prefix, msg, chan)
+    env.C_SpellBook = { IsSpellKnown = function() return false end }
+    if opts.knownSpells then
+      env.IsPlayerSpell = function(id) for _, k in ipairs(opts.knownSpells) do if k == id then return true end end return false end
+    end
+    if opts.talents then
+      -- fake C_Traits: c.talents = { {posX, ranks}, ... } (changeable during the test)
+      kc.talents = opts.talents
+      env.C_ClassTalents = { GetActiveConfigID = function() return 7 end }
+      env.C_Traits = {
+        GetConfigInfo = function(id) if id == 7 then return { treeIDs = { 70 } } end end,
+        GetTreeNodes = function() local ids = {} for i in ipairs(kc.talents) do ids[i] = i end return ids end,
+        GetNodeInfo = function(_, i) local n = kc.talents[i]; if n then return { posX = n[1], ranksPurchased = n[2] } end end,
+      }
+    end
+    -- a send result from the test (bus.result: 3 / 8 = throttled), else the kit's send
+    local send = env.C_ChatInfo.SendAddonMessage
+    env.C_ChatInfo.SendAddonMessage = function(prefix, msg, chan)
       assert(#msg <= 255, "message over 255 bytes: " .. #msg)
-      assert(chan == "GUILD", "non-GUILD send: " .. tostring(chan))
-      if bus.result then local r = bus.result(msg, c); if r ~= nil and r ~= 0 then return r end end
-      deliver(c, prefix, msg)
-      return 0
-    end,
-  }
-  env.RavenquillExpeditionCraftDB = db
-  local ns = {}
-  for _, f in ipairs(opts.files or { "Locales/enUS.lua", "Locales/deDE.lua", "Data/Leatherworking.lua", "Data/Blacksmithing.lua", "Data/Tailoring.lua", "Data/Engineering.lua",
-    "Data/Enchanting.lua", "Data/Enchants.lua", "Data/Weights.lua", "Scoring.lua", "Core.lua", "Spec.lua", "Sync.lua" }) do
-    assert(loadfile(ROOT .. f, "t", env))("RavenquillExpedition_CraftAdvisor", ns)
-  end
+      if bus.result then local r = bus.result(msg, kc); if r ~= nil and r ~= 0 then return r end end
+      return send(prefix, msg, chan)
+    end
+    env.RavenquillExpeditionCraftDB = db
+    if opts.files then
+      -- the 0.2.0 code uses its frame as a namespace: plain frames (only the methods it calls), on the kit's list
+      local Frame = {}
+      Frame.__index = Frame
+      function Frame:SetScript(ev, fn) self._scripts[ev] = fn end
+      function Frame:RegisterEvent(ev) self._events[ev] = true end
+      function Frame:UnregisterEvent(ev) self._events[ev] = nil end
+      env.CreateFrame = function()
+        local f = setmetatable({ _scripts = {}, _events = {} }, Frame)
+        kc.frames[#kc.frames + 1] = f
+        return f
+      end
+    end
+  end })
+  local ns = c.ns[CA]
   c.GCA = ns.GCA
   c.S = ns.GCA.Sync
   c.C = ns.GCA.SyncConst
   return c
 end
 
--- log a client in: ADDON_LOADED, PLAYER_LOGIN, PLAYER_ENTERING_WORLD, roster
+-- log a client in: ADDON_LOADED (core, addon), PLAYER_LOGIN, PLAYER_ENTERING_WORLD, roster
 local function Login(name, gear, db, opts)
   if clients[name] then clients[name].online = false end
   local c = NewClient(name, gear, db or {}, opts)
   clients[name] = c
-  c.fire("ADDON_LOADED", "RavenquillExpedition_CraftAdvisor")
-  c.fire("PLAYER_LOGIN")
-  c.fire("PLAYER_ENTERING_WORLD", true, false)
-  if c.rosterReady then c.fire("GUILD_ROSTER_UPDATE") end
+  c.login()
   return c
 end
 local function Logout(c) c.online = false end
@@ -436,6 +421,21 @@ check(M:ApplyRecord("Bert Hill", { subject = "Finn Moor", class = "PRIEST", leve
 check(M:ApplyRecord("Finn Moor", { subject = "", class = "PRIEST", level = 34, ts = base + 10, items = copy(GEAR[3]) }), "same-age self beats inspect")
 check(not M:ApplyRecord("Bert Hill", { subject = "Cora Vale", class = "HUNTER", level = 31, ts = base + 99, items = {} }), "record about ourselves rejected")
 check(not M:ApplyRecord("Bert Hill", { subject = "Stranger Danger", class = "HUNTER", level = 31, ts = base + 99, items = {} }), "relayed non-guildie rejected")
+-- forged or careless relays can't lock a member's own data (rework 5a)
+local now0 = M:Now()
+M.db.members["Gina Reed"] = { items = copy(GEAR[1]), ts = now0 - 50, time = Cc.env.time(), source = "self", class = "SHAMAN", level = 32 }
+check(not M:ApplyRecord("Bert Hill", { subject = "Gina Reed", class = "SHAMAN", level = 32, ts = now0, items = copy(GEAR[2]) }),
+  "a relay never overwrites the member's own fresh record, even with a newer stamp")
+M.db.members["Gina Reed"].time = Cc.env.time() - 31 * 86400
+check(M:ApplyRecord("Bert Hill", { subject = "Gina Reed", class = "SHAMAN", level = 32, ts = now0, items = copy(GEAR[2]) }),
+  "an own record older than 30 days can be replaced by a newer relay")
+M.db.members["Gina Reed"] = nil
+check(M:ApplyRecord("Bert Hill", { subject = "Gina Reed", class = "SHAMAN", level = 32, ts = now0 + 100, items = copy(GEAR[2]) })
+  and M.db.members["Gina Reed"].ts == M:Now(), "a relay stamped in the future is stored as now")
+check(M:ApplyRecord("Gina Reed", { subject = "", class = "SHAMAN", level = 32, ts = now0 - 500, items = copy(GEAR[3]) })
+  and M.db.members["Gina Reed"].source == "self" and M.db.members["Gina Reed"].from == nil,
+  "the member's own record replaces a relayed one even when its stamp is older")
+M.db.members["Gina Reed"] = nil -- (later sections expect no record for Gina)
 
 -- H5.1: "crafted" marks are local only and end when a synced record shows the item worn (enchants: the enchant ID on the slot)
 do
@@ -479,39 +479,44 @@ local junk = {
   "G;;4;z",                                                       -- too few fields
   "X;whatever", "", ";;;;;;;;", "G;;;;;;;",
 }
-local errs = 0
+local errs, errs0 = 0, #Cc.errors
 for i, msg in ipairs(junk) do
   if i ~= 3 then
     local ok = pcall(Cc.fire, "CHAT_MSG_ADDON", "GCAdv1", msg, "GUILD", "Gina Reed")
     if not ok then errs = errs + 1 end
-    Cc.S.intake = {}
+    Cc.RQ.Comm.intake = {} -- the core reads at most 12 per sender and minute
   end
 end
+errs = errs + #Cc.errors - errs0 -- errors in handlers are caught by the core (RQ:Call) and reported
 check(errs == 0 and Cc.S.received == before, ("no errors, nothing stored (%d stored)"):format(Cc.S.received - before))
 local ginaOwn = M.db.members["Gina Reed"]
 check(not ginaOwn or ginaOwn.source ~= "self", "no self record for Gina from junk")
 
 ---------------------------------------------------------------------------
-section("Echo watchdog: no echo -> stop + one warning; zoning right after a send is no false alarm (F#10)")
+section("No echo: the core's slow mode (1 per 5 min, one warning) is our 'paused'; Retry sync leaves it")
 ---------------------------------------------------------------------------
 advance(300)
 bus.echo = false
 A.gear[6] = GEAR[2][6] or GEAR[3][6]
 A.fire("PLAYER_EQUIPMENT_CHANGED")
-advance(140) -- sent by now, no echo
-A.instance = true; A.fire("PLAYER_ENTERING_WORLD", false, false)
-advance(400)
-check(not A.S.stopped, "zoned in after sending: not paused")
-A.instance = false; A.fire("PLAYER_ENTERING_WORLD", false, false)
+advance(600)
+local warn = 0 for _, p in ipairs(A.prints) do if p:find("sending slowly", 1, true) then warn = warn + 1 end end
+check(A.RQ:CommState().slow and A.GCA:SyncState() == "paused" and warn == 1,
+  "nothing echoed for 120 s after a loss: slow mode, sync state 'paused', the core warns once (" .. warn .. ")")
+local lines = {}
+A.GCA:SyncStatus(function(l) lines[#lines + 1] = l end)
+check(lines[1] == A.GCA.L.SYNC_STOPPED_MSG and lines[1]:find("sending continues slowly", 1, true), "sync status says sending continues slowly")
+local t1 = now
 A.gear[6] = GEAR[3][6] or GEAR[1][6]
 A.fire("PLAYER_EQUIPMENT_CHANGED")
-advance(800)
-local warn = 0 for _, p in ipairs(A.prints) do if p:find("sync paused") then warn = warn + 1 end end
-check(A.S.stopped and warn == 1, "no echo for 300 s -> paused, one warning (" .. warn .. ")")
+advance(900)
+local slowSent = busSince(t1, function(e) return e.from == "Anna Stone" end)
+check(slowSent >= 1 and slowSent <= 4, "while slow, sending continues at 1 per 5 min (" .. slowSent .. " in 15 min)")
 bus.echo = true
 A.GCA:SyncRetry()
 advance(300)
-check(not A.S.stopped, "/gca sync retry resumes")
+check(not A.RQ:CommState().slow and A.GCA:SyncState() ~= "paused" and sameGear(rec(B, "Anna Stone").items, A.gear, B.GCA),
+  "Retry sync: normal pace again, the own record arrives")
 
 ---------------------------------------------------------------------------
 section("Roster not loaded yet: Q deferred until it is")
@@ -549,16 +554,16 @@ section("Review fixes: realm-suffixed echo, own record retried after expiry, rel
 -- 1. echo arriving as "<name>-<realm>" counts as our own echo, not as a peer
 local R1 = E.GCA
 local peersBefore = 0 for _ in pairs(E.S.peers) do peersBefore = peersBefore + 1 end
-E.S.echoWait = now
+E.S.echoSeen = nil
 E.fire("CHAT_MSG_ADDON", "GCAdv1", "Q;2", "GUILD", "Cora Alt-Realm")
 local peersAfter = 0 for _ in pairs(E.S.peers) do peersAfter = peersAfter + 1 end
-check(E.S.echoWait == nil and E.S.echoRaw == "Cora Alt-Realm" and peersAfter == peersBefore, "realm-suffixed own echo recognised")
+check(E.S.echoSeen == now and peersAfter == peersBefore, "realm-suffixed own echo recognised")
 check(R1.db.members["Cora Alt-Realm"] == nil, "no member record for ourselves under another name")
 -- 2. own record dropped from the queue (guild busy) is retried later
 advance(300)
 local busyUntil = now + 400
 -- other addon users' traffic: 10 messages every 10 s keeps the "busy guild channel" hold on
-local function busy() if now < busyUntil then for _ = 1, 10 do E.S.heard[#E.S.heard + 1] = now end; addTimer(10, busy) end end
+local function busy() if now < busyUntil then for _ = 1, 10 do E.RQ.Comm.heard[#E.RQ.Comm.heard + 1] = now end; addTimer(10, busy) end end
 busy()
 local dropsBefore = 0
 E.gear[7] = GEAR[1][7] or GEAR[4][7]
@@ -566,7 +571,7 @@ E.fire("PLAYER_EQUIPMENT_CHANGED")
 t0 = now
 advance(380)
 check(busSince(t0, function(e) return e.from == "Cora Alt" and e.msg:match("^G;;") end) == 0, "nothing sent while the guild channel is busy")
-check(#E.S.q == 0, "own record dropped from the queue after 300 s unsent")
+check(E.S.pending.self == nil and E.RQ:CommState().records == 0, "own record dropped from the core's record lane after 300 s unsent")
 advance(400)
 check(sameGear(rec(A, "Cora Alt").items, E.gear, A.GCA), "own record went out after the busy period (retried)")
 -- 3. relay of an inspect without a level falls back to the roster level
@@ -588,7 +593,7 @@ for _, g in ipairs({ { name = "Ivy Lake", class = "ROGUE", level = 40 }, { name 
   GUILD[#GUILD + 1] = g; GUILD_BY[g.name] = g
 end
 advance(100)
-local legacyFiles = { "Data/Leatherworking.lua", "dev/legacy_0.2.0/Core.lua", "dev/legacy_0.2.0/Sync.lua" }
+local legacyFiles = { "Data/Leatherworking.lua", "dev/fixtures/compat_0.2.0/Core.lua", "dev/fixtures/compat_0.2.0/Sync.lua" }
 local K = Login("Kai Old", copy(GEAR[1]), {}, { files = legacyFiles })
 advance(120)
 t0 = now
@@ -626,7 +631,7 @@ local G = J.GCA
 local before = G.db.specs["Ivy Lake"].spec
 J.fire("CHAT_MSG_ADDON", "GCAdv1", "S;" .. G.b36(G.SPEC_INDEX["MAGE/FIRE"]) .. ";" .. G.b36(G:Now()), "GUILD", "Ivy Lake")
 check(G.db.specs["Ivy Lake"].spec == before, "spec of another class than the roster says: ignored")
-J.S.intake = {}
+J.RQ.Comm.intake = {}
 J.fire("CHAT_MSG_ADDON", "GCAdv1", "S;" .. G.b36(G.SPEC_INDEX["ROGUE/COMBAT"]) .. ";" .. G.b36(G:Now() + 9999), "GUILD", "Ivy Lake")
 check(G.db.specs["Ivy Lake"].spec == before, "future timestamp: ignored")
 J.fire("CHAT_MSG_ADDON", "GCAdv1", "S;" .. G.b36(99) .. ";" .. G.b36(G:Now()), "GUILD", "Ivy Lake")
@@ -643,11 +648,11 @@ section("K0/M1: one chatty sender can't hold everyone's sending; several busy se
 ---------------------------------------------------------------------------
 do
   advance(900)
-  A.S.stopped, A.S.echoWait = nil, nil
+  A.RQ:CommResume()
   local spamUntil = now + 900
   local function spam()
     if now < spamUntil then
-      -- 1 junk message/s from one guildie (unknown type; 48 of every 60 are over the intake cap)
+      -- 1 junk message/s from one guildie (unknown type; 45 of every 60 are over the core's intake cap of 15)
       A.fire("CHAT_MSG_ADDON", "GCAdv1", "X;junk", "GUILD", "Spam Bot")
       addTimer(1, spam)
     end
@@ -659,16 +664,20 @@ do
   advance(840)
   local sent = busSince(t1, function(e) return e.from == A.name and e.msg:match("^G;;") end)
   local recent = 0
-  for _, t in ipairs(A.S.heard) do if now - t <= 60 then recent = recent + 1 end end
-  check(sent >= 1 and recent <= A.C.HEARD_PER_SENDER,
+  for _, t in ipairs(A.RQ.Comm.heard) do if now - t <= 60 then recent = recent + 1 end end
+  check(sent >= 1 and recent <= A.RQ.CommConst.HEARD_PER_SENDER,
     ("own gear goes out while one guildie sends 1 msg/s (%d chunk(s) sent, %d heard in the last 60 s)"):format(sent, recent))
   advance(200)
-  -- three guildies at a normal client's pace (4/min each = 12 heard >= BUSY_HEARD): we hold
-  A.S.heard = {}
+  -- enough guildies at 4/min each to reach BUSY_HEARD (at most HEARD_PER_SENDER count per sender and intake window;
+  -- the window restarts after 60 s, so a 4/min sender counts only 3-4 in any minute: two senders more): we hold
+  local CC = A.RQ.CommConst
+  local busy = {}
+  for i = 1, math.ceil(CC.BUSY_HEARD / CC.HEARD_PER_SENDER) + 2 do busy[i] = "Busy" .. i .. " Guildie" end
+  A.RQ.Comm.heard = {}
   local busyUntil2 = now + 300
   local function chatter()
     if now < busyUntil2 then
-      for _, who in ipairs({ "Dora Field", "Emil Brook", "Finn Moor" }) do
+      for _, who in ipairs(busy) do
         A.fire("CHAT_MSG_ADDON", "GCAdv1", "X;busy", "GUILD", who)
       end
       addTimer(15, chatter)
@@ -681,7 +690,7 @@ do
   local t2 = now
   advance(200)
   check(busSince(t2, function(e) return e.from == A.name and e.msg:match("^G;;") end) == 0,
-    "three busy senders (12 heard/min): our send is held (" .. #A.S.heard .. " heard)")
+    ("%d busy senders (%d heard/min, hold at %d): our send is held (%d heard)"):format(#busy, #busy * 4, CC.BUSY_HEARD, #A.RQ.Comm.heard))
   advance(600)
   check(busSince(t2, function(e) return e.from == A.name and e.msg:match("^G;;") end) >= 1, "held send goes out once it is quiet")
 end
@@ -847,12 +856,12 @@ do
   -- L7
   local function resumed() local n = 0 for _, p in ipairs(A.prints) do if p:find("Guild sync resumed", 1, true) then n = n + 1 end end return n end
   local n0 = resumed()
-  A.S.stopped = nil
+  A.RQ:CommResume()
   A.GCA:SyncRetry()
   check(resumed() == n0, "SyncRetry while not paused: no 'resumed' message")
-  A.S.stopped = true
+  A.RQ.Comm.slow = true -- the core's slow mode (nothing came back)
   A.GCA:SyncRetry()
-  check(resumed() == n0 + 1 and not A.S.stopped, "SyncRetry while paused: resumed + message")
+  check(resumed() == n0 + 1 and not A.RQ:CommState().slow, "SyncRetry while paused: resumed + message, slow mode left")
 end
 
 ---------------------------------------------------------------------------
@@ -935,19 +944,23 @@ do
   if db.members["Dora Field"] then db.members["Dora Field"].time = doraTime end
 end
 
-section("Pacing: nobody sent more than the bucket allows")
+section("Pacing: nobody sent more than the core's budget allows (4 per 60 s, 22 per 600 s)")
 ---------------------------------------------------------------------------
-local worstRate = 0
-for name in pairs(bus.sentBy) do
-  local times = {}
-  for _, e in ipairs(bus.log) do if e.from == name then times[#times + 1] = e.t end end
-  for i = 1, #times do
-    local n = 0
-    for j = i, #times do if times[j] - times[i] < 120 then n = n + 1 end end
-    worstRate = math.max(worstRate, n)
+local function worst(window)
+  local w = 0
+  for name in pairs(bus.sentBy) do
+    local times = {}
+    for _, e in ipairs(bus.log) do if e.from == name then times[#times + 1] = e.t end end
+    for i = 1, #times do
+      local n = 0
+      for j = i, #times do if times[j] - times[i] < window then n = n + 1 end end
+      w = math.max(w, n)
+    end
   end
+  return w
 end
-check(worstRate <= 2 + 4, "max messages by one client in any 120 s window: " .. worstRate .. " (bucket allows 2 + 4)")
+local w60, w600 = worst(60), worst(600)
+check(w60 <= 4 and w600 <= 22, ("max messages by one client: %d in any 60 s (<= 4), %d in any 600 s (<= 22)"):format(w60, w600))
 local total = 0 for _, n in pairs(bus.sentBy) do total = total + n end
 print(("  info: %d messages on the bus over %.0f simulated minutes"):format(total, now / 60))
 

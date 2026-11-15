@@ -1,0 +1,19 @@
+# Editor settings for the suite (existing files are not re-saved for line endings).
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.lua]
+indent_style = space
+indent_size = 2
+
+[*.{sh,yml,yaml}]
+end_of_line = lf
+indent_style = space
+indent_size = 2
+
+[*.{md,toc}]
+trim_trailing_whitespace = false

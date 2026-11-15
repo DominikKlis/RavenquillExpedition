@@ -10,5 +10,12 @@
 ## AddonCompartmentFunc: RavenquillExpedition_OnCompartmentClick
 
 Core.lua
+Names.lua
+Roster.lua
+Locale.lua
+Module.lua
+Wire.lua
 Comm.lua
+Options.lua
 Overview.lua
+Launcher.lua

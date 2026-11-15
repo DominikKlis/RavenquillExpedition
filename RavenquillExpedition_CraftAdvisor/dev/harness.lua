@@ -86,7 +86,10 @@ C_Item = {
 }
 C_SpellBook = { IsSpellKnown = function(id) return id == 2149 or id == 2160 or id == 3762 end }
 local ns = {}
-local function load(f) local chunk = assert(loadfile("C:/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/RavenquillExpedition_CraftAdvisor/"..f)); chunk("RavenquillExpedition_CraftAdvisor", ns) end
+local ROOT = (arg[0]:gsub("[^/\\]*$", "")) .. "../"
+local function load(f) local chunk = assert(loadfile(ROOT .. f)); chunk("RavenquillExpedition_CraftAdvisor", ns) end
+local K = dofile(ROOT .. "dev/corekit.lua")() -- the real suite core, in this (global) environment
+local Files = dofile(ROOT .. "dev/files.lua") -- the addon's files, from its .toc
 load("Locales/enUS.lua"); load("Locales/deDE.lua")
 load("Data/Leatherworking.lua"); load("Data/Blacksmithing.lua"); load("Data/Tailoring.lua"); load("Data/Engineering.lua")
 load("Data/Enchanting.lua"); load("Data/Enchants.lua")
@@ -94,9 +97,10 @@ load("Data/Enchanting.lua"); load("Data/Enchants.lua")
 itemMeta[2302] = { loc="INVTYPE_FEET", sub=2, lvl=1, stats={RESISTANCE0_NAME=30} }
 itemMeta[2300] = { loc="INVTYPE_CHEST", sub=2, lvl=8, stats={RESISTANCE0_NAME=60, ITEM_MOD_AGILITY_SHORT=1} }
 itemMeta[4244] = { loc="INVTYPE_CHEST", sub=2, lvl=20, stats={RESISTANCE0_NAME=90, ITEM_MOD_AGILITY_SHORT=4, ITEM_MOD_STAMINA_SHORT=3} }
-load("Data/Weights.lua"); load("Scoring.lua"); load("Core.lua"); load("Spec.lua"); load("UI.lua")
+Files.load(Files.list({ from = "Data/Weights.lua", except = { "Data/Sources.lua", "Sync.lua", "RecipeSources.lua" } }), ns)
+K.done()
 local GCA = ns.GCA
-local h = rawget(GCA,"_scripts").OnEvent
+local h = function(_, ev, ...) K.fire(ev, ...) end
 h(GCA, "ADDON_LOADED", "RavenquillExpedition_CraftAdvisor")
 h(GCA, "PLAYER_LOGIN"); runTimers()
 h(GCA, "GUILD_ROSTER_UPDATE"); runTimers()
@@ -146,7 +150,7 @@ print("with unlearned:", #e)
 check(#e >= 1, "show unlearned: still computes")
 check(GCA.db.settings.memberView == "sheet", "K4: member view defaults to the character sheet")
 GCA.db.settings.memberView = "list" -- K4: the list checks below need the list variant
-SlashCmdList.GUILDCRAFTADVISOR(""); runTimers()
+GCA.UI:Toggle(); runTimers()
 print("UI shown", GCA.UI.frame:IsShown(), "selected", GCA.UI.selected, "auto", GCA.UI.autoKey, "first", GCA.UI.memberList.rows[1].data.key, GCA.UI.memberList.rows[1].data.best, "rows", #GCA.UI.sugList.rows)
 check(GCA.UI.frame:IsShown() and GCA.UI.selected == "Buddy Stone" and #GCA.UI.sugList.rows >= 1, "/gca opens the window with Buddy selected and a suggestion row")
 -- plan I, end to end (real Core list -> Refresh): Buddy's chest section comes first (its header, then the vest row);
@@ -161,7 +165,7 @@ do
   local first = secs[1]
   check(first and first.data.sec.key == 5 and #first.data.sec.rows == 1 and sl.rows[1].data == first.data.sec.rows[1]
     and shownSecs == 1 and fold and #fold.data.secs == 14 and sl.data[#sl.data] == fold.data
-    and (GCA.UI.errorCount or 0) == 0 and GCA.db.lastError == nil,
+    and (GCA.UI.errorCount or 0) == 0 and GCA:Diag().lastError == nil,
     "I/K1: real refresh -> chest section first with the vest row, the 14 others folded into one last line, no reported error ("
     .. shownSecs .. " sections, " .. (fold and #fold.data.secs or 0) .. " folded)")
   -- K2: the default view is guild needs; Buddy's vest is its first row (real Core GuildNeeds)
@@ -192,7 +196,7 @@ do
     "K4: sheet on real data: Buddy kept, chest selected (biggest upgrade, badge), the vest compared; feet worn, no badge")
   check(#diffs == 3 and all:find("+30 Armor", 1, true) and all:find("+3 Agility", 1, true) and all:find("+3 Stamina", 1, true),
     "K4: stat differences from the real item stats: " .. all)
-  check((UIx.errorCount or 0) == 0 and GCA.db.lastError == nil, "K4: no error reported by the sheet")
+  check((UIx.errorCount or 0) == 0 and GCA:Diag().lastError == nil, "K4: no error reported by the sheet")
   UIx:SetMemberMode("list")
 end
 -- U1 (Buddy above was selected by the inspect): with nothing selected, the best guildie with a known upgrade is picked,
@@ -251,15 +255,15 @@ local counts, recorded = GCA:UpgradeCounts()
 print("upgrade counts", counts[1] and counts[1].prof, counts[1] and counts[1].upgrades, recorded)
 check(#counts == 1 and counts[1].prof == "Leatherworking" and counts[1].upgrades == 1 and recorded == 2, "minimap counts: Leatherworking, 1 known upgrade, 2 guildies recorded")
 local mark = #printed
-SlashCmdList.GUILDCRAFTADVISOR("known debug")
+GCA:KnownDebug()
 check(printedSince(mark):find("Leatherworking item recipes: 501 in data, IsSpellKnown 3", 1, true), "/gca known debug: 501 LW recipes, 3 known")
 mark = #printed
-SlashCmdList.GUILDCRAFTADVISOR("stats item:4244::::")
+GCA:OnSlash("stats item:4244::::")
 local out = printedSince(mark)
 check(out:find("ITEM_MOD_AGILITY_SHORT=4", 1, true) and out:find("Canonical: Agility=4, Armor=90, Stamina=3", 1, true)
   and out:find("Score for Buddy Stone", 1, true), "/gca stats prints raw, canonical and the score")
 mark = #printed
-SlashCmdList.GUILDCRAFTADVISOR("spec debug")
+GCA:SpecDebug()
 out = printedSince(mark)
 check(out:find("announced over sync: COMBAT", 1, true) and out:find("ignored (off by default)", 1, true), "/gca spec debug: announced spec, inspect setting")
 -- offer test: OpenChat path where the parse works
@@ -267,29 +271,30 @@ local box = { t = "" }
 function box:GetText() return self.t end
 function box:SetText(t) self.t = t end
 ChatFrameUtil = { OpenChat = function(text) box.t = text:gsub("^/w %S+ ", "") end, GetActiveWindow = function() return box end }
-load("UI.lua")
+Files.loadUI(ns)
 local row = ns.GCA.UI -- reuse created UI? simpler: call through a fresh UI instance not needed
 
+-- the minimap button is the suite's launcher (core Launcher.lua); our options show / hide it
 Minimap = CreateFrame()
-local mm = getmetatable(Minimap).__index
 rawset(Minimap, "GetWidth", function() return 140 end)
 rawset(Minimap, "GetCenter", function() return 100, 100 end)
 rawset(Minimap, "GetEffectiveScale", function() return 1 end)
-function GetCursorPosition() return 30, 100 end
-load("Minimap.lua")
-GCA:UpdateMinimapButton()
-local b = _G.GuildCraftAdvisorMinimapButton
-print("minimap angle", GCA.db.settings.minimapAngle)
-check(b ~= nil, "minimap button created")
+local RQ = K.RQ
+RQ:UpdateLauncher()
+local b = RQ:LauncherButton()
+check(b ~= nil and _G.GuildCraftAdvisorMinimapButton == nil, "the suite launcher is the minimap button (no own Craft Advisor button)")
 tipLines = {}
 local mmEnter = b and rawget(b, "_scripts") and rawget(b, "_scripts").OnEnter
 local okTip = mmEnter and pcall(mmEnter, b)
-check(okTip and table.concat(tipLines, " | "):find("Lederverarbeitung: 1 upgrade(s) you can craft for 1 guildie(s)", 1, true),
-  "minimap tooltip: per-profession count of known upgrades: " .. table.concat(tipLines, " | "))
-SlashCmdList.GUILDCRAFTADVISOR("minimap")
-check(GCA.db.settings.minimapHide == true, "/gca minimap hides the button")
-SlashCmdList.GUILDCRAFTADVISOR("minimap")
-check(not GCA.db.settings.minimapHide, "/gca minimap shows it again")
+local tipText = table.concat(tipLines, " | ")
+check(okTip and tipText:find("Guild Craft Advisor: " .. (GCA:OverviewStatus() or RQ.LauncherL.NO_STATUS), 1, true) and tipText:find("Right-click", 1, true),
+  "launcher tooltip: the Craft Advisor's status line, right-click opens our window: " .. tipText)
+local showOpt
+for _, o in ipairs(GCA.options) do if o.label == ns.L.OPT_MINIMAP then showOpt = o end end
+showOpt.set(false)
+check(showOpt.get() == false and RavenquillExpeditionDB.launcher.hide == true and not b:IsShown(), "option 'show minimap button' off hides the launcher")
+showOpt.set(true)
+check(showOpt.get() == true and not RavenquillExpeditionDB.launcher.hide and b:IsShown(), "and on shows it again")
 -- deDE client: positional format specifiers ("%1$s") crashed FormatToPattern with "invalid capture index" (2026-11-13)
 do
   local F = GCA.FormatToPattern

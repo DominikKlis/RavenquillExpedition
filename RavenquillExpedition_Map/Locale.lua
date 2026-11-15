@@ -1,4 +1,4 @@
--- Strings: English defaults, German overrides. Same pattern as the Highlights module's Locale.lua.
+-- Strings, English and German (ns.Locales); the core turns them into ns.L. Same pattern as the Highlights module.
 -- Never pass a client global (e.g. ERR_*) to string.format: deDE uses positional "%1$s".
 local ADDON, ns = ...
 
@@ -20,9 +20,9 @@ local L = {
 
   ON = "on", OFF = "off",
   FAKE_NOPOS = "Your position isn't available here (instance?), so no test pins.",
+  MAP_COMBAT = "The world map can't be opened from here during combat – open it with your key (M) or after combat.",
   OV_STATUS = "On the map: %d · sharing %s",
   OV_SLOW = " · your messages aren't getting through",
-  SLOW_MODE = "Your position messages aren't coming back from the server – sending only every 5 min until they do.",
 
   SEC_SHARING = "Sharing",
   SEC_DISPLAY = "Display",
@@ -59,9 +59,9 @@ local deDE = {
 
   ON = "an", OFF = "aus",
   FAKE_NOPOS = "Deine Position ist hier nicht verfügbar (Instanz?), daher keine Testpunkte.",
+  MAP_COMBAT = "Die Weltkarte lässt sich im Kampf nicht von hier öffnen – öffne sie mit deiner Taste (M) oder nach dem Kampf.",
   OV_STATUS = "Auf der Karte: %d · Teilen %s",
   OV_SLOW = " · deine Nachrichten kommen nicht an",
-  SLOW_MODE = "Deine Positionsnachrichten kommen nicht vom Server zurück – es wird nur noch alle 5 Min. gesendet, bis sie wieder ankommen.",
 
   SEC_SHARING = "Teilen",
   SEC_DISPLAY = "Anzeige",
@@ -81,9 +81,6 @@ local deDE = {
   TT_DIAG = "Technische Angaben zum Kopieren für alle, die dir beim Addon helfen.",
 }
 
-if GetLocale() == "deDE" then
-  for k, v in pairs(deDE) do L[k] = v end
-end
-
--- Missing keys fall back to the key itself, so a typo shows up instead of erroring.
-ns.L = setmetatable(L, { __index = function(_, k) return k end })
+-- the core picks the client's language, falls back to English, then to the key (core Locale.lua)
+ns.Locales = { enUS = L, deDE = deDE }
+ns.L = RavenquillExpedition.NewLocale(ns.Locales)

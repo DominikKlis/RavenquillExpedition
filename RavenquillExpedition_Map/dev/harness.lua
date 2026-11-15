@@ -1,5 +1,6 @@
--- Offline Step 1 harness for RavenquillExpedition_Map: mocks the WoW API and HereBeDragons, loads Locale/Map/Pins,
--- and asserts settings, notice, test-pin lifecycle, minimap rule, self pin, tooltips, clicks, core routing, deDE.
+-- Offline harness for RavenquillExpedition_Map: mocks the WoW API and HereBeDragons, loads the real core and then
+-- Locale/Map/Pins/Sync, and asserts settings, notice, test-pin lifecycle, minimap rule, self pin, tooltips, clicks,
+-- the core module (options, overview), deDE.
 -- Run from anywhere:  lua "<addon>/dev/harness.lua"      (exit code 1 on failure)
 -- HereBeDragons itself is NOT exercised here (it's mocked); real placement can only be checked in game.
 local DIR = (arg and arg[0] or ""):gsub("[/\\]dev[/\\]harness%.lua$", "")
@@ -21,7 +22,11 @@ local function NewWorld(opts)
   env.GetServerTime = env.time
   env.C_Timer = {
     After = function(t, fn) timers[#timers + 1] = { at = clock + t, fn = fn } end,
-    NewTicker = function(t, fn) timers[#timers + 1] = { at = clock + t, fn = fn, every = t } end,
+    NewTicker = function(t, fn)
+      local tm = { at = clock + t, fn = fn, every = t }
+      timers[#timers + 1] = tm
+      return { Cancel = function() for i, x in ipairs(timers) do if x == tm then table.remove(timers, i) return end end end }
+    end,
   }
   local function advance(sec)
     local target = clock + sec
@@ -87,11 +92,21 @@ local function NewWorld(opts)
       CreateTexture = function() return NewFrame("tex") end,
       CreateFontString = function() return NewFrame("fs") end,
       GetZoom = function() return 2 end,
+      SetParent = function(s, p) s.parent = p end,
+      SetPoint = function(s, ...) s.point = { ... }; s.points = (s.points or 0) + 1 end,
+      SetScale = function(s, v) s.scale = v end,
+      SetAllPoints = function(s, o) s.allPoints = o end,
+      GetWidth = function(s) return s.w or (s.allPoints and s.allPoints:GetWidth()) or 0 end,
+      GetHeight = function(s) return s.h or (s.allPoints and s.allPoints:GetHeight()) or 0 end,
+      GetFrameLevel = function() return 1 end,
+      IsShown = function(s) return s.shown end,
     }
     -- unknown Methods are no-ops; unknown lowercase fields are nil, as on real frames
     return setmetatable(f, { __index = function(_, k) return methods[k] or (k:match("^%u") and function() end or nil) end })
   end
-  env.CreateFrame = function(kind) local f = NewFrame(kind); frames[#frames + 1] = f; return f end
+  env.CreateFrame = function(kind, _, parent)
+    local f = NewFrame(kind); f.parent = parent; frames[#frames + 1] = f; return f
+  end
   env.UIParent, env.Minimap = NewFrame(), NewFrame()
   local tip = { lines = {} }
   env.GameTooltip = setmetatable(tip, { __index = function(_, k)
@@ -104,11 +119,28 @@ local function NewWorld(opts)
   env.SlashCmdList = {}
 
   -- HereBeDragons mock
-  local hbdWorld, hbdMini, hbdAdds, canvas = {}, {}, 0, {}
+  local hbdMini, hbdAdds, hbdWorldCalls = {}, 0, 0
+  -- Maps: zone 1429 and its sibling 1411 on continent 1415, under the Azeroth map 947. World coordinates are the
+  -- zone's x/y * 1000; zone 1429 covers x 0.4-0.6 / y 0.2-0.4 of the continent and x 0.5-0.6 / y 0.5-0.6 of Azeroth.
   local HBD = {
     GetPlayerZone = function() return ownPos and ownPos[1], 3 end,
     GetPlayerZonePosition = function() if ownPos then return ownPos[2] + 0.001, ownPos[3], ownPos[1], 3 end end,
+    mapData = { [1429] = { parent = 1415, mapType = 3 }, [1411] = { parent = 1415, mapType = 3 },
+      [1415] = { parent = 947, mapType = 2 } },
+    GetWorldCoordinatesFromZone = function(_, x, y, mapID)
+      if mapID ~= 1429 then return nil, nil, nil end
+      return x * 1000, y * 1000, 0
+    end,
+    GetZoneCoordinatesFromWorldInstance = function(_, wx, wy, inst, mapID)
+      if inst ~= 0 then return end
+      if mapID == 1429 then return wx / 1000, wy / 1000 end
+      if mapID == 1415 then return 0.4 + wx / 1000 * 0.2, 0.2 + wy / 1000 * 0.2 end
+    end,
+    GetAzerothWorldMapCoordinatesFromWorld = function(_, wx, wy, inst)
+      if inst == 0 then return 0.5 + wx / 1000 * 0.1, 0.5 + wy / 1000 * 0.1 end
+    end,
   }
+  env.Enum = { UIMapType = { Cosmic = 0, World = 1, Continent = 2, Zone = 3, Dungeon = 4, Micro = 5, Orphan = 6 } }
   local function add(store)
     return function(_, ref, icon, mapID, x, y)
       assert(ref and type(icon) == "table" and type(mapID) == "number" and type(x) == "number" and type(y) == "number",
@@ -116,30 +148,79 @@ local function NewWorld(opts)
       if mapID == 999999 then return false end
       hbdAdds = hbdAdds + 1
       store[icon] = { mapID = mapID, x = x, y = y }
-      if store == hbdWorld then canvas[icon] = (canvas[icon] or 0) + 1 end -- HBD acquires a new canvas pin per add
       icon.shown = true
       return true
     end
   end
   local Pins = {
-    AddWorldMapIconMap = add(hbdWorld), AddMinimapIconMap = add(hbdMini),
-    RemoveWorldMapIcon = function(_, _, icon) hbdWorld[icon] = nil; canvas[icon] = nil end,
+    AddMinimapIconMap = add(hbdMini),
+    -- HBD's world map API registers a data provider on WorldMapFrame (the taint, Pins.lua header): never used
+    AddWorldMapIconMap = function() hbdWorldCalls = hbdWorldCalls + 1 end,
+    AddWorldMapIconWorld = function() hbdWorldCalls = hbdWorldCalls + 1 end,
+    RemoveWorldMapIcon = function() hbdWorldCalls = hbdWorldCalls + 1 end,
+    RemoveAllWorldMapIcons = function() hbdWorldCalls = hbdWorldCalls + 1 end,
     RemoveMinimapIcon = function(_, _, icon) hbdMini[icon] = nil; icon.shown = false end,
   }
   env.HBD_PINS_WORLDMAP_SHOW_WORLD = 3
-  env.LibStub = setmetatable({ minors = { ["HereBeDragons-2.0"] = 35, ["HereBeDragons-Pins-2.0"] = 17 } }, {
-    __call = function(_, name) return name == "HereBeDragons-2.0" and HBD or Pins end })
+  env.LibStub = setmetatable({ minors = { ["HereBeDragons-2.0-RQE"] = 35, ["HereBeDragons-Pins-2.0-RQE"] = 17 } }, {
+    __call = function(_, name) return name == "HereBeDragons-2.0-RQE" and HBD or Pins end })
 
-  if opts.core then
-    local core = { version = "0.1.0", modules = {} }
-    core.SafeCall = function(fn, ...) if type(fn) ~= "function" then return end
-      local r = table.pack(pcall(fn, ...)); if r[1] then return table.unpack(r, 2, r.n) end end
-    core.IsSecret = function() return false end
-    core.Print = function(tag, ...) env.print("[core]", tag, ...) end
-    function core:Now() return 42 end
-    function core:PlayerKey() return "Core Key" end
-    function core:NewModule(name, mod) mod.name = name; self.modules[name] = mod; return mod end
-    env.RavenquillExpedition = core
+  local map
+  if opts.worldMap then
+    local canvas = NewFrame("canvas")
+    canvas.w, canvas.h = 1000, 700
+    local calls = {}
+    local allowed = {
+      GetCanvas = function() return canvas end,
+      GetMapID = function(s) return s.mapID end,
+      GetCanvasScale = function(s) return s.scale end,
+      IsShown = function(s) return s.shown end,
+    }
+    map = { canvas = canvas, mapID = 1429, scale = 1, shown = false, calls = calls, providers = {} }
+    map.pinPools = setmetatable({}, { __newindex = function(t, k, v) calls[#calls + 1] = "pinPools." .. tostring(k); rawset(t, k, v) end })
+    -- Blizzard's show path (ToggleWorldMap -> ShowUIPanel): every data provider's RefreshAllData, then the canvas
+    -- children's OnShow scripts, all in one (secure) execution. Returns how often our code ran in it.
+    function map.blizzardShow()
+      map.shown, canvas.shown = true, true
+      local ran = 0
+      for provider in pairs(map.providers) do provider:RefreshAllData(true); ran = ran + 1 end
+      for _, f in ipairs(frames) do
+        local p = f.parent
+        while p and p ~= canvas do p = p.parent end
+        if p == canvas and f.scripts.OnShow then f.scripts.OnShow(f); ran = ran + 1 end
+      end
+      return ran
+    end
+    -- one rendered frame: OnUpdate of every visible frame on the canvas
+    function map.renderFrame()
+      if not map.shown then return end
+      for _, f in ipairs(frames) do
+        if f.parent == canvas and f.shown and f.scripts.OnUpdate then f.scripts.OnUpdate(f, 0.016) end
+      end
+    end
+    setmetatable(map, {
+      __index = function(_, k)
+        if allowed[k] then return allowed[k] end
+        if type(k) == "string" and k:match("^%u") then
+          return function(_, a) calls[#calls + 1] = k; if k == "AddDataProvider" then map.providers[a] = true end end
+        end
+      end,
+      __newindex = function(t, k, v) calls[#calls + 1] = "write " .. tostring(k); rawset(t, k, v) end,
+    })
+    env.WorldMapFrame = map
+  end
+
+  -- the real core first (the .toc requires it), as the game loads it
+  local frames0 = #frames
+  local coreDir = DIR .. "/../RavenquillExpedition"
+  local coreNs = {}
+  for _, file in ipairs(dofile(coreDir .. "/dev/toc.lua")(coreDir)) do
+    assert(loadfile(coreDir .. "/" .. file, "t", env))("RavenquillExpedition", coreNs)
+  end
+  local RQ = env.RavenquillExpedition
+  for i = frames0 + 1, #frames do
+    local f = frames[i]
+    if f.events.ADDON_LOADED and f.scripts.OnEvent then f.scripts.OnEvent(f, "ADDON_LOADED", "RavenquillExpedition") end
   end
 
   local ns = {}
@@ -148,6 +229,8 @@ local function NewWorld(opts)
     chunk("RavenquillExpedition_Map", ns)
   end
   local M = ns.Map
+  -- world pins: our own layer's (Pins.lua M.worldPlaced, [frame] = { mapID, x, y, ... })
+  local hbdWorld = M.worldPlaced or {}
   local function fire(event, arg1)
     for _, f in ipairs(frames) do
       if f.events[event] and f.scripts.OnEvent then f.scripts.OnEvent(f, event, arg1) end
@@ -156,14 +239,20 @@ local function NewWorld(opts)
   local function count(t) local n = 0; for _ in pairs(t) do n = n + 1 end; return n end
 
   return {
-    env = env, ns = ns, M = M, L = ns.L, fire = fire, advance = advance, printed = printed, errors = errors,
+    env = env, ns = ns, M = M, mod = M.mod, RQ = RQ, L = ns.L, fire = fire, advance = advance, printed = printed, errors = errors,
     tip = tip, tells = tells, hbdWorld = hbdWorld, hbdMini = hbdMini, count = count,
     setPos = function(p) ownPos = p end, setDead = function(v) dead = v end, setTaxi = function(v) taxi = v end,
     -- the settings view in the /rq overview: set an option, read the diagnostics box
-    set = function(id, v) local o = ns.Map:Option(id); assert(o and o.set, "no option " .. id); o.set(v) end,
-    diag = function() return table.concat(ns.Map:Option("diag").lines(), "\n") end,
-    adds = function() return hbdAdds end,
-    maxCanvas = function() local m = 0; for _, n in pairs(canvas) do m = math.max(m, n) end; return m end,
+    set = function(id, v) local o = M.mod:Option(id); assert(o and o.set, "no option " .. id); o.set(v) end,
+    diag = function() return table.concat(M.mod:Option("diag").lines(), "\n") end,
+    adds = function() return hbdAdds end, hbdWorldCalls = function() return hbdWorldCalls end, map = map,
+    frames = frames,
+    -- world pin frames per member (one, however often it moved)
+    maxCanvas = function()
+      local per, m = {}, 0
+      for f in pairs(hbdWorld) do per[f.key] = (per[f.key] or 0) + 1; m = math.max(m, per[f.key]) end
+      return m
+    end,
   }
 end
 
@@ -190,7 +279,7 @@ check(not anyPrinted(w, "shares your position"), "notice not before NOTICE_DELAY
 w.advance(5)
 check(anyPrinted(w, "shares your position"), "privacy notice shown after login")
 check(M.db.noticeShown == true, "noticeShown saved")
-check(M:PlayerKey() == "Ängis Waldbach", "shim PlayerKey = First Surname")
+check(w.RQ:PlayerKey() == "Ängis Waldbach", "core PlayerKey = First Surname")
 
 -- relog with the saved table: no second notice
 local saved = M.db
@@ -305,8 +394,9 @@ check(d:find("WOW_PROJECT_ID=15", 1, true) and d:find("Forever branch", 1, true)
 check(d:find("HBD matches the client", 1, true) or d:find("differs", 1, true), "diagnostics: HBD vs client")
 check(not d:find("|c", 1, true) and not d:find("|r", 1, true), "diagnostics are plain text (copyable)")
 -- options for the /rq overview (no chat commands any more)
-local okShape = #M.options >= 10
-for _, o in ipairs(M.options) do
+local mod1 = w.mod
+local okShape = #mod1.options >= 10
+for _, o in ipairs(mod1.options) do
   if type(o.label) ~= "string" or o.label == "" then okShape = false end
   if o.type == "toggle" and not (o.get and o.set) then okShape = false end
   if o.type == "range" and not (o.get and o.set and o.min and o.max and o.step) then okShape = false end
@@ -314,17 +404,17 @@ for _, o in ipairs(M.options) do
 end
 check(okShape, "options: every entry has a label and its functions")
 w.set("worldmap", false)
-check(M:Option("names").disabled() == true, "names option greyed out while the world map is off")
+check(mod1:Option("names").disabled() == true, "names option greyed out while the world map is off")
 w.set("worldmap", true)
-check(M:Option("names").disabled() == false and M:Option("names").get() == true, "names option back")
+check(mod1:Option("names").disabled() == false and mod1:Option("names").get() == true, "names option back")
 check(w.env.SLASH_RAVENQUILLMAP1 == nil and w.env.SlashCmdList.RAVENQUILLMAP == nil, "the map registers no chat command")
-check(#w.errors == 0 and not M.db.lastError, "no Lua errors (" .. tostring(w.errors[1]) .. ")")
+check(#w.errors == 0 and not (w.env.RavenquillExpeditionDB or {}).lastError, "no Lua errors (" .. tostring(w.errors[1]) .. ")")
 
 ---------------------------------------------------------------------------
--- 4. With the core; German client
+-- 4. The core module (overview row, options); German client
 ---------------------------------------------------------------------------
-local wc = NewWorld({ core = true })
-local mod = wc.env.RavenquillExpedition.modules.Map
+local wc = NewWorld()
+local mod = wc.RQ:GetModule("Map")
 check(wc.env.SLASH_RAVENQUILLMAP1 == nil and wc.env.SlashCmdList.RAVENQUILLMAP == nil, "with the core: the map leaves /rq to it")
 check(mod.icon == "Interface\\Icons\\INV_Misc_Map_01", "overview: module icon")
 local toggled = 0
@@ -338,29 +428,195 @@ mod:Open()
 check(shown == 1, "overview: Open falls back to WorldMapFrame:Show() if ToggleWorldMap fails")
 check(mod and mod.addon == "RavenquillExpedition_Map" and mod.slash == "map", "registered as core module (addon = ADDON, slash map)")
 wc.fire("ADDON_LOADED", "RavenquillExpedition_Map"); wc.fire("PLAYER_LOGIN")
-check(wc.M:PlayerKey() == "Core Key" and wc.M:Now() == 42, "core helpers used when present")
-check(mod.options == wc.M.options and #mod.options > 0 and mod.OnSlash == nil, "options handed to the core, no subcommands")
+check(mod == wc.M.mod and mod.api == 2 and mod.db == wc.env.RavenquillExpeditionMapDB and mod.settings == wc.M.settings,
+  "API 2 module: the core set up RavenquillExpeditionMapDB")
+wc.set("selfPin", true)
+check(wc.M.members["@self"] and wc.M.members["@self"].name == wc.RQ:PlayerKey(), "core helpers used (PlayerKey)")
+wc.set("selfPin", false)
+check(#mod.options >= 10 and mod.OnSlash == nil, "options handed to the core, no subcommands")
 wc.set("fake", true)
 check(wc.count(wc.M.members) == 7, "test dots via the option")
 check(mod:OverviewStatus() == "On the map: 0 · sharing on", "overview: test pins don't count as guildmates ("
   .. tostring(mod:OverviewStatus()) .. ")")
 wc.M.members["Hans Wurst"] = { key = "Hans Wurst", name = "Hans Wurst", mapID = 1429, x = 0.3, y = 0.3, level = 20,
   class = "MAGE", heard = wc.env.GetTime(), flags = {} }
-wc.M.sync.slow = true
+local commState = wc.RQ.CommState
+wc.RQ.CommState = function(self) local st = commState(self); st.slow = true; return st end -- the core's slow mode
 local st = mod:OverviewStatus()
 check(st:find("^On the map: 1 ") and st:find("getting through"), "overview: status counts guildmates, warns when slow")
-wc.M.sync.slow = false
+wc.RQ.CommState = commState
 wc.advance(10)
-check(anyPrinted(wc, "[core]"), "printing goes through the core")
+check(anyPrinted(wc, "Ravenquill Expedition|r |cffbbbbbbGuild Map"), "printing goes through the core (module title)")
 check(#wc.errors == 0, "core run: no Lua errors")
+
+-- the 2 s ticker runs only while there is something to do (sharing on, pins shown or held)
+local wt = NewWorld()
+wt.env.RavenquillExpeditionMapDB = { v = 1, settings = { share = false } }
+wt.fire("ADDON_LOADED", "RavenquillExpedition_Map"); wt.fire("PLAYER_LOGIN"); wt.advance(10)
+check(wt.M.ticker == nil, "ticker: not running with sharing off and nothing to show")
+wt.set("fake", true)
+check(wt.M.ticker ~= nil, "ticker: runs while test pins are shown")
+wt.set("fake", false); wt.advance(4)
+check(wt.M.ticker == nil, "ticker: stops when nothing is left to update")
+wt.set("share", true)
+check(wt.M.ticker ~= nil, "ticker: runs while sharing")
+check(#wt.errors == 0, "ticker: no Lua errors (" .. tostring(wt.errors[1]) .. ")")
 
 local wd = NewWorld({ locale = "deDE" })
 wd.fire("ADDON_LOADED", "RavenquillExpedition_Map"); wd.fire("PLAYER_LOGIN"); wd.advance(10)
 check(wd.L.TITLE == "Gildenkarte" and anyPrinted(wd, "teilt deine Position"), "German strings")
-check(wd.M:Option("share").label == "Meine Position mit der Gilde teilen" and wd.M:Option("diag").label == "Diagnose",
+check(wd.mod:Option("share").label == "Meine Position mit der Gilde teilen" and wd.mod:Option("diag").label == "Diagnose",
   "German option labels")
 check(anyPrinted(wd, "unter /rq", true) or anyPrinted(wd, "/rq|r", true), "German notice points to /rq")
 check(#wd.errors == 0, "German client: no Lua errors")
+
+---------------------------------------------------------------------------
+-- 5. World map without taint (BugGrabber: ADDON_ACTION_BLOCKED 'Button:SetPassThroughButtons()' when the map
+--    opens). Our code must not run inside Blizzard's map-show path: no data provider, no pin pool, no AcquirePin,
+--    no hooks, no OnShow; the pins are drawn from our layer's own OnUpdate afterwards.
+---------------------------------------------------------------------------
+local wm = NewWorld({ worldMap = true })
+local map = wm.map
+wm.fire("ADDON_LOADED", "RavenquillExpedition_Map"); wm.fire("PLAYER_LOGIN")
+wm.set("fake", true)
+check(wm.count(wm.hbdWorld) == 7, "world map: 7 test pins placed")
+check(wm.hbdWorldCalls() == 0, "world map: HBD's world map API (a WorldMapFrame data provider) is never called")
+check(#map.calls == 0, "world map: only read methods on WorldMapFrame, nothing written (" .. tostring(map.calls[1]) .. ")")
+check(next(map.providers) == nil, "world map: no data provider registered")
+local lay = wm.M.worldLayer
+check(lay and lay.parent == map.canvas and lay.allPoints == map.canvas, "world map: our layer is a child of the canvas")
+check(lay and lay.scripts.OnShow == nil and lay.scripts.OnUpdate ~= nil, "world map: layer draws on OnUpdate, has no OnShow")
+local onShow = 0
+for f in pairs(wm.hbdWorld) do
+  if f.parent ~= lay then onShow = onShow + 100 end
+  if f.scripts.OnShow then onShow = onShow + 1 end
+end
+check(onShow == 0, "world map: every pin sits on the layer, none has an OnShow script")
+local p1 = pinFor(wm, wm.hbdWorld, "~fake1")
+local points0 = p1.points or 0
+check(map.blizzardShow() == 0, "world map: none of our code runs in Blizzard's show path")
+check((p1.points or 0) == points0, "world map: nothing is drawn during the show")
+map.renderFrame()
+local d1 = wm.hbdWorld[p1]
+check(p1.shown and p1.point and p1.point[2] == lay and p1.point[3] == "TOPLEFT", "world map: pin drawn on the next frame")
+check(p1.point and math.abs(p1.point[4] - d1.x * 1000) < 1e-6 and math.abs(p1.point[5] + d1.y * 700) < 1e-6,
+  "world map: zone map position = x * width, -y * height")
+local points1 = p1.points
+map.renderFrame()
+check(p1.points == points1, "world map: no redraw while nothing changed")
+map.mapID = 1415; map.renderFrame()
+check(p1.shown and math.abs(p1.point[4] - (0.4 + d1.x * 0.2) * 1000) < 1e-6, "world map: shown on the continent above it")
+map.mapID = 947; map.renderFrame()
+check(p1.shown and math.abs(p1.point[4] - (0.5 + d1.x * 0.1) * 1000) < 1e-6, "world map: shown on the Azeroth map")
+map.mapID = 1411; map.renderFrame()
+check(not p1.shown, "world map: hidden on a neighbouring zone")
+map.mapID = 5555; map.renderFrame()
+check(not p1.shown, "world map: hidden on a map HBD doesn't know")
+map.mapID, map.scale = 1429, 2; map.renderFrame()
+check(p1.shown and p1.scale == 0.5 and math.abs(p1.point[4] - d1.x * 1000 * 2) < 1e-6,
+  "world map: zoomed in, the pin keeps its size and its place")
+map.scale = 1
+local x0w = d1.x
+wm.advance(20) -- test pins move
+local d2 = wm.hbdWorld[p1]
+map.renderFrame()
+check(d2 and d2.x ~= x0w and math.abs(p1.point[4] - d2.x * 1000) < 1e-6, "world map: a moved pin is redrawn")
+check(wm.maxCanvas() == 1, "world map: still one pin per member after moves")
+wm.set("worldmap", false)
+check(wm.count(wm.hbdWorld) == 0 and not p1.shown, "world map: option off hides our pins")
+check(#map.calls == 0 and wm.hbdWorldCalls() == 0, "world map: still nothing written to WorldMapFrame")
+check(#wm.errors == 0, "world map: no Lua errors (" .. tostring(wm.errors[1]) .. ")")
+
+-- in combat the overview doesn't open the map from addon code: that would run the whole show path tainted
+local toggles = 0
+wm.env.ToggleWorldMap = function() toggles = toggles + 1 end
+wm.env.InCombatLockdown = function() return true end
+wm.M:OpenMap()
+check(toggles == 0 and anyPrinted(wm, "after combat"), "overview: no map opening from addon code in combat")
+wm.env.InCombatLockdown = function() return false end
+wm.M:OpenMap()
+check(toggles == 1, "overview: opens the map out of combat")
+
+---------------------------------------------------------------------------
+-- 6. The embedded HereBeDragons-Pins (libs, modified: NOTICE.txt) registers nothing on WorldMapFrame until an
+--    addon adds a world map icon; we only use its minimap part.
+---------------------------------------------------------------------------
+do
+  local env = setmetatable({}, { __index = _G })
+  env._G = env
+  local calls = {}
+  local function Frame()
+    return setmetatable({}, { __index = function(_, k)
+      if k == "GetZoom" then return function() return 0 end end
+      if k == "IsVisible" then return function() return false end end
+      if type(k) == "string" and k:match("^%u") then return function() end end
+    end })
+  end
+  env.CreateFrame = function() return Frame() end
+  env.Minimap = Frame()
+  env.GetCVar = function() return "0" end
+  env.Mixin = function(o, ...) for i = 1, select("#", ...) do for k, v in pairs((select(i, ...))) do o[k] = v end end; return o end
+  env.CreateFromMixins = function(...) return env.Mixin({}, ...) end
+  env.MapCanvasDataProviderMixin = {
+    OnAdded = function(self, m) self.owningMap = m end,
+    GetMap = function(self) return self.owningMap end,
+  }
+  env.MapCanvasPinMixin = {}
+  env.CreateUnsecuredRegionPoolInstance = function() return {} end
+  local canvas = Frame()
+  local wmf = { calls = calls }
+  wmf.pinPools = setmetatable({}, { __newindex = function(t, k, v) calls[#calls + 1] = "pinPools." .. k; rawset(t, k, v) end })
+  setmetatable(wmf, { __index = function(_, k)
+    if k == "GetCanvas" then return function() return canvas end end
+    if k == "IsShown" then return function() return true end end
+    if k == "GetMapID" then return function() return nil end end
+    if k == "AddDataProvider" then return function(self, p) calls[#calls + 1] = k; p:OnAdded(self) end end
+    if type(k) == "string" and k:match("^%u") then return function() calls[#calls + 1] = k end end
+  end })
+  env.WorldMapFrame = wmf
+  assert(loadfile(DIR .. "/libs/LibStub/LibStub.lua", "t", env))()
+  local hbd = env.LibStub:NewLibrary("HereBeDragons-2.0-RQE", 999)
+  hbd.mapData = {}
+  hbd.RegisterCallback = function() end
+  hbd.GetWorldCoordinatesFromZone = function(_, x, y) return x * 1000, y * 1000, 0 end
+  local okLoad, err = pcall(assert(loadfile(DIR .. "/libs/HereBeDragons/HereBeDragons-Pins-2.0.lua", "t", env)))
+  check(okLoad, "HBD-Pins loads in the stub (" .. tostring(err) .. ")")
+  local lib = env.LibStub("HereBeDragons-Pins-2.0-RQE", true)
+  check(lib and #calls == 0, "HBD-Pins: nothing registered on WorldMapFrame at load (" .. tostring(calls[1]) .. ")")
+  if lib then
+    local icon = Frame()
+    check(pcall(lib.RemoveWorldMapIcon, lib, "x", icon) and pcall(lib.RemoveAllWorldMapIcons, lib, "x"),
+      "HBD-Pins: world map removals work while not attached")
+    lib.worldmapProvider:RefreshAllData()
+    check(#calls == 0, "HBD-Pins: still nothing on WorldMapFrame")
+    check(lib:AddWorldMapIconMap("x", icon, 1429, 0.5, 0.5) == true, "HBD-Pins: another addon's world icon still works")
+    local providers = 0
+    for _, c in ipairs(calls) do if c == "AddDataProvider" then providers = providers + 1 end end
+    lib:AddWorldMapIconMap("x", Frame(), 1429, 0.4, 0.4)
+    local providers2 = 0
+    for _, c in ipairs(calls) do if c == "AddDataProvider" then providers2 = providers2 + 1 end end
+    check(providers == 1 and providers2 == 1 and wmf.pinPools.HereBeDragonsPinsTemplate,
+      "HBD-Pins: attaches to the world map once, on the first world icon")
+  end
+end
+
+---------------------------------------------------------------------------
+-- Private library names (in-game ADDON_ACTION_BLOCKED, 2026-11-15): RXPGuides and others share the LibStub copy named
+-- "HereBeDragons-Pins-2.0"; when our code called into it, its world-map provider read state we had written and
+-- Blizzard blamed Map. Our copies must only ever be reached under their private names.
+---------------------------------------------------------------------------
+do
+  local function src(f) local h = assert(io.open(DIR .. "/" .. f, "rb")); local s = h:read("*a"); h:close(); return s end
+  local shared = 0
+  for _, f in ipairs({ "Map.lua", "Pins.lua", "Sync.lua", "Locale.lua" }) do
+    for _ in src(f):gmatch('LibStub%(%s*"HereBeDragons%-[%w%-%.]-2%.0"') do shared = shared + 1 end
+  end
+  check(shared == 0, "Map never asks LibStub for the shared HereBeDragons copies")
+  check(src("libs/HereBeDragons/HereBeDragons-2.0.lua"):find('MAJOR, MINOR = "HereBeDragons-2.0-RQE"', 1, true)
+    and src("libs/HereBeDragons/HereBeDragons-Pins-2.0.lua"):find('MAJOR, MINOR = "HereBeDragons-Pins-2.0-RQE"', 1, true)
+    and src("libs/HereBeDragons/HereBeDragons-Pins-2.0.lua"):find('LibStub("HereBeDragons-2.0-RQE")', 1, true),
+    "our embedded copies register under private names and use each other")
+end
 
 print(("%d passed, %d failed"):format(pass, fail))
 os.exit(fail == 0 and 0 or 1)

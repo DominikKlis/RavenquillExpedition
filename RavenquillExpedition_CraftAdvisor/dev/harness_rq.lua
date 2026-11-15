@@ -1,6 +1,6 @@
 -- K15: GCA as the Ravenquill Expedition core module "Craft": registration, mod.options (contract of the core's
--- Overview.lua), Capture, OnSlash routing, command texts. Fakes _G.RavenquillExpedition before loading the addon;
--- the WoW mock below is the one of dev/harness.lua. Run: lua dev/harness_rq.lua
+-- Overview.lua), Capture, OnSlash routing, command texts, SavedVariables migrations. Loads the real core
+-- (dev/corekit.lua) before the addon; the WoW mock below is the one of dev/harness.lua. Run: lua dev/harness_rq.lua
 unpack = table.unpack
 local fails, passes = 0, 0
 local function check(cond, label)
@@ -89,41 +89,54 @@ C_SpellBook = { IsSpellKnown = function(id) return id == 2149 or id == 2160 or i
 local ns = {}
 
 ---------------------------------------------------------------------------
--- K15: a fake Ravenquill Expedition core (only what Core.lua's registration uses), German client
+-- K15: the real Ravenquill Expedition core, German client
 ---------------------------------------------------------------------------
 function GetLocale() return "deDE" end
 Minimap = obj()
-local RQ = { modules = {}, moduleOrder = {} }
-function RQ:NewModule(name, mod)
-  mod = mod or {}
-  mod.name, mod.core = name, self
-  if not self.modules[name] then self.moduleOrder[#self.moduleOrder + 1] = name end
-  self.modules[name] = mod
-  return mod
-end
-RavenquillExpedition = RQ
-
-local function load(f) local chunk = assert(loadfile("C:/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/RavenquillExpedition_CraftAdvisor/"..f)); chunk("RavenquillExpedition_CraftAdvisor", ns) end
-load("Locales/enUS.lua"); load("Locales/deDE.lua")
-load("Data/Leatherworking.lua"); load("Data/Blacksmithing.lua"); load("Data/Tailoring.lua"); load("Data/Engineering.lua")
-load("Data/Enchanting.lua"); load("Data/Enchants.lua")
-load("Data/Weights.lua"); load("Scoring.lua"); load("Core.lua"); load("Spec.lua"); load("UI.lua")
+local ROOT = (arg[0]:gsub("[^/\\]*$", "")) .. "../"
+local K = dofile(ROOT .. "dev/corekit.lua")()
+local RQ = K.RQ
+local function load(f) local chunk = assert(loadfile(ROOT .. f)); chunk("RavenquillExpedition_CraftAdvisor", ns) end
+local Files = dofile(ROOT .. "dev/files.lua") -- the addon's files, from its .toc
+Files.load(Files.list({ except = { "Data/Sources.lua", "Data/ExtraSources.lua", "Sync.lua", "RecipeSources.lua" } }), ns)
 local okSy, errSy = pcall(load, "Sync.lua")
 print("Sync.lua loaded:", okSy, okSy and "" or tostring(errSy))
-local okMM, errMM = pcall(load, "Minimap.lua")
-print("Minimap.lua loaded:", okMM, okMM and "" or tostring(errMM))
+K.done()
 local GCA = ns.GCA
-local h = rawget(GCA,"_scripts").OnEvent
-h(GCA, "ADDON_LOADED", "RavenquillExpedition_CraftAdvisor")
-h(GCA, "PLAYER_LOGIN"); runTimers()
+K.fire("ADDON_LOADED", "RavenquillExpedition_CraftAdvisor")
+K.fire("PLAYER_LOGIN"); runTimers()
 
 io.write("== K15: module registration\n")
-check(GCA.onCore == true and GCA.CMD == "/rq craft", "GCA.onCore with the fake core")
-local mod = RQ.modules.Craft
-check(mod and GCA.rqModule == mod and mod.addon == "RavenquillExpedition_CraftAdvisor" and mod.slash == "craft", "module \"Craft\" registered (addon, slash)")
+local mod = RQ:GetModule("Craft")
+check(mod and mod == GCA and mod.addon == "RavenquillExpedition_CraftAdvisor" and mod.slash == "craft" and mod.api == 2
+  and mod.loaded and GCA.db == RavenquillExpeditionCraftDB, "GCA is the core's module \"Craft\" (api 2, addon, slash, SavedVariables loaded)")
 check(SLASH_GUILDCRAFTADVISOR1 == nil and SLASH_GUILDCRAFTADVISOR2 == nil, "/gca and /guildcraft not registered on the core")
-check(type(SlashCmdList.GUILDCRAFTADVISOR) == "function", "SlashCmdList.GUILDCRAFTADVISOR kept (fallback/harnesses)")
+check(SlashCmdList.GUILDCRAFTADVISOR == nil and GuildCraftAdvisor == nil and GuildCraftAdvisor_OnCompartmentClick == nil,
+  "no standalone path left: no GUILDCRAFTADVISOR slash handler, no GuildCraftAdvisor globals")
 check(type(mod.Open) == "function" and type(mod.OnSlash) == "function" and type(mod.OverviewStatus) == "function", "Open, OnSlash, OverviewStatus present")
+
+io.write("== Migrations: numbered, each once (core API 2)\n")
+local db = GCA.db
+check(db.v == 3 and db.keysV2 and db.inspectTalentsOffV1 and db.members["Old Timer"] and not db.members["Old-Timer"],
+  "db.v = 3; [2] moved the v0.1 key \"Old-Timer\" to \"Old Timer\"; the old flags are kept")
+check(db.vLogin == 2, "login migrations ran (db.vLogin = 2)")
+-- login migration [2] on a 0.6 database (keys with our own realm; the core's names drop it): the newer entry wins
+local rdb = { keysV2 = true, members = { ["Kim Lee-Realm"] = { time = 9, items = {} }, ["Kim Lee"] = { time = 3, items = {} },
+  ["Ann Bo"] = { time = 8, items = {} }, ["Ann Bo-Realm"] = { time = 2, items = {} }, ["Zed Far-OtherRealm"] = { time = 1, items = {} } },
+  specs = { ["Kim Lee-Realm"] = { class = "MAGE", spec = "FIRE", ts = 4 } }, specManual = { ["Kim Lee-Realm"] = { class = "MAGE", spec = "FROST" } },
+  crafted = { ["Me-Realm"] = { ["Kim Lee-Realm"] = { Leatherworking = { [1] = { item = 1, t = 1 } } } } } }
+GCA.loginMigrations[2](rdb)
+-- migration [3]: diagnostics move under db.diag, the dev probe's dumps go
+local ddb = { knownDiag = { login = {} }, lastError = { where = "x" }, diagSender = "S", probe = { frames = {} }, diag = { diagSender = "kept" } }
+GCA.migrations[3](ddb)
+local fresh = {}
+GCA.migrations[3](fresh)
+check(ddb.diag.knownDiag and ddb.diag.lastError.where == "x" and ddb.diag.diagSender == "kept" and ddb.knownDiag == nil and ddb.lastError == nil
+  and ddb.diagSender == nil and ddb.probe == nil and fresh.diag == nil, "migration [3]: diagnostics under db.diag (none made for a clean database), probe dumps removed")
+check(rdb.members["Kim Lee"].time == 9 and rdb.members["Ann Bo"].time == 8 and not rdb.members["Kim Lee-Realm"] and not rdb.members["Ann Bo-Realm"]
+  and rdb.members["Zed Far-OtherRealm"] and rdb.specs["Kim Lee"] and rdb.specs["Kim Lee"].spec == "FIRE" and rdb.specManual["Kim Lee"].spec == "FROST"
+  and rdb.crafted["Me-Realm"]["Kim Lee"] and not rdb.crafted["Me-Realm"]["Kim Lee-Realm"],
+  "login migration [2]: keys with our own realm move to the plain key (newer wins), other realms and the character keys stay")
 
 io.write("== K15: options well-formed\n")
 local opts = mod.options
@@ -151,7 +164,7 @@ local missingOpt = {}
 for k in pairs(ns.missingL) do if k:match("^OPT_") then missingOpt[#missingOpt + 1] = k end end
 check(#missingOpt == 0, "no missing OPT_ locale key (" .. table.concat(missingOpt, ", ") .. ")")
 check(opts[1].label == "Vorschläge" and byLabel["Ziel jetzt betrachten"] and byLabel["Gruppe jetzt einlesen"]
-  and byLabel["Sync erneut versuchen"] and byLabel["Minimap-Knopf neu platzieren"] and byLabel["Gespeicherte Ausrüstung vergessen"],
+  and byLabel["Sync erneut versuchen"] and byLabel["Ravenquill-Minimap-Knopf neu platzieren"] and byLabel["Gespeicherte Ausrüstung vergessen"],
   "German labels (deDE client)")
 for _, o in ipairs(opts) do if o.disabled then local ok = pcall(o.disabled); check(ok, "disabled() runs: " .. o.label) end end
 
@@ -179,9 +192,9 @@ check(toggleFor("showUnlearned", ns.L.FILTER_UNLEARNED) and toggleFor("lookahead
   and toggleFor("inspectTalents", ns.L.OPT_INSPECT_TALENTS), "toggles write the right db.settings keys")
 local mm = byLabel[ns.L.OPT_MINIMAP]
 mm.set(false)
-local hid = s.minimapHide == true and mm.get() == false
+local hid = RavenquillExpeditionDB.launcher.hide == true and mm.get() == false and not RQ:LauncherShown()
 mm.set(true)
-check(hid and not s.minimapHide and mm.get() == true, "minimap toggle = not minimapHide")
+check(hid and not RavenquillExpeditionDB.launcher.hide and mm.get() == true, "minimap toggle = the suite launcher (RavenquillExpeditionDB.launcher.hide)")
 
 io.write("== K15: range = leveling bonus\n")
 local range
@@ -208,10 +221,10 @@ for _, o in ipairs(opts) do
     check(allStr and print == wrapper, "lines() -> plain strings, print restored: " .. o.label .. " (" .. tostring(ok and lines[1]) .. ")")
   end
 end
-local cap = GCA.Capture(function() print("|cff33ff99GuildCraft|r:", "|cffff0000red|r line\nsecond"); error("boom") end)
-check(print == wrapper and cap[1] == "red line" and cap[2] == "second" and cap[3] and cap[3]:find("boom", 1, true) ~= nil,
-  "Capture: colours stripped, lines split, error kept as last line, print restored after an error")
-GCA.db.lastError = { where = "UI:Refresh", msg = "x.lua:1: oops\nstack", at = "2026-11-14 12:00:00" }
+local cap = GCA.DiagLines(function(P) P("|cffff0000red|r line\nsecond"); error("boom") end)
+check(print == wrapper and GCA.Capture == nil and cap[1] == "red line" and cap[2] == "second" and cap[3] and cap[3]:find("boom", 1, true) ~= nil,
+  "diagnostic lines through a sink (no print swap): colours stripped, lines split, an error kept as the last line")
+GCA:Diag().lastError = { where = "UI:Refresh", msg = "x.lua:1: oops\nstack", at = "2026-11-14 12:00:00" }
 local le = byLabel[ns.L.OPT_DIAG_ERROR].lines()
 check(le[1] == "2026-11-14 12:00:00  UI:Refresh" and le[2] == "x.lua:1: oops", "last error box shows db.lastError")
 
@@ -238,9 +251,10 @@ local de = ns.Locales.deDE
 local leftovers = {}
 for _, t in pairs(ns.Locales) do for k, v in pairs(t) do if type(v) == "string" and v:find("/gca", 1, true) then leftovers[#leftovers + 1] = k end end end
 check(#leftovers == 0, "no locale text names /gca (" .. table.concat(leftovers, ", ") .. ")")
-check(ns.L.SYNC_STOPPED_MSG == de.SYNC_STOPPED_MSG_RQ and ns.L.MSG_RECORDED == de.MSG_RECORDED_RQ and ns.L.EMPTY_NOGEAR == de.EMPTY_NOGEAR_RQ
-  and ns.L.WHISPER_DRAFT_KEPT == de.WHISPER_DRAFT_KEPT_RQ and ns.L.CMD_HELP == de.CMD_HELP_RQ and ns.L.HELP_LINES == de.HELP_LINES_RQ,
-  "the six command texts use their core variants")
+local rqKeys = {}
+for _, t in pairs(ns.Locales) do for k in pairs(t) do if k:match("_RQ$") then rqKeys[#rqKeys + 1] = k end end end
+check(#rqKeys == 0 and ns.L.MSG_RECORDED == de.MSG_RECORDED and de.HELP_LINES:find("/rq craft", 1, true) and de.CMD_HELP:find("/rq craft", 1, true)
+  and ns.Locales.enUS.HELP_LINES:find("/rq craft", 1, true), "the command texts are the /rq craft ones (no _RQ variants left): " .. table.concat(rqKeys, ", "))
 local removed = { "inspect", "scan", "whisper", "minimap", "reset", "verbose", "spec", "known", "sync" }
 local named = {}
 for _, k in ipairs({ "SYNC_STOPPED_MSG", "MSG_RECORDED", "EMPTY_NOGEAR", "WHISPER_DRAFT_KEPT", "CMD_HELP", "HELP_LINES" }) do
