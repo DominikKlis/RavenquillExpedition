@@ -310,9 +310,21 @@ local function Valid(m)
     and m.x >= 0 and m.x <= 1 and m.y >= 0 and m.y <= 1
 end
 
+-- Guildmates in my party/raid (keys), when the option hides them; else an empty set.
+local function GroupSet(s)
+  local set = {}
+  if not s.hideGroup then return set end
+  local ok, keys = pcall(RavenquillExpedition.GroupGuildies, RavenquillExpedition)
+  if ok and type(keys) == "table" then
+    for _, k in ipairs(keys) do set[k] = true end
+  end
+  return set
+end
+
 function M:RefreshPins()
   local s = self.settings
   if not s then return end
+  local inGroup = GroupSet(s)
   for key, p in pairs(pins) do
     if not self.members[key] then
       Release(p, "world"); Release(p, "mini")
@@ -323,7 +335,7 @@ function M:RefreshPins()
     local p = pins[key] or {}
     pins[key] = p
     local state = self:State(m)
-    local ok = Valid(m) and state ~= "gone"
+    local ok = Valid(m) and state ~= "gone" and not (inGroup[key] and not m.fake and not m.isSelf)
     -- world map
     if ok and s.worldmap then
       local f = Place(p, "world", m)

@@ -129,6 +129,7 @@ return {
   ["sv.badSize"] = {
     "{",
     "  [\"settings\"] = {",
+    "    [\"hideGroup\"] = true,",
     "    [\"minimap\"] = true,",
     "    [\"names\"] = false,",
     "    [\"selfPin\"] = false,",
@@ -142,6 +143,7 @@ return {
   ["sv.fresh"] = {
     "{",
     "  [\"settings\"] = {",
+    "    [\"hideGroup\"] = true,",
     "    [\"minimap\"] = true,",
     "    [\"names\"] = false,",
     "    [\"selfPin\"] = false,",
@@ -155,6 +157,7 @@ return {
   ["sv.v1"] = {
     "{",
     "  [\"settings\"] = {",
+    "    [\"hideGroup\"] = true,",
     "    [\"minimap\"] = true,",
     "    [\"names\"] = false,",
     "    [\"selfPin\"] = false,",
@@ -168,6 +171,7 @@ return {
   ["sv.wrongTypes"] = {
     "{",
     "  [\"settings\"] = {",
+    "    [\"hideGroup\"] = true,",
     "    [\"minimap\"] = true,",
     "    [\"names\"] = false,",
     "    [\"selfPin\"] = false,",

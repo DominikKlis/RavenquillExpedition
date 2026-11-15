@@ -649,5 +649,40 @@ do
   check(layer.level > 2000, "a higher frame added while the map is open: the layer moves above it (" .. tostring(layer.level) .. ")")
 end
 
+---------------------------------------------------------------------------
+-- Option "hide guildmates in my group" (user 2026-11-15; on by default): no world or minimap dot for party/raid
+-- members, the game draws them already. Test pins and the own pin are not affected.
+---------------------------------------------------------------------------
+do
+  local wg = NewWorld({ worldMap = true })
+  wg.fire("ADDON_LOADED", "RavenquillExpedition_Map")
+  wg.fire("PLAYER_LOGIN")
+  local M2 = wg.M
+  check(M2.settings.hideGroup == true and M2.mod:Option("hideGroup") ~= nil, "option exists, on by default")
+  local now = wg.env.GetTime()
+  M2.members["Bert Beta"] = { key = "Bert Beta", name = "Bert Beta", mapID = 1429, x = 0.5, y = 0.5, level = 30,
+    class = "DRUID", heard = now, flags = {} }
+  local core = wg.env.RavenquillExpedition
+  core.GroupGuildies = function() return { "Bert Beta" } end
+  local function pinsFor(key)
+    local world, mini = false, false
+    for f in pairs(M2.worldPlaced) do if f.key == key then world = true end end
+    for icon in pairs(wg.hbdMini) do if icon.key == key then mini = true end end
+    return world, mini
+  end
+  M2:RefreshPins()
+  local w1, m1 = pinsFor("Bert Beta")
+  check(not w1 and not m1, "a guildmate in my group: no world or minimap dot")
+  wg.set("hideGroup", false)
+  M2:RefreshPins()
+  local w2, m2 = pinsFor("Bert Beta")
+  check(w2 and m2, "option off: the dots are back")
+  wg.set("hideGroup", true)
+  core.GroupGuildies = function() return {} end
+  M2:RefreshPins()
+  local w3 = pinsFor("Bert Beta")
+  check(w3, "left the group: the dot is shown again")
+end
+
 print(("%d passed, %d failed"):format(pass, fail))
 os.exit(fail == 0 and 0 or 1)

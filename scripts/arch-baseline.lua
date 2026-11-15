@@ -3,7 +3,7 @@
 return {
   metrics = {
     cached_trace = 0,
-    checks_passed = 1777,
+    checks_passed = 1781,
     checks_skipped = 0,
     core_internals = 0,
     dev_abs_paths = 0,

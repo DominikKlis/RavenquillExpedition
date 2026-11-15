@@ -30,6 +30,7 @@ M.DEFAULTS = {
   worldmap = true,
   minimap = true,
   names = false,
+  hideGroup = true, -- user 2026-11-15: no pin for guildmates in your party/raid (Blizzard draws them already)
   size = 1.0,
   selfPin = false,  -- test aid: a pin at your own position
 }
@@ -242,6 +243,7 @@ mod:SetOptions({
   Toggle("worldmap", "SETTING_WORLDMAP"),
   Toggle("minimap", "SETTING_MINIMAP", "TT_MINIMAP"),
   Toggle("names", "SETTING_NAMES", nil, function() return not (M.settings and M.settings.worldmap) end),
+  Toggle("hideGroup", "SETTING_HIDE_GROUP", "TT_HIDE_GROUP"),
   { id = "size", type = "range", label = L.SETTING_SIZE, min = 0.5, max = 2, step = 0.1, format = "%.1f",
     get = function() return M.settings and M.settings.size or 1 end,
     set = function(v) M:SetOption("size", v) end },
