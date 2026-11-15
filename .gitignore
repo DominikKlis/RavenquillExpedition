@@ -1,0 +1,23 @@
+# This repository can live directly in WoW's Interface\AddOns folder.
+# Track only the Ravenquill Expedition suite; every other addon in the folder is ignored.
+# WARNING: never run `git clean -x` / `-X` here - it would delete the other addons.
+/*
+!/.gitignore
+!/.gitattributes
+!/.github/
+!/README.md
+!/CONTRIBUTING.md
+!/scripts/
+!/RavenquillExpedition/
+!/RavenquillExpedition_Map/
+!/RavenquillExpedition_Highlights/
+!/RavenquillExpedition_CraftAdvisor/
+
+# Internal working notes and assistant instructions: kept locally, not shared (for now).
+PLAN.md
+HANDOFF.md
+CLAUDE.md
+.claude/
+
+# Build output
+/RavenquillExpedition/dev/release/

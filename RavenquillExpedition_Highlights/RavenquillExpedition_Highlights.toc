@@ -1,0 +1,16 @@
+## Interface: 16001
+## Title: Ravenquill Expedition: Highlights
+## Notes: Logs your guild's cool moments (big upgrades, epic loot, first boss kills, hard quests, level milestones) and shares them with guildies who run it.
+## Notes-deDE: Protokolliert die coolen Momente deiner Gilde (große Verbesserungen, epische Beute, erste Bosskills, schwere Quests, Stufenmeilensteine) und teilt sie mit Gildenmitgliedern, die es nutzen.
+## Author: domin
+## Version: 0.2.0
+## X-License: GPL-3.0
+## Dependencies: RavenquillExpedition
+## SavedVariables: RavenquillExpeditionHighlightsDB
+## SavedVariablesPerCharacter: RavenquillExpeditionHighlightsCharDB
+
+Locale.lua
+Highlights.lua
+Wire.lua
+Detectors.lua
+LogWindow.lua

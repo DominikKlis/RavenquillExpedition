@@ -1,0 +1,90 @@
+# Builds the release zip and uploads it to CurseForge when a version tag is pushed.
+#
+#   git tag -a v0.2.1-alpha -m "What changed (Markdown, becomes the CurseForge changelog)"
+#   git push origin v0.2.1-alpha
+#
+# Release type from the tag: "-alpha" -> alpha, "-beta" -> beta, otherwise release.
+# Needs the repository secret CF_API_KEY (CurseForge -> account settings -> API tokens).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+env:
+  CF_PROJECT_ID: '1806854'
+  CF_GAME_VERSION: '1.60.1'      # WoW Forever; matches "## Interface: 16001"
+  CF_VERSION_TYPE_MATCH: 'Forever'
+
+permissions:
+  contents: write                # for the GitHub release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch annotated tag
+        run: git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+
+      - name: Run offline harnesses
+        run: |
+          sudo apt-get update && sudo apt-get install -y lua5.4
+          bash scripts/run-tests.sh lua5.4
+
+      - name: Work out version, release type and changelog
+        id: meta
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          case "$tag" in
+            *-alpha*) type=alpha ;;
+            *-beta*)  type=beta ;;
+            *)        type=release ;;
+          esac
+          git tag -l --format='%(contents)' "$tag" | sed '/-----BEGIN PGP SIGNATURE-----/,$d' > changelog.md
+          if [ ! -s changelog.md ]; then echo "Version ${version}" > changelog.md; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "type=$type" >> "$GITHUB_OUTPUT"
+          echo "zip=RavenquillExpedition/dev/release/RavenquillExpedition-${version}.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Build zip (core, Map, Highlights; no dev folders)
+        shell: pwsh
+        run: ./RavenquillExpedition/dev/package.ps1 -Version '${{ steps.meta.outputs.version }}'
+
+      - name: Upload to CurseForge
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CF_API_KEY}" ]; then echo "::error::Secret CF_API_KEY is not set"; exit 1; fi
+          api="https://wow.curseforge.com/api"
+          types=$(curl -fsS -H "X-Api-Token: ${CF_API_KEY}" "$api/game/version-types")
+          versions=$(curl -fsS -H "X-Api-Token: ${CF_API_KEY}" "$api/game/versions")
+          type_ids=$(echo "$types" | jq -c --arg m "$CF_VERSION_TYPE_MATCH" '[.[] | select(.name | test($m; "i")) | .id]')
+          gv=$(echo "$versions" | jq -c --arg n "$CF_GAME_VERSION" --argjson t "$type_ids" \
+               '[.[] | select(.name == $n and (.gameVersionTypeID as $x | $t | index($x))) | .id]')
+          echo "version types matching '$CF_VERSION_TYPE_MATCH': $type_ids; game version ids for $CF_GAME_VERSION: $gv"
+          if [ "$(echo "$gv" | jq length)" -ne 1 ]; then echo "::error::Expected exactly one CurseForge game version id"; exit 1; fi
+          metadata=$(jq -n \
+            --rawfile changelog changelog.md \
+            --arg name "RavenquillExpedition-${{ steps.meta.outputs.version }}.zip" \
+            --arg type "${{ steps.meta.outputs.type }}" \
+            --argjson gv "$gv" \
+            '{changelog: $changelog, changelogType: "markdown", displayName: $name, gameVersions: $gv, releaseType: $type}')
+          curl -fsS -H "X-Api-Token: ${CF_API_KEY}" \
+            -F "metadata=${metadata}" \
+            -F "file=@${{ steps.meta.outputs.zip }}" \
+            "$api/projects/${CF_PROJECT_ID}/upload-file"
+          echo
+
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=""
+          if [ "${{ steps.meta.outputs.type }}" != "release" ]; then flags="--prerelease"; fi
+          gh release create "${GITHUB_REF_NAME}" "${{ steps.meta.outputs.zip }}" \
+            --title "Ravenquill Expedition ${{ steps.meta.outputs.version }}" --notes-file changelog.md $flags

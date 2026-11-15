@@ -1,0 +1,955 @@
+-- Step 2 harness (plan rev 4, D6): three simulated clients on a loopback GUILD channel,
+-- virtual clock, real item links from SavedVariables as fixtures.
+-- Run from the addon folder: lua dev/harness_sync.lua
+local ROOT = "C:/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/RavenquillExpedition_CraftAdvisor/"
+local SV = "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/TERLOK55/SavedVariables/RavenquillExpedition_CraftAdvisor.lua"
+
+local fails, passes = 0, 0
+local function check(cond, label)
+  if cond then passes = passes + 1; print("  ok   " .. label)
+  else fails = fails + 1; print("  FAIL " .. label) end
+end
+local function section(s) print("== " .. s) end
+
+---------------------------------------------------------------------------
+-- Fixtures: real links
+---------------------------------------------------------------------------
+local svEnv = {}
+assert(loadfile(SV, "t", svEnv))()
+local realSets, allLinks, seen = {}, {}, {}
+for key, m in pairs(svEnv.RavenquillExpeditionCraftDB.members) do
+  if m.items and next(m.items) then realSets[#realSets + 1] = { key = key, items = m.items } end
+  for _, l in pairs(m.items or {}) do if not seen[l] then seen[l] = true; allLinks[#allLinks + 1] = l end end
+end
+table.sort(realSets, function(a, b) return a.key < b.key end)
+table.sort(allLinks)
+-- the "biggest" real set: most slots, then most bytes
+local function setSize(items) local n, b = 0, 0 for _, l in pairs(items) do n = n + 1; b = b + #l end return n * 1000 + b end
+table.sort(realSets, function(a, b) return setSize(a.items) > setSize(b.items) end)
+local function copy(t) local o = {} for k, v in pairs(t) do o[k] = v end return o end
+local function withViewer(items, lvl)
+  local o = {}
+  for k, l in pairs(items) do o[k] = (l:gsub("(item:%d+:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:)36:", "%1" .. lvl .. ":")) end
+  return o
+end
+-- gear sets used by the simulated players (real links)
+local GEAR = {}
+for i, s in ipairs(realSets) do GEAR[i] = s.items end
+print(("fixtures: %d real gear sets, %d distinct links"):format(#realSets, #allLinks))
+
+---------------------------------------------------------------------------
+-- Shared world: clock, timers, guild, bus
+---------------------------------------------------------------------------
+local now = 0
+local timers, tseq = {}, 0
+local function addTimer(d, fn) tseq = tseq + 1; timers[#timers + 1] = { at = now + d, seq = tseq, fn = fn } end
+local function advance(sec)
+  local target = now + sec
+  while true do
+    table.sort(timers, function(a, b) if a.at ~= b.at then return a.at < b.at end return a.seq < b.seq end)
+    local t = timers[1]
+    if not t or t.at > target then break end
+    table.remove(timers, 1); now = t.at
+    local ok, err = pcall(t.fn)
+    if not ok then fails = fails + 1; print("  FAIL timer error: " .. tostring(err)) end
+  end
+  now = target
+end
+
+-- guild roster: three addon users + four guildies without the addon
+local GUILD = {
+  { name = "Anna Stone", class = "ROGUE", level = 36 },
+  { name = "Bert Hill", class = "DRUID", level = 35 },
+  { name = "Cora Vale", class = "HUNTER", level = 31 },
+  { name = "Dora Field", class = "WARRIOR", level = 35 },
+  { name = "Emil Brook", class = "MAGE", level = 33 },
+  { name = "Finn Moor", class = "PRIEST", level = 34 },
+  { name = "Gina Reed", class = "SHAMAN", level = 32 },
+}
+local GUILD_BY = {}
+for _, g in ipairs(GUILD) do GUILD_BY[g.name] = g end
+
+local clients = {}
+local bus = { log = {}, drop = nil, result = nil, echo = true, sentBy = {} }
+
+local function deliver(from, prefix, msg)
+  bus.log[#bus.log + 1] = { t = now, from = from.name, msg = msg }
+  bus.sentBy[from.name] = (bus.sentBy[from.name] or 0) + 1
+  for _, c in pairs(clients) do
+    if c.online and (c ~= from or bus.echo) and not (bus.drop and bus.drop(msg, from, c)) then
+      addTimer(0.2, function() if c.online then c.fire("CHAT_MSG_ADDON", prefix, msg, "GUILD", from.name) end end)
+    end
+  end
+end
+
+---------------------------------------------------------------------------
+-- A client = its own Lua environment with the WoW API it needs
+---------------------------------------------------------------------------
+local function strsplit(sep, s)
+  local out, pos = {}, 1
+  while true do
+    local i = s:find(sep, pos, true)
+    if not i then out[#out + 1] = s:sub(pos) break end
+    out[#out + 1] = s:sub(pos, i - 1); pos = i + 1
+  end
+  return table.unpack(out)
+end
+
+local function NewClient(name, gear, db, opts)
+  opts = opts or {}
+  local first, surname = name:match("^(%S+) (%S+)$")
+  local g = GUILD_BY[name]
+  local c = { name = name, online = true, gear = gear, units = {}, instance = false, combat = false,
+    rosterReady = opts.rosterReady ~= false, prints = {} }
+  local env = setmetatable({}, { __index = _G })
+  c.env = env
+  local frames = {}
+  local Frame = {}
+  Frame.__index = Frame
+  function Frame:SetScript(ev, fn) self.scripts[ev] = fn end
+  function Frame:RegisterEvent(ev) self.events[ev] = true end
+  function Frame:UnregisterEvent(ev) self.events[ev] = nil end
+  env.CreateFrame = function()
+    local f = setmetatable({ scripts = {}, events = {} }, Frame)
+    frames[#frames + 1] = f
+    return f
+  end
+  c.fire = function(ev, ...)
+    for _, f in ipairs(frames) do
+      if f.events[ev] and f.scripts.OnEvent then f.scripts.OnEvent(f, ev, ...) end
+    end
+  end
+  env.print = function(...) local t = {} for i = 1, select("#", ...) do t[i] = tostring(select(i, ...)) end c.prints[#c.prints + 1] = table.concat(t, " ") end
+  env.unpack = table.unpack
+  env.strsplit = strsplit
+  env.wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
+  env.tinsert = table.insert
+  env.time = function() return 1800000000 + math.floor(now) end
+  env.GetTime = function() return now end
+  env.GetServerTime = function() return 1800000000 + math.floor(now) end
+  env.C_Timer = { After = function(d, fn) addTimer(d, function() if c.online then fn() end end) end }
+  env.GetBuildInfo = function() return "1.60.1", "70938", "", 16001 end
+  env.Constants = { CharacterNameSeparatorConsts = { CHARACTERNAME_SURNAME_SEPARATOR = " " } }
+  env.Ambiguate = function(n) return n end
+  env.SlashCmdList = {}
+  env.IsInGuild = function() return true end
+  env.IsInInstance = function() return c.instance end
+  env.InCombatLockdown = function() return c.combat end
+  env.GetRealmName = function() return "Realm" end
+  env.IsInRaid = function() return false end
+  env.GetNumSubgroupMembers = function() return 0 end
+  -- units: "player" plus whatever the test puts in c.units
+  local function U(u)
+    if u == "player" then return { first = first, surname = surname, class = g.class, level = c.level or g.level, guid = "G-" .. name, items = c.gear } end
+    return c.units[u]
+  end
+  env.UnitName = function(u) local x = U(u); if x then return x.first, x.surname end end
+  env.UnitNameUnmodified = env.UnitName
+  env.UnitClass = function(u) local x = U(u); if x then return x.class, x.class end end
+  env.UnitLevel = function(u) local x = U(u); return x and x.level end
+  env.UnitGUID = function(u) local x = U(u); return x and x.guid end
+  env.UnitIsPlayer = function(u) return U(u) ~= nil end
+  env.UnitIsUnit = function(a, b) local x, y = U(a), U(b); return x ~= nil and y ~= nil and x.guid == y.guid end
+  env.UnitIsInMyGuild = function(u) return U(u) ~= nil end
+  env.CanInspect = function() return true end
+  env.NotifyInspect = function() end
+  env.GetInventoryItemLink = function(u, slot) local x = U(u); return x and x.items and x.items[slot] end
+  env.GetNumGuildMembers = function() return c.rosterReady and #GUILD or 0 end
+  env.GetGuildRosterInfo = function(i)
+    local m = GUILD[i]
+    local online = clients[m.name] and clients[m.name].online or (m.name:match("^[DEFG]") ~= nil)
+    return m.name, "Member", 1, m.level, m.class, "Zone", "", "", online, 0, m.class
+  end
+  env.C_GuildInfo = { GuildRoster = function() end }
+  env.C_Item = {
+    GetItemInfoInstant = function() return nil end,
+    GetItemInfo = function() return nil end,
+    GetItemStats = function() return {} end,
+  }
+  env.C_SpellBook = { IsSpellKnown = function() return false end }
+  if opts.knownSpells then
+    env.IsPlayerSpell = function(id) for _, k in ipairs(opts.knownSpells) do if k == id then return true end end return false end
+  end
+  if opts.talents then
+    -- fake C_Traits: c.talents = { {posX, ranks}, ... } (changeable during the test)
+    c.talents = opts.talents
+    env.C_ClassTalents = { GetActiveConfigID = function() return 7 end }
+    env.C_Traits = {
+      GetConfigInfo = function(id) if id == 7 then return { treeIDs = { 70 } } end end,
+      GetTreeNodes = function() local ids = {} for i in ipairs(c.talents) do ids[i] = i end return ids end,
+      GetNodeInfo = function(_, i) local n = c.talents[i]; if n then return { posX = n[1], ranksPurchased = n[2] } end end,
+    }
+  end
+  env.C_ChatInfo = {
+    RegisterAddonMessagePrefix = function() return true end,
+    SendAddonMessage = function(prefix, msg, chan)
+      assert(#msg <= 255, "message over 255 bytes: " .. #msg)
+      assert(chan == "GUILD", "non-GUILD send: " .. tostring(chan))
+      if bus.result then local r = bus.result(msg, c); if r ~= nil and r ~= 0 then return r end end
+      deliver(c, prefix, msg)
+      return 0
+    end,
+  }
+  env.RavenquillExpeditionCraftDB = db
+  local ns = {}
+  for _, f in ipairs(opts.files or { "Locales/enUS.lua", "Locales/deDE.lua", "Data/Leatherworking.lua", "Data/Blacksmithing.lua", "Data/Tailoring.lua", "Data/Engineering.lua",
+    "Data/Enchanting.lua", "Data/Enchants.lua", "Data/Weights.lua", "Scoring.lua", "Core.lua", "Spec.lua", "Sync.lua" }) do
+    assert(loadfile(ROOT .. f, "t", env))("RavenquillExpedition_CraftAdvisor", ns)
+  end
+  c.GCA = ns.GCA
+  c.S = ns.GCA.Sync
+  c.C = ns.GCA.SyncConst
+  return c
+end
+
+-- log a client in: ADDON_LOADED, PLAYER_LOGIN, PLAYER_ENTERING_WORLD, roster
+local function Login(name, gear, db, opts)
+  if clients[name] then clients[name].online = false end
+  local c = NewClient(name, gear, db or {}, opts)
+  clients[name] = c
+  c.fire("ADDON_LOADED", "RavenquillExpedition_CraftAdvisor")
+  c.fire("PLAYER_LOGIN")
+  c.fire("PLAYER_ENTERING_WORLD", true, false)
+  if c.rosterReady then c.fire("GUILD_ROSTER_UPDATE") end
+  return c
+end
+local function Logout(c) c.online = false end
+
+local function rec(c, key) return c.GCA.db.members[key] end
+local function sameGear(a, b, GCA) return GCA:GearSignature(a) == GCA:GearSignature(b) end
+local function countBus(pred) local n = 0 for _, e in ipairs(bus.log) do if pred(e) then n = n + 1 end end return n end
+local function busSince(t0, pred) local n = 0 for _, e in ipairs(bus.log) do if e.t >= t0 and pred(e) then n = n + 1 end end return n end
+
+---------------------------------------------------------------------------
+section("Encoding: every real link round-trips; real sets fit")
+---------------------------------------------------------------------------
+local A = Login("Anna Stone", copy(GEAR[1]))
+local GCA = A.GCA
+local bad = 0
+for _, l in ipairs(allLinks) do
+  local e = GCA:EncodeItem(l)
+  local d = e and GCA:DecodeItem(e)
+  if not d or GCA:NormItem(d) ~= GCA:NormItem(l) then bad = bad + 1; print("    round trip failed: " .. l) end
+end
+check(bad == 0, ("%d/%d real links round-trip losslessly"):format(#allLinks - bad, #allLinks))
+check(GCA:NormItem("item:10406::::::::36:1488::1:1:12721:1:28:5242") == GCA:NormItem("item:10406::::::::40:1488::1:1:12721:1:28:5242"),
+  "viewer level (field 9) ignored by NormItem")
+check(GCA:NormItem("|cnIQ3:|Hitem:10406::::::::36:1488::1:1:12721:1:28:5242:::::|h[X]|h|r") ==
+  "10406:::::::::::1:1:12721:1:28:5242", "NormItem of a full hyperlink")
+check(GCA:NormItem("item:10406::::::::36:1488::1:1:12721") ~= GCA:NormItem("item:10406::::::::36:1488:::1:12751"),
+  "different random-suffix bonus = different item")
+local maxChunks, maxLen = 0, 0
+for _, s in ipairs(realSets) do
+  for _, subj in ipairs({ "", "Ängis Waldbach-Langername" }) do
+    local m = { items = s.items, class = "HUNTER", level = 35, ts = 1800000000 }
+    local chunks = GCA:EncodeRecord(m, subj)
+    maxChunks = math.max(maxChunks, #chunks)
+    for _, msg in ipairs(chunks) do maxLen = math.max(maxLen, #msg) end
+  end
+end
+check(maxChunks <= 4 and maxLen <= 255, ("real sets: max %d chunks, longest message %d bytes"):format(maxChunks, maxLen))
+-- worst case: 17 slots of the longest real links, all with an enchant
+local longest = copy(allLinks); table.sort(longest, function(a, b) return #a > #b end)
+local worst = {}
+for i, slot in ipairs(GCA.SYNC_SLOTS) do worst[slot] = (longest[i] or longest[1]):gsub("item:(%d+):(%d*):", "item:%1:8483:") end
+local wc = GCA:EncodeRecord({ items = worst, class = "HUNTER", level = 35, ts = 1800000000 }, "Ängis Waldbach")
+check(wc and #wc <= 6, "worst-case 17-slot set encodes in " .. (wc and #wc or "nil") .. " chunks (limit 6)")
+
+---------------------------------------------------------------------------
+section("Login: first player alone sends only Q; no gear without listeners")
+---------------------------------------------------------------------------
+advance(60)
+check(countBus(function(e) return e.from == "Anna Stone" and e.msg:sub(1, 2) == "Q;" end) == 1, "Anna sent one Q")
+check(countBus(function(e) return e.from == "Anna Stone" and e.msg:sub(1, 2) == "G;" end) == 0, "Anna sent no gear (nobody listening)")
+check(A.S.echoSeen ~= nil, "Anna saw her own echo")
+
+---------------------------------------------------------------------------
+section("Second login: Bert gets Anna's gear, Anna gets Bert's")
+---------------------------------------------------------------------------
+advance(240) -- t = 300
+local B = Login("Bert Hill", copy(GEAR[2]))
+advance(120)
+check(rec(B, "Anna Stone") and sameGear(rec(B, "Anna Stone").items, GEAR[1], B.GCA), "Bert has Anna's gear")
+check(rec(A, "Bert Hill") and sameGear(rec(A, "Bert Hill").items, GEAR[2], A.GCA), "Anna has Bert's gear")
+check(rec(B, "Anna Stone") and rec(B, "Anna Stone").source == "self", "stored as self-reported")
+
+---------------------------------------------------------------------------
+section("Third login within 10 min (F#2): Cora still gets both")
+---------------------------------------------------------------------------
+advance(60) -- t = 480, Anna/Bert broadcast < 10 min ago
+local t0 = now
+local Cc = Login("Cora Vale", copy(GEAR[3]))
+advance(150)
+check(rec(Cc, "Anna Stone") and rec(Cc, "Bert Hill"), "Cora has Anna's and Bert's gear")
+check(rec(A, "Cora Vale") and rec(B, "Cora Vale"), "Anna and Bert have Cora's gear")
+local annaSelf = busSince(t0, function(e) return e.from == "Anna Stone" and e.msg:match("^G;;") and e.msg:match(";1/%d;") end)
+check(annaSelf == 1, "Anna answered with exactly one broadcast (" .. annaSelf .. ")")
+
+---------------------------------------------------------------------------
+section("Repeated Qs are absorbed by one pending answer")
+---------------------------------------------------------------------------
+advance(600)
+t0 = now
+A.fire("CHAT_MSG_ADDON", "GCAdv1", "Q;2", "GUILD", "Bert Hill")
+advance(2)
+A.fire("CHAT_MSG_ADDON", "GCAdv1", "Q;2", "GUILD", "Cora Vale")
+advance(120)
+annaSelf = busSince(t0, function(e) return e.from == "Anna Stone" and e.msg:match("^G;;") and e.msg:match(";1/%d;") end)
+check(annaSelf == 1, "two Qs -> one broadcast (" .. annaSelf .. ")")
+
+---------------------------------------------------------------------------
+section("Own gear change is broadcast (debounced) and replaces older data")
+---------------------------------------------------------------------------
+advance(200)
+t0 = now
+local oldTs = rec(B, "Anna Stone").ts
+A.gear[5] = GEAR[4][5] or GEAR[2][5]
+A.fire("PLAYER_EQUIPMENT_CHANGED")
+advance(10)
+check(busSince(t0, function(e) return e.from == "Anna Stone" and e.msg:match("^G;;") end) == 0, "not sent before the 20 s debounce")
+advance(120)
+check(rec(B, "Anna Stone").ts > oldTs and sameGear(rec(B, "Anna Stone").items, A.gear, B.GCA), "Bert has Anna's new gear")
+check(sameGear(rec(Cc, "Anna Stone").items, A.gear, Cc.GCA), "Cora has Anna's new gear")
+
+---------------------------------------------------------------------------
+section("Gear change inside an instance is sent after leaving (F#3)")
+---------------------------------------------------------------------------
+advance(200)
+A.instance = true
+A.fire("PLAYER_ENTERING_WORLD", false, false)
+A.gear[8] = GEAR[3][8] or GEAR[2][8]
+A.fire("PLAYER_EQUIPMENT_CHANGED")
+t0 = now
+advance(200)
+check(busSince(t0, function(e) return e.from == "Anna Stone" end) == 0, "nothing sent from the instance")
+A.instance = false
+A.fire("PLAYER_ENTERING_WORLD", false, false)
+advance(120)
+check(sameGear(rec(B, "Anna Stone").items, A.gear, B.GCA), "sent after leaving the instance")
+
+---------------------------------------------------------------------------
+section("Inspect: viewer level doesn't count as a change (F#1); partial read; lost unit (F#7)")
+---------------------------------------------------------------------------
+advance(200)
+local doraGear = copy(GEAR[4])
+local function inspect(c, uname, items, opts)
+  local g = GUILD_BY[uname]
+  local f, s = uname:match("^(%S+) (%S+)$")
+  c.units.target = { first = f, surname = s, class = g.class, level = g.level, guid = "G-" .. uname, items = items }
+  c.GCA:OnInspectReady("G-" .. uname)
+  if opts and opts.loseAt then advance(opts.loseAt); c.units.target = nil end
+  advance(2)
+  c.units.target = nil
+end
+local relaysBefore = countBus(function(e) return e.from == "Anna Stone" and e.msg:match("^G;Dora") end)
+inspect(A, "Dora Field", doraGear)
+local doraTs = rec(A, "Dora Field") and rec(A, "Dora Field").ts
+check(doraTs ~= nil and rec(A, "Dora Field").source == "inspect", "Dora stored from inspect")
+advance(5)
+A.level = 40 -- Anna levels up: her view of links now says 40
+inspect(A, "Dora Field", withViewer(doraGear, 40))
+check(rec(A, "Dora Field").ts == doraTs, "re-inspect after level-up: same ts (no change)")
+local partial = {}
+local n = 0
+for k, v in pairs(doraGear) do n = n + 1; if n <= 3 then partial[k] = v end end
+inspect(A, "Dora Field", partial)
+check(rec(A, "Dora Field").ts == doraTs, "partial read of the same gear: no change")
+local cnt = 0 for _ in pairs(rec(A, "Dora Field").items) do cnt = cnt + 1 end
+check(cnt == n, "partial read didn't shrink the stored set")
+advance(5)
+inspect(A, "Emil Brook", copy(GEAR[1]), { loseAt = 0.7 })
+check(rec(A, "Emil Brook") ~= nil, "target lost before the final pass: still stored")
+advance(400)
+local relaysDora = countBus(function(e) return e.from == "Anna Stone" and e.msg:match("^G;Dora Field;") and e.msg:match(";1/%d;") end) - relaysBefore
+check(relaysDora == 1, "Dora relayed once (" .. relaysDora .. ")")
+check(rec(B, "Dora Field") and rec(B, "Dora Field").from == "Anna Stone", "Bert has Dora via Anna")
+
+---------------------------------------------------------------------------
+section("Group scan: 3 inspects in a row -> 3 relays, one per ~60 s (F#5)")
+---------------------------------------------------------------------------
+advance(100)
+t0 = now
+inspect(A, "Finn Moor", copy(GEAR[2]))
+inspect(A, "Gina Reed", copy(GEAR[3]))
+GUILD_BY["Emil Brook"].level = 33
+inspect(A, "Emil Brook", copy(GEAR[4])) -- changed gear vs before
+advance(30)
+check(busSince(t0, function(e) return e.from == "Anna Stone" and e.msg:match("^G;%a") and e.msg:match(";1/%d;") end) <= 1, "not all at once")
+advance(300)
+check(rec(B, "Finn Moor") and rec(B, "Gina Reed") and rec(B, "Emil Brook") and sameGear(rec(B, "Emil Brook").items, GEAR[4], B.GCA),
+  "Bert got all three relays")
+check(busSince(t0, function(e) return e.from == "Anna Stone" and e.msg:match("^G;%a") and e.msg:match(";1/%d;") end) == 3, "exactly 3 relays")
+
+---------------------------------------------------------------------------
+section("Relay cancel: someone else relays the same subject first")
+---------------------------------------------------------------------------
+advance(30)
+-- Bert inspects Dora's new gear and relays; Anna inspects the same gear a moment later but must wait (60 s spacing)
+local dora2 = copy(GEAR[1])
+inspect(A, "Gina Reed", copy(GEAR[1])) -- make Anna's relay slot busy
+inspect(B, "Dora Field", dora2)
+inspect(A, "Dora Field", withViewer(dora2, 40))
+t0 = now
+advance(400)
+local annaDora = busSince(t0, function(e) return e.from == "Anna Stone" and e.msg:match("^G;Dora Field;") end)
+local bertDora = busSince(t0 - 5, function(e) return e.from == "Bert Hill" and e.msg:match("^G;Dora Field;") end)
+check(bertDora >= 1 and annaDora == 0, ("Bert relayed Dora (%d msgs), Anna cancelled hers (%d msgs)"):format(bertDora, annaDora))
+check(sameGear(rec(Cc, "Dora Field").items, dora2, Cc.GCA), "Cora has Dora's new gear")
+
+---------------------------------------------------------------------------
+section("Lost chunk: record not applied; applied on the next broadcast")
+---------------------------------------------------------------------------
+advance(200)
+local cora0 = rec(Cc, "Bert Hill").ts
+bus.drop = function(msg, from, to) return from.name == "Bert Hill" and to.name == "Cora Vale" and msg:match("^G;;.-;2/%d;") end
+B.gear[1] = GEAR[1][1] or GEAR[3][1]; B.gear[3] = GEAR[3][3] or GEAR[1][3]
+B.fire("PLAYER_EQUIPMENT_CHANGED")
+advance(200)
+check(rec(Cc, "Bert Hill").ts == cora0, "Cora didn't apply Bert's record with a missing chunk")
+check(rec(A, "Bert Hill").ts > cora0, "Anna (no loss) applied it")
+bus.drop = nil
+B.fire("CHAT_MSG_ADDON", "GCAdv1", "Q;2", "GUILD", "Cora Vale") -- next chance: a Q
+advance(200)
+check(rec(Cc, "Bert Hill").ts > cora0, "applied on the next broadcast")
+
+---------------------------------------------------------------------------
+section("Throttled sends (result 3/8) are held and sent whole")
+---------------------------------------------------------------------------
+advance(200)
+local throttles = 0
+bus.result = function(msg, c) if c == A and throttles < 3 then throttles = throttles + 1; return 3 end end
+A.gear[10] = GEAR[2][10] or GEAR[3][10]
+A.fire("PLAYER_EQUIPMENT_CHANGED")
+advance(400)
+bus.result = nil
+check(throttles == 3 and sameGear(rec(B, "Anna Stone").items, A.gear, B.GCA), "after 3 throttles the record arrives whole")
+
+---------------------------------------------------------------------------
+section("Merge rules")
+---------------------------------------------------------------------------
+local M = Cc.GCA
+local base = M:Now()
+M.db.members["Finn Moor"] = { items = copy(GEAR[1]), ts = base, source = "self", class = "PRIEST", level = 34 }
+check(not M:ApplyRecord("Bert Hill", { subject = "Finn Moor", class = "PRIEST", level = 34, ts = base - 10, items = copy(GEAR[2]) }), "older relay rejected")
+check(not M:ApplyRecord("Bert Hill", { subject = "Finn Moor", class = "PRIEST", level = 34, ts = base, items = copy(GEAR[2]) }), "same-age inspect doesn't beat self")
+check(M:ApplyRecord("Bert Hill", { subject = "Finn Moor", class = "PRIEST", level = 34, ts = base + 10, items = copy(GEAR[2]) }), "newer relay wins")
+check(M:ApplyRecord("Finn Moor", { subject = "", class = "PRIEST", level = 34, ts = base + 10, items = copy(GEAR[3]) }), "same-age self beats inspect")
+check(not M:ApplyRecord("Bert Hill", { subject = "Cora Vale", class = "HUNTER", level = 31, ts = base + 99, items = {} }), "record about ourselves rejected")
+check(not M:ApplyRecord("Bert Hill", { subject = "Stranger Danger", class = "HUNTER", level = 31, ts = base + 99, items = {} }), "relayed non-guildie rejected")
+
+-- H5.1: "crafted" marks are local only and end when a synced record shows the item worn (enchants: the enchant ID on the slot)
+do
+  local wornSlot, wornLink
+  for slot, l in pairs(GEAR[1]) do if not wornSlot or slot < wornSlot then wornSlot, wornLink = slot, l end end
+  local wornID = tonumber(wornLink:match("item:(%d+)"))
+  local noWorn = copy(GEAR[1]); noWorn[wornSlot] = nil
+  for slot, l in pairs(noWorn) do if tonumber(l:match("item:(%d+)")) == wornID then noWorn[slot] = nil end end
+  M:SetCrafted("Finn Moor", "Leatherworking", { kind = "item", cand = { spellID = 424242, itemID = wornID }, slot = wornSlot }, true)
+  M:SetCrafted("Finn Moor", "Enchanting", { kind = "enchant", cand = { spellID = 7779 }, enchant = { enchant = 247 }, slot = 9 }, true)
+  local sentBefore = Cc.S.sent
+  check(M:ApplyRecord("Finn Moor", { subject = "", class = "PRIEST", level = 34, ts = base + 20, items = noWorn })
+    and M:CraftedMark("Finn Moor", "Leatherworking", 424242) ~= nil, "synced record without the crafted item keeps the mark")
+  check(M:ApplyRecord("Finn Moor", { subject = "", class = "PRIEST", level = 34, ts = base + 30, items = copy(GEAR[1]) })
+    and M:CraftedMark("Finn Moor", "Leatherworking", 424242) == nil, "synced record wearing it clears the mark")
+  local ench = copy(noWorn); ench[9] = "item:12345:247"
+  check(M:ApplyRecord("Finn Moor", { subject = "", class = "PRIEST", level = 34, ts = base + 40, items = ench })
+    and M:CraftedMark("Finn Moor", "Enchanting", 7779) == nil, "synced record with enchant 247 on the wrist clears the enchant mark")
+  local leaked = false
+  for _, e in ipairs(bus.log) do if e.msg:find("424242", 1, true) then leaked = true end end
+  check(Cc.S.sent == sentBefore and not leaked, "marks are never sent")
+end
+
+---------------------------------------------------------------------------
+section("Malformed messages are dropped without errors (F#6)")
+---------------------------------------------------------------------------
+local before = Cc.S.received
+local junk = {
+  "G;;4;z;" .. M.b36(base + 5000) .. ";s;1/1;1=abc",            -- level 35 ok? z=35, but ts far future
+  "G;;0;z;" .. M.b36(base) .. ";s;1/1;1=4j",                     -- class 0
+  "G;;4;1o;" .. M.b36(base) .. ";s;1/1;1=4j",                    -- level 60+ (1o = 60) ok, try 1p
+  "G;;4;1p;" .. M.b36(base) .. ";s;1/1;1=4j",                    -- level 61
+  "G;;4;z;" .. M.b36(base) .. ";s;2/1;1=4j",                     -- i > n
+  "G;;4;z;" .. M.b36(base) .. ";s;1/7;1=4j",                     -- n > 6
+  "G;;4;z;" .. M.b36(base) .. ";s;1/1;4=4j",                     -- shirt slot
+  "G;;4;z;" .. M.b36(base) .. ";s;1/1;1=4j|cff",                 -- bad chars
+  "G;;4;z;" .. M.b36(base) .. ";s;1/1;1=" .. string.rep("1", 90), -- too long
+  "G;;4;z;" .. M.b36(base) .. ";s;1/1;1=~Player|x",              -- bad text field
+  "G;;4;z;" .. M.b36(base) .. ";i;1/1;1=4j",                     -- own record marked inspected
+  "G;Dora Field;4;z;" .. M.b36(base) .. ";s;1/1;1=4j",           -- relay marked self
+  "G;;4;z",                                                       -- too few fields
+  "X;whatever", "", ";;;;;;;;", "G;;;;;;;",
+}
+local errs = 0
+for i, msg in ipairs(junk) do
+  if i ~= 3 then
+    local ok = pcall(Cc.fire, "CHAT_MSG_ADDON", "GCAdv1", msg, "GUILD", "Gina Reed")
+    if not ok then errs = errs + 1 end
+    Cc.S.intake = {}
+  end
+end
+check(errs == 0 and Cc.S.received == before, ("no errors, nothing stored (%d stored)"):format(Cc.S.received - before))
+local ginaOwn = M.db.members["Gina Reed"]
+check(not ginaOwn or ginaOwn.source ~= "self", "no self record for Gina from junk")
+
+---------------------------------------------------------------------------
+section("Echo watchdog: no echo -> stop + one warning; zoning right after a send is no false alarm (F#10)")
+---------------------------------------------------------------------------
+advance(300)
+bus.echo = false
+A.gear[6] = GEAR[2][6] or GEAR[3][6]
+A.fire("PLAYER_EQUIPMENT_CHANGED")
+advance(140) -- sent by now, no echo
+A.instance = true; A.fire("PLAYER_ENTERING_WORLD", false, false)
+advance(400)
+check(not A.S.stopped, "zoned in after sending: not paused")
+A.instance = false; A.fire("PLAYER_ENTERING_WORLD", false, false)
+A.gear[6] = GEAR[3][6] or GEAR[1][6]
+A.fire("PLAYER_EQUIPMENT_CHANGED")
+advance(800)
+local warn = 0 for _, p in ipairs(A.prints) do if p:find("sync paused") then warn = warn + 1 end end
+check(A.S.stopped and warn == 1, "no echo for 300 s -> paused, one warning (" .. warn .. ")")
+bus.echo = true
+A.GCA:SyncRetry()
+advance(300)
+check(not A.S.stopped, "/gca sync retry resumes")
+
+---------------------------------------------------------------------------
+section("Roster not loaded yet: Q deferred until it is")
+---------------------------------------------------------------------------
+Logout(Cc)
+advance(30)
+t0 = now
+local D = Login("Cora Vale", copy(GEAR[3]), Cc.GCA.db, { rosterReady = false })
+D.GCA.db.sync["Cora Vale-Realm"].lastQ = nil
+advance(90)
+check(busSince(t0, function(e) return e.from == "Cora Vale" and e.msg:sub(1, 2) == "Q;" end) == 0, "no Q while the roster is empty")
+D.rosterReady = true; D.fire("GUILD_ROSTER_UPDATE")
+advance(30)
+check(busSince(t0, function(e) return e.from == "Cora Vale" and e.msg:sub(1, 2) == "Q;" end) == 1, "Q sent once the roster loaded")
+
+---------------------------------------------------------------------------
+section("/reload within 15 min doesn't resend Q; an alt does (F#11)")
+---------------------------------------------------------------------------
+advance(60)
+t0 = now
+local D2 = Login("Cora Vale", copy(GEAR[3]), D.GCA.db) -- /reload: same character, same DB
+advance(90)
+check(busSince(t0, function(e) return e.from == "Cora Vale" and e.msg:sub(1, 2) == "Q;" end) == 0, "/reload: no second Q")
+Logout(D2)
+local db = D2.GCA.db
+t0 = now
+GUILD[#GUILD + 1] = { name = "Cora Alt", class = "MAGE", level = 20 }; GUILD_BY["Cora Alt"] = GUILD[#GUILD]
+local E = Login("Cora Alt", copy(GEAR[2]), db)
+advance(90)
+check(busSince(t0, function(e) return e.from == "Cora Alt" and e.msg:sub(1, 2) == "Q;" end) == 1, "alt on the same account sends its own Q")
+
+---------------------------------------------------------------------------
+section("Review fixes: realm-suffixed echo, own record retried after expiry, relay without level")
+---------------------------------------------------------------------------
+-- 1. echo arriving as "<name>-<realm>" counts as our own echo, not as a peer
+local R1 = E.GCA
+local peersBefore = 0 for _ in pairs(E.S.peers) do peersBefore = peersBefore + 1 end
+E.S.echoWait = now
+E.fire("CHAT_MSG_ADDON", "GCAdv1", "Q;2", "GUILD", "Cora Alt-Realm")
+local peersAfter = 0 for _ in pairs(E.S.peers) do peersAfter = peersAfter + 1 end
+check(E.S.echoWait == nil and E.S.echoRaw == "Cora Alt-Realm" and peersAfter == peersBefore, "realm-suffixed own echo recognised")
+check(R1.db.members["Cora Alt-Realm"] == nil, "no member record for ourselves under another name")
+-- 2. own record dropped from the queue (guild busy) is retried later
+advance(300)
+local busyUntil = now + 400
+-- other addon users' traffic: 10 messages every 10 s keeps the "busy guild channel" hold on
+local function busy() if now < busyUntil then for _ = 1, 10 do E.S.heard[#E.S.heard + 1] = now end; addTimer(10, busy) end end
+busy()
+local dropsBefore = 0
+E.gear[7] = GEAR[1][7] or GEAR[4][7]
+E.fire("PLAYER_EQUIPMENT_CHANGED")
+t0 = now
+advance(380)
+check(busSince(t0, function(e) return e.from == "Cora Alt" and e.msg:match("^G;;") end) == 0, "nothing sent while the guild channel is busy")
+check(#E.S.q == 0, "own record dropped from the queue after 300 s unsent")
+advance(400)
+check(sameGear(rec(A, "Cora Alt").items, E.gear, A.GCA), "own record went out after the busy period (retried)")
+-- 3. relay of an inspect without a level falls back to the roster level
+advance(100)
+local f, sn = "Gina", "Reed"
+A.units.target = { first = f, surname = sn, class = "SHAMAN", level = nil, guid = "G-Gina Reed", items = copy(GEAR[4]) }
+A.GCA.db.members["Gina Reed"].level = nil
+A.GCA:OnInspectReady("G-Gina Reed"); advance(2); A.units.target = nil
+t0 = now
+advance(200)
+check(rec(B, "Gina Reed") and rec(B, "Gina Reed").level == 32 and sameGear(rec(B, "Gina Reed").items, GEAR[4], B.GCA),
+  "relay without unit level used the roster level (32) and arrived")
+
+---------------------------------------------------------------------------
+section("Spec sync (F8.4): S;<index>;<ts> between 0.3 clients; a 0.2.0 client ignores it")
+---------------------------------------------------------------------------
+for _, g in ipairs({ { name = "Ivy Lake", class = "ROGUE", level = 40 }, { name = "Jon Ash", class = "DRUID", level = 44 },
+  { name = "Kai Old", class = "MAGE", level = 30 } }) do
+  GUILD[#GUILD + 1] = g; GUILD_BY[g.name] = g
+end
+advance(100)
+local legacyFiles = { "Data/Leatherworking.lua", "dev/legacy_0.2.0/Core.lua", "dev/legacy_0.2.0/Sync.lua" }
+local K = Login("Kai Old", copy(GEAR[1]), {}, { files = legacyFiles })
+advance(120)
+t0 = now
+local I = Login("Ivy Lake", copy(GEAR[2]), {}, { talents = { { 5020, 15 }, { 1020, 5 } } }) -- Combat
+local J = Login("Jon Ash", copy(GEAR[3]), {}, { talents = { { 5020, 20 } }, knownSpells = { 768 } }) -- Feral, knows Cat Form
+advance(400)
+local sMsgs = busSince(t0, function(e) return e.msg:sub(1, 2) == "S;" end)
+check(sMsgs >= 2, "spec messages sent (" .. sMsgs .. ")")
+local ivyIdx = I.GCA.SPEC_INDEX["ROGUE/COMBAT"]
+check(busSince(t0, function(e) return e.from == "Ivy Lake" and e.msg:match("^S;" .. I.GCA.b36(ivyIdx) .. ";%w+$") end) >= 1, "Ivy sent S;<Combat>;<ts>")
+check(J.GCA:MemberSpec("Ivy Lake", "ROGUE", {}) == "COMBAT", "Jon knows Ivy is Combat (synced)")
+local js, jhow = I.GCA:MemberSpec("Jon Ash", "DRUID", {})
+check(js == "FERAL_CAT" and jhow == "synced", "Ivy knows Jon's spec: " .. tostring(js) .. " (" .. tostring(jhow) .. ")")
+check(A.GCA:MemberSpec("Ivy Lake", "ROGUE", {}) == "COMBAT", "Anna (0.3) got it too")
+-- the 0.2.0 client: received the S messages, no error, nothing stored, still gets gear
+check(rec(K, "Ivy Lake") ~= nil and K.GCA.db.specs == nil, "0.2.0 client: S ignored, Ivy's gear still applied")
+local kErr = 0
+for _, msg in ipairs({ "S;1;" .. K.GCA.b36(K.GCA:Now()), "S;zz;1", "S;", "S;1;2;3" }) do
+  if not pcall(K.fire, "CHAT_MSG_ADDON", "GCAdv1", msg, "GUILD", "Gina Reed") then kErr = kErr + 1 end
+end
+check(kErr == 0, "0.2.0 parser: S messages of any shape cause no error")
+-- a spec change (talents respec) is sent again and replaces the old one
+local tsBefore = J.GCA.db.specs["Ivy Lake"].ts
+advance(130)
+I.talents[1] = { 9080, 25 }; I.talents[2] = { 1020, 1 } -- Subtlety now
+I.fire("TRAIT_CONFIG_UPDATED")
+advance(200)
+check(J.GCA:MemberSpec("Ivy Lake", "ROGUE", {}) == "SUBTLETY" and J.GCA.db.specs["Ivy Lake"].ts >= tsBefore, "respec arrives (Subtlety)")
+-- your own manual pick is what you announce
+I.GCA:SetManualSpec("Ivy Lake", "ROGUE", "ASSASSINATION")
+advance(200)
+check(J.GCA:MemberSpec("Ivy Lake", "ROGUE", {}) == "ASSASSINATION", "own manual pick is announced")
+-- receiver: wrong class, future ts, bad index are ignored; manual pick beats synced
+local G = J.GCA
+local before = G.db.specs["Ivy Lake"].spec
+J.fire("CHAT_MSG_ADDON", "GCAdv1", "S;" .. G.b36(G.SPEC_INDEX["MAGE/FIRE"]) .. ";" .. G.b36(G:Now()), "GUILD", "Ivy Lake")
+check(G.db.specs["Ivy Lake"].spec == before, "spec of another class than the roster says: ignored")
+J.S.intake = {}
+J.fire("CHAT_MSG_ADDON", "GCAdv1", "S;" .. G.b36(G.SPEC_INDEX["ROGUE/COMBAT"]) .. ";" .. G.b36(G:Now() + 9999), "GUILD", "Ivy Lake")
+check(G.db.specs["Ivy Lake"].spec == before, "future timestamp: ignored")
+J.fire("CHAT_MSG_ADDON", "GCAdv1", "S;" .. G.b36(99) .. ";" .. G.b36(G:Now()), "GUILD", "Ivy Lake")
+check(G.db.specs["Ivy Lake"].spec == before, "unknown index: ignored")
+G:SetManualSpec("Ivy Lake", "ROGUE", "COMBAT")
+check(G:MemberSpec("Ivy Lake", "ROGUE", {}) == "COMBAT", "manual pick on the receiver wins over the synced spec")
+-- the spec list is append-only: the indices on the wire must never move
+check(G.SPEC_INDEX["DRUID/BALANCE"] == 1 and G.SPEC_INDEX["SHAMAN/ENHANCEMENT_DW"] == 24 and G.SPEC_INDEX["WARRIOR/PROTECTION"] == 31 and #G.SPEC_LIST == 31,
+  "spec index table unchanged (1 Balance, 24 Enh DW, 31 Warrior Prot)")
+
+---------------------------------------------------------------------------
+---------------------------------------------------------------------------
+section("K0/M1: one chatty sender can't hold everyone's sending; several busy senders still do")
+---------------------------------------------------------------------------
+do
+  advance(900)
+  A.S.stopped, A.S.echoWait = nil, nil
+  local spamUntil = now + 900
+  local function spam()
+    if now < spamUntil then
+      -- 1 junk message/s from one guildie (unknown type; 48 of every 60 are over the intake cap)
+      A.fire("CHAT_MSG_ADDON", "GCAdv1", "X;junk", "GUILD", "Spam Bot")
+      addTimer(1, spam)
+    end
+  end
+  spam()
+  A.gear[7] = GEAR[2][7] ~= A.gear[7] and GEAR[2][7] or GEAR[3][7]
+  A.fire("PLAYER_EQUIPMENT_CHANGED")
+  local t1 = now
+  advance(840)
+  local sent = busSince(t1, function(e) return e.from == A.name and e.msg:match("^G;;") end)
+  local recent = 0
+  for _, t in ipairs(A.S.heard) do if now - t <= 60 then recent = recent + 1 end end
+  check(sent >= 1 and recent <= A.C.HEARD_PER_SENDER,
+    ("own gear goes out while one guildie sends 1 msg/s (%d chunk(s) sent, %d heard in the last 60 s)"):format(sent, recent))
+  advance(200)
+  -- three guildies at a normal client's pace (4/min each = 12 heard >= BUSY_HEARD): we hold
+  A.S.heard = {}
+  local busyUntil2 = now + 300
+  local function chatter()
+    if now < busyUntil2 then
+      for _, who in ipairs({ "Dora Field", "Emil Brook", "Finn Moor" }) do
+        A.fire("CHAT_MSG_ADDON", "GCAdv1", "X;busy", "GUILD", who)
+      end
+      addTimer(15, chatter)
+    end
+  end
+  chatter()
+  advance(50) -- a minute of traffic heard before our gear changes
+  A.gear[7] = GEAR[2][7] ~= A.gear[7] and GEAR[2][7] or GEAR[3][7]
+  A.fire("PLAYER_EQUIPMENT_CHANGED")
+  local t2 = now
+  advance(200)
+  check(busSince(t2, function(e) return e.from == A.name and e.msg:match("^G;;") end) == 0,
+    "three busy senders (12 heard/min): our send is held (" .. #A.S.heard .. " heard)")
+  advance(600)
+  check(busSince(t2, function(e) return e.from == A.name and e.msg:match("^G;;") end) >= 1, "held send goes out once it is quiet")
+end
+
+---------------------------------------------------------------------------
+section("K0/M2: the inspect queue waits for the final storing read before the next NotifyInspect")
+---------------------------------------------------------------------------
+do
+  local G = A.GCA
+  local notifies, stores = {}, {}
+  local answerDelay = { ["G-Dora Field"] = 0.3, ["G-Emil Brook"] = 0.3, ["G-Finn Moor"] = false, ["G-Gina Reed"] = 2.9 }
+  A.env.NotifyInspect = function(u)
+    local x = A.units[u]
+    notifies[#notifies + 1] = { t = now, guid = x and x.guid }
+    local d = x and answerDelay[x.guid]
+    if d then addTimer(d, function() A.fire("INSPECT_READY", x.guid) end) end
+  end
+  local realStore = G.StoreRecord
+  G.StoreRecord = function(self, key, ...) stores[#stores + 1] = { t = now, key = key }; return realStore(self, key, ...) end
+  local function unit(token, uname, items)
+    local g = GUILD_BY[uname]
+    local f, s = uname:match("^(%S+) (%S+)$")
+    A.units[token] = { first = f, surname = s, class = g.class, level = g.level, guid = "G-" .. uname, items = items }
+  end
+  unit("party1", "Dora Field", copy(GEAR[4])); unit("party2", "Emil Brook", copy(GEAR[1]))
+  unit("party3", "Finn Moor", copy(GEAR[2])); unit("party4", "Gina Reed", copy(GEAR[3]))
+  G.inspecting = nil; G.queue = {}; G.lastInspect = {}
+  for _, u in ipairs({ "party1", "party2", "party3", "party4" }) do G:QueueInspect(u, true) end
+  advance(30)
+  local function at(guid) for _, n in ipairs(notifies) do if n.guid == guid then return n.t end end end
+  local function storedAt(key) for _, s in ipairs(stores) do if s.key == key then return s.t end end end
+  local tD, tE, tF, tG = at("G-Dora Field"), at("G-Emil Brook"), at("G-Finn Moor"), at("G-Gina Reed")
+  local sD, sG = storedAt("Dora Field"), storedAt("Gina Reed")
+  print(("  info: notify D %.1f E %.1f F %.1f G %.1f; stored D %.1f G %s"):format(tD or -1, tE or -1, tF or -1, tG or -1, sD or -1, tostring(sG)))
+  check(#notifies == 4 and sD and tE and tE > sD, "next NotifyInspect only after the previous member's final read was stored")
+  check(tF and tE and math.abs((tF - tE) - (0.3 + G.INSPECT_FINAL_READ + G.INSPECT_GAP)) < 0.01, "answered inspect: next one after answer + final read + gap")
+  check(tG and tF and math.abs((tG - tF) - G.INSPECT_NO_ANSWER) < 0.01, "no INSPECT_READY: queue moves on after " .. G.INSPECT_NO_ANSWER .. " s")
+  check(sG and tG and sG >= tG + 2.9 + G.INSPECT_FINAL_READ - 0.01 and G.inspecting == nil, "late answer (2.9 s): stored, queue not cut off by the no-answer timer")
+  -- the final read errors: the queue still moves on (SafeCall + InspectDone after it)
+  notifies, stores = {}, {}
+  G.StoreRecord = function() error("boom") end
+  G.lastInspect = {}
+  G:QueueInspect("party1", true); G:QueueInspect("party2", true)
+  advance(30)
+  check(#notifies == 2 and G.inspecting == nil, "an error in the final read doesn't hang the queue")
+  G.StoreRecord = realStore
+  -- INSPECT_READY for our unit never comes but the inspect was marked answered: the hard limit frees the queue
+  notifies = {}
+  A.env.NotifyInspect = function(u) notifies[#notifies + 1] = { t = now }; G.inspectAnswered = G.inspecting end
+  G.lastInspect = {}
+  G:QueueInspect("party2", true)
+  advance(G.INSPECT_NO_ANSWER + 1)
+  check(G.inspecting ~= nil, "answered inspect is not cut off by the no-answer timer")
+  advance(G.INSPECT_HARD_LIMIT)
+  check(G.inspecting == nil, "... but the hard limit (" .. G.INSPECT_HARD_LIMIT .. " s) frees the queue")
+  A.env.NotifyInspect = function() end
+  for _, u in ipairs({ "party1", "party2", "party3", "party4" }) do A.units[u] = nil end
+end
+
+---------------------------------------------------------------------------
+section("K5: automatic gear reading (group roster, mouseover): rules, combat, throttle, option")
+---------------------------------------------------------------------------
+do
+  local G = A.GCA
+  local notified = {}
+  A.env.NotifyInspect = function(u) local x = A.units[u]; notified[#notified + 1] = x and x.guid end
+  local function unit(token, uname, items)
+    local g = GUILD_BY[uname]
+    local f, s = uname:match("^(%S+) (%S+)$")
+    A.units[token] = { first = f, surname = s, class = g.class, level = g.level, guid = "G-" .. uname, items = items }
+  end
+  unit("party1", "Dora Field", copy(GEAR[4])); unit("party2", "Emil Brook", copy(GEAR[1]))
+  A.env.GetNumSubgroupMembers = function() return 2 end
+  local function reset()
+    advance(30)
+    notified = {}
+    G.inspecting, G.queue, G.lastInspect, G.lastAutoMouseover = nil, {}, {}, nil
+    G.db.members["Dora Field"] = { time = A.env.time(), items = {} }                -- fresh (just recorded / received)
+    G.db.members["Emil Brook"] = { time = A.env.time() - G.AUTO_FRESH - 5, items = {} } -- older than 30 min
+  end
+  reset()
+  check(G.db.settings.autoInspect == true, "K5: 'autoInspect' defaults to on")
+  A.fire("GROUP_ROSTER_UPDATE"); A.fire("GROUP_ROSTER_UPDATE"); A.fire("GROUP_ROSTER_UPDATE")
+  check(#notified == 0, "GROUP_ROSTER_UPDATE is debounced (" .. G.AUTO_GROUP_DELAY .. " s), nothing at once")
+  advance(G.AUTO_GROUP_DELAY + 0.1)
+  check(#notified == 1 and notified[1] == "G-Emil Brook", "one scan for the burst: only the member without a recent record is read (Dora is fresh)")
+  check(select(2, G:AutoInspectCheck("party1")) == "fresh" and select(2, G:AutoInspectCheck("party2")) == "recent",
+    "reasons: fresh record (< 30 min) / tried within " .. G.AUTO_RETRY .. " s")
+  -- combat: nothing; the scan runs at PLAYER_REGEN_ENABLED
+  reset()
+  A.combat = true
+  A.fire("GROUP_ROSTER_UPDATE"); advance(G.AUTO_GROUP_DELAY + 1)
+  check(#notified == 0 and G.autoGroupPending and select(2, G:AutoInspectCheck("party2")) == "combat", "in combat: no inspect, scan remembered")
+  A.combat = false
+  A.fire("PLAYER_REGEN_ENABLED")
+  check(#notified == 1 and notified[1] == "G-Emil Brook" and not G.autoGroupPending, "combat over: the remembered scan runs at once")
+  -- CanInspect false / out of range / inspect window open: skipped
+  reset()
+  A.env.CanInspect = function() return false end
+  check(select(2, G:AutoInspectCheck("party2")) == "caninspect" and G:AutoScanGroup() == 0, "CanInspect false: skipped")
+  A.env.CanInspect = function() return true end
+  A.env.CheckInteractDistance = function(u, i) return i == 1 and false end
+  check(select(2, G:AutoInspectCheck("party2")) == "range", "CheckInteractDistance(unit, 1) == false: out of range, skipped")
+  A.env.CheckInteractDistance = function() error("restricted") end
+  check(G:AutoInspectCheck("party2") == true, "CheckInteractDistance erroring: not treated as out of range")
+  A.env.CheckInteractDistance = nil
+  A.env.InspectFrame = { IsShown = function() return true end }
+  check(select(2, G:AutoInspectCheck("party2")) == "inspectframe" and G:AutoScanGroup() == 0 and #notified == 0, "your inspect window open: never taken over")
+  A.env.InspectFrame = nil
+  -- option off: nothing at all
+  G.db.settings.autoInspect = false
+  A.fire("GROUP_ROSTER_UPDATE"); advance(G.AUTO_GROUP_DELAY + 1)
+  check(#notified == 0 and select(2, G:AutoInspectCheck("party2")) == "off" and not G:AutoMouseover(), "option off: no group scan, no mouseover read")
+  G.db.settings.autoInspect = true
+  -- mouseover: only while the queue is idle, at most one per AUTO_MOUSEOVER_GAP s
+  reset()
+  unit("mouseover", "Finn Moor", copy(GEAR[2]))
+  G.db.members["Finn Moor"] = nil
+  A.fire("UPDATE_MOUSEOVER_UNIT")
+  check(#notified == 1 and notified[1] == "G-Finn Moor", "mouseover on a guildie without a record: read")
+  unit("mouseover", "Gina Reed", copy(GEAR[3]))
+  G.db.members["Gina Reed"] = nil
+  advance(G.INSPECT_NO_ANSWER + G.INSPECT_GAP + 0.1) -- queue idle again
+  A.fire("UPDATE_MOUSEOVER_UNIT")
+  check(#notified == 1, "a second mouseover within " .. G.AUTO_MOUSEOVER_GAP .. " s: throttled")
+  advance(G.AUTO_MOUSEOVER_GAP)
+  G.queue = { "G-Someone" }
+  A.fire("UPDATE_MOUSEOVER_UNIT")
+  check(#notified == 1, "queue busy (group reads waiting): mouseover is low priority, skipped")
+  G.queue = {}
+  A.fire("UPDATE_MOUSEOVER_UNIT")
+  check(#notified == 2 and notified[2] == "G-Gina Reed", "idle again after the gap: read")
+  -- target auto-read follows the same option
+  G.db.settings.autoInspect = false
+  unit("target", "Dora Field", copy(GEAR[4])); G.lastInspect = {}
+  advance(30)
+  A.fire("PLAYER_TARGET_CHANGED")
+  check(#notified == 2, "option off: targeting doesn't read either (one option for target, group, mouseover)")
+  G.db.settings.autoInspect = true
+  advance(30)
+  A.env.NotifyInspect = function() end
+  A.env.GetNumSubgroupMembers = function() return 0 end
+  for _, u in ipairs({ "party1", "party2", "mouseover", "target" }) do A.units[u] = nil end
+end
+
+---------------------------------------------------------------------------
+section("K0/L5-L7: own spec persisted for alts; receive time; resume message only when paused")
+---------------------------------------------------------------------------
+do
+  local IG = I.GCA
+  local own = IG.db.specs[IG.playerKey]
+  local announced = select(2, IG:OwnAnnouncedSpec())
+  check(own and own.src == "self" and own.spec == announced, "own spec stored in db.specs[me] as src 'self' (" .. tostring(own and own.spec) .. ")")
+  local savedKey, savedManual = IG.playerKey, IG.db.specManual["Ivy Lake"]
+  IG.playerKey = "Ivy Alt"; IG.db.specManual["Ivy Lake"] = nil -- the alt has no manual pick for the main
+  local sp, how = IG:MemberSpec("Ivy Lake", "ROGUE", {})
+  IG.playerKey = savedKey; IG.db.specManual["Ivy Lake"] = savedManual
+  check(sp == announced and how == "own", "an alt on the account sees the main's spec (" .. tostring(sp) .. ", " .. tostring(how) .. ")")
+  -- L6: received record: time = when we got it, ts = the gear's own stamp
+  local r = rec(B, "Anna Stone")
+  check(r and r.time and r.ts and r.time > r.ts and B.env.time() - r.time < 3600,
+    "received record: time is our receive time (" .. tostring(r and r.time) .. "), ts kept (" .. tostring(r and r.ts) .. ")")
+  -- L7
+  local function resumed() local n = 0 for _, p in ipairs(A.prints) do if p:find("Guild sync resumed", 1, true) then n = n + 1 end end return n end
+  local n0 = resumed()
+  A.S.stopped = nil
+  A.GCA:SyncRetry()
+  check(resumed() == n0, "SyncRetry while not paused: no 'resumed' message")
+  A.S.stopped = true
+  A.GCA:SyncRetry()
+  check(resumed() == n0 + 1 and not A.S.stopped, "SyncRetry while paused: resumed + message")
+end
+
+---------------------------------------------------------------------------
+section("K0/L4: pruning characters that left the guild (conservative)")
+---------------------------------------------------------------------------
+do
+  local G, db = A.GCA, A.GCA.db
+  local T = A.env.time()
+  local old, recent = T - 40 * 86400, T - 5 * 86400
+  local roster = {
+    { "Anna Stone", true }, { "Bert Hill", true }, { "Cora Vale", false }, { "Dora Field", true },
+    { "Emil Brook", false }, { "Finn Moor", true }, { "Gina Reed", true },
+  }
+  local rosterN = #roster
+  local hole = nil
+  A.env.GetNumGuildMembers = function() return rosterN end
+  A.env.GetGuildRosterInfo = function(i)
+    local m = roster[i]; if not m or i == hole then return end
+    local g = GUILD_BY[m[1]]
+    return m[1], "Member", 1, g.level, g.class, "Zone", "", "", m[2], 0, g.class
+  end
+  db.members["Gone Away"] = { class = "MAGE", level = 30, time = old, ts = old, items = {} }
+  db.specs["Gone Away"] = { class = "MAGE", spec = "FIRE", src = "sync", ts = old }
+  db.crafted = db.crafted or {}
+  db.crafted[G.charKey] = db.crafted[G.charKey] or {}
+  db.crafted[G.charKey]["Gone Away"] = { Leatherworking = { [1] = { item = 1, t = old } } }
+  db.crafted["Other Main-Realm"] = { ["Gone Away"] = { Leatherworking = { [2] = { item = 2, t = old } } } }
+  db.members["Just Left"] = { class = "MAGE", level = 30, time = recent, ts = old, items = {} }
+  db.members["No Stamp"] = { class = "MAGE", level = 30, items = {} }
+  db.specs["Spec Only"] = { class = "MAGE", spec = "FIRE", src = "sync", ts = old }
+  local doraTime = db.members["Dora Field"] and db.members["Dora Field"].time
+  if db.members["Dora Field"] then db.members["Dora Field"].time, db.members["Dora Field"].ts = old, old end
+  db.known["My Alt-Realm"] = {}
+  db.members["My Alt"] = { class = "MAGE", level = 10, time = old, ts = old, items = {}, source = "self" }
+  db.members["Other Main"] = { class = "MAGE", level = 60, time = old, ts = old, items = {}, source = "self" }
+  local function try()
+    G.pruneDone = nil
+    A.fire("GUILD_ROSTER_UPDATE")
+  end
+  G.loginTime = now
+  db.rosterLast = 7
+  try()
+  check(db.members["Gone Away"] and not G.pruneDone, "too soon after login: nothing pruned")
+  G.loginTime = now - 120
+  db.rosterLast = nil
+  try()
+  check(db.members["Gone Away"] and db.rosterLast == 7, "first session that records a roster size: nothing pruned")
+  rosterN = 0
+  try()
+  check(db.members["Gone Away"] and not G.pruneDone, "roster count 0: nothing pruned, tried again on the next update")
+  rosterN = 3
+  try()
+  check(db.members["Gone Away"], "roster suspiciously small (3, under 5): nothing pruned")
+  rosterN = 7; db.rosterLast = 20
+  try()
+  check(db.members["Gone Away"], "roster less than half of last session's (7 vs 20): nothing pruned")
+  for _, m in ipairs(roster) do m.on = m[2]; m[2] = true end
+  db.rosterLast = 7
+  try()
+  check(db.members["Gone Away"], "no offline member in the roster (online-only list?): nothing pruned")
+  for _, m in ipairs(roster) do m[2] = m.on end
+  hole = 4
+  try()
+  check(db.members["Gone Away"], "incomplete roster read (an index without a name): nothing pruned")
+  hole = nil
+  local p0 = #A.prints
+  try()
+  check(db.members["Gone Away"] == nil and db.specs["Gone Away"] == nil and db.crafted[G.charKey]["Gone Away"] == nil
+    and db.crafted["Other Main-Realm"]["Gone Away"] == nil and db.specs["Spec Only"] == nil,
+    "left the guild + older than 30 days: gear, spec and crafted marks (every character) removed")
+  check(db.members["Just Left"] and db.members["No Stamp"] and db.members["Dora Field"] and db.members[G.playerKey]
+    and db.members["My Alt"] and db.members["Other Main"], "kept: recent, no timestamp, still in the guild, own characters")
+  check(#A.prints == p0 + 1 and A.prints[#A.prints]:find("Removed 2 character", 1, true) ~= nil, "one chat line: " .. tostring(A.prints[#A.prints]))
+  db.members["Gone Away"] = { class = "MAGE", level = 30, time = old, items = {} }
+  A.fire("GUILD_ROSTER_UPDATE")
+  check(db.members["Gone Away"] ~= nil, "once per session")
+  -- cleanup
+  for _, k in ipairs({ "Gone Away", "Just Left", "No Stamp", "My Alt", "Other Main" }) do db.members[k] = nil end
+  db.known["My Alt-Realm"] = nil; db.crafted["Other Main-Realm"] = nil; db.crafted[G.charKey] = nil
+  if db.members["Dora Field"] then db.members["Dora Field"].time = doraTime end
+end
+
+section("Pacing: nobody sent more than the bucket allows")
+---------------------------------------------------------------------------
+local worstRate = 0
+for name in pairs(bus.sentBy) do
+  local times = {}
+  for _, e in ipairs(bus.log) do if e.from == name then times[#times + 1] = e.t end end
+  for i = 1, #times do
+    local n = 0
+    for j = i, #times do if times[j] - times[i] < 120 then n = n + 1 end end
+    worstRate = math.max(worstRate, n)
+  end
+end
+check(worstRate <= 2 + 4, "max messages by one client in any 120 s window: " .. worstRate .. " (bucket allows 2 + 4)")
+local total = 0 for _, n in pairs(bus.sentBy) do total = total + n end
+print(("  info: %d messages on the bus over %.0f simulated minutes"):format(total, now / 60))
+
+print(("\n%d passed, %d failed"):format(passes, fails))
+os.exit(fails == 0 and 0 or 1)

@@ -1,0 +1,14 @@
+## Interface: 16001
+## Title: Ravenquill Expedition
+## Notes: Shared core for the Ravenquill Expedition modules (guild sync lane, helpers, /rq).
+## Notes-deDE: Gemeinsamer Kern für die Ravenquill-Expedition-Module (Gilden-Sync, Hilfsfunktionen, /rq).
+## Author: domin
+## Version: 0.2.0
+## X-License: GPL-3.0
+## SavedVariables: RavenquillExpeditionDB
+## IconTexture: Interface\Icons\INV_Misc_Book_09
+## AddonCompartmentFunc: RavenquillExpedition_OnCompartmentClick
+
+Core.lua
+Comm.lua
+Overview.lua

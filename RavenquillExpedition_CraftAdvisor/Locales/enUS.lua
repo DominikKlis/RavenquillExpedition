@@ -1,0 +1,482 @@
+-- Locale machinery + English texts (plan H4). Loaded first: every other file reads ns.L.
+--   ns.L[KEY]      -> text of the client's language; a key missing there falls back to English (enUS),
+--                     a key missing in English too returns the key itself (and is noted in ns.missingL).
+--   ns.LGet(KEY)   -> the same lookup, but nil when no table has the key (for optional texts).
+--   ns.G(NAME, K)  -> the client's global string NAME when it exists (a non-empty, non-secret string),
+--                     else L[K or NAME]. Never assumes a global exists.
+-- Only plain words are taken from client globals; client FORMAT strings are never passed to string.format
+-- (deDE uses positional "%1$s" specifiers, see dev/HANDOFF.md).
+local ADDON, ns = ...
+
+ns.Locales = ns.Locales or {}
+ns.missingL = ns.missingL or {}
+
+local function ClientLocale()
+  if type(GetLocale) ~= "function" then return "enUS" end
+  local ok, loc = pcall(GetLocale)
+  if ok and type(loc) == "string" and not (issecretvalue and issecretvalue(loc)) then return loc end
+  return "enUS"
+end
+ns.locale = ClientLocale()
+
+function ns.LGet(key)
+  local t = ns.Locales[ns.locale]
+  local v = t and t[key]
+  if v == nil then v = ns.Locales.enUS and ns.Locales.enUS[key] end
+  return v
+end
+
+ns.L = setmetatable({}, { __index = function(_, key)
+  local v = ns.LGet(key)
+  if v == nil then
+    ns.missingL[key] = true
+    return tostring(key)
+  end
+  return v
+end })
+
+function ns.G(name, key)
+  local v = _G[name]
+  if type(v) == "string" and v ~= "" and not (issecretvalue and issecretvalue(v)) then return v end
+  return ns.L[key or name]
+end
+
+ns.Locales.enUS = {
+  -- generic words (client globals win where they exist: LEVEL, FRIENDS_LIST_ONLINE/OFFLINE, UNKNOWN, ...)
+  LEVEL = "Level",
+  FRIENDS_LIST_ONLINE = "Online",
+  FRIENDS_LIST_OFFLINE = "Offline",
+  UNKNOWN = "Unknown",
+  SPELL_STAT3_NAME = "Stamina",
+  SPELL_STAT5_NAME = "Spirit",
+  YOU = "you",
+
+  -- Ago()
+  AGO_NEVER = "never",
+  AGO_NOW = "just now",
+  AGO_MIN = "%d min ago",
+  AGO_HOURS = "%d h ago",
+  AGO_DAYS = "%d days ago",
+
+  -- professions (your own client name wins when you have the profession)
+  PROF_LEATHERWORKING = "Leatherworking",
+  PROF_BLACKSMITHING = "Blacksmithing",
+  PROF_TAILORING = "Tailoring",
+  PROF_ENGINEERING = "Engineering",
+  PROF_ENCHANTING = "Enchanting",
+  CRAFTER_LEATHERWORKING = "a leatherworker",
+  CRAFTER_BLACKSMITHING = "a blacksmith",
+  CRAFTER_TAILORING = "a tailor",
+  CRAFTER_ENGINEERING = "an engineer",
+  CRAFTER_ENCHANTING = "an enchanter",
+
+  -- offer whisper (editable; placeholders {name} {item} {slot} {crafter})
+  WHISPER_CRAFT = "Hi {name}! I'm {crafter} and could craft you {item} - it'd be an upgrade for your {slot}. Interested?",
+  WHISPER_ENCHANT = "Hi {name}! I'm {crafter} and could put {item} on your {slot} when we meet - it'd be an upgrade. Interested?",
+  WHISPER_TEXT = "Whisper text: %s",
+  WHISPER_SENT = "Sent offer to %s.",
+
+  -- source of a gear record
+  SRC_VIA = "via %s",
+  SRC_SELF = "self-reported",
+  SRC_INSPECT = "inspected by you",
+  SRC_RELAY = "relayed",
+
+  -- source line (Core:SourceLine)
+  SRCL_SIMMED = "simmed",
+  SRCL_MEASURED = "measured in game",
+  SRCL_ROUGH = "rough (healer weights not simulated)",
+  SRCL_ALL_LEVELS = "all levels",
+  SRCL_NEAREST = "%s (nearest set for Lv%d)",
+  SRCL_NO_BONUS = "no leveling bonus",
+  SRCL_BONUS = "leveling bonus %d%%",
+  SRCL_FADING = " (fading, %d%% left)",
+  SRCL_FADED = "leveling bonus faded out (58+)",
+
+  -- spec
+  SPEC_UNKNOWN_PICK = "spec unknown – pick one",
+  SPEC_HOW_MANUAL = "picked by you",
+  SPEC_HOW_TALENTS = "from your talents",
+  SPEC_HOW_SYNCED = "sent by their addon",
+  SPEC_HOW_OWN = "saved by that character",
+  SPEC_WHY_CLASS = "class unknown",
+  SPEC_WHY_NOT_READ = "talents not read yet",
+  SPEC_WHY_NO_TALENTS = "no talent points",
+  SPEC_WHY_TIE = "two trees equal",
+  SPEC_WHY_UNREADABLE = "talents not readable",
+  SPEC_HOW_INSPECTED = "from inspected talents",
+  SPEC_ASSUMED = "assumed",
+  SPEC_AUTOMATIC = "Automatic (detected / synced)",
+  SPEC_TIP_TITLE = "Spec used for scoring",
+  SPEC_TIP = "Your pick is saved per member and wins over talents and sync. \"Assumed\" = a rule guessed the variant (Feral → Cat, Enhancement + off-hand weapon → dual-wield).",
+
+  -- profession picker
+  PROF_BROWSE_TAG = "(browse)",
+  PROF_SKILL = "%s %d/%d",
+  PROF_KNOWN = "%d known",
+  PROF_BROWSE_HEADER = "Browse (not your profession):",
+  PROF_TIP_TITLE = "Profession",
+  PROF_TIP = "Pick which profession's crafts are suggested. Your own professions use the recipes you know; \"browse\" shows every recipe of another profession as not learned (no Offer button, not counted in the badges or the minimap tooltip).",
+  SPECIALISATION_NAME = "May need the %s Engineering specialisation (from the name)",
+  SPECIALISATION_GNOMISH = "Gnomish",
+  SPECIALISATION_GOBLIN = "Goblin",
+  SPECIALISATION_UNKNOWN = "Specialisation: unknown (not in the data) - some recipes need one",
+
+  -- member list
+  MEMBER_TIP_LEVEL = "%s %s %s",
+  MEMBER_TIP_GEAR = "Gear %s, %s",
+  MEMBER_TIP_SPEC = "Spec: %s",
+  MEMBER_TIP_BROWSE = "Browsing %s: not counted (%d suggestion(s) shown)",
+  MEMBER_TIP_BEST = "%d craftable upgrade(s) you know, biggest %s",
+  MEMBER_TIP_NOSPEC = "No suggestions until a spec is picked",
+  MEMBER_TIP_NOLEVEL = "Level unknown: no suggestions",
+  MEMBER_TIP_NONE = "No craftable upgrades",
+  MEMBER_TIP_FORGET = "Shift+Right-click: forget stored gear",
+  MEMBER_TIP_NOT_INSPECTED = "Not inspected yet",
+  FORGOT = "Forgot stored gear of %s",
+
+  -- gain
+  GAIN_EMPTY = "(empty slot)",
+
+  -- worn item in a slot section (the gear-slot icon row is gone, plan J1)
+  SLOT_EMPTY = "%s (empty / unknown)",
+  NOT_LEARNED = "Not learned",
+
+  -- resize grip (plan J2)
+  RESIZE_TIP_TITLE = "Resize",
+  RESIZE_TIP = "Drag to resize the window. Right-click: back to the default size.",
+
+  -- slot sections (plan I): header = slot + worn item(s) + score; slots without an upgrade = one grey line
+  SECTION_RINGS = "Rings",
+  SECTION_TRINKETS = "Trinkets",
+  SECTION_NOTHING = "nothing equipped",
+  SECTION_SCORE = "%.1f %s",                -- score of the worn item, unit (AP-eq, SP-eq, …)
+  SECTION_TIP_SHOWN = "Showing %d of %d suggestions for this slot, best first.",
+  SECTION_TIP_NONE = "Nothing in this list beats what is worn here (current profession and filters).",
+  SECTION_TIP_UNKNOWN = "The worn item's data didn't load, so this slot was not compared.",
+
+  -- suggestion rows
+  REPLACES = "replaces %s",
+  REPLACES_ON = "replaces %s on %s",
+  NO_ENCHANT_ON = "no enchant on %s",
+  NO_ENCHANT = "no enchant yet",
+  SET_PLUS = "+set bonus",
+  SET_BREAKS = "breaks a set bonus",
+  -- set hint (Core:SetHint): whole sentences, so each language can order the words its own way
+  HINT_ONE = "%s: %s with %s",                 -- set name, bonus, the missing piece(s) joined by HINT_OR
+  HINT_MORE = "%s: %s with %d more of: %s",     -- set name, bonus, how many more, the missing pieces
+  HINT_OR = " or ",
+  HINT_YOU_CRAFT = "%s (you craft it)",
+  HINT_UNSCORED = "a set bonus (not scored)",
+  ITEM_FALLBACK = "item %d",
+  -- set-bonus stat words (Core:BonusText: "+2% hit", "+20 spell power")
+  BONUS_HIT = "hit", BONUS_CRIT = "crit", BONUS_MELEEHIT = "melee hit", BONUS_SPELLHIT = "spell hit",
+  BONUS_MELEECRIT = "melee crit", BONUS_SPELLCRIT = "spell crit", BONUS_DODGE = "dodge", BONUS_PARRY = "parry",
+  BONUS_BLOCK = "block", BONUS_ATTACKPOWER = "attack power", BONUS_RANGEDATTACKPOWER = "ranged attack power",
+  BONUS_SPELLPOWER = "spell power", BONUS_HEALINGPOWER = "healing", BONUS_STAMINA = "Stamina", BONUS_STRENGTH = "Strength",
+  BONUS_AGILITY = "Agility", BONUS_INTELLECT = "Intellect", BONUS_SPIRIT = "Spirit", BONUS_ARMOR = "armor",
+  BONUS_DEFENSE = "defense", BONUS_BLOCKVALUE = "block value",
+  ROUGH = "(rough)",
+  WEARABLE_AT = "wearable at level %d (in %d levels)",
+  WEARABLE_AT_1 = "wearable at level %d (in 1 level)",
+  OFFER = "Offer",
+  OFFER_TIP_CRAFT = "Offer this craft",
+  OFFER_TIP_ENCHANT = "Offer this enchant",
+  OFFER_TIP_CLICK = "Click: write the whisper for you (press Enter to send)",
+  OFFER_TIP_SHIFT = "Shift-click: send it right away",
+  OFFER_TIP_EDIT = "Edit the text: Filter → Edit whisper text",
+  CRAFTED = "Crafted",
+  ENCHANTED = "Enchanted",
+  CRAFTED_TIP_TITLE = "Crafted for %s",
+  CRAFTED_TIP = "Just a reminder mark: the row stays as it is. Saved on this character only, not sent to anybody.",
+  CRAFTED_TIP_CLEAR = "It clears itself when a new gear record (your inspect or guild sync) shows %s wearing it; otherwise untick it.",
+  CRAFTED_TIP_CLEAR_ENCHANT = "It clears itself when a new gear record (your inspect or guild sync) shows this enchant on %s's %s; otherwise untick it.",
+  CRAFTED_TIP_SINCE = "Marked %s.",
+
+  -- suggestion tooltip
+  TIP_REAGENTS = "Reagents:",
+  STAT_MELEEHIT = "Hit (melee) %", STAT_SPELLHIT = "Hit (spell) %", STAT_MELEECRIT = "Crit (melee) %",
+  STAT_SPELLCRIT = "Crit (spell) %", STAT_DODGE = "Dodge %", STAT_PARRY = "Parry %", STAT_BLOCK = "Block %",
+  STAT_ATTACKPOWER = "Attack Power", STAT_RANGEDATTACKPOWER = "Ranged AP", STAT_SPELLPOWER = "Spell Power",
+  STAT_HEALINGPOWER = "Healing", STAT_BLOCKVALUE = "Block Value",
+  STAT_STRENGTH = "Strength", STAT_AGILITY = "Agility", STAT_STAMINA = "Stamina", STAT_INTELLECT = "Intellect",
+  STAT_SPIRIT = "Spirit", STAT_ARMOR = "Armor", STAT_DEFENSE = "Defense", STAT_HOLYPOWER = "Holy damage",
+  STAT_FIREPOWER = "Fire damage", STAT_FROSTPOWER = "Frost damage", STAT_SHADOWPOWER = "Shadow damage",
+  STAT_ARCANEPOWER = "Arcane damage", STAT_NATUREPOWER = "Nature damage",
+
+  -- header / panels
+  NO_MEMBERS = "No guild members yet",
+  SUB_LINE = "%s %s %s  ·  %s  ·  gear %s, %s",
+  SUB_LINE_NOGEAR = "%s %s %s  ·  %s  ·  no gear recorded",
+  STATUS_YOU = "you",
+  HEAD_CRAFTS = "Craftable upgrades (%d)",
+  HEAD_ENCHANTS = "Enchants and crafts (%d)",
+  HEAD_BROWSE = "browsing %s: all shown as not learned",
+  EMPTY_NOGEAR = "No gear recorded for this member yet.\n\nIt is read automatically when they are in your group, under your mouse or targeted (out of combat, nearby), or /gca inspect with them targeted.",
+  EMPTY_NOSPEC = "Spec unknown – pick one with the \"Spec\" button above.\n\nIt is filled in automatically when they run this addon (sync) or, if it works on Forever, when you inspect them.",
+  EMPTY_NOLEVEL = "Level unknown, so no suggestions. It is filled in when the guild roster or an inspect shows it.",
+  EMPTY_NOWEIGHTS = "No stat weights for this class/spec.",
+  EMPTY_LOADING = "Loading item data…",
+  EMPTY_BROWSE = "No %s recipe would be an upgrade right now.",
+  EMPTY_NOKNOWN = "No %s recipes detected on this character.\n\nOpen your %s window once so they can be read, or tick \"Show unlearned\" (Filter).",
+  EMPTY_ENCHANT = "No enchant you know would be an upgrade right now (slots with an enchant we can't value, e.g. a proc, utility or unknown one, are skipped).",
+  EMPTY_NONE = "Nothing you can craft would be an upgrade right now.",
+
+  -- slider (H0/U4)
+  SLIDER_LABEL = "Leveling bonus (%s/%s): %d%%",
+  SLIDER_TIP_TITLE = "Leveling bonus (%s/%s)",
+  SLIDER_TIP = "How much extra weight %s and %s get while leveling, on top of the damage/healing weights (SimGear's leveling layer: surviving and drinking less matter more than raw damage). 0 %% = pure damage/healing weights. It fades out from level 50 to 58; Warrior Protection and healers have none.",
+
+  -- bottom bar
+  OPTIONS = "Options",
+  OPTIONS_TIP = "Filters and settings",
+  FILTER_UNLEARNED = "Show missing recipes",
+  FILTER_UNLEARNED_TIP = "Also suggest recipes of your profession you haven't learned yet (marked \"Not learned\", with where to get them). Always on while browsing another profession.",
+  FILTER_LOOKAHEAD = "Look ahead 5 levels",
+  FILTER_LOOKAHEAD_TIP = "Include crafts the member can wear within the next 5 levels (shown dimmed, after the wearable ones).",
+  FILTER_SYNC = "Guild sync",
+  FILTER_SYNC_TIP = "Share your gear and gear you inspect with guildies who run this addon (guild channel only, slow pace).",
+  EDIT_WHISPER = "Edit whisper text…",
+  EDIT_WHISPER_TIP = "Change the text the Offer button writes.",
+  HELP_TITLE = "Guild Craft Advisor – help",
+  HELP_LINES = "/gca – open / close this window\n/gca inspect – inspect your target\n/gca scan – inspect guildies in your group\n/gca sync – guild sync status\n/gca whisper – edit the offer whisper\n/gca minimap – show / hide the map button\n/gca reset – forget stored gear\n/gca help – all commands (incl. debug ones)",
+  HELP_ROWS = "Guild needs: one row per craft; click it to see who needs it, click a name to open that member. Rows: hover for details (hold Shift for the stat breakdown), shift-click to link, whisper icon / \"Offer\" = whisper the offer (online members only), check box = \"Crafted\", your own reminder mark.",
+
+  -- whisper editor (U2)
+  WHISPER_EDIT_TITLE = "Offer whisper",
+  WHISPER_EDIT_HELP = "Placeholders: {name} = their first name, {item} = the item (link) or enchant, {slot} = the slot, {crafter} = your profession. Max 255 characters after filling in.",
+  WHISPER_EDIT_CRAFT = "Craft:",
+  WHISPER_EDIT_ENCHANT = "Enchant:",
+  SAVE = "Save",
+  RESET_DEFAULT = "Reset to default",
+  CLOSE = "Close",
+  WHISPER_SAVED = "Offer whisper saved.",
+  WHISPER_RESET = "Offer whisper reset to the default.",
+  WHISPER_DRAFT_KEPT = "Offer whisper not saved - your draft is kept. /gca whisper to continue, Save to use it.",
+  WHISPER_DRAFT_NOTE = "Unsaved draft: Save uses it, Reset to default drops it.",
+  WHISPER_TOO_LONG = "The offer whisper is longer than 255 bytes (the chat limit), so it was cut. Shorten it: Filter -> Edit whisper text.",
+
+  -- sync status line (Sync.lua)
+  SYNC_OFF = "Guild sync off",
+  SYNC_NOGUILD = "Guild sync: not in a guild",
+  SYNC_PAUSED = "Guild sync paused: delivery not confirmed",
+  SYNC_PEERS = "Guild sync: %d guildie(s) with the addon seen",
+
+  -- minimap tooltip
+  MM_RECORDED = "%d guildies recorded",
+  MM_COUNT = "%s: %d upgrade(s) you can craft for %d guildie(s)",
+  MM_NONE = "No gear profession on this character (browse in the window)",
+  MM_LEFT = "|cffffd100Left-click:|r open / close",
+  MM_RIGHT = "|cffffd100Right-click:|r inspect target",
+  MM_DRAG = "|cffffd100Drag:|r move button",
+
+  -- K1/K2 redesign: views, guild needs, member list groups, folded no-upgrade line, header dot, (i) icon
+  VIEW_NEEDS = "Guild needs",
+  VIEW_MEMBER = "By member",
+  NEEDS_SEARCH = "Search", -- K8: the profession window's own placeholder (the tooltip says: item or name)
+  NEEDS_SEARCH_TIP = "Filters the list by item name or member name.",
+  NEEDS_MEMBERS = "%d members",
+  NEEDS_MEMBERS_1 = "1 member",
+  NEEDS_EMPTY = "Nobody in the guild needs anything you can craft right now.\n\nGear is read automatically from guildies in your group, under your mouse or targeted, and guild sync fills in more.",
+  NEEDS_NO_MATCH = "No upgrade matches \"%s\".",
+  WEARABLE_SHORT = "from level %d",
+  GROUP_TIP_OFFLINE = "Click to show or hide. Members with recorded gear who are offline (no Offer button while they are).",
+  MEMBER_LINE_BROWSE = "%d suggestion(s) to browse",
+  MEMBER_LINE_NOSPEC = "spec unknown",
+  MEMBER_LINE_NOLEVEL = "level unknown",
+  MEMBER_LINE_LOADING = "loading items…",
+  MEMBER_LINE_NONE = "nothing you can craft",
+  SLOT_RING_N = "Ring %d",
+  SLOT_TRINKET_N = "Trinket %d",
+  -- K4: member view variants ("Character sheet" / "List")
+  MVIEW_SHEET = "Character sheet",
+  MVIEW_LIST = "List",
+  MVIEW_TIP = "Character sheet: the gear slots left and right as in the character window, the selected slot compared in the middle. List: every slot with an upgrade, its crafts as rows. Your choice is saved.",
+  SHEET_COUNT = "%d craftable upgrades",
+  SHEET_COUNT_1 = "1 craftable upgrade",
+  SHEET_COUNT_ENCH = "%d enchant upgrades",
+  SHEET_COUNT_ENCH_1 = "1 enchant upgrade",
+  SHEET_WORN = "Equipped",
+  SHEET_BEST = "Best craft",
+  SHEET_BEST_ENCH = "Best enchant",
+  SHEET_PICKED = "Compared",
+  SHEET_MORE = "More options",
+  SHEET_NONE = "No craftable upgrade",
+  SHEET_NONE_ENCH = "No enchant upgrade",
+  SHEET_SLOT_BEST = "Best: %s %s",
+  SHEET_SLOT_CLICK = "Click: show this slot. Shift-click: link the item.",
+  STATS_MORE = "+%d more (tooltip with Shift)",
+  STATS_PARTIAL = "some stats not readable",
+  STATD_HIT = "Hit",
+  STATD_CRIT = "Crit",
+  -- W (weapons): stat differences, row tags, weapon sections
+  STATD_SPEED = "Speed %s → %s",
+  STATD_SPEED_ONE = "Speed %s",
+  STATD_SPEED_LABEL = "Speed",
+  DECIMAL_MARK = ".",
+  STAT_MAINHANDDPS = "DPS", STAT_TWOHANDDPS = "DPS", STAT_OFFHANDDPS = "DPS (off hand)", STAT_RANGEDDPS = "DPS (ranged)",
+  HAND_OFF = "off hand",
+  NEEDS_OFF_HAND = "needs an off hand",
+  NEEDS_MAIN_HAND = "needs a main hand",
+  REPLACES_BOTH = "replaces both hands",
+  SECTION_MAINHAND = "Main Hand",
+  SECTION_OFFHAND = "Off Hand",
+  SECTION_RANGED = "Ranged",
+  ENCHANT_TAG = "Enchant",
+  LEVEL_TAG = "from level %d · %d to go",
+  CARDS_WORN = "Equipped",
+  CARDS_EMPTY = "Slot empty",
+  SECTION_EMPTY_NAMED = "%s (empty)",
+  CARDS_NONE = "No craftable upgrade: %s",
+  CARDS_NONE_ENCH = "No enchant upgrade: %s",
+  FOLD_NOT_LOADED = "(not loaded)",
+  FOLD_TIP_TITLE = "Slots without an upgrade",
+  SYNC_DOT_TITLE = "Guild sync",
+  SYNC_DOT_TIP = "Green: guildies with the addon heard in the last hour · yellow: none heard yet · red: paused · grey: off.",
+  SOURCE_TIP_TITLE = "Scoring",
+
+  -- chat (Core)
+  CMD_RESET = "Stored guild gear cleared.",
+  CMD_MM_HIDDEN = "Minimap button hidden",
+  CMD_MM_SHOWN = "Minimap button shown",
+  CMD_MM_MOVED = "Minimap button moved to the largest free gap (%.0f°).",
+  CMD_INSPECT_TALENTS_ON = "Talents read on inspect are used when plausible.",
+  CMD_INSPECT_TALENTS_OFF = "Talents read on inspect are ignored.",
+  CMD_SYNC_NOT_LOADED = "Sync not loaded (needs a full game restart after installing).",
+  CMD_SYNC_NOT_PAUSED = "Guild sync is not paused; checking for anything owed.",
+  CMD_VERBOSE_ON = "Verbose on",
+  CMD_VERBOSE_OFF = "Verbose off",
+  MSG_PRUNED = "Removed %d character(s) no longer in the guild (not seen for 30 days).",
+  CMD_HELP = "/gca – toggle window | /gca inspect – inspect target | /gca scan – inspect guildies in your group | /gca reset – forget stored gear | /gca minimap – show/hide map button | /gca minimap debug – list minimap buttons | /gca minimap reset – move to a free spot | /gca sync – guild sync status | /gca whisper – edit the offer whisper | /gca stats <item link> – raw and scored item stats | /gca spec debug – talent reading | /gca spec inspect on|off | /gca known debug – which recipes/enchants the game says you know | /gca enchant debug [item link] – does an enchanted link's stats include the enchant | /gca verbose",
+  MSG_RECORDED = "Recorded gear of %s. /gca to view.",
+  MSG_TARGET_FIRST = "Target a guild member first.",
+  MSG_NOT_GUILD = "Your target is not in your guild.",
+  MSG_CANT_INSPECT = "Can't inspect that target right now.",
+  MSG_INSPECTING = "Inspecting %s...",
+  MSG_QUEUED = "Queued %d guild members for inspection.",
+  MSG_NONE_IN_GROUP = "No guild members in your group to inspect.",
+  SYNC_STOPPED_MSG = "Guild sync: our messages don't seem to arrive - sync paused. /gca sync retry to try again.",
+  SYNC_RESUMED = "Guild sync resumed.",
+  ERROR_IN = "Error in %s:",
+  ERROR_SAVED = "(saved; /reload so it can be read)",
+
+  -- K5: guild needs grouped by craft, member list, header, automatic reading
+  MSG_AUTO_QUEUED = "Reading the gear of %d guild member(s) in your group.",
+  FILTER_AUTOINSPECT = "Read gear automatically",
+  FILTER_AUTOINSPECT_TIP = "Read the gear of guild members in your group, under your mouse or targeted: out of combat, only nearby, one at a time, not while your inspect window is open, at most every 30 min per person.",
+  PROF_SKILL_BAR = "%s  %d / %d",
+  MVIEW_LABEL = "View: %s",
+  FILTER_BUTTON = "Filter",
+  SPEC_PICK = "unknown – pick",
+  SYNC_LABEL = "Guild sync · %d recorded",
+  MEMBER_SEARCH = "Search member",
+  MEMBER_SEARCH_TIP = "Filters the member list by name.",
+  MEMBER_LINE_UPGRADES = "%d upgrades · best: %s",
+  MEMBER_LINE_UPGRADES_1 = "%d upgrade · best: %s",
+  GROUP_TIP_ONLINE = "Click to show or hide. Members online now (and you).",
+  NEEDS_COUNT = "%d crafts are worth it for %s",
+  NEEDS_COUNT_1 = "1 craft is worth it for %s",
+  NEEDS_COUNT_ENCH = "%d enchants are worth it for %s",
+  NEEDS_COUNT_ENCH_1 = "1 enchant is worth it for %s",
+  NEEDS_OFFLINE = "Include offline members (%d)",
+  NEEDS_OFFLINE_TIP = "Also list upgrades for members who are offline (no Offer until they are online). The number = offline members with an upgrade.",
+  NEEDS_EMPTY_OFFLINE = "Nobody online needs anything you can craft right now.\n\n%d offline member(s) do: tick \"Include offline members\".",
+  -- K8: native profession-window layout (detail panel, slot categories, filter reset)
+  DETAIL_FOR = "Would be an upgrade for:",
+  DETAIL_FOR_N = "Would be an upgrade for %d members:",
+  NEEDS_CAT_TIP = "%d crafts for this slot",
+  NEEDS_CAT_TIP_1 = "1 craft for this slot",
+  FILTER_RESET = "Reset filters",
+  NEEDS_STATE_ON = "online",
+  NEEDS_STATE_OFF = "offline",
+  NEEDS_WEARS = "wears %s",
+  CARDS_WORN_CAPS = "EQUIPPED",
+  CARDS_COUNT = "%d upgrades",
+  CARDS_COUNT_1 = "%d upgrade",
+  -- K7: where to get a missing recipe (sources from the addon Crafter's Journal when it is loaded)
+  SRC_LINE_TRAINER = "Trainer (skill %d)",
+  SRC_LINE_TRAINER_HAVE = "Trainer (skill %d, you have %d)",
+  SRC_LINE_TRAINER_OK = "Trainer (skill %d, reached)",
+  SRC_LINE_PATTERN = "Pattern",
+  SRC_LINE_OTHER = "Other",
+  SRC_LINE_VENDOR = "Vendor: %s (%s)",
+  SRC_LINE_VENDOR_NOZONE = "Vendor: %s",
+  SRC_LINE_VENDOR_OTHER = "Vendor (other faction only)",
+  SRC_LINE_FAVOR = "Merchant's Favor: %d",
+  SRC_LINE_QUEST = "Quest: %s",
+  SRC_LINE_QUEST_LVL = "Quest: %s (level %d)",
+  SRC_LINE_DROP = "Drop: %s (%s)",
+  SRC_LINE_DROP_N = "Drop: %s (%s) and %d more creatures",
+  SRC_LINE_WORLD = "World drop",
+  SRC_LINE_WORLD_LVL = "World drop (creatures level %d-%d)",
+  SRC_LINE_OBJECTS = "In chests/objects (%d)",
+  SRC_LINE_MORE = "+%d more",
+  SRC_TIP_HEAD = "Where to get it",
+  SRC_TIP_TRAINER = "Trainer: skill %d",
+  SRC_TIP_HAVE = "you have %d",
+  SRC_TIP_REACHED = "reached",
+  SRC_TIP_FEE = "Training cost",
+  SRC_TIP_COST = "Price",
+  SRC_TIP_VENDORS_MORE = "+%d more vendors",
+  SRC_TIP_DROP = "Drop: %s",
+  SRC_TIP_DROPS_MORE = "+%d more creatures",
+  SRC_TIP_REP = "Requires %s with %s",
+  SRC_TIP_PATTERN = "Pattern: %s",
+  SRC_TIP_WAYPOINT = "Click a source: show it on the map (sets a waypoint) · Right-click: menu",
+  COMPARE_WORN_BY = "Equipped by %s",
+  TIP_CHANGES_FOR = "Stat changes for %s:",
+  TIP_CHANGES = "Stat changes:",
+  SLOT_EMPTY_COMPARE = "Nothing equipped in this slot",
+  NL_TIP_CLICK ="Click: set a map marker on the source · Right-click: all sources",
+  SRC_TIP_SHOWMAP = "Click: show %s on the map (sets a waypoint)",
+  SRC_TIP_LINK = "Shift-right-click: link the pattern in chat",
+  SRC_TIP_NO_CJ = "Exact sources come from the addon \"Crafter's Journal\" (not loaded).",
+  SRC_TIP_UNKNOWN = "No source known.",
+  SRC_KIND_TRAINER = "trainer",
+  SRC_KIND_VENDOR = "vendor",
+  SRC_KIND_QUEST = "quest giver",
+  SRC_KIND_DROP = "drop",
+  SRC_MENU_WAYPOINT = "Show on map: %s (%s)",
+  SRC_MENU_LINK = "Link pattern in chat",
+  SRC_WAYPOINT_SET = "Waypoint set: %s, %s.",
+  SRC_WAYPOINT_FAIL = "Couldn't set a waypoint for %s.",
+  SRC_LINK_LOADING = "The pattern item is still loading - click again.",
+  NEEDS_MISSING = "%d missing recipes would be upgrades",
+  NEEDS_MISSING_1 = "1 missing recipe would be an upgrade",
+  -- K15: Ravenquill Expedition core. Options shown in the core's /rq window (mod.options).
+  OPT_H_SUGGEST = "Suggestions",
+  OPT_SURVIVAL = "Leveling bonus (%s/%s)",
+  OPT_H_GEAR = "Reading gear",
+  OPT_INSPECT_TALENTS = "Spec from inspected talents",
+  OPT_INSPECT_TALENTS_TIP = "Use the talents read while inspecting a guildie to pick their spec, when they look plausible. Off by default (not verified in game yet).",
+  OPT_INSPECT_NOW = "Inspect target now",
+  OPT_INSPECT_NOW_TIP = "Read your target's gear now (a guild member, nearby, out of combat).",
+  OPT_SCAN_NOW = "Read group now",
+  OPT_SCAN_NOW_TIP = "Read the gear of every guild member in your group.",
+  OPT_RESET = "Forget stored gear",
+  OPT_RESET_TIP = "Deletes the gear of ALL stored guild members (yours is read again right away). Cannot be undone; it comes back only by inspecting or via guild sync.",
+  OPT_H_SYNC = "Guild sync",
+  OPT_SYNC_RETRY = "Retry sync",
+  OPT_SYNC_RETRY_TIP = "Only active while sync is paused because our messages did not come back.",
+  OPT_SYNC_STATUS = "Sync status",
+  OPT_H_WINDOW = "Window",
+  OPT_OPEN = "Open window",
+  OPT_MINIMAP = "Show minimap button",
+  OPT_MM_RESET = "Re-place minimap button",
+  OPT_MM_RESET_TIP = "Moves the minimap button to the largest free spot around the minimap.",
+  OPT_H_DIAG = "Diagnostics",
+  OPT_VERBOSE = "Verbose chat messages",
+  OPT_VERBOSE_TIP = "More chat output while reading gear and syncing (debug). Not saved.",
+  OPT_DIAG_SPEC = "Talents",
+  OPT_DIAG_KNOWN = "Recipes",
+  OPT_DIAG_MINIMAP = "Minimap",
+  OPT_DIAG_ERROR = "Last error",
+  OPT_NO_ERROR = "No error recorded.",
+  -- K15: texts that name a command, variants used on the core (swapped in at load, Core.lua)
+  EMPTY_NOGEAR_RQ = "No gear recorded for this member yet.\n\nIt is read automatically when they are in your group, under your mouse or targeted (out of combat, nearby), or with \"Inspect target now\" in /rq craft while they are your target.",
+  HELP_LINES_RQ = "/rq craft – options (window, reading gear, sync, minimap button, diagnostics)\n/rq craft stats <item link> – raw and scored item stats\n/rq craft enchant debug [item link] – enchant check\nMinimap button or the Open button in /rq – this window",
+  WHISPER_DRAFT_KEPT_RQ = "Offer whisper not saved - your draft is kept. Filter → \"Edit whisper text…\" to continue, Save to use it.",
+  CMD_HELP_RQ = "/rq craft – options | /rq craft stats <item link> – raw and scored item stats | /rq craft enchant debug [item link] – does an enchanted link's stats include the enchant | anything else after /rq craft opens the window",
+  MSG_RECORDED_RQ = "Recorded gear of %s. Click the minimap button to view.",
+  SYNC_STOPPED_MSG_RQ = "Guild sync: our messages don't seem to arrive - sync paused. /rq craft → \"Retry sync\" to try again.",
+}

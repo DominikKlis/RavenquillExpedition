@@ -1,0 +1,11 @@
+RavenquillExpedition_Map embeds these third-party libraries, unmodified:
+
+- LibStub (libs\LibStub) – Public Domain (stated in the file header).
+- CallbackHandler-1.0 (libs\CallbackHandler-1.0) – part of Ace3, BSD-style license.
+- HereBeDragons 2.18 (libs\HereBeDragons) by Nevcairiel (h.leppkes@gmail.com),
+  https://github.com/Nevcairiel/HereBeDragons
+  License: declared as "## X-License: BSD" in libs\HereBeDragons\HereBeDragons.toc.
+  The upstream repository publishes no license text (checked 2026-11-14: no LICENSE file in the
+  repository, GitHub reports no license). Ask the author for the exact terms before a public release.
+
+Copied from the RXPGuides addon's embedded copies (same upstream versions).
