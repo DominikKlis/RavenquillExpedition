@@ -7,7 +7,7 @@ You need git, [Lua 5.4](https://www.lua.org/) for the offline tests, and PowerSh
 **Option A: clone anywhere and link (recommended)**
 
 ```powershell
-git clone https://github.com/<owner>/RavenquillExpedition.git
+git clone https://github.com/DominikKlis/RavenquillExpedition.git
 cd RavenquillExpedition
 pwsh -File scripts\link-addons.ps1 -AddOns "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns"
 ```
