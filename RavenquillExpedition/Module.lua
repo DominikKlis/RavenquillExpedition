@@ -262,6 +262,13 @@ frame:SetScript("OnEvent", function(_, event, arg1)
       if m.db and m.loginMigrations then GS:Call(Migrate, m, m.db, m.cdb, m.loginMigrations, "vLogin") end
     end)
     EachModule(function(m) if m.OnLogin then GS:Call(m.OnLogin, m) end end)
+    -- a module whose addon never loaded (missing or misspelled `addon`) would otherwise fail silently
+    EachModule(function(m)
+      if not m.loaded and (m.sv or m.svChar or m.defaults or m.OnLoad) then
+        GS.Print(nil, ("module %s never loaded: its spec needs addon = <its folder name> (now %s)."):format(
+          tostring(m.name), tostring(m.addon)))
+      end
+    end)
   elseif event == "PLAYER_GUILD_UPDATE" then
     -- a real change only: unknown -> known right after login is not one
     local new, old = GS:GuildKey(), GS.guildKey

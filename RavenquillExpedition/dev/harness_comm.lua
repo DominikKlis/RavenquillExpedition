@@ -184,6 +184,14 @@ for i = 1, 3 do Send(a, "lost" .. i, function(s) if s == "lost" then lost = lost
 sched:advance(300)
 check(lost >= 2 and a.RQ:CommState().slow, "no echo for 120 s: lost, then slow mode")
 check(a.printedMatch("sending slowly") ~= nil, "the player is told once")
+-- review 2026-11-15: the starvation guard used to bypass slow mode (10 queued events went out in 10 minutes)
+do
+  local before = #sentBy(bus, "Anna Stone")
+  for i = 1, 10 do Send(a, "slow" .. i) end
+  sched:advance(600)
+  local n = #sentBy(bus, "Anna Stone") - before
+  check(a.RQ:CommState().slow and n <= 2, "while slow: 10 queued events, 600 s -> at most 2 sent (1 per 5 min), sent " .. n)
+end
 bus.drop = function() return false end
 a.RQ:CommResume()
 check(not a.RQ:CommState().slow, "CommResume leaves slow mode")
@@ -344,8 +352,24 @@ inject("F;1;catch;Anna Stone;1;;x;1;" .. now .. ";0;shark;1")
 inject("F;1;nope;1")
 local rej = chb:Status().rejected
 check(#caught == 1, "nothing invalid reached the handler")
-check(rej["version 2"] == 1 and rej["field w"] == 1 and rej["not the sender"] == 1 and rej["field item"] == 1
-  and rej["field t"] == 1 and rej["field kind"] == 1 and rej["unknown type nope"] == 1, "each rejection counted by reason")
+check(rej["version"] == 1 and rej["field w"] == 1 and rej["not the sender"] == 1 and rej["field item"] == 1
+  and rej["field t"] == 1 and rej["field kind"] == 1 and rej["unknown type"] == 1, "each rejection counted by reason")
+-- review 2026-11-15: reasons were keyed by wire text (200 bad messages, 200 keys)
+for i = 1, 200 do inject("F;" .. (100 + i) .. ";catch") inject("F;1;bogus" .. i .. ";1") end
+local keys = 0
+for _ in pairs(chb:Status().rejected) do keys = keys + 1 end
+check(keys <= 8 and chb:Status().rejected["version"] == 201, "400 malformed messages add no new keys (" .. keys .. " keys)")
+-- encode checks the same rules as decode: out of range, infinity, NaN, unknown class never leave the sender
+for what, bad in pairs({ ["item 0"] = { item = 0 }, ["item inf"] = { item = math.huge }, ["item NaN"] = { item = 0 / 0 },
+  ["w above hi"] = { w = 46656 }, ["w inf"] = { w = math.huge }, ["class unknown"] = { cls = "PIRATE" } }) do
+  local m = { who = "Anna Stone", item = 1, note = "x", cls = "MAGE", t = now, big = false, kind = "fish", w = 1 }
+  for k, v in pairs(bad) do m[k] = v end
+  check(cha:Encode("catch", m) == nil, "encode refuses " .. what)
+end
+check(a.RQ.Wire.b36(math.huge) == "0" and a.RQ.Wire.b36(0 / 0) == "0" and a.RQ.Wire.b36(-5) == "0"
+  and a.RQ.Wire.b36(2 ^ 60) == "0" and a.RQ.Wire.b36(46655) == "zzz", "b36: NaN, infinity, negative, huge -> 0; normal unchanged")
+check(not pcall(function() Mod(a, "StateType"):NewChannel({ tag = "ST", version = 1 }):Define("pos", { lane = "state",
+  fields = {} }) end), "Define rejects lane = state (schema types are always event traffic)")
 local dropped2
 cha:Send("catch", { who = "Anna Stone", item = 1, note = "x", cls = "MAGE", t = now, big = false, kind = "nope", w = 1 },
   { onResult = function(s) dropped2 = s end })
@@ -391,5 +415,26 @@ local function has(c, who) for _, e in ipairs((H(c):Log())) do if e.who == who t
 check(has(old, "Neu Mann"), "the 0.2.0 client stores the new client's highlight")
 check(has(new, "Alt Frau"), "the new client stores the 0.2.0 client's highlight")
 check(#new.errors == 0 and #old.errors == 0, "no Lua errors on either (" .. tostring(new.errors[1] or old.errors[1]) .. ")")
+
+---------------------------------------------------------------------------
+section("Review 2026-11-15: bounded lists, a module that never loads")
+---------------------------------------------------------------------------
+sched, bus, a, b = Two()
+a.combat = true -- the suite is idle (nothing queued): only the hook sees these
+for _ = 1, 2000 do
+  a.env.C_ChatInfo.SendAddonMessage("OtherAddon", "x", "GUILD")
+  sched:advance(1)
+end
+check(#a.RQ.Comm.sends <= 61, "2000 foreign sends over 2000 s while idle: the send list keeps only 60 s (" .. #a.RQ.Comm.sends .. ")")
+a.combat = false
+do
+  local s3 = Kit.Setup()
+  local c = Kit.Client(s3, bus, "Cora Vale")
+  c.RQ:NewModule("Typo", { addon = "RavenquillExpedition_Typo", sv = "TypoDB" })
+  c.login()
+  check(c.printedMatch("Typo never loaded") ~= nil, "a module whose addon never loads is named at login")
+  check(c.printedMatch("Comm never loaded") == nil and c.printedMatch("Example never loaded") == nil,
+    "loaded modules are not named")
+end
 
 Kit.finish()

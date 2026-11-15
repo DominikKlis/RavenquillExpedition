@@ -95,8 +95,7 @@ function GS:DiagLines()
     "Ravenquill Expedition v" .. self.version .. "  build " .. tostring((select(4, GetBuildInfo()))),
     "player: " .. tostring(self:PlayerKey()) .. "  guild: " .. tostring(self:GuildKey()),
     "sync: " .. self:CommStatus():gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""),
-    "roster members: " .. (function() local n = 0; for _ in pairs(self.roster) do n = n + 1 end; return n end)()
-      .. "  first roster name: " .. tostring(db.diagRosterName) .. "  first sender: " .. tostring(db.diagSender),
+    "roster members: " .. (function() local n = 0; for _ in pairs(self.roster) do n = n + 1 end; return n end)(),
   }
   local peers = {}
   for k, t in pairs(self:Peers() or {}) do peers[#peers + 1] = k .. " (" .. date("%d.%m. %H:%M", t) .. ")" end

@@ -1,5 +1,6 @@
 -- luacheck configuration for the suite (run by scripts/run-tests.sh when luacheck is installed).
--- The game runs Lua 5.1: std = "lua51" flags 5.2+ syntax and functions in shipped files.
+-- The game runs Lua 5.1: std = "lua51" flags 5.2+ functions (table.unpack, ...) but NOT 5.3 syntax (//, &, goto):
+-- luacheck parses those under any std. scripts/check-lua51.lua (and luac5.1 -p in CI) catch the syntax.
 -- read_globals: the WoW API the suite uses. When luacheck reports a new "undefined variable", check it is a real
 -- client global (not a typo) before adding it here.
 std = "lua51"

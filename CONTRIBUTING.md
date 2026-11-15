@@ -64,7 +64,7 @@ deliberate format change that old clients still understand, and say so in the pu
 - **Options live in the `/rq` overview.** No new chat commands unless they are really needed; modules hand their
   options to the core (see `mod.options` in `RavenquillExpedition_Map/Map.lua`).
 - **Guild traffic is shared.** All modules together must stay well within the addon message limits of a guild of
-  40. Highlights already sends through the core's scheduler; Map and CraftAdvisor move onto it during the rework. Add a test to the module's sync harness for anything that
+  40. Every module sends through the core's scheduler. Add a test to the module's sync harness for anything that
   changes what or how often we send.
 - **Text in both locales.** Player-facing strings go into the module's locale file, English and German.
 - **Fix a bug with a test** that fails without the fix.
@@ -73,7 +73,7 @@ deliberate format change that old clients still understand, and say so in the pu
 
 ## Writing a module
 
-Start from `templates/Module/`: a complete module (25 lines) with a two-client test. The API (SavedVariables,
+Start from `templates/Module/`: a complete module (under 40 code lines) with a two-client test. The API (SavedVariables,
 migrations, locale, events, options, guild sync channels, test kit) is in `docs/module-api.md`. In short:
 `RavenquillExpedition:NewModule(name, spec)`, `mod:NewChannel{ tag, version }`, `ch:Define` / `ch:On` / `ch:Send`.
 The core paces every module's guild messages together, so a module never sends addon messages itself.

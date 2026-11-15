@@ -119,8 +119,15 @@ check(#e[4] <= 120 and e[5] == "<secret>", "message cut to 120 bytes, a secret v
 for i = 1, 120 do RQ:Trace("fill", "n" .. i) end
 all = Dev.Entries()
 check(#all == 50 and all[#all][4] == "n120" and all[1][4] == "n71", "ring keeps the newest 50, oldest first")
-print("hello chat")
-check(Dev.Entries()[#Dev.Entries()][3] == "chat", "chat lines are captured")
+local nBefore = #Dev.Entries()
+print("[Cara Moss] whispers: meet me at the bank")
+check(#Dev.Entries() == nBefore, "other chat lines (whispers) are not logged by default")
+RQ.Print("Map", "hello chat")
+check(Dev.Entries()[#Dev.Entries()][3] == "chat", "the suite's own chat lines are captured")
+db.chatAll = true
+print("[Cara Moss] whispers: again")
+check(Dev.Entries()[#Dev.Entries()][4]:find("again", 1, true) ~= nil, "with the switch on, every chat line is")
+db.chatAll = false
 db.on = false
 RQ:Trace("off", "x")
 check(Dev.Entries()[#Dev.Entries()][3] ~= "off", "nothing logged while logging is off")

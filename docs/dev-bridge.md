@@ -17,7 +17,7 @@ without anyone pasting chat output.
   `comm.lost`, `comm.rx`, `comm.slow`, `comm.foreign`, `comm.drop`) and every error that goes through `GS:Call`
   (`err`). Without the Dev addon, `Trace` is a no-op.
 - Every suite addon message sent or heard (`wire.tx` / `wire.rx`, prefixes RQE1, RQEMap1, GCAdv1).
-- Every line printed to the default chat frame (`chat`), so existing diagnostic output lands on disk unchanged.
+- The suite's own chat lines (`chat`: lines that start with "Ravenquill Expedition"), so existing diagnostic output lands on disk unchanged. Other chat lines (whispers, guild chat) only with the switch "Also log all other chat lines" in `/rq dev`, off by default.
 - One session header per load: client build, core and module versions, character and guild.
 
 The log is a ring of the newest 2000 entries; messages are cut to 120 bytes and secret values are never stored.

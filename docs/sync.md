@@ -15,11 +15,11 @@ Everything goes through one scheduler in the core (`RavenquillExpedition/Comm.lu
 
 | Rule | Value |
 |---|---|
-| Token bucket | 3 at once, then 1 per 5 s: 12 per minute for all modules together (measured limit: 30 per minute, see below) |
-| Slow mode | something lost and nothing echoed for 120 s: 1 per 5 min until an echo comes back (`RQ:CommResume()` leaves it) |
+| Token bucket | refilled at 1 per 5 s, at most 3 saved: 12 per minute for all modules together (measured limit: 30 per minute, see below). The pump sends at most one message per 5 s tick, so queued events go 5 s apart; the saved tokens let state sends and events queued some seconds apart go out at once |
+| Slow mode | something lost and nothing echoed for 120 s: the bucket is emptied and refills at 1 per 5 min until an echo comes back (`RQ:CommResume()` leaves it); the starvation guard does not apply while slow |
 | Throttled result from the client | hold 30 s |
 | Busy guild | 20 event/record messages heard from others in 60 s (max 4 per sender count): events/records wait |
-| Starvation guard | an event/record that waited 30 s goes out even without a token (other addons' sends drain the bucket; they never put it below 0) |
+| Starvation guard | an event/record that waited 30 s goes out even without a token, at most one own send per 5 s, never in slow mode (other addons' sends drain the bucket to 0; they never put it below 0 and never cancel our own debt) |
 | Other addons | their GUILD sends cost our tokens too (hook on `SendAddonMessage`) |
 | Intake | per sender per minute: 15 on event/record prefixes, 15 on state prefixes; more is not read |
 

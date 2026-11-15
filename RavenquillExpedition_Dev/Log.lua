@@ -1,6 +1,7 @@
 -- Ravenquill Expedition: Dev - the log. Never released (scripts/package.ps1 refuses this folder).
--- Everything the suite traces (RavenquillExpedition:Trace), every suite addon message sent or heard, and every chat
--- line, into a ring of LOG_MAX entries in RavenquillExpeditionDevDB. The game writes SavedVariables on /reload and
+-- Everything the suite traces (RavenquillExpedition:Trace), every suite addon message sent or heard, and the suite's
+-- own chat lines ("Ravenquill Expedition ..."; every other chat line, whispers included, only with the "all chat
+-- lines" switch, off by default), into a ring of LOG_MAX entries in RavenquillExpeditionDevDB. The game writes SavedVariables on /reload and
 -- logout; scripts/devlog.sh reads the file from disk, so nothing has to be copied out of the game by hand.
 -- Entry: { time(), GetTime(), category, message, data } (message and data cut to 120 bytes, secrets never stored).
 local ADDON, ns = ...
@@ -57,7 +58,11 @@ end
 ---------------------------------------------------------------------------
 if DEFAULT_CHAT_FRAME and hooksecurefunc then
   hooksecurefunc(DEFAULT_CHAT_FRAME, "AddMessage", function(_, text)
-    pcall(function() if type(text) == "string" and not RQ.IsSecret(text) then Dev.Add("chat", text) end end)
+    pcall(function()
+      if type(text) ~= "string" or RQ.IsSecret(text) then return end
+      -- other people's words (whispers, guild chat) stay out of the file unless the developer asks for them
+      if (db and db.chatAll) or text:find("Ravenquill Expedition", 1, true) then Dev.Add("chat", text) end
+    end)
   end)
 end
 if C_ChatInfo and C_ChatInfo.SendAddonMessage and hooksecurefunc then
@@ -97,6 +102,7 @@ function mod:OnLoad()
   db = type(RavenquillExpeditionDevDB) == "table" and RavenquillExpeditionDevDB or {}
   RavenquillExpeditionDevDB = db
   if db.on == nil then db.on = true end
+  db.chatAll = db.chatAll == true -- off unless switched on (review 2026-11-15: whispers ended up on disk)
   if type(db.log) ~= "table" or type(db.log.e) ~= "table" then Dev.Clear() end
   db.log.max = Dev.LOG_MAX
   db.runs = type(db.runs) == "table" and db.runs or {}
@@ -142,8 +148,10 @@ end
 
 mod.options = {
   { type = "header", label = "Log" },
-  { type = "toggle", label = "Log to SavedVariables", tooltip = "Traces, suite addon messages and chat lines go into RavenquillExpeditionDevDB.",
+  { type = "toggle", label = "Log to SavedVariables", tooltip = "Traces, suite addon messages and the suite's chat lines go into RavenquillExpeditionDevDB.",
     get = function() return db and db.on or false end, set = function(v) db.on = v and true or false end },
+  { type = "toggle", label = "Also log all other chat lines", tooltip = "Every chat line, including whispers and guild chat, into the log file. Off by default.",
+    get = function() return db and db.chatAll or false end, set = function(v) db.chatAll = v and true or false end },
   { type = "button", label = "Clear the log", func = function() Dev.Clear() end },
   { type = "button", label = "Run all tests (then /reload to save)", func = function() if Dev.RunAll then Dev:RunAll() end end },
   { type = "text", label = "Last 50 entries", lines = function()

@@ -27,7 +27,6 @@ function GS:ReadRoster()
       local on = Plain(online) and true or false
       roster[key] = { level = Plain(level, "number"), class = Plain(classFile, "string"), online = on }
       if not on then offline = offline + 1 end
-      if RavenquillExpeditionDB and not RavenquillExpeditionDB.diagRosterName then RavenquillExpeditionDB.diagRosterName = Plain(name, "string") end
     end
   end
   if n > 0 then

@@ -261,6 +261,7 @@ for code in pairs(CODE_KIND) do
       return
     end
     if e.by and GS:IsGuildMember(e.who) ~= true then return end -- witnessed loot only about known guildies
+    if not H:Admit(sender, GetTime()) then return end
     H:Add(e, "wire")
   end)
 end

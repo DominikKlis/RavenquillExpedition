@@ -16,7 +16,7 @@ CurseForge: project 1806854 (unlisted, alpha).
 
 - Each addon folder is what WoW loads. Its `dev/` folder holds offline tests and tools; `dev/` never ships.
 - `docs/`: `module-api.md` (writing a module), `sync.md` (guild sync rules), `dev-bridge.md`, `forever-notes.md`.
-- `templates/Module/`: a complete example module (25 lines) with a two-client test; start new modules from it.
+- `templates/Module/`: a complete example module (under 40 code lines) with a two-client test; start new modules from it.
 - `RavenquillExpedition/dev/testkit.lua`: many simulated clients with the real core on one virtual guild channel.
 - `scripts/run-tests.sh` runs every offline test harness, luacheck and the architecture scorecard (`scripts/check-architecture.lua`).
 - `scripts/link-addons.ps1` links a clone into your AddOns folder.

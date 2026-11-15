@@ -24,8 +24,10 @@ local function digits(n)
 end
 
 function W.b36(n)
-  n = math.floor(tonumber(n) or 0)
-  if n < 0 then n = 0 end
+  n = tonumber(n) or 0
+  -- NaN, infinity and numbers beyond exact integers would never reach 0 in digits() on Lua 5.1 (a frozen client)
+  if n ~= n or n < 0 or n >= 2 ^ 53 then n = 0 end
+  n = math.floor(n)
   return digits(n)
 end
 

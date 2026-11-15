@@ -5,7 +5,8 @@ SavedVariables with defaults and migrations, texts in English and German, events
 window, and guild sync with pacing, delivery checks and validation. A module never creates its own sync code, event
 frame for login/loading, or locale lookup.
 
-Start from `templates/Module/` (see its README): a complete module in 25 lines plus a two-client test.
+Start from `templates/Module/` (see its README): a complete module in under 40 code lines (it keeps a level-up
+from combat until it is delivered, and stores one entry per guildmate) plus a two-client test.
 
 ## Registering
 
@@ -13,7 +14,8 @@ Start from `templates/Module/` (see its README): a complete module in 25 lines p
 local ADDON = ...
 local RQ = RavenquillExpedition
 local mod = RQ:NewModule("Name", {
-  addon = ADDON,                -- the folder name; SavedVariables are ready and OnLoad runs at its ADDON_LOADED
+  addon = ADDON,                -- required for sv / defaults / OnLoad: they run at this folder's ADDON_LOADED
+                                -- (a missing or misspelled one is named in chat at login)
   api = 2,                      -- minimum core API; a too-old core says so once and doesn't load the module
   title = "Shown title", slash = "name", icon = "Interface\\Icons\\...",  -- the /rq row, "/rq name"
   sv = "RavenquillExpeditionNameDB",            -- account SavedVariables (also in the .toc)   -> mod.db
@@ -56,7 +58,7 @@ English and German.
 
 ```lua
 local ch = mod:NewChannel({ tag = "EX", version = 1 })   -- tag: unique, short; messages "EX;1;<type>;<fields>"
-ch:Define("lvl", { lane = "event", from = "self", fields = { { "who", "key" }, { "level", "int", 1, 200 } } })
+ch:Define("lvl", { from = "self", fields = { { "who", "key" }, { "level", "int", 1, 200 } } })
 ch:On("lvl", function(sender, msg) ... end)              -- sender = the guildmate's key, msg = checked fields
 ch:Send("lvl", { who = RQ:PlayerKey(), level = 31 }, { onResult = function(status) end })
 ```
@@ -64,19 +66,29 @@ ch:Send("lvl", { who = RQ:PlayerKey(), level = 31 }, { onResult = function(statu
 - **Field kinds:** `{ name, "int", lo, hi }`, `{ name, "b36", lo, hi }`, `{ name, "text", maxBytes }`,
   `{ name, "word", maxLen }` (letters and digits), `{ name, "class" }`, `{ name, "time" }`, `{ name, "flag" }`,
   `{ name, "enum", { "a", "b" } }`, `{ name, "key" }` (a player). `opt = true` allows an empty field (nil).
+  The sender checks the same rules: a value out of range, infinite or NaN, or an unknown class is never sent
+  (`onResult` "dropped", counted under `encode: field <name>`).
 - **Checked before your handler:** prefix, guild channel only, secret values, the sender's name, the per-sender
   rate limit, the version, the type, every field and its range. `from = "self"`: every `key` field must be the
   sender (nobody can send data about someone else). A rejected message is counted in `ch:Status().rejected`.
-- **Lanes:** `event` (default) is queued, sent in order, and `onResult` reports `"delivered"` (our echo came back),
-  `"lost"` or `"dropped"` (never sent: instance, combat, too long, waited too long). `state` is for "the latest value
-  or nothing" (a position): `ch:TrySend(type, msg)` returns `ok, reason` right away and never queues.
-- **Pacing is the core's:** one budget for the whole suite per client (3 at once, then 1 per 5 s; 1 per 5 min while
-  nothing comes back), nothing in instances or combat, other addons' guild messages count too. Design for that:
-  send rarely, keep messages short (250 bytes including the tag and type), let the receiver ask instead of
-  broadcasting everything.
-- **Changing a format:** add fields at the end (older clients ignore extra fields; missing trailing fields arrive
-  empty), or define a new type. Bump `version` only for an incompatible change: old clients then ignore the new
-  messages.
+- **Sending:** `ch:Send` queues (event lane) and returns nothing; the result comes through `onResult`:
+  `"delivered"` (our echo came back), `"lost"` or `"dropped"` (never sent: in an instance or combat, before login,
+  too long, waited too long). Nothing is resent for you: keep what you wanted to send until "delivered" and try
+  again later (the template does this on `PLAYER_REGEN_ENABLED`). `ch:TrySend(type, msg)` sends now or not at all
+  and returns `ok, reason`.
+- **Lanes:** schema types (`Define`) are always event traffic; `lane` there may only be `"event"`. For "the latest
+  value or nothing" (a position) use a raw channel with `lane = "state"`, as Map does; `raw:Send` returns ok.
+- **Pacing is the core's:** one budget for the whole suite per client: tokens refill at 1 per 5 s (at most 3 saved),
+  and the pump sends at most one message per 5 s, so queued events go out 5 s apart. While nothing echoes for
+  120 s after a loss: 1 per 5 min until an echo comes back. Nothing in instances or combat; other addons' guild
+  messages use our tokens too. Design for that: send rarely, keep messages short (250 bytes including the tag and
+  type), let the receiver ask instead of broadcasting everything.
+- **Changing a format:** append fields at the end **with `opt = true`**: older clients ignore extra fields, and new
+  clients read an old client's message with the field missing as nil. A new required field would make new clients
+  reject every message from old ones. Or define a new type. Bump `version` only for an incompatible change: old
+  clients then ignore the new messages.
+- **Your store:** received data goes into `mod:GuildStore(name)`. Key it by sender (or cap it): it is saved, and a
+  list that only grows grows forever.
 
 ## Helpers on `RavenquillExpedition`
 

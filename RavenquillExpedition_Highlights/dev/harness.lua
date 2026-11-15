@@ -395,7 +395,9 @@ check(count() == n, "level 39 not logged")
 G.level = 40; fire("PLAYER_LEVEL_UP", 40)
 check(last().k == "level" and last().lvl == 40, "level 40 logged")
 G.level = 30
-advance(300); echoAll(); advance(5)
+-- echo as the guild does (within seconds): an echo after 300 s would count as lost and put the core in slow mode
+for _ = 1, 30 do advance(10); echoAll() end
+advance(5)
 
 ---------------------------------------------------------------------------
 -- loot of guildies
@@ -539,10 +541,29 @@ H:Settings().shareCap = 8
 advance(200); echoAll(); advance(5)
 
 ---------------------------------------------------------------------------
+-- review 2026-11-15: one guildmate sending forged highlights all the time (one every 30 s for 50 minutes)
+---------------------------------------------------------------------------
+do
+  local before, chatBefore = count(), #printed
+  local fromCara = 0
+  for _, e in ipairs(events()) do if e.who == "Cara Moss" then fromCara = fromCara + 1 end end
+  for i = 1, 100 do
+    recv("Cara Moss", ("1;v;%d;%d;Cara Moss;%d;7"):format(T(), 900 + i, 2 + (i % 50)))
+    advance(30)
+  end
+  local nowCara = 0
+  for _, e in ipairs(events()) do if e.who == "Cara Moss" then nowCara = nowCara + 1 end end
+  check(nowCara - fromCara <= H.RECV_PER_HOUR, ("at most %d per sender per hour stored (%d)"):format(H.RECV_PER_HOUR, nowCara - fromCara))
+  check(count() - before <= H.RECV_PER_HOUR and #printed - chatBefore <= H.RECV_PER_HOUR,
+    "and at most that many chat lines (" .. (#printed - chatBefore) .. ")")
+  check((H.db.diag.recvCapped or 0) >= 70, "the rest is counted, not stored")
+end
+
+---------------------------------------------------------------------------
 -- options (all settings live in the /rq window: user decision 2026-11-14)
 ---------------------------------------------------------------------------
 check(H.db.diag.seen.ENCOUNTER_END and H.db.diag.last.QUEST_TURNED_IN, "event diagnostics recorded")
-check(GS:Peers()["Cara Moss"] and RavenquillExpeditionDB.diagSender ~= nil, "peers and raw sender recorded")
+check(GS:Peers()["Cara Moss"] and RavenquillExpeditionDB.diagSender == nil, "peers recorded; no guildmate name stored for diagnosis")
 local function opt(label)
   for i, o in ipairs(H.options) do if o.label == label then return i, o end end
 end

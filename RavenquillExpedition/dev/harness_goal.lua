@@ -41,11 +41,11 @@ section("Sync between two clients")
 a.fire("PLAYER_LEVEL_UP", 31)
 sched:advance(10)
 local got = mb:GuildStore("levels")
-check(#got == 1 and got[1].who == "Anna Stone" and got[1].level == 31, "the level-up arrived")
+check(got["Anna Stone"] and got["Anna Stone"].level == 31, "the level-up arrived")
 check(b.printedMatch("Anna Stone hat Stufe 31 erreicht") ~= nil, "shown in German on the German client")
 for lvl = 32, 40 do a.fire("PLAYER_LEVEL_UP", lvl) end
 sched:advance(600)
-check(#got == 10, "a burst of 9 more all arrive (" .. #got .. ")")
+check(got["Anna Stone"].level == 40 and b.printedMatch("Stufe 40 erreicht") ~= nil, "a burst of 9 level-ups: the newest arrives")
 local CC = a.RQ.CommConst
 local cap60 = CC.BURST + 60 * CC.RATE
 local gap = math.huge
@@ -56,11 +56,27 @@ for _, e in ipairs(bus.log) do
     prevT = e.t
   end
 end
-check(bus:maxPer(60, "Anna Stone") <= cap60 and gap >= 1 / CC.RATE,
-  ("paced by the core: %d per 60 s (<= %d), never two within %d s (closest %s)"):format(bus:maxPer(60, "Anna Stone"), cap60,
-  1 / CC.RATE, tostring(gap)))
+-- absolute, not derived from the constants under test: 30 per minute from one client all echoed in game
+-- (Dev test comm.rate, 2026-11-15); the suite promises at most half of that
+check(bus:maxPer(60, "Anna Stone") <= cap60 and bus:maxPer(60, "Anna Stone") <= 15 and gap >= 1,
+  ("paced by the core: %d per 60 s (<= %d and <= 15 measured-safe/2), closest two %s s apart"):format(
+  bus:maxPer(60, "Anna Stone"), cap60, tostring(gap)))
 -- a forged message about someone else is refused by the core's schema check (from = "self")
 b.fire("CHAT_MSG_ADDON", "RQE1", "EX;1;lvl;Cora Vale;60", "GUILD", "Anna Stone-Realm")
-check(#got == 10, "a message about someone else is rejected before the handler")
+check(got["Cora Vale"] == nil, "a message about someone else is rejected before the handler")
+
+section("Combat, and a store that stays small (review 2026-11-15)")
+a.combat = true
+a.fire("PLAYER_LEVEL_UP", 41)
+sched:advance(60)
+check(got["Anna Stone"].level == 40, "in combat nothing goes out")
+a.combat = false
+a.fire("PLAYER_REGEN_ENABLED")
+sched:advance(30)
+check(got["Anna Stone"].level == 41, "the level-up from combat goes out when combat ends")
+for lvl = 42, 60 do a.fire("PLAYER_LEVEL_UP", lvl); sched:advance(30) end
+local keys = 0
+for _ in pairs(got) do keys = keys + 1 end
+check(keys == 1 and got["Anna Stone"].level == 60, "one entry per guildmate, however many level-ups (" .. keys .. ")")
 check(#a.errors == 0 and #b.errors == 0, "no Lua errors")
 Kit.finish()

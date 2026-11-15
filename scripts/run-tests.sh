@@ -11,7 +11,7 @@ cd "$(dirname "$0")/.."
 status=0
 total_pass=0; total_fail=0; total_skip=0; skipnames=""
 printf '%-55s %6s %6s %6s\n' "harness" "passed" "failed" "skipped"
-for h in */dev/harness*.lua; do
+for h in */dev/harness*.lua templates/*/dev/harness*.lua; do
   skip=""
   for s in ${RQ_SKIP:-}; do [ "${h%%/*}" = "$s" ] && skip=1; done
   if [ -n "$skip" ]; then printf '%-55s skipped (RQ_SKIP)\n' "$h"; continue; fi
@@ -44,15 +44,25 @@ if command -v luacheck >/dev/null 2>&1; then
   [ -d templates ] && lc_dirs+=(templates)
   lc_out="$(luacheck "${lc_dirs[@]}" --codes --formatter plain --no-color 2>&1)"
   warnings="$(printf '%s\n' "$lc_out" | grep -cE ':[0-9]+:[0-9]+: \(W')"
-  errors="$(printf '%s\n' "$lc_out" | grep -cE ':[0-9]+:[0-9]+: \((E|W0[0-9][0-9]|W1[0-9][0-9])\)')"
+  # E011 and friends are syntax errors: (E[0-9]+), not (E) (review 2026-11-15: they counted as 0)
+  errors="$(printf '%s\n' "$lc_out" | grep -cE ':[0-9]+:[0-9]+: \((E[0-9]+|W0[0-9][0-9]|W1[0-9][0-9])\)')"
   echo "luacheck: $warnings warnings, $errors errors (syntax / undefined globals)"
   if [ "$errors" -ne 0 ]; then
-    printf '%s\n' "$lc_out" | grep -E ':[0-9]+:[0-9]+: \((E|W0[0-9][0-9]|W1[0-9][0-9])\)' | head -n 30
+    printf '%s\n' "$lc_out" | grep -E ':[0-9]+:[0-9]+: \((E[0-9]+|W0[0-9][0-9]|W1[0-9][0-9])\)' | head -n 30
     status=1
   fi
   lc_args=(--luacheck "$warnings")
 else
   echo "luacheck: not installed (n/a)"
+fi
+
+# The game runs Lua 5.1: no 5.2+ syntax in anything a .toc loads; luac5.1 -p as well where installed (CI)
+"$LUA" scripts/check-lua51.lua || status=1
+if command -v luac5.1 >/dev/null 2>&1; then
+  mapfile -t shipped < <("$LUA" scripts/check-lua51.lua --list)
+  if luac5.1 -p "${shipped[@]}"; then echo "luac5.1 -p: ${#shipped[@]} files ok"; else status=1; fi
+else
+  echo "luac5.1: not installed (n/a; CI runs it)"
 fi
 echo
 

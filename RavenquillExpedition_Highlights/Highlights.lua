@@ -20,6 +20,8 @@ H.FUTURE_SLACK = 300          -- reject entries stamped further in the future (c
 H.LOOT_DEDUPE = 300           -- the same loot of the same person within 5 min is one entry
 H.BOSS_SAME = 1200            -- reports of the same encounter within 20 min are the same kill
 H.OUTBOX_MAX_AGE = 2 * 86400  -- own entries not delivered within 2 days are no longer sent
+H.RECV_PER_HOUR = 30          -- read at most this many entries per sender per hour (an honest client shares <= 20)
+H.MAX_PER_WHO = 300           -- at most this many entries about one person; their oldest go first
 
 H.DEFAULTS = {
   share = true,         -- send own highlights to the guild
@@ -146,6 +148,7 @@ function H:Add(e, source, opts)
   while pos > 1 and events[pos - 1].t > e.t do pos = pos - 1 end
   table.insert(events, pos, e)
   idx[e.id] = e
+  if source == "wire" then self:CapWho(events, idx, e.who) end
   self:Prune(gkey)
 
   if source == "wire" then
@@ -158,6 +161,32 @@ function H:Add(e, source, opts)
   end
   if self.RefreshSoon then self:RefreshSoon() elseif self.Refresh then self:Refresh() end
   return e
+end
+
+-- One person can't fill the log: past MAX_PER_WHO entries about them, their oldest is dropped (not everyone's).
+function H:CapWho(events, idx, who)
+  local n, first = 0, nil
+  for i, o in ipairs(events) do
+    if o.who == who then n = n + 1; first = first or i end
+  end
+  if n > self.MAX_PER_WHO and first then
+    local o = table.remove(events, first)
+    idx[o.id] = nil
+  end
+end
+
+-- true if this sender may still be heard this hour (review 2026-11-15: one guildmate filled the log and the chat)
+H.recv = {}
+function H:Admit(sender, now)
+  local list = self.recv[sender]
+  if not list then list = {}; self.recv[sender] = list end
+  while list[1] and now - list[1] > 3600 do table.remove(list, 1) end
+  if #list >= self.RECV_PER_HOUR then
+    self.db.diag.recvCapped = (self.db.diag.recvCapped or 0) + 1
+    return false
+  end
+  list[#list + 1] = now
+  return true
 end
 
 function H:Prune(gkey)
