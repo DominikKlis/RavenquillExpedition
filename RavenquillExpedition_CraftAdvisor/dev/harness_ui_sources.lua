@@ -248,8 +248,10 @@ do
       io.stderr, arg = realStderr, savedArg
       check(ok, "gen_sources.lua runs and its count asserts pass " .. (ok and table.concat(report) or tostring(err)))
       local function readAll(p) local h = io.open(p, "rb"); if not h then return nil end local s = h:read("a"); h:close(); return s end
-      local a, b = readAll(tmp .. "Data/Sources.lua"), readAll(ROOT .. "Data/Sources.lua")
-      check(a and a == b, "shipped Data/Sources.lua is byte-identical to a fresh gen_sources.lua run")
+      -- line endings ignored: git on Windows may check the shipped file out with CRLF
+      local function lf(s) return s and (s:gsub("\r\n", "\n")) end
+      local a, b = lf(readAll(tmp .. "Data/Sources.lua")), lf(readAll(ROOT .. "Data/Sources.lua"))
+      check(a and a == b, "shipped Data/Sources.lua is byte-identical to a fresh gen_sources.lua run (line endings ignored)")
     end
   end
   UnitFactionGroup = nil

@@ -122,6 +122,20 @@ function mod:OnLogin()
   if Dev.OnLoginTests then RQ:Call(Dev.OnLoginTests, Dev) end
 end
 
+-- /rq dev <test name> runs that in-game test now (e.g. "/rq dev map.state" with the world map open); /reload saves it
+function mod:OnSlash(rest)
+  local name = rest and rest:match("^%s*(%S+)")
+  if not (name and Dev.tests and Dev.tests[name]) then
+    local names = {}
+    for _, n in ipairs(Dev.testOrder or {}) do names[#names + 1] = n end
+    RQ.Print("Dev", "/rq dev <test>: " .. table.concat(names, ", "))
+    return
+  end
+  Dev:Run({ name }, "slash-" .. name .. "-" .. time(), function(run)
+    RQ.Print("Dev", ("|cffffff00%s: %s. Type /reload to save the results.|r"):format(name, run.summary or "?"))
+  end)
+end
+
 function mod:OverviewStatus()
   return ("logging %s, %d entries"):format(db and db.on and "on" or "off", db and db.log.n or 0)
 end

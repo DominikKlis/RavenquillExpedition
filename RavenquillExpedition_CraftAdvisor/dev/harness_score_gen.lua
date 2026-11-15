@@ -33,7 +33,10 @@ do
     check(ok, "generator runs and its own row-count asserts pass " .. (ok and "" or tostring(err)))
     local same = true
     for _, f in ipairs({ "Leatherworking", "Blacksmithing", "Tailoring", "Engineering", "Enchanting", "Enchants" }) do
+      -- line endings ignored: git on Windows may check the shipped files out with CRLF
       local a, b = readAll(GEN_OUT .. "Data/" .. f .. ".lua"), readAll(ROOT .. "Data/" .. f .. ".lua")
+      if a then a = a:gsub("\r\n", "\n") end
+      if b then b = b:gsub("\r\n", "\n") end
       if not a or a ~= b then same = false; print("    differs: " .. f) end
     end
     check(same, "shipped Data/*.lua are byte-identical to a fresh generator run")

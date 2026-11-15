@@ -98,7 +98,14 @@ local function NewWorld(opts)
       SetAllPoints = function(s, o) s.allPoints = o end,
       GetWidth = function(s) return s.w or (s.allPoints and s.allPoints:GetWidth()) or 0 end,
       GetHeight = function(s) return s.h or (s.allPoints and s.allPoints:GetHeight()) or 0 end,
-      GetFrameLevel = function() return 1 end,
+      GetFrameLevel = function(s) return s.level or 1 end,
+      SetFrameLevel = function(s, l) s.level = l end,
+      GetParent = function(s) return s.parent end,
+      GetChildren = function(s)
+        local out = {}
+        for _, x in ipairs(frames) do if x.parent == s then out[#out + 1] = x end end
+        return table.unpack(out)
+      end,
       IsShown = function(s) return s.shown end,
     }
     -- unknown Methods are no-ops; unknown lowercase fields are nil, as on real frames
@@ -616,6 +623,30 @@ do
     and src("libs/HereBeDragons/HereBeDragons-Pins-2.0.lua"):find('MAJOR, MINOR = "HereBeDragons-Pins-2.0-RQE"', 1, true)
     and src("libs/HereBeDragons/HereBeDragons-Pins-2.0.lua"):find('LibStub("HereBeDragons-2.0-RQE")', 1, true),
     "our embedded copies register under private names and use each other")
+end
+
+---------------------------------------------------------------------------
+-- Draw order on the world map (in game 2026-11-15: pins "visible" but drawn under the map art): our layer goes
+-- above the highest frame on the canvas, also when Blizzard adds a higher one while the map is open.
+---------------------------------------------------------------------------
+do
+  local wo = NewWorld({ worldMap = true })
+  wo.fire("ADDON_LOADED", "RavenquillExpedition_Map")
+  wo.fire("PLAYER_LOGIN")
+  local art = wo.env.CreateFrame("Frame", nil, wo.map.canvas) -- Blizzard's map art / pins
+  art.level = 800
+  wo.M:Fake(true)
+  wo.advance(3)
+  wo.map.blizzardShow()
+  wo.map.renderFrame()
+  local layer = wo.M.worldLayer
+  local pinsAbove = true
+  for f in pairs(wo.M.worldPlaced) do if (f.level or 0) <= 800 then pinsAbove = false end end
+  check(layer and layer.level and layer.level > 800 and pinsAbove, "our layer and pins sit above the map's highest frame (level 800)")
+  local later = wo.env.CreateFrame("Frame", nil, wo.map.canvas) -- a pin Blizzard adds while the map is open
+  later.level = 2000
+  for _ = 1, 40 do wo.map.renderFrame() end -- 40 frames x 0.016 s > the 0.5 s check
+  check(layer.level > 2000, "a higher frame added while the map is open: the layer moves above it (" .. tostring(layer.level) .. ")")
 end
 
 print(("%d passed, %d failed"):format(pass, fail))

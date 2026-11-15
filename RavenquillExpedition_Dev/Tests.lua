@@ -249,20 +249,38 @@ Dev:Register("map.state", function(t)
       ok and tostring(state) or "?", okAge and tostring(math.floor(age or -1)) or "?", m.fake and ", test pin" or "", m.isSelf and ", self" or ""))
   end
   t:note(n .. " members in Map's store")
-  local placed, visible = 0, 0
-  for f in pairs(M.worldPlaced or {}) do
-    placed = placed + 1
-    if f:IsVisible() then visible = visible + 1 end
-  end
-  local layer = M.worldLayer
-  t:note(("world pins: %d placed, %d visible; layer %s (shown %s, %dx%d); map open %s, map ID %s"):format(placed, visible,
-    layer and "exists" or "MISSING", layer and tostring(layer:IsVisible()) or "-", layer and layer:GetWidth() or 0,
-    layer and layer:GetHeight() or 0, tostring(WorldMapFrame and WorldMapFrame:IsShown()),
-    tostring(WorldMapFrame and WorldMapFrame:GetMapID())))
   local okPos, mapID, x, y = pcall(M.ReadOwnPosition, M)
   t:note(("own position: %s %s %s %s"):format(tostring(okPos), tostring(mapID), tostring(x), tostring(y)))
   if M.SyncDebug then
     pcall(M.SyncDebug, M, function(line) t:note("sync: " .. tostring(line):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end)
   end
-  t:done()
+  -- open the world map (out of combat only), let our layer draw, then look at every world pin
+  local opened = false
+  if WorldMapFrame and not WorldMapFrame:IsShown() and not InCombatLockdown() then opened = pcall(ToggleWorldMap) end
+  t:after(2, function()
+    local placed, visible = 0, 0
+    for f, d in pairs(M.worldPlaced or {}) do
+      placed = placed + 1
+      if f:IsVisible() then visible = visible + 1 end
+      local left, top = f:GetLeft(), f:GetTop()
+      t:note(("world pin %s: placed on map %s (%.3f, %.3f), shown %s, visible %s, alpha %.2f, parent is layer %s, at %s,%s"):format(
+        tostring(f.key), tostring(d.mapID), d.x or -1, d.y or -1, tostring(f:IsShown()), tostring(f:IsVisible()),
+        f:GetAlpha() or -1, tostring(f:GetParent() == M.worldLayer), tostring(left and math.floor(left)),
+        tostring(top and math.floor(top))))
+    end
+    for key in pairs(M.members or {}) do
+      local has = false
+      for f in pairs(M.worldPlaced or {}) do if f.key == key then has = true end end
+      if not has then t:note("NO world pin for member " .. tostring(key)) end
+    end
+    local layer = M.worldLayer
+    local okTop, top = pcall(M.TopCanvasLevel)
+    t:note(("world pins: %d placed, %d visible; layer %s (visible %s, %dx%d, level %s, highest other canvas level %s, strata %s); map open %s, map ID %s"):format(placed,
+      visible, layer and "exists" or "MISSING", layer and tostring(layer:IsVisible()) or "-", layer and layer:GetWidth() or 0,
+      layer and layer:GetHeight() or 0, layer and tostring(layer:GetFrameLevel()) or "-", okTop and tostring(top) or "?",
+      layer and tostring(layer:GetFrameStrata()) or "-",
+      tostring(WorldMapFrame and WorldMapFrame:IsShown()), tostring(WorldMapFrame and WorldMapFrame:GetMapID())))
+    if opened and WorldMapFrame:IsShown() then pcall(ToggleWorldMap) end
+    t:done()
+  end)
 end, 20, { manual = true })

@@ -173,13 +173,46 @@ local function DrawWorld()
   end
 end
 
+-- Our layer must sit above everything else on the map canvas: the map's own art and Blizzard's pins are frames there
+-- too, with frame levels the map assigns as it builds them. A fixed offset was not enough in game (the pins were
+-- "visible" but drawn under the map art), so the layer goes above the highest level it finds. Read-only on Blizzard's
+-- frames; only our own frame levels change.
+local function TopCanvasLevel()
+  local canvas = layer and layer:GetParent()
+  if not canvas then return 0 end
+  local top = canvas:GetFrameLevel() or 0
+  local kids = { canvas:GetChildren() }
+  for i = 1, #kids do
+    local k = kids[i]
+    if k ~= layer and k.GetFrameLevel then
+      local lvl = k:GetFrameLevel()
+      if type(lvl) == "number" and lvl > top then top = lvl end
+    end
+  end
+  return top
+end
+M.TopCanvasLevel = TopCanvasLevel -- (diagnostics)
+
+local function RaiseLayer()
+  local top = TopCanvasLevel()
+  local want = math.min(top + 10, 9000)
+  if (layer:GetFrameLevel() or 0) < want then
+    layer:SetFrameLevel(want)
+    for f in pairs(placed) do f:SetFrameLevel(want + 1) end
+  end
+end
+
 -- Runs only while the map is visible (the layer is a child of the canvas), once per frame: redraws when our pins
--- changed or the map shows another map or zoom level.
-local function OnLayerUpdate()
+-- changed or the map shows another map or zoom level; checks twice a second that nothing new sits above us.
+local sinceRaise = 1
+local function OnLayerUpdate(_, elapsed)
+  sinceRaise = sinceRaise + (elapsed or 0)
+  if sinceRaise >= 0.5 then sinceRaise = 0; RaiseLayer() end
   if not dirty then
     local mapID, scale, w, h = MapView()
     if mapID == drawn.mapID and scale == drawn.scale and w == drawn.w and h == drawn.h then return end
   end
+  RaiseLayer()
   DrawWorld()
 end
 
@@ -239,7 +272,10 @@ local function PlaceWorld(f, m)
   local wx, wy, inst = HBD:GetWorldCoordinatesFromZone(m.x, m.y, m.mapID)
   if type(wx) ~= "number" or type(wy) ~= "number" then return false end
   local l = Layer()
-  if l then f:SetParent(l) end
+  if l then
+    f:SetParent(l)
+    f:SetFrameLevel((l:GetFrameLevel() or 0) + 1)
+  end
   placed[f] = { mapID = m.mapID, x = m.x, y = m.y, wx = wx, wy = wy, inst = inst }
   dirty = true
   return true
