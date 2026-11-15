@@ -37,6 +37,8 @@ Applications.
 
 1. Create a branch from `main`.
 2. Make the change. Run the tests: `bash scripts/run-tests.sh` (CI runs the same on every pull request).
+   CI skips CraftAdvisor for now: its harnesses still use absolute Windows paths and a local SimGear download,
+   so they only run on the maintainer's machine until they are made portable.
 3. Test in game (`/reload`). Say in the pull request what you tested in game and what you couldn't.
 4. Open a pull request against `main`.
 

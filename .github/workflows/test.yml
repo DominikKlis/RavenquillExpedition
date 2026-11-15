@@ -13,4 +13,4 @@ jobs:
       - name: Install Lua 5.4
         run: sudo apt-get update && sudo apt-get install -y lua5.4
       - name: Run offline harnesses
-        run: bash scripts/run-tests.sh lua5.4
+        run: RQ_SKIP=RavenquillExpedition_CraftAdvisor bash scripts/run-tests.sh lua5.4
