@@ -18,6 +18,8 @@ PLAN.md
 HANDOFF.md
 CLAUDE.md
 .claude/
+# ...except the shared root CLAUDE.md, which Claude Code loads for every contributor.
+!/CLAUDE.md
 
 # Build output
 /RavenquillExpedition/dev/release/

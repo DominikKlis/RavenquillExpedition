@@ -18,6 +18,21 @@ This creates junctions in your AddOns folder that point at the clone. Remove any
 **Option B: the repository is the AddOns folder.** The root `.gitignore` tracks only the suite's folders, so the
 repository can live directly in `Interface\AddOns`. Never run `git clean -x` there: it would delete your other addons.
 
+## GitHub login
+
+Use the GitHub CLI (`gh`). Changing anything in `.github/workflows/` needs the extra `workflow` permission;
+without it GitHub rejects the push ("refusing to allow an OAuth App to create or update workflow ... without
+`workflow` scope"). Log in with it from the start:
+
+```bash
+gh auth login --web --git-protocol https --scopes workflow
+gh auth setup-git
+```
+
+Already logged in without it: `gh auth refresh -h github.com -s workflow`. Workflow files can run code with the
+repository's secrets, which is why GitHub asks for this separately; it can be revoked under GitHub, Settings,
+Applications.
+
 ## Workflow
 
 1. Create a branch from `main`.
