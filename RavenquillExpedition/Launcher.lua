@@ -60,40 +60,59 @@ local function ProbeMethod(obj, method, ...)
   return SafeCall(fn, obj, ...)
 end
 
+local function MinimapGeometry()
+  local scale = Plain(ProbeMethod(Minimap, "GetEffectiveScale"), "number") or 1
+  local x, y = ProbeMethod(Minimap, "GetCenter")
+  x, y = Plain(x, "number"), Plain(y, "number")
+  if not (x and y) then return nil end
+  local w = Plain(ProbeMethod(Minimap, "GetWidth"), "number") or 140
+  local h = Plain(ProbeMethod(Minimap, "GetHeight"), "number") or 140
+  return { x = x * scale, y = y * scale, scale = scale, rim = math.min(w, h) / 2 }
+end
+
+local EXCLUSIONS = {
+  function(e) return e.type ~= "Button" and "not a button" end,
+  function(e) return not e.visible and "hidden" end,
+  function(e) return (e.w < MIN_BUTTON_W or e.w > MAX_BUTTON_W) and "size " .. math.floor(e.w + 0.5) end,
+  function(e) return not e.dist and "no position" end,
+  function(e, geo) return e.dist < geo.rim - RIM_TOLERANCE and "not on rim" end,
+}
+
+local function ExclusionReason(e, geo)
+  for _, excluded in ipairs(EXCLUSIONS) do
+    local why = excluded(e, geo)
+    if why then return why end
+  end
+end
+
+local function MeasureChild(c, geo)
+  local e = { name = Plain(ProbeMethod(c, "GetName"), "string") or "?", type = Plain(ProbeMethod(c, "GetObjectType"), "string") or "?" }
+  if ProbeMethod(c, "IsForbidden") then
+    e.why = "forbidden"
+    return e
+  end
+  local cx, cy = ProbeMethod(c, "GetCenter")
+  cx, cy = Plain(cx, "number"), Plain(cy, "number")
+  local cs = Plain(ProbeMethod(c, "GetEffectiveScale"), "number") or 1
+  e.w = Plain(ProbeMethod(c, "GetWidth"), "number") or 0
+  e.visible = Plain(ProbeMethod(c, "IsVisible")) and true or false
+  if cx and cy then
+    local dx, dy = (cx * cs - geo.x) / geo.scale, (cy * cs - geo.y) / geo.scale
+    e.dist = math.sqrt(dx * dx + dy * dy)
+    e.angle = math.deg(atan2(dy, dx)) % 360
+  end
+  e.why = ExclusionReason(e, geo)
+  if not e.why then e.counted = true end
+  return e
+end
+
 local function ScanChildren()
   local out = {}
   local children = { ProbeMethod(Minimap, "GetChildren") }
-  local ms = Plain(ProbeMethod(Minimap, "GetEffectiveScale"), "number") or 1
-  local mx, my = ProbeMethod(Minimap, "GetCenter")
-  mx, my = Plain(mx, "number"), Plain(my, "number")
-  if not (mx and my) then return out end
-  mx, my = mx * ms, my * ms
-  local rim = math.min(Plain(ProbeMethod(Minimap, "GetWidth"), "number") or 140, Plain(ProbeMethod(Minimap, "GetHeight"), "number") or 140) / 2
+  local geo = MinimapGeometry()
+  if not geo then return out end
   for _, c in ipairs(children) do
-    if c ~= btn and type(c) == "table" then
-      local e = { name = Plain(ProbeMethod(c, "GetName"), "string") or "?", type = Plain(ProbeMethod(c, "GetObjectType"), "string") or "?" }
-      out[#out + 1] = e
-      if ProbeMethod(c, "IsForbidden") then
-        e.why = "forbidden"
-      else
-        local cx, cy = ProbeMethod(c, "GetCenter")
-        cx, cy = Plain(cx, "number"), Plain(cy, "number")
-        local cs = Plain(ProbeMethod(c, "GetEffectiveScale"), "number") or 1
-        e.w = Plain(ProbeMethod(c, "GetWidth"), "number") or 0
-        e.visible = Plain(ProbeMethod(c, "IsVisible")) and true or false
-        if cx and cy then
-          local dx, dy = (cx * cs - mx) / ms, (cy * cs - my) / ms
-          e.dist = math.sqrt(dx * dx + dy * dy)
-          e.angle = math.deg(atan2(dy, dx)) % 360
-        end
-        if e.type ~= "Button" then e.why = "not a button"
-        elseif not e.visible then e.why = "hidden"
-        elseif e.w < MIN_BUTTON_W or e.w > MAX_BUTTON_W then e.why = "size " .. math.floor(e.w + 0.5)
-        elseif not e.dist then e.why = "no position"
-        elseif e.dist < rim - RIM_TOLERANCE then e.why = "not on rim"
-        else e.counted = true end
-      end
-    end
+    if c ~= btn and type(c) == "table" then out[#out + 1] = MeasureChild(c, geo) end
   end
   return out
 end
@@ -223,6 +242,13 @@ function GS:SetLauncherShown(on)
 end
 function ns.LauncherButton() return btn end
 
+local function Whole(x) return x and ("%.0f"):format(x) or "-" end
+
+local function ChildLine(e)
+  return ("  %s %s  angle=%s dist=%s w=%s  %s"):format(e.counted and "[x]" or "[ ]", e.name,
+    Whole(e.angle), Whole(e.dist), Whole(e.w), e.why or "")
+end
+
 function GS:LauncherDebug(P)
   P = P or function(line) GS.Print(nil, line) end
   local s = self:LauncherSettings()
@@ -234,11 +260,7 @@ function GS:LauncherDebug(P)
   local list = ScanChildren()
   table.sort(list, function(a, b) return (a.angle or -1) < (b.angle or -1) end)
   for _, e in ipairs(list) do
-    if e.counted or e.type == "Button" then
-      P(("  %s %s  angle=%s dist=%s w=%s  %s"):format(e.counted and "[x]" or "[ ]", e.name,
-        e.angle and ("%.0f"):format(e.angle) or "-", e.dist and ("%.0f"):format(e.dist) or "-",
-        e.w and ("%.0f"):format(e.w) or "-", e.why or ""))
-    end
+    if e.counted or e.type == "Button" then P(ChildLine(e)) end
   end
   P(("Largest free gap centre: %.0f."):format(self:LauncherFreeAngle()))
 end

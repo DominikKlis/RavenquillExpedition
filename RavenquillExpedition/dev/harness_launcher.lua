@@ -126,6 +126,7 @@ Child("QuestiePin", "Frame", 40, 30)
 Child("ForbiddenThing", "Button", 60, 31, { _forbidden = true })
 Child("HiddenButton", "Button", 80, 31, { _shown = false })
 local inner = Child("InnerButton", "Button", 100, 31); inner._cx, inner._cy = Minimap._cx + 10, Minimap._cy
+local unplaced = Child("UnplacedButton", "Button", 0, 31); unplaced._cx, unplaced._cy = nil, nil
 fire("PLAYER_LOGIN")
 
 section("Settings: one-time copy of the Craft Advisor's button")
@@ -170,6 +171,21 @@ local dbg = {}
 RQ:LauncherDebug(function(l) dbg[#dbg + 1] = l end)
 check(dbg[1] and dbg[1]:find("Launcher: shown=true", 1, true) and dbg[#dbg]:find("Largest free gap centre: 35", 1, true),
   "LauncherDebug lists the button and the gap (" .. #dbg .. " lines)")
+local expectDebug = table.concat({
+  "Launcher: shown=true angle=35 dragged=false",
+  "  [ ] ForbiddenThing  angle=- dist=- w=-  forbidden",
+  "  [ ] UnplacedButton  angle=- dist=- w=31  no position",
+  "  [ ] InnerButton  angle=0 dist=10 w=31  not on rim",
+  "  [ ] HBD_Pin1  angle=20 dist=75 w=12  size 12",
+  "  [ ] HiddenButton  angle=80 dist=75 w=31  hidden",
+  "  [x] GearQuestMinimapButton  angle=129 dist=75 w=31  ",
+  "  [x] OverlordMinimapButton  angle=200 dist=75 w=33  ",
+  "  [x] SpokenMinimapButton  angle=204 dist=75 w=31  ",
+  "  [x] LateAddonButton  angle=300 dist=75 w=31  ",
+  "Largest free gap centre: 35.",
+}, "\n")
+local gotDebug = table.concat(dbg, "\n")
+check(gotDebug == expectDebug, "LauncherDebug: every exclusion reason, byte for byte" .. (gotDebug == expectDebug and "" or (":\n" .. gotDebug)))
 
 section("Hide / show, clicks, tooltip")
 RQ:SetLauncherShown(false)
