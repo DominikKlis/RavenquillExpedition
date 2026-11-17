@@ -230,11 +230,11 @@ local function NewWorld(opts)
   local function count(t) local n = 0; for _ in pairs(t) do n = n + 1 end; return n end
 
   return {
-    env = env, ns = ns, M = M, mod = M.mod, RQ = RQ, L = ns.L, fire = fire, advance = advance, printed = printed, errors = errors,
+    env = env, ns = ns, M = M, RQ = RQ, L = ns.L, fire = fire, advance = advance, printed = printed, errors = errors,
     tip = tip, tells = tells, hbdWorld = hbdWorld, hbdMini = hbdMini, count = count,
     setPos = function(p) ownPos = p end, setDead = function(v) dead = v end, setTaxi = function(v) taxi = v end,
-    set = function(id, v) local o = M.mod:Option(id); assert(o and o.set, "no option " .. id); o.set(v) end,
-    diag = function() return table.concat(M.mod:Option("diag").lines(), "\n") end,
+    set = function(id, v) local o = M:Option(id); assert(o and o.set, "no option " .. id); o.set(v) end,
+    diag = function() return table.concat(M:Option("diag").lines(), "\n") end,
     adds = function() return hbdAdds end, hbdWorldCalls = function() return hbdWorldCalls end, map = map,
     frames = frames,
     maxCanvas = function()
@@ -368,7 +368,7 @@ local d = w.diag()
 check(d:find("WOW_PROJECT_ID=15", 1, true) and d:find("Forever branch", 1, true), "diagnostics: project IDs")
 check(d:find("HBD matches the client", 1, true) or d:find("differs", 1, true), "diagnostics: HBD vs client")
 check(not d:find("|c", 1, true) and not d:find("|r", 1, true), "diagnostics are plain text (copyable)")
-local mod1 = w.mod
+local mod1 = w.M
 local okShape = #mod1.options >= 10
 for _, o in ipairs(mod1.options) do
   if type(o.label) ~= "string" or o.label == "" then okShape = false end
@@ -399,7 +399,7 @@ mod:Open()
 check(shown == 1, "overview: Open falls back to WorldMapFrame:Show() if ToggleWorldMap fails")
 check(mod and mod.addon == "RavenquillExpedition_Map" and mod.slash == "map", "registered as core module (addon = ADDON, slash map)")
 wc.fire("ADDON_LOADED", "RavenquillExpedition_Map"); wc.fire("PLAYER_LOGIN")
-check(mod == wc.M.mod and mod.api == 2 and mod.db == wc.env.RavenquillExpeditionMapDB and mod.settings == wc.M.settings,
+check(mod == wc.M and wc.env.RavenquillExpeditionMap == mod and mod.api == 2 and mod.db == wc.env.RavenquillExpeditionMapDB,
   "API 2 module: the core set up RavenquillExpeditionMapDB")
 wc.set("selfPin", true)
 check(wc.M.members["@self"] and wc.M.members["@self"].name == wc.RQ:PlayerKey(), "core helpers used (PlayerKey)")
@@ -435,7 +435,7 @@ check(#wt.errors == 0, "ticker: no Lua errors (" .. tostring(wt.errors[1]) .. ")
 local wd = NewWorld({ locale = "deDE" })
 wd.fire("ADDON_LOADED", "RavenquillExpedition_Map"); wd.fire("PLAYER_LOGIN"); wd.advance(10)
 check(wd.L.TITLE == "Gildenkarte" and anyPrinted(wd, "teilt deine Position"), "German strings")
-check(wd.mod:Option("share").label == "Meine Position mit der Gilde teilen" and wd.mod:Option("diag").label == "Diagnose",
+check(wd.M:Option("share").label == "Meine Position mit der Gilde teilen" and wd.M:Option("diag").label == "Diagnose",
   "German option labels")
 check(anyPrinted(wd, "unter /rq", true) or anyPrinted(wd, "/rq|r", true), "German notice points to /rq")
 check(#wd.errors == 0, "German client: no Lua errors")
@@ -495,10 +495,10 @@ check(#wm.errors == 0, "world map: no Lua errors (" .. tostring(wm.errors[1]) ..
 local toggles = 0
 wm.env.ToggleWorldMap = function() toggles = toggles + 1 end
 wm.env.InCombatLockdown = function() return true end
-wm.M:OpenMap()
+wm.M:Open()
 check(toggles == 0 and anyPrinted(wm, "after combat"), "overview: no map opening from addon code in combat")
 wm.env.InCombatLockdown = function() return false end
-wm.M:OpenMap()
+wm.M:Open()
 check(toggles == 1, "overview: opens the map out of combat")
 
 do
@@ -598,7 +598,7 @@ do
   wg.fire("ADDON_LOADED", "RavenquillExpedition_Map")
   wg.fire("PLAYER_LOGIN")
   local M2 = wg.M
-  check(M2.settings.hideGroup == true and M2.mod:Option("hideGroup") ~= nil, "option exists, on by default")
+  check(M2.settings.hideGroup == true and M2:Option("hideGroup") ~= nil, "option exists, on by default")
   local now = wg.env.GetTime()
   M2.members["Bert Beta"] = { key = "Bert Beta", name = "Bert Beta", mapID = 1429, x = 0.5, y = 0.5, level = 30,
     class = "DRUID", heard = now, flags = {} }

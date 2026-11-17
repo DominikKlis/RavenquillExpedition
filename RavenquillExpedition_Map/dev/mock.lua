@@ -235,7 +235,6 @@ function Mock.NewWorld(opts)
     chunk("RavenquillExpedition_Map", world.ns)
   end
   world.M, world.L = world.ns.Map, world.ns.L
-  world.mod = world.M.mod
   world.hbdWorld = world.M.worldPlaced or {}
   function world.fire(event, ...)
     for _, f in ipairs(world.frames) do
@@ -243,11 +242,11 @@ function Mock.NewWorld(opts)
     end
   end
   function world.set(id, v)
-    local o = world.mod:Option(id)
+    local o = world.M:Option(id)
     assert(o and o.set, "no option " .. tostring(id))
     o.set(v)
   end
-  function world.diag() return table.concat(world.mod:Option("diag").lines(), "\n") end
+  function world.diag() return table.concat(world.M:Option("diag").lines(), "\n") end
   function world.login()
     world.fire("ADDON_LOADED", world.coreName)
     world.fire("ADDON_LOADED", "RavenquillExpedition_Map")

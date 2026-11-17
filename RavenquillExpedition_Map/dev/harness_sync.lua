@@ -454,7 +454,7 @@ do
   check(mapSent >= 900 / 30, "map still updates alongside the core, more than the old 30 s pace allowed (" .. mapSent .. ")")
   check(B.M.members["Anna Alpha"] ~= nil, "real core: B sees A")
   local mod = GS.modules.Map
-  check(mod == A.M.mod and #mod.options >= 10 and mod.OnSlash == nil, "real core: options handed over, no subcommands")
+  check(mod == A.M and #mod.options >= 10 and mod.OnSlash == nil, "real core: options handed over, no subcommands")
   check(A.diag():find("Sync: prefix RQEMap1", 1, true), "real core: diagnostics")
   check(A.env.SlashCmdList.RAVENQUILLMAP == nil and A.env.SlashCmdList.RAVENQUILL ~= nil, "only the core registers /rq")
   NoErrors({ A, B }, "real core: no Lua errors")

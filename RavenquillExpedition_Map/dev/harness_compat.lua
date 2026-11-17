@@ -94,8 +94,8 @@ local SV_CASES = {
 }
 for _, name in ipairs({ "fresh", "v1", "badSize", "wrongTypes" }) do
   W.env.RavenquillExpeditionMapDB = SV_CASES[name]
-  W.coreNs.SetupModuleDB(W.mod)
-  W.mod:OnLoad()
+  W.coreNs.SetupModuleDB(W.M)
+  W.M:OnLoad()
   gold:compare("sv." .. name, splitLines(Golden.Serialize(W.env.RavenquillExpeditionMapDB)), check)
 end
 

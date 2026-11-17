@@ -25,7 +25,7 @@ C.FUTURE_SLACK = 120
 C.HOLD_UNKNOWN = 60
 C.ROSTER_EVERY = 120
 
-local raw = M.mod:NewRawChannel({ prefix = PREFIX, lane = "state" })
+local raw = M:NewRawChannel({ prefix = PREFIX, lane = "state" })
 M.raw = raw
 
 local S = {
@@ -282,7 +282,7 @@ function M:DropOffline()
   end
 end
 
-function M:WipeRemote()
+function M:OnGuildChanged()
   for key, m in pairs(self.members) do
     if not m.fake and not m.isSelf then self.members[key] = nil end
   end
@@ -290,9 +290,7 @@ function M:WipeRemote()
   self:RefreshPins()
 end
 
-function M.mod:OnGuildChanged() M:WipeRemote() end
-
-M.mod:RegisterEvent("PLAYER_LOGOUT", function()
+M:RegisterEvent("PLAYER_LOGOUT", function()
   if M.settings and M.settings.share then M:SendLeave() end
 end)
 

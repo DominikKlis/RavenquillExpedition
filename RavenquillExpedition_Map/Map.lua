@@ -3,7 +3,19 @@ local L = ns.L
 local GS = RavenquillExpedition
 local IsSecret, SafeCall, Bool, Plain = GS.IsSecret, GS.SafeCall, GS.Bool, GS.Plain
 
-local M = {}
+local M = GS:NewModule("Map", {
+  addon = ADDON, api = 2, slash = "map", title = L.TITLE, icon = "Interface\\Icons\\INV_Misc_Map_01",
+  sv = "RavenquillExpeditionMapDB", dbVersion = 1, locale = ns.Locales,
+  defaults = {
+    share = true,
+    worldmap = true,
+    minimap = true,
+    names = false,
+    hideGroup = true,
+    size = 1.0,
+    selfPin = false,
+  },
+})
 ns.Map = M
 _G.RavenquillExpeditionMap = M
 
@@ -21,26 +33,9 @@ M.C = {
   NOTICE_DELAY = 8,
 }
 
-M.DEFAULTS = {
-  share = true,
-  worldmap = true,
-  minimap = true,
-  names = false,
-  hideGroup = true,
-  size = 1.0,
-  selfPin = false,
-}
-
-local mod = GS:NewModule("Map", {
-  addon = ADDON, api = 2, slash = "map", title = L.TITLE, icon = "Interface\\Icons\\INV_Misc_Map_01",
-  sv = "RavenquillExpeditionMapDB", dbVersion = 1, defaults = M.DEFAULTS, locale = ns.Locales,
-})
-M.mod = mod
-
-function mod:OnLoad()
+function M:OnLoad()
   local s = self.settings
   if s.size < 0.5 or s.size > 2 then s.size = 1.0 end
-  M.db, M.settings = self.db, s
 end
 
 M.members = {}
@@ -119,7 +114,7 @@ function M:Fake(on)
   self.fakeOn = false
   if not on then self:Refresh(); return end
   local mapID, x, y = self:ReadOwnPosition()
-  if not mapID then mod:Print(L.FAKE_NOPOS); return end
+  if not mapID then self:Print(L.FAKE_NOPOS); return end
   local now = GetTime()
   for i, f in ipairs(FAKES) do
     local key = "~fake" .. i
@@ -173,14 +168,14 @@ function M:Tick()
 end
 
 function M:Wake()
-  if self.ticker or not self.loggedIn or not self:NeedsTick() then return end
+  if self.ticker or not GS.loggedIn or not self:NeedsTick() then return end
   self.ticker = C_Timer.NewTicker(self.C.TICK, function() GS:Call(M.Tick, M) end)
 end
 
 function M:MaybeNotice()
   if self.db.noticeShown or not self.settings.share then return end
   self.db.noticeShown = true
-  mod:Print(L.NOTICE)
+  self:Print(L.NOTICE)
 end
 
 function M:SetOption(key, v)
@@ -206,7 +201,7 @@ local function Toggle(id, label, tooltip, disabled)
     set = function(v) M:SetOption(id, v) end }
 end
 
-mod:SetOptions({
+M:SetOptions({
   { type = "header", label = L.SEC_SHARING },
   Toggle("share", "SETTING_SHARE", "TT_SHARE"),
   { type = "header", label = L.SEC_DISPLAY },
@@ -226,11 +221,8 @@ mod:SetOptions({
     lines = function() return M:DebugLines() end },
 })
 
-function mod:Open() M:OpenMap() end
-function mod:OverviewStatus() return M:StatusLine() end
-
-function M:OpenMap()
-  if InCombatLockdown and InCombatLockdown() then mod:Print(L.MAP_COMBAT); return end
+function M:Open()
+  if InCombatLockdown and InCombatLockdown() then self:Print(L.MAP_COMBAT); return end
   if ToggleWorldMap then
     if not pcall(ToggleWorldMap) and WorldMapFrame then pcall(WorldMapFrame.Show, WorldMapFrame) end
   elseif WorldMapFrame then
@@ -238,7 +230,7 @@ function M:OpenMap()
   end
 end
 
-function M:StatusLine()
+function M:OverviewStatus()
   local n = 0
   for _, m in pairs(self.members) do
     if not m.fake and not m.isSelf and self:State(m) ~= "gone" then n = n + 1 end
@@ -313,14 +305,13 @@ function M:DebugLines()
   return lines
 end
 
-function mod:OnLogin()
-  M.loggedIn = true
-  M:Wake()
-  self:After(M.C.NOTICE_DELAY, function() M:MaybeNotice() end)
-  M:Refresh()
-  M:SyncLogin()
+function M:OnLogin()
+  self:Wake()
+  self:After(self.C.NOTICE_DELAY, function() self:MaybeNotice() end)
+  self:Refresh()
+  self:SyncLogin()
 end
 
 local function Refresh() M:Refresh() end
-mod:RegisterEvent("PLAYER_ENTERING_WORLD", Refresh)
-mod:RegisterEvent("ZONE_CHANGED_NEW_AREA", Refresh)
+M:RegisterEvent("PLAYER_ENTERING_WORLD", Refresh)
+M:RegisterEvent("ZONE_CHANGED_NEW_AREA", Refresh)
