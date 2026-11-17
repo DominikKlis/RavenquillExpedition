@@ -1,7 +1,7 @@
 local ADDON, ns = ...
 local M = ns.Map
 local GS = RavenquillExpedition
-local SafeCall, Plain, Bool = GS.SafeCall, GS.Plain, GS.Bool
+local SafeCall, Bool = GS.SafeCall, GS.Bool
 local W = GS.Wire
 local b36, n36, Split, CLASSES = W.b36, W.n36, W.Split, W.CLASSES
 
@@ -102,10 +102,10 @@ end
 
 local function OwnState(mapID, x, y, now)
   if MovedFromAnchor(S.anchor, mapID, x, y) then S.anchor, S.lastMoveAt = { mapID, x, y }, now end
-  local taxi = Bool(SafeCall(UnitOnTaxi, "player"))
-  local ghost = Bool(SafeCall(UnitIsDeadOrGhost, "player"))
-  local stationary = not taxi and now - (S.lastMoveAt or now) >= C.STILL_AFTER
-  return { mapID = mapID, x = x, y = y, taxi = taxi, stationary = stationary, flags = FlagString(stationary, taxi, ghost) }
+  local me = M:ReadPlayer()
+  local stationary = not me.taxi and now - (S.lastMoveAt or now) >= C.STILL_AFTER
+  return { mapID = mapID, x = x, y = y, level = me.level, class = me.class, taxi = me.taxi, stationary = stationary,
+    flags = FlagString(stationary, me.taxi, me.ghost) }
 end
 
 local function WalkedSince(last, pos)
@@ -125,13 +125,9 @@ local function SendReason(pos, now, interval)
   if now - last.t >= math.max(C.HEARTBEAT, interval) then return "heartbeat" end
 end
 
-local function OwnLevelAndClass()
-  local level = Plain(SafeCall(UnitLevel, "player"), "number") or 0
-  local _, class = SafeCall(UnitClass, "player")
-  class = Plain(class, "string")
-  local ci = W.CLASS_IDX[class or ""]
-  if level < 1 or not ci or ci > CLASS_MAX then return nil end
-  return level, class
+local function KnownLevelAndClass(pos)
+  local ci = W.CLASS_IDX[pos.class or ""]
+  return pos.level >= 1 and ci ~= nil and ci <= CLASS_MAX
 end
 
 local function SendPosition(self, pos, now, interval)
@@ -156,8 +152,7 @@ function M:SyncTick()
   if not pos.why then S.skip = nil; S.blockedSince = nil; return end
   if not self.settings.share then S.skip = "sharing off"; return end
   if S.last and now - S.last.t < interval then S.skip = "interval"; return end
-  pos.level, pos.class = OwnLevelAndClass()
-  if not pos.level then S.skip = "level/class unknown"; return end
+  if not KnownLevelAndClass(pos) then S.skip = "level/class unknown"; return end
   SendPosition(self, pos, now, interval)
 end
 

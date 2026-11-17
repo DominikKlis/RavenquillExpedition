@@ -512,5 +512,17 @@ do
   NoErrors(worlds, "40 clients: no Lua errors")
 end
 
+do
+  local sched, bus = Setup()
+  local dk = Client(sched, bus, "Dora Dunkel", { pos = { 1429, 0.5, 0.5 }, class = "DEATHKNIGHT", level = 58 })
+  local low = Client(sched, bus, "Lars Null", { pos = { 1429, 0.6, 0.6 }, level = 0 })
+  dk.login(); low.login()
+  sched:advance(600)
+  check(MapSends(bus, "Dora Dunkel", 0, sched.t, "P") == 0 and dk.M.sync.skip == "level/class unknown"
+    and MapSends(bus, "Lars Null", 0, sched.t, "P") == 0 and low.M.sync.skip == "level/class unknown",
+    "a class the wire can't carry, or level 0: no position is sent and the skip says why")
+  NoErrors({ dk, low }, "level/class gate: no Lua errors")
+end
+
 print(("%d passed, %d failed"):format(pass, fail))
 os.exit(fail == 0 and 0 or 1)

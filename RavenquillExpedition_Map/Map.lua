@@ -77,10 +77,13 @@ function M:ReadOwnPosition()
   return mapID, x, y
 end
 
-local function PlayerFlags()
+function M:ReadPlayer()
+  local _, class = SafeCall(UnitClass, "player")
   return {
-    g = Bool(SafeCall(UnitIsDeadOrGhost, "player")) or nil,
-    t = Bool(SafeCall(UnitOnTaxi, "player")) or nil,
+    level = Plain(SafeCall(UnitLevel, "player"), "number") or 0,
+    class = Plain(class, "string"),
+    ghost = Bool(SafeCall(UnitIsDeadOrGhost, "player")),
+    taxi = Bool(SafeCall(UnitOnTaxi, "player")),
   }
 end
 
@@ -89,11 +92,10 @@ function M:UpdateSelfPin()
   if not self.settings.selfPin then self.members[key] = nil; return end
   local mapID, x, y = self:ReadOwnPosition()
   if not mapID then self.members[key] = nil; return end
-  local _, class = SafeCall(UnitClass, "player")
+  local me = self:ReadPlayer()
   self.members[key] = {
-    key = key, name = GS:PlayerKey() or UNKNOWNOBJECT, mapID = mapID, x = x, y = y,
-    level = Plain(SafeCall(UnitLevel, "player"), "number") or 0, class = (not IsSecret(class)) and class or nil,
-    heard = GetTime(), flags = PlayerFlags(), isSelf = true,
+    key = key, name = GS:PlayerKey() or UNKNOWNOBJECT, mapID = mapID, x = x, y = y, level = me.level, class = me.class,
+    heard = GetTime(), flags = { g = me.ghost or nil, t = me.taxi or nil }, isSelf = true,
   }
 end
 
