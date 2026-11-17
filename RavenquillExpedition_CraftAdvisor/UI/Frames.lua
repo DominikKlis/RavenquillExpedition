@@ -4,6 +4,7 @@ local UI = GCA.UI
 local P = UI.P
 local SafeCall, C, HasAtlas, SetAtlasSafe, TexOK = P.SafeCall, P.C, P.HasAtlas, P.SetAtlasSafe, P.TexOK
 local StatLabel, Backdrop = P.StatLabel, P.Backdrop
+local SetTip = P.SetTip
 
 local function AddBorder(f, r, g, b, a)
   local e = {}
@@ -101,6 +102,19 @@ local function NativeFont(fs, name, r, g, b)
   return false
 end
 UI.NativeFont = NativeFont
+
+local function KeepNativeHover(b, name, tip)
+  local onEnter, onLeave = b:GetScript("OnEnter"), b:GetScript("OnLeave")
+  SetTip(b, name, function(self)
+    if onEnter then pcall(onEnter, self) end
+    tip(self)
+  end)
+  b:SetScript("OnLeave", function(self)
+    if onLeave then pcall(onLeave, self) end
+    GameTooltip_Hide()
+  end)
+end
+
 local GAIN_RGB = { 0.31, 0.88, 0.35 }
 local function GainFont(fs, large) return NativeFont(fs, large and "GameFontGreenLarge" or "GameFontGreen", GAIN_RGB[1], GAIN_RGB[2], GAIN_RGB[3]) end
 
@@ -443,6 +457,7 @@ P.ApplyLevels = ApplyLevels
 P.CardGain = CardGain
 P.GAIN_RGB = GAIN_RGB
 P.GainFont = GainFont
+P.KeepNativeHover = KeepNativeHover
 P.LevelTag = LevelTag
 P.ModifiedDown = ModifiedDown
 P.NativeFont = NativeFont

@@ -2,11 +2,11 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 local P = UI.P
-local G, MEMBER_ROW_H, GROUP_ROW_H, C = P.G, P.MEMBER_ROW_H, P.GROUP_ROW_H, P.C
-local SUB_TINT, HasAtlas, SetAtlasSafe, SingleLine = P.SUB_TINT, P.HasAtlas, P.SetAtlasSafe, P.SingleLine
+local G, MEMBER_ROW_H, C = P.G, P.MEMBER_ROW_H, P.C
+local SUB_TINT, SingleLine = P.SUB_TINT, P.SingleLine
 local SetTip, ClassColor, ClassName, Hex = P.SetTip, P.ClassColor, P.ClassName, P.Hex
 local GainText, ShortSlotName, SpecHowText, Ago = P.GainText, P.ShortSlotName, P.SpecHowText, P.Ago
-local SourceText, ProfName, NativeFont, GainFont = P.SourceText, P.ProfName, P.NativeFont, P.GainFont
+local SourceText, ProfName, GainFont = P.SourceText, P.ProfName, P.GainFont
 
 UI.collapsed = { online = false, offline = true }
 
@@ -33,29 +33,6 @@ UI.MemberGain = MemberGain
 
 UI.MEMBER_GAIN_W = 46
 local MEMBER_TEXT_X = 22
-function UI.AddRowArt(b)
-  local function place(tex, role)
-    local kind = UI.Skin(tex, role)
-    local size = UI.SKIN[role].size
-    if kind == "atlas" and size then
-      tex:SetPoint("LEFT", b, "LEFT", 0, -1)
-      tex:SetPoint("RIGHT", b, "RIGHT", 0, -1)
-      tex:SetHeight(size[2])
-    else
-      tex:SetAllPoints()
-    end
-    return kind
-  end
-  b.sel = b:CreateTexture(nil, "OVERLAY")
-  b.selKind = place(b.sel, "rowSelected")
-  b.sel:Hide()
-  b.hl = b:CreateTexture(nil, "HIGHLIGHT")
-  b.hlKind = place(b.hl, "rowHover")
-end
-function UI.RowFont(fs)
-  NativeFont(fs, "GameFontHighlight_NoShadow")
-  return fs
-end
 local function CreateMemberRow(parent)
   local b = CreateFrame("Button", nil, parent)
   b:SetHeight(MEMBER_ROW_H)
@@ -174,77 +151,6 @@ local function GroupTip(self)
   GameTooltip:Show()
 end
 
-local function KeepNativeHover(b, name, tip)
-  local onEnter, onLeave = b:GetScript("OnEnter"), b:GetScript("OnLeave")
-  SetTip(b, name, function(self)
-    if onEnter then pcall(onEnter, self) end
-    tip(self)
-  end)
-  b:SetScript("OnLeave", function(self)
-    if onLeave then pcall(onLeave, self) end
-    GameTooltip_Hide()
-  end)
-end
-
-function UI.CollapseAtlases()
-  if UI.collapsePair ~= nil then return UI.collapsePair or nil end
-  UI.collapsePair = false
-  for _, pair in ipairs(UI.SKIN.collapseIcon.pairs or {}) do
-    if HasAtlas(pair[1]) and HasAtlas(pair[2]) then UI.collapsePair = pair; break end
-  end
-  return UI.collapsePair or nil
-end
-function UI.CreateCategoryRow(parent, onToggle)
-  local b = CreateFrame("Button", nil, parent)
-  b:SetHeight(GROUP_ROW_H - 2)
-  b.bg = b:CreateTexture(nil, "ARTWORK")
-  b.bg:SetAllPoints()
-  b.bgKind = UI.Skin(b.bg, "category")
-  b.hl = b:CreateTexture(nil, "HIGHLIGHT")
-  b.hl:SetAllPoints()
-  UI.Skin(b.hl, "categoryHover")
-  b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  b.text:SetPoint("LEFT", b, "LEFT", 8, 0)
-  b.text:SetJustifyH("LEFT")
-  NativeFont(b.text, "Game15Font_Shadow")
-  b.text:SetTextColor(1, 0.82, 0)
-  SingleLine(b.text)
-  local cb = CreateFrame("Button", nil, b)
-  cb:SetSize(20, 20)
-  cb:SetPoint("RIGHT", b, "RIGHT", -6, 0)
-  cb.Icon = cb:CreateTexture(nil, "ARTWORK")
-  cb.Icon:SetPoint("CENTER", cb, "CENTER", 0, 0)
-  cb.hl = cb:CreateTexture(nil, "HIGHLIGHT")
-  cb.hl:SetAllPoints(cb.Icon)
-  if cb.hl.SetBlendMode then pcall(cb.hl.SetBlendMode, cb.hl, "ADD") end
-  cb.hl:SetAlpha(0.4)
-  cb.text = cb:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  cb.text:SetPoint("CENTER", cb, "CENTER", 0, 0)
-  cb.text:SetTextColor(1, 0.82, 0)
-  b.CollapseButton = cb
-  b.onToggle = onToggle
-  local function toggle() if b.onToggle then b.onToggle(b) end end
-  b:SetScript("OnClick", toggle)
-  cb:SetScript("OnClick", toggle)
-  function b:SetCategory(text, open, rowW)
-    self.text:SetText(text)
-    self.text:SetWidth(math.max(20, rowW - 8 - 32))
-    self.open = open and true or false
-    local pair = UI.CollapseAtlases()
-    if pair and SetAtlasSafe(self.CollapseButton.Icon, pair[open and 1 or 2], true) then
-      SetAtlasSafe(self.CollapseButton.hl, pair[open and 1 or 2], true)
-      self.CollapseButton.Icon:Show(); self.CollapseButton.hl:Show()
-      self.CollapseButton.text:SetText("")
-      UI.collapseIconKind = "atlas:" .. pair[1]
-    else
-      self.CollapseButton.Icon:Hide(); self.CollapseButton.hl:Hide()
-      self.CollapseButton.text:SetText(open and "–" or "+")
-      UI.collapseIconKind = "text"
-    end
-  end
-  return b
-end
-
 local function CreateGroupRow(parent)
   local b = UI.CreateCategoryRow(parent, function(self)
     local d = self.data
@@ -262,7 +168,6 @@ end
 
 P.CreateGroupRow = CreateGroupRow
 P.CreateMemberRow = CreateMemberRow
-P.KeepNativeHover = KeepNativeHover
 P.MEMBER_TEXT_X = MEMBER_TEXT_X
 P.UpdateGroupRow = UpdateGroupRow
 P.UpdateMemberRow = UpdateMemberRow

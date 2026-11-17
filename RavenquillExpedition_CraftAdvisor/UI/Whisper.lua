@@ -2,7 +2,7 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 local P = UI.P
-local LGet, SlotName, FirstName = P.LGet, P.SlotName, P.FirstName
+local SafeCall, LGet, SlotName, FirstName = P.SafeCall, P.LGet, P.SlotName, P.FirstName
 
 local function CrafterNoun(prof)
   local v = LGet and LGet("CRAFTER_" .. tostring(prof):upper())
@@ -80,3 +80,74 @@ local function WearableText(d)
   return string.format(L.WEARABLE_AT, d.wearAt or 0, togo)
 end
 UI.WearableText = WearableText
+
+local CFU = ChatFrameUtil
+
+local function ActiveEditBox()
+  local eb = CFU and CFU.GetActiveWindow and SafeCall(CFU.GetActiveWindow)
+  if not eb and ChatEdit_GetActiveWindow then eb = SafeCall(ChatEdit_GetActiveWindow) end
+  return eb
+end
+
+local function NativeWhisper(name, msg)
+  if not (CFU and type(CFU.OpenChat) == "function") then return false end
+  local ok, done = pcall(function()
+    local eb = CFU.OpenChat("", DEFAULT_CHAT_FRAME)
+    if not eb and type(CFU.ChooseBoxForSend) == "function" then eb = CFU.ChooseBoxForSend(DEFAULT_CHAT_FRAME) end
+    if not eb then eb = ActiveEditBox() end
+    if not (eb and eb.SetChatType and eb.SetTellTarget and eb.SetText) then return false end
+    eb:SetChatType("WHISPER")
+    eb:SetTellTarget(name)
+    if eb.UpdateHeader then eb:UpdateHeader() end
+    local kind = eb.GetChatType and eb:GetChatType()
+    local target = eb.GetTellTarget and eb:GetTellTarget()
+    if GCA.IsSecret(kind) or GCA.IsSecret(target) or kind ~= "WHISPER" or target ~= name then
+      eb:SetText("")
+      return false
+    end
+    eb:SetText(msg)
+    if eb.SetFocus then eb:SetFocus() end
+    return true
+  end)
+  return ok and done == true
+end
+UI.NativeWhisper = NativeWhisper
+
+local function OpenWhisper(name, msg)
+  if NativeWhisper(name, msg) then return end
+  local open = (CFU and CFU.OpenChat) or ChatFrame_OpenChat
+  if open and pcall(open, "/w " .. name .. " " .. msg) then
+    C_Timer.After(0.05, function()
+      local eb = ActiveEditBox()
+      local text = eb and eb.GetText and SafeCall(eb.GetText, eb)
+      if eb and text and text:find(msg, 1, true) then return end
+      local tell = (CFU and CFU.SendTell) or ChatFrame_SendTell
+      if tell then pcall(tell, name) end
+      C_Timer.After(0.05, function()
+        local eb2 = ActiveEditBox()
+        if eb2 and eb2.SetText then
+          eb2:SetText(msg)
+        elseif CFU and CFU.InsertLink then
+          pcall(CFU.InsertLink, msg)
+        else
+          GCA:Print(string.format(L.WHISPER_TEXT, msg))
+        end
+      end)
+    end)
+    return
+  end
+  GCA:Print(string.format(L.WHISPER_TEXT, msg))
+end
+UI.OpenWhisper = OpenWhisper
+
+local function SendWhisper(name, msg)
+  local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
+  if send and pcall(send, msg, "WHISPER", nil, name) then
+    GCA:Print(string.format(L.WHISPER_SENT, name))
+  else
+    OpenWhisper(name, msg)
+  end
+end
+
+P.OpenWhisper = OpenWhisper
+P.SendWhisper = SendWhisper

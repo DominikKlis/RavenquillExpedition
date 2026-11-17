@@ -401,13 +401,6 @@ end
 
 UI.REAGENT_STEP = 46
 
-function UI.Coins(c)
-  if type(GetMoneyString) == "function" then
-    local ok, s = pcall(GetMoneyString, c, true)
-    if ok and type(s) == "string" then return s end
-  end
-  return UI.Src.Money(c) or "0"
-end
 function UI.CostText(d, regs)
   local A = GCA.Auction
   if not (A and A.Available()) then return nil, 0 end
