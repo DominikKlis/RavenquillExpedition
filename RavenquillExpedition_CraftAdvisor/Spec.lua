@@ -290,7 +290,7 @@ end
 local function OwnTalentSpec(self, class)
   local o = self.ownSpec
   if o and o.spec and self:ValidSpec(class, o.spec) then return o.spec, "talents", o.assumed end
-  return nil, o and o.reason or "talents not read yet"
+  return nil, o and o.reason or "not-read"
 end
 
 local STORED_SPEC_HOW = { sync = "synced", self = "own" }
@@ -304,7 +304,7 @@ local function StoredSpec(self, rec, class, items)
 end
 
 function GCA:MemberSpec(key, class, items)
-  if not class then return nil, "class unknown" end
+  if not class then return nil, "no-class" end
   local man = self.db.specManual[key]
   if man and man.class == class and self:ValidSpec(class, man.spec) then return man.spec, "manual" end
   if key == self.playerKey then return OwnTalentSpec(self, class) end

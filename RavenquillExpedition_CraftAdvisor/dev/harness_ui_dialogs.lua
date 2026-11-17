@@ -325,11 +325,21 @@ do
   ChatFrameUtil = savedCFU
 
   ns.locale = "deDE"
-  check(UIw.SpecWhyText("class unknown") == "Klasse unbekannt" and UIw.SpecWhyText("tie") == "zwei Bäume gleich stark"
+  check(UIw.SpecWhyText("no-class") == "Klasse unbekannt" and UIw.SpecWhyText("tie") == "zwei Bäume gleich stark"
     and UIw.SpecWhyText("no C_Traits") == "Talente nicht lesbar", "spec reasons in German")
   ns.locale = "enUS"
-  check(UIw.SpecWhyText("talents not read yet") == "talents not read yet" and UIw.SpecWhyText("config has no tree") == "talents not readable",
+  check(UIw.SpecWhyText("not-read") == "talents not read yet" and UIw.SpecWhyText("config has no tree") == "talents not readable",
     "spec reasons in English; technical ones -> 'talents not readable'")
+  local savedOwn, me = GCA.ownSpec, GCA.playerKey
+  local savedManual = me and GCA.db.specManual[me]
+  GCA.ownSpec = nil
+  if me then GCA.db.specManual[me] = nil end
+  local _, noClass = GCA:MemberSpec("Nobody Here", nil)
+  local _, notRead = GCA:MemberSpec(me, "WARRIOR")
+  GCA.ownSpec = savedOwn
+  if me then GCA.db.specManual[me] = savedManual end
+  check(me ~= nil and UIw.SpecWhyText(noClass) == "class unknown" and UIw.SpecWhyText(notRead) == "talents not read yet",
+    "MemberSpec reasons reach the member tooltip as 'class unknown' / 'talents not read yet'")
   local printed = {}
   local savedPrint = print
   print = function(...) local t = {} for i = 1, select("#", ...) do t[i] = tostring(select(i, ...)) end printed[#printed + 1] = table.concat(t, " ") end

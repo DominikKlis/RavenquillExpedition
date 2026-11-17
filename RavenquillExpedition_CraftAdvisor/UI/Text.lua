@@ -101,7 +101,7 @@ local function StatLabel(key)
   return (LGet and LGet(lkey)) or key
 end
 
-local SPEC_WHY = { ["class unknown"] = "SPEC_WHY_CLASS", ["talents not read yet"] = "SPEC_WHY_NOT_READ",
+local SPEC_WHY = { ["no-class"] = "SPEC_WHY_CLASS", ["not-read"] = "SPEC_WHY_NOT_READ",
   ["no-talents"] = "SPEC_WHY_NO_TALENTS", ["no points"] = "SPEC_WHY_NO_TALENTS", tie = "SPEC_WHY_TIE" }
 local function SpecWhyText(why) return L[SPEC_WHY[why] or "SPEC_WHY_UNREADABLE"] end
 UI.SpecWhyText = SpecWhyText
