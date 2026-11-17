@@ -102,13 +102,6 @@ end
 local win
 local ROW_H, MAX_ROWS = 52, 6
 
-local function Backdrop(f)
-  if f.SetBackdrop then
-    f:SetBackdrop({ bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background", edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-      tile = true, tileSize = 32, edgeSize = 32, insets = { left = 11, right = 12, top = 12, bottom = 11 } })
-  end
-end
-
 local function BuildHome(f, top)
   local home = CreateFrame("Frame", nil, f)
   home:SetAllPoints()
@@ -204,12 +197,7 @@ local function BuildOptionsView(f, top)
   local sf = CreateFrame("ScrollFrame", nil, opt)
   sf:SetPoint("TOPLEFT", 14, top - 30)
   sf:SetPoint("BOTTOMRIGHT", -16, 14)
-  sf:EnableMouseWheel(true)
-  sf:SetScript("OnMouseWheel", function(self, delta)
-    local child = self:GetScrollChild()
-    local max = math.max(0, ((child and child:GetHeight()) or 0) - (self:GetHeight() or 0))
-    self:SetVerticalScroll(math.max(0, math.min(max, self:GetVerticalScroll() - delta * 40)))
-  end)
+  ns.WheelScroll(sf)
   opt.scroll = sf
   opt.panels = {}
 end
@@ -219,7 +207,7 @@ local function CreateWindow()
   local native = ok and f
   if not native then
     f = CreateFrame("Frame", "RavenquillExpeditionOverview", UIParent, "BackdropTemplate")
-    Backdrop(f)
+    ns.DialogBackdrop(f)
     local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", -4, -4)
   end
@@ -227,12 +215,8 @@ local function CreateWindow()
   f:SetPoint("CENTER")
   f:SetFrameStrata("HIGH")
   f:SetToplevel(true)
-  f:SetMovable(true)
   f:SetClampedToScreen(true)
-  f:EnableMouse(true)
-  f:RegisterForDrag("LeftButton")
-  f:SetScript("OnDragStart", f.StartMoving)
-  f:SetScript("OnDragStop", f.StopMovingOrSizing)
+  ns.DragToMove(f)
   if native then
     if ButtonFrameTemplate_HidePortrait then pcall(ButtonFrameTemplate_HidePortrait, f) end
     if ButtonFrameTemplate_HideButtonBar then pcall(ButtonFrameTemplate_HideButtonBar, f) end
@@ -252,8 +236,6 @@ local function CreateWindow()
   return f
 end
 
-local function Panel(mod) return ns.Panel(win.optView, mod) end
-
 function GS:ShowHome()
   if not win then win = CreateWindow() end
   win.optView:Hide()
@@ -270,7 +252,11 @@ function GS:ShowModuleOptions(name)
   win.home:Hide()
   local opt = win.optView
   for _, p in pairs(opt.panels) do p:Hide() end
-  local p = Panel(mod)
+  local p = opt.panels[name]
+  if not p then
+    p = ns.BuildPanel(opt.scroll, mod.options)
+    opt.panels[name] = p
+  end
   opt.title:SetText(mod.title or name)
   opt.scroll:SetScrollChild(p)
   opt.scroll:SetVerticalScroll(0)

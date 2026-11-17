@@ -2,23 +2,40 @@ local ADDON, ns = ...
 local GS = ns.GS
 local L = GS.OverviewL
 
-local copy
-local function CopyBox()
-  if copy then return copy end
-  local f = CreateFrame("Frame", "RavenquillExpeditionCopyBox", UIParent, "BackdropTemplate")
+function ns.DialogBackdrop(f)
   if f.SetBackdrop then
     f:SetBackdrop({ bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background", edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
       tile = true, tileSize = 32, edgeSize = 32, insets = { left = 11, right = 12, top = 12, bottom = 11 } })
   end
+end
+
+function ns.DragToMove(f)
+  f:SetMovable(true)
+  f:EnableMouse(true)
+  f:RegisterForDrag("LeftButton")
+  f:SetScript("OnDragStart", f.StartMoving)
+  f:SetScript("OnDragStop", f.StopMovingOrSizing)
+end
+
+function ns.WheelScroll(sf)
+  sf:EnableMouseWheel(true)
+  sf:SetScript("OnMouseWheel", function(self, delta)
+    local child = self:GetScrollChild()
+    local max = math.max(0, ((child and child:GetHeight()) or 0) - (self:GetHeight() or 0))
+    self:SetVerticalScroll(math.max(0, math.min(max, self:GetVerticalScroll() - delta * 40)))
+  end)
+end
+
+local copy
+local function CopyBox()
+  if copy then return copy end
+  local f = CreateFrame("Frame", "RavenquillExpeditionCopyBox", UIParent, "BackdropTemplate")
+  ns.DialogBackdrop(f)
   f:SetSize(560, 380)
   f:SetPoint("CENTER")
   f:SetFrameStrata("DIALOG")
   f:SetToplevel(true)
-  f:EnableMouse(true)
-  f:SetMovable(true)
-  f:RegisterForDrag("LeftButton")
-  f:SetScript("OnDragStart", f.StartMoving)
-  f:SetScript("OnDragStop", f.StopMovingOrSizing)
+  ns.DragToMove(f)
   tinsert(UISpecialFrames, "RavenquillExpeditionCopyBox")
   local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
   close:SetPoint("TOPRIGHT", -4, -4)
@@ -38,11 +55,7 @@ local function CopyBox()
   eb:SetScript("OnEscapePressed", function() f:Hide() end)
   eb:SetScript("OnTextChanged", function(self, user) if user then self:SetText(f.text or "") self:HighlightText() end end)
   sf:SetScrollChild(eb)
-  sf:EnableMouseWheel(true)
-  sf:SetScript("OnMouseWheel", function(self, delta)
-    local max = math.max(0, (eb:GetHeight() or 0) - (self:GetHeight() or 0))
-    self:SetVerticalScroll(math.max(0, math.min(max, self:GetVerticalScroll() - delta * 40)))
-  end)
+  ns.WheelScroll(sf)
   f.eb = eb
   f:Hide()
   copy = f
@@ -173,16 +186,14 @@ function Build.text(parent, o, y)
   end)
 end
 
-function ns.Panel(opt, mod)
-  local p = opt.panels[mod.name]
-  if p then return p end
-  p = CreateFrame("Frame", nil, opt.scroll)
+function ns.BuildPanel(parent, options)
+  local p = CreateFrame("Frame", nil, parent)
   p:SetWidth(440)
   p.refreshers, p.controls = {}, {}
   local function refreshAll() for _, fn in ipairs(p.refreshers) do GS:Call(fn) end end
   p.refreshAll = refreshAll
   local y = 0
-  local list = type(mod.options) == "table" and mod.options or {}
+  local list = type(options) == "table" and options or {}
   for _, o in ipairs(list) do
     local build = type(o) == "table" and Build[o.type]
     if build then
@@ -200,7 +211,6 @@ function ns.Panel(opt, mod)
   end
   p:SetHeight(-y + 10)
   p:Hide()
-  opt.panels[mod.name] = p
   return p
 end
 
