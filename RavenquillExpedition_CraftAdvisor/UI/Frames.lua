@@ -33,6 +33,27 @@ local function TextWidth(fs)
 end
 UI.TextWidth = TextWidth
 
+local function ShiftDown()
+  return IsShiftKeyDown and SafeCall(IsShiftKeyDown) and true or false
+end
+
+local function ModifiedDown()
+  if ShiftDown() then return true end
+  return IsControlKeyDown and SafeCall(IsControlKeyDown) and true or false
+end
+
+local function OnItemClick(btn, ctxFn, primaryFn)
+  btn:SetScript("OnClick", function(self, button)
+    local d, cur, link = ctxFn(self)
+    if d and UI.SourceClick(self, button, d, cur) then return end
+    if ModifiedDown() then
+      if link then SafeCall(HandleModifiedItemClick, link) end
+      return
+    end
+    if primaryFn then primaryFn(d, cur, self) end
+  end)
+end
+
 local function NewTextButton(parent, w, h, text)
   local ok, b = pcall(CreateFrame, "Button", nil, parent, "UIPanelButtonTemplate")
   if not (ok and b) then
@@ -423,12 +444,15 @@ P.CardGain = CardGain
 P.GAIN_RGB = GAIN_RGB
 P.GainFont = GainFont
 P.LevelTag = LevelTag
+P.ModifiedDown = ModifiedDown
 P.NativeFont = NativeFont
 P.NewCheck = NewCheck
 P.NewInset = NewInset
 P.NewPopup = NewPopup
 P.NewTextButton = NewTextButton
 P.NewWindow = NewWindow
+P.OnItemClick = OnItemClick
 P.RaiseInsetBorder = RaiseInsetBorder
+P.ShiftDown = ShiftDown
 P.Tag = Tag
 P.TextWidth = TextWidth

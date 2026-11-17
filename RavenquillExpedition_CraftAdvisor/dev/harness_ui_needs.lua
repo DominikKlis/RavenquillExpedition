@@ -304,6 +304,15 @@ do
     check(opened[1] == 9100, "Gildenbedarf: click on the craft's icon opens recipe 9100")
     nd.members.rows[1]._scripts.OnClick(nd.members.rows[1], "LeftButton")
     check(#opened == 1, "Gildenbedarf: a click on a member row (their equipped item) opens nothing")
+    local linked, savedLink = {}, HandleModifiedItemClick
+    HandleModifiedItemClick = function(l) linked[#linked + 1] = l end
+    IsControlKeyDown = function() return true end
+    nd.iconBtn._scripts.OnClick(nd.iconBtn, "LeftButton")
+    IsControlKeyDown = nil
+    nd.iconBtn._scripts.OnClick(nd.iconBtn, "RightButton")
+    HandleModifiedItemClick = savedLink
+    check(#opened == 1 and #linked == 1 and linked[1] == rsug.info.link,
+      "Gildenbedarf: ctrl-click on the craft's icon links it (not opened); a right-click on a learned craft opens nothing")
     rsug.known = false
     UIx:UpdateCraftDetail(rentry)
     C_TradeSkillUI = savedTS

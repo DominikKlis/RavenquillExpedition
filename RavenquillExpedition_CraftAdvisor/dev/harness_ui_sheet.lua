@@ -142,6 +142,22 @@ do
   sh.slots[11]._scripts.OnClick(sh.slots[11])
   IsShiftKeyDown = function() return false end
   check(linked == "|Hitem:9|h[Ring A]|h" and UIx.sheetSlot == 5 and c.featured == s2, "shift-click on a slot links the worn item (selection unchanged)")
+  linked = nil
+  IsShiftKeyDown = function() return true end
+  c.best._scripts.OnClick(c.best, "LeftButton")
+  local bestLinked = linked
+  c.worn._scripts.OnClick(c.worn, "LeftButton")
+  IsShiftKeyDown = function() return false end
+  check(bestLinked == nil and linked == "|Hitem:9|h[Worn Vest]|h" and c.featured == s2,
+    "shift-click on the compared card without a link does nothing; on the worn card it links the worn item")
+  do
+    local opened, savedTS = {}, C_TradeSkillUI
+    C_TradeSkillUI = { OpenRecipe = function(id) opened[#opened + 1] = id end }
+    c.worn._scripts.OnClick(c.worn, "LeftButton")
+    c.best._scripts.OnClick(c.best, "LeftButton")
+    C_TradeSkillUI = savedTS
+    check(#opened == 1 and opened[1] == 3763, "plain click: the worn card does nothing, the compared card opens its recipe")
+  end
   sh.slots[9]._scripts.OnClick(sh.slots[9])
   check(c.featured == ench1 and c.best.label._text == "Best enchant" and c.alts[1].data == ench2 and c.alts[1].tag._shown
     and plain(c.alts[1].tag._text) == "Enchant" and c.craftedLabel._text == "Enchanted"

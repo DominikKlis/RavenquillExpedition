@@ -164,6 +164,22 @@ do
     check(said[#said] == ns.L.OPEN_FAIL and UIx.frame._shown, "OpenRecipe failing: no Lua error, a chat hint, window stays")
     C_TradeSkillUI, GCA.Print = savedTS, savedPrint
   end
+  do
+    local opened, linked, savedTS, savedLink = {}, {}, C_TradeSkillUI, HandleModifiedItemClick
+    C_TradeSkillUI = { OpenRecipe = function(id) opened[#opened + 1] = id end }
+    HandleModifiedItemClick = function(l) linked[#linked + 1] = l end
+    UIx.frame:Show()
+    local kb = show(fakeSug())
+    kb._scripts.OnClick(kb, "RightButton")
+    IsControlKeyDown = function() return true end
+    kb._scripts.OnClick(kb, "LeftButton")
+    local eb = show(fakeSug({ kind = "enchant", info = { name = "Enchant Chest", quality = 1, icon = "x" } }))
+    eb._scripts.OnClick(eb, "LeftButton")
+    IsControlKeyDown = nil
+    C_TradeSkillUI, HandleModifiedItemClick = savedTS, savedLink
+    check(#opened == 0 and #linked == 1 and linked[1] == "|Hitem:4244|h[Hillman's Leather Vest]|h",
+      "right-click on a learned craft opens nothing; ctrl-click links it; ctrl-click on an enchant (no link) does nothing")
+  end
   b = show(fakeSug({ future = true, wearAt = 42, levelsToGo = 3, info = { name = "Future Vest", quality = 3, icon = "x", minLevel = 42 } }))
   check(b.chip == nil and plain(b.sub._text):find("^from level 42 · 3 to go") and b.sub._text:find("|cfff0b44c", 1, true),
     "too-high-level row: the level tag is orange TEXT first on the second line (no chip box): " .. plain(b.sub._text))

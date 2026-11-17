@@ -9,14 +9,8 @@ local ColoredItemName, ItemIcon = P.ColoredItemName, P.ItemIcon
 local TextWidth, GainFont, LevelTag = P.TextWidth, P.GainFont, P.LevelTag
 local Tag = P.Tag
 local MEMBER_TEXT_X, Src, ShowSuggestionTooltip = P.MEMBER_TEXT_X, P.Src, P.ShowSuggestionTooltip
-local ShiftDown, LayoutRight = P.ShiftDown, P.LayoutRight
+local ShiftDown, ModifiedDown, LayoutRight = P.ShiftDown, P.ModifiedDown, P.LayoutRight
 local AddQualityIcon, SetIconQuality = P.AddQualityIcon, P.SetIconQuality
-
-local function ModifiedDown()
-  if ShiftDown() then return true end
-  return IsControlKeyDown and SafeCall(IsControlKeyDown) and true or false
-end
-UI.ModifiedDown = ModifiedDown
 
 UI.needsCollapsed = {}
 UI.NEED_GAIN_W = 46
@@ -151,11 +145,9 @@ local function CreateNeedMemberRow(parent)
   SingleLine(b.gain)
   LayoutRight(b, true, true)
   if b.RegisterForClicks then b:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
-  b:SetScript("OnClick", function(self, button)
+  P.OnItemClick(b, function(self)
     local e = self.data
-    if not (e and e.sug) then return end
-    if UI.SourceClick(self, button, e.sug, e.member) then return end
-    if ModifiedDown() and e.sug.info.link then HandleModifiedItemClick(e.sug.info.link) end
+    if e and e.sug then return e.sug, e.member, e.sug.info.link end
   end)
   SetTip(b, "need member", function(self)
     local d, cur = P.RowCtx(self)
@@ -320,16 +312,10 @@ function UI.CreateCraftDetail(parent)
   ib:SetPoint("TOPLEFT", p, "TOPLEFT", 18, -16)
   UI.AddRoundIcon(ib, CD_ICON)
   if ib.RegisterForClicks then ib:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
-  ib:SetScript("OnClick", function(self, button)
+  P.OnItemClick(ib, function()
     local e = p.entry
-    if not (e and e.group) then return end
-    if UI.SourceClick(self, button, e.group.sug, e.group.best and e.group.best.member) then return end
-    if ModifiedDown() then
-      if e.group.sug.info.link then HandleModifiedItemClick(e.group.sug.info.link) end
-      return
-    end
-    UI.OpenRecipe(e.group.sug, e.group.best and e.group.best.member)
-  end)
+    if e and e.group then return e.group.sug, e.group.best and e.group.best.member, e.group.sug.info.link end
+  end, UI.OpenRecipe)
   SetTip(ib, "craft icon", function(self) CraftGroupTip(self, p.entry) end)
   ib:SetScript("OnLeave", GameTooltip_Hide)
   p.iconBtn = ib
@@ -617,5 +603,4 @@ function Detail.Fill(p, e, w, h)
 end
 
 P.CreateCraftGroupRow = CreateCraftGroupRow
-P.ModifiedDown = ModifiedDown
 P.UpdateCraftGroupRow = UpdateCraftGroupRow

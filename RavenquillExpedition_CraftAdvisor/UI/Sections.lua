@@ -91,11 +91,9 @@ local function CreateSectionRow(parent)
     GameTooltip:Show()
   end)
   b:SetScript("OnLeave", GameTooltip_Hide)
-  b:SetScript("OnClick", function(self)
-    if not UI.ModifiedDown() then return end
+  P.OnItemClick(b, function(self)
     local sec = self.data and self.data.sec
-    local link = sec and WornHyperlink(FirstWorn(sec))
-    if link then SafeCall(HandleModifiedItemClick, link) end
+    return nil, nil, sec and WornHyperlink(FirstWorn(sec))
   end)
   return b
 end

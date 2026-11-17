@@ -2,17 +2,13 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 local P = UI.P
-local SafeCall, SUG_ROW_H, C, SUB_TINT, HasAtlas = P.SafeCall, P.SUG_ROW_H, P.C, P.SUB_TINT, P.HasAtlas
+local SUG_ROW_H, C, SUB_TINT, HasAtlas = P.SUG_ROW_H, P.C, P.SUB_TINT, P.HasAtlas
 local SetAtlasSafe, TexOK, SingleLine, SetTip = P.SetAtlasSafe, P.TexOK, P.SingleLine, P.SetTip
 local SlotName, QualityColor, ColoredItemName, FirstName = P.SlotName, P.QualityColor, P.ColoredItemName, P.FirstName
 local PairSlotName, TagLine, Ago, ItemIcon = P.PairSlotName, P.TagLine, P.Ago, P.ItemIcon
 local OpenWhisper, SendWhisper, TextWidth = P.OpenWhisper, P.SendWhisper, P.TextWidth
 local NewTextButton, NewCheck, GainFont, LevelTag = P.NewTextButton, P.NewCheck, P.GainFont, P.LevelTag
 local CardGain, ShowSuggestionTooltip = P.CardGain, P.ShowSuggestionTooltip
-
-local function ShiftDown()
-  return IsShiftKeyDown and SafeCall(IsShiftKeyDown) and true or false
-end
 
 local function RowCtx(b)
   local d = b and b.data
@@ -271,14 +267,10 @@ local function CreateCardRow(parent)
     if d then ShowSuggestionTooltip(self, d, cur) end
   end)
   b:SetScript("OnLeave", HideTip)
-  b:SetScript("OnClick", function(self, button)
-    if UI.SourceClick(self, button, RowCtx(self)) then return end
-    if UI.ModifiedDown() then
-      if self.data and self.data.info.link then HandleModifiedItemClick(self.data.info.link) end
-      return
-    end
-    UI.OpenRecipe(RowCtx(self))
-  end)
+  P.OnItemClick(b, function(self)
+    local d, cur = RowCtx(self)
+    return d, cur, d and d.info.link
+  end, UI.OpenRecipe)
   return b
 end
 
@@ -386,5 +378,4 @@ P.LayoutRight = LayoutRight
 P.RightState = RightState
 P.RowCtx = RowCtx
 P.SetIconQuality = SetIconQuality
-P.ShiftDown = ShiftDown
 P.UpdateCardRow = UpdateCardRow

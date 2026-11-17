@@ -2,7 +2,7 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 local P = UI.P
-local SafeCall, C, SUB_TINT, SetAtlasSafe, TexOK = P.SafeCall, P.C, P.SUB_TINT, P.SetAtlasSafe, P.TexOK
+local C, SUB_TINT, SetAtlasSafe, TexOK = P.C, P.SUB_TINT, P.SetAtlasSafe, P.TexOK
 local SingleLine, SetTip, ColoredItemName = P.SingleLine, P.SetTip, P.ColoredItemName
 local RowGainText, ShortSlotName = P.RowGainText, P.ShortSlotName
 local TagLine, ItemIcon, TextWidth, NativeFont = P.TagLine, P.ItemIcon, P.TextWidth, P.NativeFont
@@ -10,7 +10,7 @@ local GAIN_RGB, GainFont, LevelTag, CardGain, Tag = P.GAIN_RGB, P.GainFont, P.Le
 local ShowSuggestionTooltip, HideTip, RightState = P.ShowSuggestionTooltip, P.HideTip, P.RightState
 local CreateOfferButton, CreateCraftedBox = P.CreateOfferButton, P.CreateCraftedBox
 local AddQualityIcon, SetIconQuality, CraftTags = P.AddQualityIcon, P.SetIconQuality, P.CraftTags
-local WornHyperlink, ModifiedDown = P.WornHyperlink, P.ModifiedDown
+local WornHyperlink, OnItemClick = P.WornHyperlink, P.OnItemClick
 local WornTip, FillWornIcon, SheetCountText = P.WornTip, P.FillWornIcon, P.SheetCountText
 
 local SHEET_S = 40
@@ -86,14 +86,7 @@ local function CreateSheetSlot(sheet, slot)
   b.gain:SetJustifyH("RIGHT")
   b.gain:SetTextColor(GAIN_RGB[1], GAIN_RGB[2], GAIN_RGB[3])
   b.gain:Hide()
-  b:SetScript("OnClick", function(self)
-    if ModifiedDown() then
-      local link = WornHyperlink(self.worn)
-      if link then SafeCall(HandleModifiedItemClick, link) end
-      return
-    end
-    UI:SelectSheetSlot(self.slot)
-  end)
+  OnItemClick(b, function(self) return nil, nil, WornHyperlink(self.worn) end, function(_, _, self) UI:SelectSheetSlot(self.slot) end)
   SetTip(b, "sheet slot", function(self) WornTip(self, self.worn, self.slot, self.unit, self.rows or {}) end)
   b:SetScript("OnLeave", GameTooltip_Hide)
   return b
@@ -145,17 +138,12 @@ local function CreateSheetCard(parent, best)
     end
   end)
   k:SetScript("OnLeave", HideTip)
-  if best and k.RegisterForClicks then k:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
-  k:SetScript("OnClick", function(self, button)
-    if self.isBest and UI.SourceClick(self, button, self.data, UI.current) then return end
-    if not ModifiedDown() then
-      if self.isBest then UI.OpenRecipe(self.data, UI.current) end
-      return
-    end
-    local link
-    if self.isBest then link = self.data and self.data.info.link else link = WornHyperlink(self.worn) end
-    if link then SafeCall(HandleModifiedItemClick, link) end
-  end)
+  if best then
+    if k.RegisterForClicks then k:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
+    OnItemClick(k, function(self) return self.data, UI.current, self.data and self.data.info.link end, UI.OpenRecipe)
+  else
+    OnItemClick(k, function(self) return nil, nil, WornHyperlink(self.worn) end)
+  end
   return k
 end
 
@@ -185,15 +173,11 @@ local function CreateSheetAlt(parent)
   end)
   r:SetScript("OnLeave", HideTip)
   if r.RegisterForClicks then r:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
-  r:SetScript("OnClick", function(self, button)
+  OnItemClick(r, function(self)
     local d = self.data
-    if not d then return end
-    if UI.SourceClick(self, button, d, UI.current) then return end
-    if ModifiedDown() then
-      if d.info.link then SafeCall(HandleModifiedItemClick, d.info.link) end
-      return
-    end
-    UI:PickSheetRow(d)
+    if d then return d, UI.current, d.info.link end
+  end, function(d)
+    if d then UI:PickSheetRow(d) end
   end)
   return r
 end
