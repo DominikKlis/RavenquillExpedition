@@ -622,6 +622,13 @@ do
   M2:RefreshPins()
   local w3 = pinsFor("Bert Beta")
   check(w3, "left the group: the dot is shown again")
+  core.GroupGuildies = function() error("group read broke") end
+  local db = wg.env.RavenquillExpeditionDB
+  if db then db.lastError = nil end
+  M2:RefreshPins()
+  local w4 = pinsFor("Bert Beta")
+  local recorded = db and db.lastError and tostring(db.lastError.msg) or "nothing"
+  check(w4 and recorded:find("group read broke", 1, true), "a failing group read still shows the dot and is recorded as an error: " .. recorded)
 end
 
 print(("%d passed, %d failed"):format(pass, fail))

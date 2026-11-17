@@ -1,7 +1,8 @@
 local ADDON, ns = ...
 local M = ns.Map
 local L = ns.L
-local SafeCall, IsSecret = RavenquillExpedition.SafeCall, RavenquillExpedition.IsSecret
+local GS = RavenquillExpedition
+local SafeCall, IsSecret = GS.SafeCall, GS.IsSecret
 
 local HBD = LibStub("HereBeDragons-2.0-RQE")
 local HBDPins = LibStub("HereBeDragons-Pins-2.0-RQE")
@@ -290,8 +291,8 @@ end
 local function GroupSet(s)
   local set = {}
   if not s.hideGroup then return set end
-  local ok, keys = pcall(RavenquillExpedition.GroupGuildies, RavenquillExpedition)
-  if ok and type(keys) == "table" then
+  local keys = GS:Call(GS.GroupGuildies, GS)
+  if type(keys) == "table" then
     for _, k in ipairs(keys) do set[k] = true end
   end
   return set

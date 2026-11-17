@@ -154,7 +154,7 @@ end
 
 function H:Send(e, o)
   local code, m = ToMessage(e)
-  if not code or not H.Encode(e) then self.cdb.outbox[e.id] = nil return end
+  if not code or not ch:Encode(code, m) then self.cdb.outbox[e.id] = nil return end
   local id = e.id
   self.inflight[id] = true
   ch:Send(code, m, { onResult = function(status)

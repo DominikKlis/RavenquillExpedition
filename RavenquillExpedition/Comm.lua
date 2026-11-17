@@ -80,6 +80,7 @@ local function Prune(list, window, now)
   for j = i, n do list[j - i + 1] = list[j] end
   for j = n - i + 2, n do list[j] = nil end
 end
+GS.PruneTimes = Prune
 
 Note = function(list, now)
   Prune(list, 60, now)
@@ -98,8 +99,10 @@ end
 
 local Pump
 
+local function Unsendable(msg) return #msg > C.MAX_MSG or msg:find("\0", 1, true) ~= nil end
+
 local function QueueEvent(prefix, msg, onResult, channel)
-  if #msg > C.MAX_MSG or msg:find("\0", 1, true) then return false, "too long" end
+  if Unsendable(msg) then return false, "too long" end
   local ok, why = CanSend()
   if not ok then return false, why end
   if #S.q >= C.QUEUE_MAX then return false, "queue full" end
@@ -111,7 +114,7 @@ end
 local function QueueRecord(prefix, key, chunks, opts, channel)
   if type(chunks) ~= "table" or not chunks[1] then return false, "empty" end
   for _, c in ipairs(chunks) do
-    if type(c) ~= "string" or #c > C.MAX_MSG or c:find("\0", 1, true) then return false, "too long" end
+    if type(c) ~= "string" or Unsendable(c) then return false, "too long" end
   end
   for i = #S.records, 1, -1 do
     local r = S.records[i]
@@ -144,7 +147,7 @@ end
 
 local function TrySend(prefix, msg, opts, channel)
   local now = GetTime()
-  if #msg > C.MAX_MSG then return false, "too long" end
+  if Unsendable(msg) then return false, "too long" end
   local ok, why = CanSend()
   if not ok then return false, why end
   if now < S.hold then return false, "throttled (hold)" end
@@ -164,12 +167,13 @@ local function TrySend(prefix, msg, opts, channel)
   return true
 end
 
-local function SendNow(prefix, msg)
-  if GS:InInstance() or #msg > C.MAX_MSG then return false end
+local function SendNow(prefix, msg, channel)
+  if GS:InInstance() or Unsendable(msg) then return false end
   local r = SendRaw(prefix, msg)
   GS:Trace("comm.tx", r, prefix .. " " .. msg)
   Refill(GetTime())
   SpendToken()
+  if r == "ok" then CountSent(channel) end
   return r == "ok"
 end
 
@@ -506,7 +510,7 @@ function Raw:Send(text, opts)
   return ok
 end
 function Raw:TrySend(text, opts) return TrySend(self.prefix, text, opts, self) end
-function Raw:SendNow(text) return SendNow(self.prefix, text) end
+function Raw:SendNow(text) return SendNow(self.prefix, text, self) end
 function Raw:SendRecord(key, chunks, opts) return QueueRecord(self.prefix, key, chunks, opts, self) end
 function Raw:Cancel(key) CancelRecords(self.prefix, key) end
 function Raw:Status() return self.stats end

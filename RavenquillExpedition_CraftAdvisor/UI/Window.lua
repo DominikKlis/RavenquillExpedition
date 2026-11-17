@@ -626,6 +626,7 @@ function UI:Refresh()
   if not (f and f:IsShown() and GCA.db) then return end
   if self.survival then self.survival:Sync() end
   self:RefreshFilters()
+  GCA:ReadProfessions()
   local prof = GCA:SelectedProfession()
   local browse = GCA:IsBrowse(prof)
   UpdateProfessionButton(self, prof, browse)
@@ -641,17 +642,6 @@ function UI:Refresh()
   UpdateMemberDetail(self, current, prof, browse)
 end
 
-UI.Refresh = Guard("UI:Refresh", UI.Refresh)
-UI.Toggle = Guard("UI:Toggle", UI.Toggle)
-UI.Layout = Guard("UI:Layout", UI.Layout)
-UI.OpenWhisperEditor = Guard("UI:OpenWhisperEditor", UI.OpenWhisperEditor)
-UI.RefreshNeeds = Guard("UI:RefreshNeeds", UI.RefreshNeeds)
-UI.RefreshMemberList = Guard("UI:RefreshMemberList", UI.RefreshMemberList)
-UI.OpenMember = Guard("UI:OpenMember", UI.OpenMember)
-UI.SetView = Guard("UI:SetView", UI.SetView)
-UI.SetMemberMode = Guard("UI:SetMemberMode", UI.SetMemberMode)
-UI.SelectSheetSlot = Guard("UI:SelectSheetSlot", UI.SelectSheetSlot)
-UI.PickSheetRow = Guard("UI:PickSheetRow", UI.PickSheetRow)
-UI.UpdateSheet = Guard("UI:UpdateSheet", UI.UpdateSheet)
-UI.LayoutSheet = Guard("UI:LayoutSheet", UI.LayoutSheet)
-UI.SetNeedsOffline = Guard("UI:SetNeedsOffline", UI.SetNeedsOffline)
+local GUARDED = "Refresh Toggle Layout OpenWhisperEditor RefreshNeeds RefreshMemberList OpenMember SetView SetMemberMode"
+  .. " SelectSheetSlot PickSheetRow UpdateSheet LayoutSheet SetNeedsOffline"
+GUARDED:gsub("%S+", function(name) UI[name] = Guard("UI:" .. name, UI[name]) end)

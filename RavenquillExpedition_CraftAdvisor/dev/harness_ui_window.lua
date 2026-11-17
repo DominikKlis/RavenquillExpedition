@@ -42,12 +42,9 @@ do
   check(GCA:SelectedProfession() == "Leatherworking" and f.PortraitContainer.portrait._tex == "Interface\\Icons\\Trade_LeatherWorking", "back to Leatherworking")
   GetProfessions = function() return 2 end
   GCA.UI:Refresh()
-  local staleLabel, staleHeader = pb.label._text or "", GCA.UI.sugHeader._text or ""
-  GCA.UI:Refresh()
-  check(not staleLabel:find("(browse)", 1, true) and not staleHeader:find("browsing", 1, true)
-    and (pb.label._text or ""):find("(browse)", 1, true),
-    "one refresh reads 'browse' once, before the skill read refreshes the professions: " .. staleLabel .. " / " .. staleHeader
-      .. " / then " .. tostring(pb.label._text))
+  local firstLabel, firstHeader = pb.label._text or "", GCA.UI.sugHeader._text or ""
+  check(firstLabel:find("(browse)", 1, true) and firstHeader:find("browsing", 1, true),
+    "a dropped profession shows as browse on the very first refresh, button and header alike: " .. firstLabel .. " / " .. firstHeader)
   GetProfessions = function() return 1, 2 end
   GCA:RefreshKnown()
   GCA.UI:Refresh()

@@ -38,11 +38,7 @@ local S = {
 }
 M.sync = S
 
-local function Prune(list, window, now)
-  local i = 1
-  while list[i] and now - list[i] > window do i = i + 1 end
-  if i > 1 then for _ = 1, i - 1 do table.remove(list, 1) end end
-end
+local Prune = GS.PruneTimes
 
 local function Reject(reason) S.rejected[reason] = (S.rejected[reason] or 0) + 1 end
 
