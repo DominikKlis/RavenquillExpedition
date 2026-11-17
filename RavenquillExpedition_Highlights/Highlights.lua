@@ -246,8 +246,14 @@ end
 
 local QUALITY_HEX = { [0] = "9d9d9d", "ffffff", "1eff00", "0070dd", "a335ee", "ff8000", "e6cc80", "00ccff" }
 
+function H.ItemInfo(item) return SafeCall((C_Item and C_Item.GetItemInfo) or GetItemInfo, item) end
+
+function H.RequestItemData(id)
+  if C_Item and C_Item.RequestLoadItemDataByID then SafeCall(C_Item.RequestLoadItemDataByID, id) end
+end
+
 function H:ItemCached(id)
-  local name = id and Plain(SafeCall((C_Item and C_Item.GetItemInfo) or GetItemInfo, id), "string")
+  local name = id and Plain(self.ItemInfo(id), "string")
   return name ~= nil
 end
 
@@ -255,10 +261,10 @@ function H:ItemText(e)
   if Plain(e.link, "string") then return e.link end
   local id = e.item
   if not id then return "?" end
-  local name, link = SafeCall((C_Item and C_Item.GetItemInfo) or GetItemInfo, id)
+  local name, link = self.ItemInfo(id)
   link = Plain(link, "string")
   if link then return link end
-  if C_Item and C_Item.RequestLoadItemDataByID then SafeCall(C_Item.RequestLoadItemDataByID, id) end
+  self.RequestItemData(id)
   self.waitingItems = true
   local hex = QUALITY_HEX[e.q or 1] or "ffffff"
   return ("|cff%s[%s]|r"):format(hex, Plain(name, "string") or ("item:" .. id))
@@ -335,7 +341,7 @@ end
 function H:Announce(e)
   if not self:ShouldPrint(e) then return end
   if e.item and not Plain(e.link, "string") and not self:ItemCached(e.item) then
-    if C_Item and C_Item.RequestLoadItemDataByID then SafeCall(C_Item.RequestLoadItemDataByID, e.item) end
+    self.RequestItemData(e.item)
     C_Timer.After(2, function() GS:Call(function() self:Print(self:Format(e)) end) end)
     return
   end

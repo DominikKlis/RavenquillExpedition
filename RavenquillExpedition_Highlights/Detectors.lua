@@ -3,8 +3,6 @@ local GS = RavenquillExpedition
 local H = ns.H
 local SafeCall, IsSecret, Plain = GS.SafeCall, GS.IsSecret, GS.Plain
 
-local GetInfo = (C_Item and C_Item.GetItemInfo) or GetItemInfo
-
 local function MyLevel() return Plain(SafeCall(UnitLevel, "player"), "number") end
 local function MaxLevel() return Plain(SafeCall(GetMaxPlayerLevel), "number") end
 
@@ -38,14 +36,14 @@ local function ItemFacts(link)
   link = Plain(link, "string")
   if not link then return end
   local f = { id = ItemID(link) }
-  local name, _, q, il = SafeCall(GetInfo, link)
+  local name, _, q, il = H.ItemInfo(link)
   local dil = Plain(SafeCall((C_Item and C_Item.GetDetailedItemLevelInfo) or GetDetailedItemLevelInfo, link), "number")
   if dil and dil > 0 then il = dil end
   f.name = Plain(name, "string")
   f.q = Plain(q, "number") or LinkQuality(link)
   f.il = Plain(il, "number")
   f.ready = f.name ~= nil and f.il ~= nil
-  if not f.ready and f.id and C_Item and C_Item.RequestLoadItemDataByID then SafeCall(C_Item.RequestLoadItemDataByID, f.id) end
+  if not f.ready and f.id then H.RequestItemData(f.id) end
   return f
 end
 
