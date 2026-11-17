@@ -178,42 +178,28 @@ function M:MaybeNotice()
   self:Print(L.NOTICE)
 end
 
-function M:SetOption(key, v)
-  local s = self.settings
-  if not s then return end
-  if key == "size" then
-    v = tonumber(v) or 1
-    v = math.floor(math.max(0.5, math.min(2, v)) * 10 + 0.5) / 10
-  else
-    v = v and true or false
-  end
-  if s[key] == v then return end
-  s[key] = v
+function M:OnOptionChanged(key, v)
   if key == "share" then self:OnShareChanged(v) end
-  if key == "size" then self:ApplySize() end
+  if key == "size" then
+    self.settings.size = math.floor(math.max(0.5, math.min(2, tonumber(v) or 1)) * 10 + 0.5) / 10
+    self:ApplySize()
+  end
   self:Refresh()
   self:Wake()
 end
 
-local function Toggle(id, label, tooltip, disabled)
-  return { id = id, type = "toggle", label = L[label], tooltip = tooltip and L[tooltip] or nil, disabled = disabled,
-    get = function() return M.settings and M.settings[id] or false end,
-    set = function(v) M:SetOption(id, v) end }
-end
-
 M:SetOptions({
   { type = "header", label = L.SEC_SHARING },
-  Toggle("share", "SETTING_SHARE", "TT_SHARE"),
+  { type = "toggle", key = "share", label = L.SETTING_SHARE, tooltip = L.TT_SHARE },
   { type = "header", label = L.SEC_DISPLAY },
-  Toggle("worldmap", "SETTING_WORLDMAP"),
-  Toggle("minimap", "SETTING_MINIMAP", "TT_MINIMAP"),
-  Toggle("names", "SETTING_NAMES", nil, function() return not (M.settings and M.settings.worldmap) end),
-  Toggle("hideGroup", "SETTING_HIDE_GROUP", "TT_HIDE_GROUP"),
-  { id = "size", type = "range", label = L.SETTING_SIZE, min = 0.5, max = 2, step = 0.1, format = "%.1f",
-    get = function() return M.settings and M.settings.size or 1 end,
-    set = function(v) M:SetOption("size", v) end },
+  { type = "toggle", key = "worldmap", label = L.SETTING_WORLDMAP },
+  { type = "toggle", key = "minimap", label = L.SETTING_MINIMAP, tooltip = L.TT_MINIMAP },
+  { type = "toggle", key = "names", label = L.SETTING_NAMES,
+    disabled = function() return not (M.settings and M.settings.worldmap) end },
+  { type = "toggle", key = "hideGroup", label = L.SETTING_HIDE_GROUP, tooltip = L.TT_HIDE_GROUP },
+  { type = "range", key = "size", label = L.SETTING_SIZE, min = 0.5, max = 2, step = 0.1, format = "%.1f" },
   { type = "header", label = L.SEC_TESTING },
-  Toggle("selfPin", "SETTING_SELF", "TT_SELF"),
+  { type = "toggle", key = "selfPin", label = L.SETTING_SELF, tooltip = L.TT_SELF },
   { id = "fake", type = "toggle", label = L.SETTING_FAKE, tooltip = L.TT_FAKE,
     get = function() return M.fakeOn and true or false end,
     set = function(v) M:Fake(v) end },

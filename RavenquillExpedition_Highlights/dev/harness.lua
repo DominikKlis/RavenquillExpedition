@@ -624,6 +624,18 @@ SlashCmdList.RAVENQUILL("")
 check(not ov:IsShown(), "/rq on the overview closes it")
 check(#errors == 0, "no Lua errors (" .. #errors .. ")")
 
+do
+  local shareOpt = H:Option("share")
+  check(shareOpt and shareOpt.get() == true and H:Option("questRedLevels"), "options are found by their settings key")
+  fire("PLAYER_LEVEL_UP", 90)
+  shareOpt.set(false)
+  advance(30)
+  check(H:Settings().share == false and sendsOf(";Me Smith;90;") == 0, "a highlight queued before sharing went off stays unsent")
+  shareOpt.set(true)
+  advance(2)
+  check(sendsOf(";Me Smith;90;") == 1, "turning sharing back on sends the waiting highlight right away")
+end
+
 local probe = GS:NewModule("Probe", { addon = "Probe" })
 local okDup, errDup = pcall(probe.NewChannel, probe, { tag = "H" })
 check(not okDup and tostring(errDup):find("already taken", 1, true), "a channel on Highlights' tag raises")

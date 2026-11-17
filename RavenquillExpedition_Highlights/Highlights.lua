@@ -7,6 +7,19 @@ local H = GS:NewModule("Highlights", {
   addon = ADDON, api = 2, slash = "hl", title = L.TITLE, icon = "Interface\\Icons\\INV_Misc_Note_01",
   sv = "RavenquillExpeditionHighlightsDB", svChar = "RavenquillExpeditionHighlightsCharDB", dbVersion = 2,
   locale = ns.Locales,
+  defaults = {
+    share = true,
+    shareCap = 8,
+    chat = true,
+    chatAll = false,
+    echoOwn = true,
+    minGain = 8,
+    minGearQuality = 3,
+    minLootQuality = 4,
+    levelStep = 10,
+    questRedLevels = 0,
+    logOnlyHighlights = false,
+  },
   charDefaults = { everEquipped = {}, ownedEpics = {}, kills = {}, quests = {}, outbox = {}, shareLog = {}, activity = {} },
 })
 ns.H = H
@@ -20,21 +33,7 @@ H.OUTBOX_MAX_AGE = 2 * 86400
 H.RECV_PER_HOUR = 30
 H.MAX_PER_WHO = 300
 
-H.DEFAULTS = {
-  share = true,
-  shareCap = 8,
-  chat = true,
-  chatAll = false,
-  echoOwn = true,
-  minGain = 8,
-  minGearQuality = 3,
-  minLootQuality = 4,
-  levelStep = 10,
-  questRedLevels = 0,
-  logOnlyHighlights = false,
-}
 H.KINDS = { gear = true, loot = true, boss = true, quest = true, level = true }
-H.defaults = H.DEFAULTS
 
 H.migrations = {
   [2] = function(db)
@@ -56,7 +55,7 @@ function H:OnLoad()
   self.idIndex = {}
 end
 
-function H:Settings() return self.db and self.db.settings or self.DEFAULTS end
+function H:Settings() return self.db and self.db.settings or self.defaults end
 
 function H:GuildKey()
   local k = GS:GuildKey()
@@ -357,44 +356,35 @@ function H:AddTests()
   return n
 end
 
-local function S() return H:Settings() end
-local function Setter(key, after)
-  return function(v)
-    S()[key] = v
-    if after then after(v) end
-    H:Refresh()
-  end
+function H:OnOptionChanged(key, v)
+  if key == "share" and v then self:OutboxPump() end
+  self:Refresh()
 end
-local function Getter(key) return function() return S()[key] end end
-local function ShareOff() return not S().share end
-local function ChatOff() return not S().chat end
 
-H.options = {
+local function ShareOff() return not H:Settings().share end
+local function ChatOff() return not H:Settings().chat end
+
+H:SetOptions({
   { type = "header", label = L.OPT_SHARE_H },
-  { type = "toggle", label = L.OPT_SHARE, tooltip = L.OPT_SHARE_TIP, get = Getter("share"),
-    set = Setter("share", function(v) if v then H:OutboxPump() end end) },
-  { type = "range", label = L.OPT_CAP, tooltip = L.OPT_CAP_TIP, min = 1, max = 20, step = 1,
-    get = Getter("shareCap"), set = Setter("shareCap"), disabled = ShareOff },
+  { type = "toggle", key = "share", label = L.OPT_SHARE, tooltip = L.OPT_SHARE_TIP },
+  { type = "range", key = "shareCap", label = L.OPT_CAP, tooltip = L.OPT_CAP_TIP, min = 1, max = 20, step = 1, disabled = ShareOff },
   { type = "header", label = L.OPT_CHAT_H },
-  { type = "toggle", label = L.OPT_CHAT, tooltip = L.OPT_CHAT_TIP, get = Getter("chat"), set = Setter("chat") },
-  { type = "toggle", label = L.OPT_CHAT_ALL, get = Getter("chatAll"), set = Setter("chatAll"), disabled = ChatOff },
-  { type = "toggle", label = L.OPT_ECHO, get = Getter("echoOwn"), set = Setter("echoOwn"), disabled = ChatOff },
+  { type = "toggle", key = "chat", label = L.OPT_CHAT, tooltip = L.OPT_CHAT_TIP },
+  { type = "toggle", key = "chatAll", label = L.OPT_CHAT_ALL, disabled = ChatOff },
+  { type = "toggle", key = "echoOwn", label = L.OPT_ECHO, disabled = ChatOff },
   { type = "header", label = L.OPT_RULES_H },
-  { type = "range", label = L.OPT_GAIN, tooltip = L.OPT_GAIN_TIP, min = 1, max = 40, step = 1, get = Getter("minGain"), set = Setter("minGain") },
-  { type = "range", label = L.OPT_GEARQ, tooltip = L.OPT_QUALITY_TIP, min = 2, max = 4, step = 1,
-    get = Getter("minGearQuality"), set = Setter("minGearQuality") },
-  { type = "range", label = L.OPT_LOOTQ, tooltip = L.OPT_QUALITY_TIP, min = 3, max = 5, step = 1,
-    get = Getter("minLootQuality"), set = Setter("minLootQuality") },
-  { type = "range", label = L.OPT_LEVEL, tooltip = L.OPT_LEVEL_TIP, min = 0, max = 20, step = 1, get = Getter("levelStep"), set = Setter("levelStep") },
-  { type = "range", label = L.OPT_RED, tooltip = L.OPT_RED_TIP, min = 0, max = 10, step = 1,
-    get = Getter("questRedLevels"), set = Setter("questRedLevels") },
+  { type = "range", key = "minGain", label = L.OPT_GAIN, tooltip = L.OPT_GAIN_TIP, min = 1, max = 40, step = 1 },
+  { type = "range", key = "minGearQuality", label = L.OPT_GEARQ, tooltip = L.OPT_QUALITY_TIP, min = 2, max = 4, step = 1 },
+  { type = "range", key = "minLootQuality", label = L.OPT_LOOTQ, tooltip = L.OPT_QUALITY_TIP, min = 3, max = 5, step = 1 },
+  { type = "range", key = "levelStep", label = L.OPT_LEVEL, tooltip = L.OPT_LEVEL_TIP, min = 0, max = 20, step = 1 },
+  { type = "range", key = "questRedLevels", label = L.OPT_RED, tooltip = L.OPT_RED_TIP, min = 0, max = 10, step = 1 },
   { type = "header", label = L.OPT_LOG_H },
-  { type = "toggle", label = L.OPT_ONLY_HL, tooltip = L.OPT_ONLY_HL_TIP, get = Getter("logOnlyHighlights"), set = Setter("logOnlyHighlights") },
+  { type = "toggle", key = "logOnlyHighlights", label = L.OPT_ONLY_HL, tooltip = L.OPT_ONLY_HL_TIP },
   { type = "button", label = L.OPT_OPEN_LOG, func = function() H:Open() end },
   { type = "button", label = L.OPT_TEST, tooltip = L.OPT_TEST_TIP, func = function() H:Print(L.TEST_ADDED:format(H:AddTests())) end },
   { type = "button", label = L.OPT_CLEARTEST, func = function() H:Print(L.TEST_CLEARED:format(H:ClearTests())) end },
   { type = "text", label = L.OPT_DIAG, tooltip = L.OPT_DIAG_TIP, lines = function() return H:DiagLines() end },
-}
+})
 
 local function SortedAssignments(t)
   local list = {}
