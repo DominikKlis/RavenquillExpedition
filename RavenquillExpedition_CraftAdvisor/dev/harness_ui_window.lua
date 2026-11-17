@@ -8,7 +8,7 @@ H.templateMode = "ok"; windowChecks("PortraitFrameTemplate path")
 do
   local f, n = GCA.UI.frame, 0
   for _, c in ipairs(descendants(f)) do if c.NineSlice and c ~= f and c.Bg then n = n + 1 end end
-  check(n == 0, "K6: no InsetFrameTemplate panels while the list atlas exists (" .. n .. ")")
+  check(n == 0, "no InsetFrameTemplate panels while the list atlas exists (" .. n .. ")")
 end
 
 do
@@ -26,11 +26,11 @@ do
     and pb.border._atlas == "Professions-skillbar-frame" and pb._h == 29 and math.abs(pb.ratio - 0.8) < 1e-9 and pb.barKind == "fill"
     and math.abs(pb.fill._w - (GCA.UI.PROF_BAR_W - 10) * 0.8) < 1e-9 and pb.drop.native and pb.drop.arrow._atlas == "common-dropdown-a-button"
     and pb.drop.ring == nil and pop == nil,
-    "K6: the profession window's rank bar (skillbar-bg/-frame, 29 px, fill 80 %; plain fill: no StatusBar texture API in this mock) with its dropdown arrow (no disc): " .. tostring(pb and pb.label._text))
+    "the profession window's rank bar (skillbar-bg/-frame, 29 px, fill 80 %; plain fill: no StatusBar texture API in this mock) with its dropdown arrow (no disc): " .. tostring(pb and pb.label._text))
   local pm = menuOf(pb.drop)
   local radios = menuTexts(pm, "radio")
   check(#pm == 7 and pm[1]:on() and radios:find("^Lederverarbeitung.*|Verzauberkunst.*|Blacksmithing %(browse%)") and pm[3].kind == "divider"
-    and pm[4].kind == "title" and pm[4].text:find("Browse", 1, true), "K6: profession menu: your 2 (radio, picked one on), divider, 'Browse' title, 3 others: " .. radios)
+    and pm[4].kind == "title" and pm[4].text:find("Browse", 1, true), "profession menu: your 2 (radio, picked one on), divider, 'Browse' title, 3 others: " .. radios)
   pm[5]:click()
   GCA.UI:Refresh()
   check(GCA:SelectedProfession() == "Blacksmithing" and GCA:IsBrowse(), "picked Blacksmithing: browse")
@@ -65,17 +65,17 @@ do
   local d = fakeSug()
   local b = show(d)
   check(b.title._SetWordWrap and b.title._SetWordWrap[1] == false and b.title._SetMaxLines and b.title._SetMaxLines[1] == 1
-    and b.sub._SetWordWrap and b.sub._SetWordWrap[1] == false, "L1: title and sub-line are single-line")
+    and b.sub._SetWordWrap and b.sub._SetWordWrap[1] == false, "title and sub-line are single-line")
   check(b.iconBorder._atlas == "Professions-Slot-Frame" and b.frameArt == "atlas" and b.slotBg and b.qual._atlas == "Professions-Slot-bg"
     and b.iconBorder._SetVertexColor and b.iconBorder._SetVertexColor[2] == 1 and b.icon._w == 38,
-    "K6 card: 38 px icon in the reagent slot (Professions-Slot-bg + Professions-Slot-Frame tinted by quality)")
+    "card: 38 px icon in the reagent slot (Professions-Slot-bg + Professions-Slot-Frame tinted by quality)")
   check(plain(b.title._text) == "Hillman's Leather Vest" and not plain(b.title._text):find(":", 1, true),
-    "K1/J3: title = the item name only, no 'Slot:' prefix: " .. plain(b.title._text))
+    "title = the item name only, no 'Slot:' prefix: " .. plain(b.title._text))
   check(b.offer._shown and not b.offer.isIcon and b.offer._text == "Offer" and b.offer._w == 84
     and b.crafted._shown and b.craftedLabel == nil and b.gainAnchor == b.crafted,
-    "K4 card: online known craft: 'Offer' text button + crafted box (no label), gain left of the box (K1 had the whisper icon)")
+    "card: online known craft: 'Offer' text button + crafted box (no label), gain left of the box (K1 had the whisper icon)")
   check(plain(b.gain._text) == "+12 pts" and plain(b.points._text) == "" and b.gain._SetTextColor and b.gain._SetTextColor[2] > 0.8
-    and b._SetHeight[1] == 50 and b.alt == nil and b.treeV == nil, "K4 card: 50 px, green '+12 pts' (no size line without a share); K6: no row shading, no tree lines")
+    and b._SetHeight[1] == 50 and b.alt == nil and b.treeV == nil, "card: 50 px, green '+12 pts' (no size line without a share); K6: no row shading, no tree lines")
   check(b.title._alpha == 1 and not b.dimmed, "wearable row not dimmed")
   local off = { key = "Bud Stone", online = false, prof = "Leatherworking", level = 39, class = "ROGUE" }
   b = show(d, off)
@@ -84,7 +84,7 @@ do
   check(not UIx.CanOffer(off, fakeSug({ kind = "enchant" })), "CanOffer: offline enchant no")
   captureTip()
   b._scripts.OnEnter(b)
-  check(plainTip("item:4244"), "K17: row tooltip = the plain item tooltip (no Offer/Shift/gain lines): " .. tipText())
+  check(plainTip("item:4244"), "row tooltip = the plain item tooltip (no Offer/Shift/gain lines): " .. tipText())
   do
     local function fakeCompare()
       local t = New("GameTooltip")
@@ -166,24 +166,24 @@ do
   end
   b = show(fakeSug({ future = true, wearAt = 42, levelsToGo = 3, info = { name = "Future Vest", quality = 3, icon = "x", minLevel = 42 } }))
   check(b.chip == nil and plain(b.sub._text):find("^from level 42 · 3 to go") and b.sub._text:find("|cfff0b44c", 1, true),
-    "H5.2/K6: too-high-level row: the level tag is orange TEXT first on the second line (no chip box): " .. plain(b.sub._text))
-  check(b.dimmed and b.title._alpha < 1 and b.icon._alpha < 1 and b.sub._alpha < 1, "H5.2: row dimmed")
+    "too-high-level row: the level tag is orange TEXT first on the second line (no chip box): " .. plain(b.sub._text))
+  check(b.dimmed and b.title._alpha < 1 and b.icon._alpha < 1 and b.sub._alpha < 1, "row dimmed")
   check(b.qual._alpha == 0.55 and b.iconBorder._alpha == 0.55 and (b.offer._alpha or 1) == 1 and (b.crafted._alpha or 1) == 1,
-    "L-5: quality square + icon border dimmed too; Offer and the crafted box not")
+    "quality square + icon border dimmed too; Offer and the crafted box not")
   b = show(fakeSug({ future = true, wearAt = 40, levelsToGo = 1 }))
-  check(plain(b.sub._text):find("^from level 40 · 1 to go"), "K6 level tag with 1 level to go: " .. plain(b.sub._text))
+  check(plain(b.sub._text):find("^from level 40 · 1 to go"), "level tag with 1 level to go: " .. plain(b.sub._text))
   b = show(fakeSug())
-  check(b.qual._alpha == 1 and b.iconBorder._alpha == 1, "L-5: a wearable row on the same (pooled) frame is full alpha again")
+  check(b.qual._alpha == 1 and b.iconBorder._alpha == 1, "a wearable row on the same (pooled) frame is full alpha again")
   b = show(fakeSug({ equipped = { name = "Old Vest", quality = 2 } }))
-  check(plain(b.sub._text) == "" and b.title._points[1][1] == "LEFT", "K1: chest row: no 'replaces Old Vest', title centred (no sub-line)")
+  check(plain(b.sub._text) == "" and b.title._points[1][1] == "LEFT", "chest row: no 'replaces Old Vest', title centred (no sub-line)")
   b = show(fakeSug({ slot = 13, equipped = { name = "Old Charm", quality = 2 } }))
   check(plain(b.sub._text) == "replaces Old Charm" and plain(b.title._text) == "Hillman's Leather Vest (Trinket 1)" and b.title._points[1][1] == "TOPLEFT",
-    "K1: trinket row: '(Trinket 1)' + 'replaces Old Charm': " .. plain(b.sub._text))
+    "trinket row: '(Trinket 1)' + 'replaces Old Charm': " .. plain(b.sub._text))
   b = show(fakeSug({ kind = "enchant", enchant = { enchant = 247, name = "Minor Agility" }, item = { name = "Bracers" }, slot = 9,
     equipped = { name = "Minor Stamina" }, cand = { spellID = 7779, enchant = true, recipe = { skill = 80, src = "trainer", r = {} } } }))
-  check(plain(b.sub._text) == "replaces Minor Stamina on Bracers", "K1: enchant row keeps 'replaces X on Y': " .. plain(b.sub._text))
+  check(plain(b.sub._text) == "replaces Minor Stamina on Bracers", "enchant row keeps 'replaces X on Y': " .. plain(b.sub._text))
   captureTip(); show(fakeSug({ equipped = { name = "Old Vest", quality = 2 } }))._scripts.OnEnter(UIx.sugList.rows[1])
-  check(plainTip("item:4244"), "K17: no 'replaces' line in the item tooltip either")
+  check(plainTip("item:4244"), "no 'replaces' line in the item tooltip either")
   b = show(d)
   b.crafted:SetChecked(true); b.crafted._scripts.OnClick(b.crafted)
   local mark = GCA:CraftedMark("Bud Stone", "Leatherworking", 3762)
@@ -193,7 +193,7 @@ do
   check(b.crafted._checked == true, "box shows the mark after a refresh")
   captureTip(); b.crafted._scripts.OnEnter(b.crafted)
   check(H.tip[1] == "Crafted" and tipText():find("Crafted for Bud Stone", 1, true) and tipText():find("wearing it", 1, true),
-    "K1: box tooltip = the label as title + the explanation")
+    "box tooltip = the label as title + the explanation")
   b.crafted:SetChecked(false); b.crafted._scripts.OnClick(b.crafted)
   check(GCA:CraftedMark("Bud Stone", "Leatherworking", 3762) == nil and RavenquillExpeditionCraftDB.crafted[GCA.charKey]["Bud Stone"] == nil,
     "unticking removes the mark (and empty tables)")
@@ -208,23 +208,23 @@ do
   local fb, mf = UIx.filterButton, UIx.memberFilter
   check(UIx.optionsButton == nil and UIx.optionsPopup == nil and fb.native and mf.native and fb._template == "WowStyle1FilterDropdownTemplate"
     and mf._template == "WowStyle1FilterDropdownTemplate" and fb._w == 90 and fb._h == 18 and UIx.filterPopup == nil,
-    "K6: no Options button/popup; two native Filter dropdowns (needs bar + member list), 90x18 as the recipe list's")
+    "no Options button/popup; two native Filter dropdowns (needs bar + member list), 90x18 as the recipe list's")
   check(mf._points[1][1] == "TOPRIGHT" and mf._points[1][2] == UIx.memberInset and mf._points[1][4] == -8 and mf._points[1][5] == -9,
-    "K6: member list Filter at TOPRIGHT -8,-9 of its panel (the recipe list's own spot)")
+    "member list Filter at TOPRIGHT -8,-9 of its panel (the recipe list's own spot)")
   check(UIx.survival._parent == f.content and not UIx.survival._shown and UIx.helpButton == nil,
-    "K11: the bottom slider is hidden with the native Filter menu; no '?' help button")
+    "the bottom slider is hidden with the native Filter menu; no '?' help button")
   local op = menuOf(fb)
   check(#op == 8 and op[1].kind == "check" and op[5].kind == "check" and op[6].kind == "divider" and op[7].kind == "button"
     and #op[7].sub == 5 and op[8].kind == "button",
-    "K11: filter menu: 4 settings + offline members, divider, leveling bonus submenu (5 values), edit whisper (" .. #op .. ")")
+    "filter menu: 4 settings + offline members, divider, leveling bonus submenu (5 values), edit whisper (" .. #op .. ")")
   check(menuTexts(op) == "Show missing recipes|Look ahead 5 levels|Read gear automatically|Guild sync|Include offline members (0)|Leveling bonus (Stamina/Spirit): 50%|Edit whisper text…",
     "menu labels: " .. menuTexts(op))
-  check(op[1].tip ~= nil and op[7].tip ~= nil and op[8].tip ~= nil, "K6: every entry has its tooltip")
-  check(op[7].sub[3]:on() and not op[7].sub[4]:on(), "K11: 50 % is the selected bonus")
+  check(op[1].tip ~= nil and op[7].tip ~= nil and op[8].tip ~= nil, "every entry has its tooltip")
+  check(op[7].sub[3]:on() and not op[7].sub[4]:on(), "50 % is the selected bonus")
   op[7].sub[4]:click()
-  check(math.abs(GCA.db.settings.survival - 0.75) < 1e-9 and menuOf(fb)[7].sub[4]:on(), "K11: picking 75 % sets the bonus")
+  check(math.abs(GCA.db.settings.survival - 0.75) < 1e-9 and menuOf(fb)[7].sub[4]:on(), "picking 75 % sets the bonus")
   menuOf(fb)[7].sub[3]:click()
-  check(math.abs(GCA.db.settings.survival - 0.5) < 1e-9, "K11: ...and back to 50 %")
+  check(math.abs(GCA.db.settings.survival - 0.5) < 1e-9, "...and back to 50 %")
   local before = GCA.db.settings.showUnlearned
   op[1]:click()
   check(GCA.db.settings.showUnlearned == not before and menuOf(fb)[1]:on() == GCA.db.settings.showUnlearned and (fb._generated or 0) > 0,
@@ -236,7 +236,7 @@ do
   check(GCA.db.settings.lookahead == not la, "entry 2 toggles lookahead")
   menuOf(fb)[2]:click()
   local ai = GCA.db.settings.autoInspect
-  menuOf(mf)[3]:click(); check(ai == true and GCA.db.settings.autoInspect == false, "K5: entry 3 toggles autoInspect (default on; the member list's Filter too)")
+  menuOf(mf)[3]:click(); check(ai == true and GCA.db.settings.autoInspect == false, "entry 3 toggles autoInspect (default on; the member list's Filter too)")
   menuOf(mf)[3]:click()
   menuOf(fb)[8]:click()
   local ed = UIx.whisperEditor
@@ -255,7 +255,7 @@ do
   ed.closeBtn._scripts.OnClick(ed.closeBtn)
   captureTip(); UIx.memberSearch._scripts.OnEnter(UIx.memberSearch)
   check(UIx.memberHeader == nil and tipText():find("Search member", 1, true) and tipText():find("by name", 1, true),
-    "K5: a member search box on top of the list (replaces the column header / badge legend)")
+    "a member search box on top of the list (replaces the column header / badge legend)")
   local mr = UIx.memberList.rows[1]
   check(mr and mr.name._SetWordWrap and mr.name._SetWordWrap[1] == false, "member rows single-line")
   check(UIx.survival.label._text == "Leveling bonus (Stamina/Spirit): 50%", "slider renamed: " .. tostring(UIx.survival.label._text))
@@ -268,7 +268,7 @@ do
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   local UIx = GCA.UI
-  check(UIx.filterButton.native and UIx.optionsButton == nil, "K6: German window has the native Filter dropdown (its text is the template's own)")
+  check(UIx.filterButton.native and UIx.optionsButton == nil, "German window has the native Filter dropdown (its text is the template's own)")
   check(UIx.survival.label._text == "Levelbonus (Ausdauer/Willenskraft): 50%", "slider in German (our fallback words): " .. tostring(UIx.survival.label._text))
   check(plain(UIx.subText._text):find("^Stufe 36 "), "sub-line uses our 'Stufe' when LEVEL is missing: " .. plain(UIx.subText._text))
   LEVEL, SPELL_STAT3_NAME = "StufeCL", "AusdauerCL"
@@ -304,7 +304,7 @@ do
   local shape = {}
   for i, d in ipairs(data) do shape[i] = d.rowKind == "fold" and ("F" .. #d.secs) or (d.rowKind and ("H" .. d.sec.key)) or d.info.name end
   check(#data == 6 and table.concat(shape, ",") == "H5,Hillman's Leather Vest,Second Vest,H11,Craft Ring,F13",
-    "K1: SectionRows: header + its rows per section with an upgrade, then ONE folded line for the 13 others: " .. table.concat(shape, ","))
+    "SectionRows: header + its rows per section with an upgrade, then ONE folded line for the 13 others: " .. table.concat(shape, ","))
   check(#UIx.SectionRows(fakeSections({})) == 0 and #UIx.SectionRows({}) == 0, "no suggestion at all: empty list (the empty-state text explains why)")
   local sl = UIx.sugList
   sl:SetData(data)
@@ -314,46 +314,46 @@ do
     "row kinds: 2 section rows + 1 folded line (own pools) + 3 suggestion rows")
   local foldH = sl.rowY[6][2]
   check(sl.rows[1]._points[1][3] == -56 and sl.rows[2]._points[1][3] == -108 and H[2]._points[1][3] == -160 and FP[1]._points[1][3] == -268,
-    "K5: rows stacked by kind height (worn row 56, card 52, then the folded box; K4 had a 30 px header)")
+    "rows stacked by kind height (worn row 56, card 52, then the folded box; K4 had a 30 px header)")
   check(sl.contentH == 2 * 56 + 3 * 52 + foldH and foldH >= 30, "content height = 2 worn rows + 3 cards + the folded box (" .. tostring(sl.contentH) .. ", box " .. foldH .. ")")
   local h = H[1]
   check(h.name == nil and h.label == nil and plain(h.wornName._text) == "Worn Vest" and h.wornName._text:find("^|cff")
     and h.wornName._points[1][1] == "LEFT" and h.wornName._points[1][2] == h.box.qual and h.wornName._points[1][4] == 12
     and h.count._text == "2 upgrades" and not h.empty and h.box.bg == nil and h.box.edges == nil and h.box.line._SetColorTexture and h.box._points[1][5] == -6,
-    "K5 / user 2026-11-15: chest worn row: icon + the worn name only (centred, 12 px gap; no slot name, no 'Equipped'), '2 upgrades' on the right, a box 6 px below the row top: " .. plain(h.wornName._text))
+    "chest worn row: icon + the worn name only (centred, 12 px gap; no slot name, no 'Equipped'), '2 upgrades' on the right, a box 6 px below the row top: " .. plain(h.wornName._text))
   check(h.box.icon._tex == 134 and h.box.icon._w == 34 and h.box.iconBorder._SetVertexColor
-    and h.wornName._SetWordWrap[1] == false, "K5: worn row: 34 px item icon in its quality frame, single-line texts")
+    and h.wornName._SetWordWrap[1] == false, "worn row: 34 px item icon in its quality frame, single-line texts")
   local r = H[2]
   check(r.name == nil and plain(r.wornName._text) == "Ring A  ·  Ring B" and r.count._text == "1 upgrade",
-    "K5: rings worn row: both rings named, '1 upgrade': " .. plain(r.wornName._text))
+    "rings worn row: both rings named, '1 upgrade': " .. plain(r.wornName._text))
   local c1, c2, c3 = sl.rows[1], sl.rows[2], sl.rows[3]
   check(c1.treeV == nil and c1.treeH == nil and c1.alt == nil and UIx.TREE_X == nil and c1.qual._points[1][4] == UIx.CARD_INDENT + 4 and UIx.CARD_INDENT == 16,
-    "K6: cards indented 16 px under their worn row, no tree lines / row shading")
+    "cards indented 16 px under their worn row, no tree lines / row shading")
   local g = FP[1]
   check(g.text._text == "No craftable upgrade: Head, Neck, Shoulder, Back, Wrist, Hands, Waist, Legs, Feet, Trinkets (not loaded), Main Hand, Off Hand, Ranged"
     and g.text._SetWordWrap and g.text._SetWordWrap[1] == true and g.text._SetMaxLines == nil and g.text._SetWidth[1] == UIx.listW - 20 and g.edges == nil and g.line ~= nil,
-    "K1: one folded, wrapping line names the 13 slots (unloaded trinket marked): " .. tostring(g.text._text))
-  check(not (g.text._text or ""):find("–", 1, true), "K1: no '– no upgrade –' lines any more")
+    "one folded, wrapping line names the 13 slots (unloaded trinket marked): " .. tostring(g.text._text))
+  check(not (g.text._text or ""):find("–", 1, true), "no '– no upgrade –' lines any more")
   local gt = g
   local b = sl.rows[1]
   check(b.offer._shown and b.crafted._shown and plain(b.title._text) == "Hillman's Leather Vest", "suggestion rows inside a section (K1 title)")
   check(plain(sl.rows[3].title._text) == "Craft Ring (Ring 2)" and plain(sl.rows[3].sub._text):find("replaces", 1, true)
     and not plain(b.sub._text):find("replaces", 1, true),
-    "K1: ring row keeps a disambiguator '(Ring 2)' and 'replaces …'; a normal slot's row doesn't repeat the worn item: " .. plain(sl.rows[3].title._text))
+    "ring row keeps a disambiguator '(Ring 2)' and 'replaces …'; a normal slot's row doesn't repeat the worn item: " .. plain(sl.rows[3].title._text))
   captureTip(); h._scripts.OnEnter(h)
-  check(plainTip(), "K17: worn row (section header) tooltip = the worn item's plain tooltip: " .. tipText())
+  check(plainTip(), "worn row (section header) tooltip = the worn item's plain tooltip: " .. tipText())
   captureTip(); g._scripts.OnEnter(g)
   check(tipText():find("Slots without an upgrade", 1, true) and tipText():find("Wrist: Bracers", 1, true) and tipText():find("Head: nothing equipped", 1, true)
-    and tipText():find("Nothing in this list beats", 1, true), "K1: folded line tooltip lists each slot's worn item and explains")
+    and tipText():find("Nothing in this list beats", 1, true), "folded line tooltip lists each slot's worn item and explains")
   captureTip(); gt._scripts.OnEnter(gt)
   check(tipText():find("didn't load", 1, true), "unloaded trinket: tooltip says it wasn't compared")
   captureTip(); r._scripts.OnEnter(r)
   check(tipText():find("Rings", 1, true) and tipText():find("Ring 1: Ring A", 1, true) and tipText():find("Ring 2: Ring B", 1, true) or tipText():find("Finger", 1, true),
-    "K5: rings worn row tooltip lists both rings")
+    "rings worn row tooltip lists both rings")
   local clicked
   HandleModifiedItemClick = function(l) clicked = l end
   h._scripts.OnClick(h)
-  check(clicked == nil, "user 2026-11-15: a plain click on the equipped item does nothing")
+  check(clicked == nil, "a plain click on the equipped item does nothing")
   local savedShift = IsShiftKeyDown
   IsShiftKeyDown = function() return true end
   h._scripts.OnClick(h)
@@ -367,7 +367,7 @@ do
   check(sl.contentH > viewH and sl:ScrollTo(1e6) == sl.contentH - viewH and sl:Offset() == sl.contentH - viewH and sl:ScrollTo(-5) == 0,
     "ScrollTo clamped to [0, content - view]")
   sl:SetData(saveData)
-  check(data[1].anchor == nil, "J1: section entries carry no jump anchor any more")
+  check(data[1].anchor == nil, "section entries carry no jump anchor any more")
   local origML = GCA.GetMemberList
   local long = fakeSections({ [1] = { fakeSug({ slot = 1 }), fakeSug({ slot = 1 }), fakeSug({ slot = 1 }) },
     [5] = { fakeSug(), fakeSug(), fakeSug() }, [9] = { fakeSug({ slot = 9 }), fakeSug({ slot = 9 }), fakeSug({ slot = 9 }) },
@@ -412,7 +412,7 @@ do
   captureTip(); gf._scripts.OnEnter(gf)
   check(tipText():find("Plätze ohne Verbesserung", 1, true) and tipText():find("nichts angelegt", 1, true), "German folded-line tooltip")
   captureTip(); byKey[5]._scripts.OnEnter(byKey[5])
-  check(plainTip(), "K17: German header tooltip = the plain item tooltip: " .. tipText():gsub("\n", " / "))
+  check(plainTip(), "German header tooltip = the plain item tooltip: " .. tipText():gsub("\n", " / "))
   check(UIx.errorCount == before, "no error reported (German)")
   UIx.frame:Hide()
   ns.locale = "enUS"
@@ -463,10 +463,10 @@ do
     UIx.sugList:ScrollTo(0); UIx.memberList:ScrollTo(0)
     vis[#vis + 1] = { UIx.sugList:VisibleRows(), UIx.memberList:VisibleRows(), UIx.sugList.viewH, UIx.memberList.viewH }
   end
-  check(vis[1][3] == 366 and vis[1][4] == 419, "K8 minimum: list views 366 px (inside the member detail panel) and 419 px (" .. vis[1][3] .. ", " .. vis[1][4] .. ")")
+  check(vis[1][3] == 366 and vis[1][4] == 419, "minimum: list views 366 px (inside the member detail panel) and 419 px (" .. vis[1][3] .. ", " .. vis[1][4] .. ")")
   check(vis[1][1] < vis[2][1] and vis[2][1] < vis[3][1] and vis[1][2] < vis[2][2] and vis[2][2] < vis[3][2],
     string.format("visible rows grow with the height: suggestions %d/%d/%d, members %d/%d/%d", vis[1][1], vis[2][1], vis[3][1], vis[1][2], vis[2][2], vis[3][2]))
-  check(vis[1][2] == 16 and vis[3][2] == 34, "K8: 25 px recipe-list member rows visible (incl. the Online header): 16 at 560 high, 34 at 1000 high (K6: 11/23 with 34 px rows) ("
+  check(vis[1][2] == 16 and vis[3][2] == 34, "25 px recipe-list member rows visible (incl. the Online header): 16 at 560 high, 34 at 1000 high (K6: 11/23 with 34 px rows) ("
     .. vis[1][2] .. "/" .. vis[3][2] .. ")")
   local hdr, card, fold = UIx.sugList.pools.section[1], UIx.sugList.rows[1], UIx.sugList.pools.fold[1]
   local function lineW() return hdr.textW end
@@ -474,7 +474,7 @@ do
   drag(840, 560)
   local narrow = { lineW(), card.textW, fold.text._SetWidth[1] }
   check(wide[1] - narrow[1] == 1600 - 840 and wide[2] - narrow[2] == 1600 - 840 and wide[3] - narrow[3] == 1600 - 840,
-    "K5: worn-row text, card texts and the folded box grow with the width (" .. narrow[1] .. "/" .. narrow[2] .. "/" .. narrow[3]
+    "worn-row text, card texts and the folded box grow with the width (" .. narrow[1] .. "/" .. narrow[2] .. "/" .. narrow[3]
     .. " -> " .. wide[1] .. "/" .. wide[2] .. "/" .. wide[3] .. ")")
   UIx.sugList:ScrollTo(1e6)
   local endAt = UIx.sugList.scrolledTo

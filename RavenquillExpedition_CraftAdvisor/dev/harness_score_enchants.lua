@@ -177,7 +177,7 @@ do
   GCA.candidates = nil
   local isCand = false
   for _, c in ipairs(GCA:GetCandidates("Blacksmithing")) do if c.itemID == 999991 then isCand = true end end
-  check(isCand, "W1: a crafted weapon is a candidate")
+  check(isCand, "a crafted weapon is a candidate")
   ns.Recipes.Blacksmithing[wSpell] = nil
   GCA.candidates = nil
   GCA.db.members[key], RQ.roster[key] = nil, nil
@@ -259,7 +259,7 @@ do
   local staff = GCA:Score(GCA:GetInfo(lnk(910004)), e)
   check(w and w.cand.spellID == 27837 and w.status == "upgrade" and w.tier == 1
     and math.abs(w.pct - Scoring.value({ Agility = 25 }, e.set) / staff) < 1e-9,
-    ("W5: 2H Agility on a two-hander: a real %% of the weapon's own score (%.0f%%)"):format(w and w.pct and w.pct * 100 or -1))
+    ("2H Agility on a two-hander: a real %% of the weapon's own score (%.0f%%)"):format(w and w.pct and w.pct * 100 or -1))
   unlearn(27837)
   by = sugs({ [16] = lnk(910004) })
   check(by[16] and by[16].cand.spellID == 23800, "2H: an Enchant Weapon (one-hand) row also goes on a two-hander")
@@ -267,22 +267,22 @@ do
   by = sugs({ [16] = lnk(910004) })
   local imp = Scoring.value({ TwoHandDps = 9 / 3.5 }, e.set)
   check(by[16] and by[16].cand.spellID == 20030 and math.abs(by[16].gain - imp) < 1e-9 and by[16].info.cstats.TwoHandDps,
-    "W5: 2H Superior Impact (damage 9) scored as 9 ÷ 3.5 TwoHandDps (no speed read -> SimGear's assumed 3.5)")
+    "2H Superior Impact (damage 9) scored as 9 ÷ 3.5 TwoHandDps (no speed read -> SimGear's assumed 3.5)")
   by = sugs({ [16] = lnk(910004, 943) })
   local str = Scoring.value({ TwoHandDps = 3 / 3.5 }, e.set)
   check(by[16] and by[16].cand.spellID == 20030 and math.abs(by[16].gain - (imp - str)) < 1e-9 and by[16].current.enchant == 943,
-    "W5: Striking (943, damage 3) on the weapon is valued now: Superior Impact for the difference")
+    "Striking (943, damage 3) on the weapon is valued now: Superior Impact for the difference")
   GCA.infoCache[lnk(910004)] = nil
   local savedWS = GCA.WeaponSpeed
   GCA.WeaponSpeed = function() return 2.0 end
   by = sugs({ [16] = lnk(910004) })
   check(by[16] and math.abs(by[16].gain - Scoring.value({ TwoHandDps = 9 / 2.0 }, e.set)) < 1e-9,
-    "W5: damage ÷ the worn weapon's speed (2.0) when it is known")
+    "damage ÷ the worn weapon's speed (2.0) when it is known")
   GCA.WeaponSpeed = savedWS
   GCA.infoCache[lnk(910004)] = nil
   addItem(910006, "Club", "INVTYPE_WEAPON", 40, { ITEM_MOD_AGILITY_SHORT = 4 }, 4); itemDB[910006].classID = 2
   check(math.abs(GCA:EnchantStats(GCA:EnchantData().byEnchant[943], GCA:GetInfo(lnk(910006))).MainHandDps - 3 / 2.6) < 1e-9,
-    "W5: Striking on a one-hander = 3 ÷ 2.6 MainHandDps")
+    "Striking on a one-hander = 3 ÷ 2.6 MainHandDps")
   learn(27837, 23800)
   addItem(910010, "Tome", "INVTYPE_HOLDABLE", 40, { ITEM_MOD_INTELLECT_SHORT = 6 }, 0)
   addItem(910011, "Buckler", "INVTYPE_SHIELD", 40, { ITEM_MOD_STAMINA_SHORT = 6, RESISTANCE0_NAME = 600 }, 6)

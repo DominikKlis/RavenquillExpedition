@@ -98,7 +98,7 @@ local GCA = ns.GCA
 K.fire("ADDON_LOADED", "RavenquillExpedition_CraftAdvisor")
 K.fire("PLAYER_LOGIN"); runTimers()
 
-io.write("== K15: module registration\n")
+io.write("== module registration\n")
 local mod = RQ:GetModule("Craft")
 check(mod and mod == GCA and mod.addon == "RavenquillExpedition_CraftAdvisor" and mod.slash == "craft" and mod.api == 2
   and mod.loaded and GCA.db == RavenquillExpeditionCraftDB, "GCA is the core's module \"Craft\" (api 2, addon, slash, SavedVariables loaded)")
@@ -128,7 +128,7 @@ check(rdb.members["Kim Lee"].time == 9 and rdb.members["Ann Bo"].time == 8 and n
   and rdb.crafted["Me-Realm"]["Kim Lee"] and not rdb.crafted["Me-Realm"]["Kim Lee-Realm"],
   "login migration [2]: keys with our own realm move to the plain key (newer wins), other realms and the character keys stay")
 
-io.write("== K15: options well-formed\n")
+io.write("== options well-formed\n")
 local opts = mod.options
 check(type(opts) == "table" and #opts > 0, "mod.options is a non-empty list (" .. tostring(opts and #opts) .. " entries)")
 local need = { header = {}, toggle = { "get", "set" }, range = { "get", "set" }, button = { "func" }, text = { "lines" } }
@@ -158,7 +158,7 @@ check(opts[1].label == "Vorschläge" and byLabel["Ziel jetzt betrachten"] and by
   "German labels (deDE client)")
 for _, o in ipairs(opts) do if o.disabled then local ok = pcall(o.disabled); check(ok, "disabled() runs: " .. o.label) end end
 
-io.write("== K15: toggles round-trip on db.settings\n")
+io.write("== toggles round-trip on db.settings\n")
 local s = GCA.db.settings
 for _, o in ipairs(opts) do
   if o.type == "toggle" then
@@ -186,7 +186,7 @@ local hid = RavenquillExpeditionDB.launcher.hide == true and mm.get() == false a
 mm.set(true)
 check(hid and not RavenquillExpeditionDB.launcher.hide and mm.get() == true, "minimap toggle = the suite launcher (RavenquillExpeditionDB.launcher.hide)")
 
-io.write("== K15: range = leveling bonus\n")
+io.write("== range = leveling bonus\n")
 local range
 for _, o in ipairs(opts) do if o.type == "range" then range = o end end
 local inval, realInval = 0, GCA.InvalidateScores
@@ -199,7 +199,7 @@ range.set(50)
 GCA.InvalidateScores = realInval
 check(range.min == 0 and range.max == 100 and range.step == 5 and string.format(range.format, range.get()) == "50 %", "0-100 step 5, shows \"50 %\"")
 
-io.write("== K15: text boxes\n")
+io.write("== text boxes\n")
 local wrapper = print
 for _, o in ipairs(opts) do
   if o.type == "text" then
@@ -218,7 +218,7 @@ GCA:Diag().lastError = { where = "UI:Refresh", msg = "x.lua:1: oops\nstack", at 
 local le = byLabel[ns.L.OPT_DIAG_ERROR].lines()
 check(le[1] == "2026-11-14 12:00:00  UI:Refresh" and le[2] == "x.lua:1: oops", "last error box shows db.lastError")
 
-io.write("== K15: OnSlash routing\n")
+io.write("== OnSlash routing\n")
 local calls = {}
 local realOpen, realStats, realEnch = GCA.OpenWindow, GCA.StatsDebug, GCA.EnchantDebug
 GCA.OpenWindow = function() calls[#calls + 1] = "open" end
@@ -230,13 +230,13 @@ check(calls[1] == "stats " .. link and calls[2] == "enchant " .. link and calls[
 check(#calls == 8 and calls[4] == "open" and calls[5] == "open" and calls[6] == "open" and calls[7] == "open" and calls[8] == "open", "anything else (incl. empty) opens the window")
 GCA.OpenWindow, GCA.StatsDebug, GCA.EnchantDebug = realOpen, realStats, realEnch
 
-io.write("== K15: Open shows (never closes) the window\n")
+io.write("== Open shows (never closes) the window\n")
 mod.Open(mod)
 local shown1 = GCA.UI.frame and GCA.UI.frame:IsShown()
 mod.Open(mod)
 check(shown1 and GCA.UI.frame:IsShown(), "mod.Open opens the window and a second Open keeps it open")
 
-io.write("== K15: command texts on the core\n")
+io.write("== command texts on the core\n")
 local de = ns.Locales.deDE
 local leftovers = {}
 for _, t in pairs(ns.Locales) do for k, v in pairs(t) do if type(v) == "string" and v:find("/gca", 1, true) then leftovers[#leftovers + 1] = k end end end

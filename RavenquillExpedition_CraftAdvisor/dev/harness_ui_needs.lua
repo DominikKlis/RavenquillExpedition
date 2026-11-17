@@ -6,7 +6,7 @@ H.lateGlobals()
 H.templateMode = "fail"
 
 do
-  print("== K2: Core GuildNeeds (order, grouping, cache)")
+  print("== Core GuildNeeds (order, grouping, cache)")
   local savedTM, savedBrowse = H.templateMode, GCA.IsBrowse
   H.templateMode = "ok"
   GCA.IsBrowse = function() return false end
@@ -51,7 +51,7 @@ do
   check(n4 ~= n3 and GCA.needsBuilds == nb + 2, "InvalidateScores (new sugCache) rebuilds")
   advance(1)
 
-  print("== K5: GuildNeedsByCraft + NeedsRows (grouped by craft, search, offline box)")
+  print("== GuildNeedsByCraft + NeedsRows (grouped by craft, search, offline box)")
   local function sg(id, over)
     over = over or {}
     over.cand = { spellID = id, itemID = id, recipe = { skill = 100, src = "trainer", r = {} } }
@@ -84,29 +84,29 @@ do
   local function gnames(gs) local t = {} for i, g in ipairs(gs) do t[i] = g.sug.info.name .. "(" .. #g.rows .. ")" end return table.concat(t, ",") end
   local function rnames(g) local t = {} for i, r in ipairs(g.rows) do t[i] = r.member.key end return table.concat(t, ",") end
   check(crafts == nd.crafts and gnames(crafts) == "Vest(2),Belt(1),Future Ring(1)" and crafts[1].rowKind == "craft",
-    "K5: one group per craft, online members only by default, best gain first, the look-ahead-only craft last (90% but too high level): " .. gnames(crafts))
+    "one group per craft, online members only by default, best gain first, the look-ahead-only craft last (90% but too high level): " .. gnames(crafts))
   check(rnames(crafts[1]) == "Cara Field,Bud Stone" and crafts[1].best.sug == K5.vestB and crafts[1].sug == K5.vestB and not crafts[1].future,
-    "K5: a craft's members best first (Cara +38% before Bud +12%); its best row / suggestion = Cara's")
-  check(#crafts[3].rows == 1 and crafts[3].rows[1].sug == K5.ringF and crafts[3].future, "K5: one row per member and craft (the better ring of Bud's two); look-ahead group flagged future")
+    "a craft's members best first (Cara +38% before Bud +12%); its best row / suggestion = Cara's")
+  check(#crafts[3].rows == 1 and crafts[3].rows[1].sug == K5.ringF and crafts[3].future, "one row per member and craft (the better ring of Bud's two); look-ahead group flagged future")
   local all = GCA:GuildNeedsByCraft(K5.list, true)
   check(all == nd.craftsAll and gnames(all) == "Vest(3),Belt(1),Future Ring(1)" and rnames(all[1]) == "Olga Field,Cara Field,Bud Stone",
-    "K5: with offline members: Olga (+60%) leads the vest group: " .. rnames(all[1]))
-  check(not gnames(all):find("My Gloves", 1, true), "K5: you get no guild-needs group (as K2)")
+    "with offline members: Olga (+60%) leads the vest group: " .. rnames(all[1]))
+  check(not gnames(all):find("My Gloves", 1, true), "you get no guild-needs group (as K2)")
   local again = GCA:GuildNeedsByCraft(K5.list)
-  check(again == crafts and GCA.needsBuilds == nb0 + 1, "K5: groups cached with the rows (no rebuild for the same entries)")
+  check(again == crafts and GCA.needsBuilds == nb0 + 1, "groups cached with the rows (no rebuild for the same entries)")
   UIx.needsCollapsed = {}
   local function kinds(d) local t = {} for i, e in ipairs(d) do t[i] = e.rowKind == "cat" and ("#" .. e.cat) or e.group.sug.info.name end return table.concat(t, ",") end
   local data, nc, nm, offN, allE = UIx.NeedsRows(nd, "", false)
   check(kinds(data) == "#5,Vest,#6,Belt,#11,Future Ring" and data[2].group == crafts[1] and #data[2].rows == 2 and data[2].cat == 5
     and nc == 3 and nm == 2 and offN == 1 and #allE == 3 and data[1].n == 1,
-    "K8: NeedsRows: slot categories (Chest, Waist, Rings) each with its crafts, 2 members, 1 offline member with upgrades: " .. kinds(data))
+    "NeedsRows: slot categories (Chest, Waist, Rings) each with its crafts, 2 members, 1 offline member with upgrades: " .. kinds(data))
   UIx.needsCollapsed[5] = true
   data, nc, _, _, allE = UIx.NeedsRows(nd, "", false)
   check(kinds(data) == "#5,#6,Belt,#11,Future Ring" and nc == 3 and #allE == 3 and allE[1].group == crafts[1],
-    "K8: a collapsed category hides its crafts (still counted, still selectable): " .. kinds(data))
+    "a collapsed category hides its crafts (still counted, still selectable): " .. kinds(data))
   UIx.needsCollapsed = {}
   data, nc, nm = UIx.NeedsRows(nd, "", true)
-  check(#data[2].rows == 3 and nm == 3, "K5: offline box on: Olga's row joins the vest group (3 members)")
+  check(#data[2].rows == 3 and nm == 3, "offline box on: Olga's row joins the vest group (3 members)")
   data, nc, nm = UIx.NeedsRows(nd, "  BELT ", false)
   check(kinds(data) == "#6,Belt" and data[2].group == crafts[2] and nc == 1 and nm == 1, "search by item name (case-insensitive, trimmed): the whole craft")
   data, nc, nm = UIx.NeedsRows(nd, "cara", false)
@@ -114,7 +114,7 @@ do
   check(#UIx.NeedsRows(nd, "olga", false) == 0 and #UIx.NeedsRows(nd, "olga", true) == 2, "an offline member is found only with the offline box")
   check(#UIx.NeedsRows(nd, "zzz", false) == 0 and #UIx.NeedsRows(nd, "50%", false) == 0, "no match: nothing; a '%' is plain text")
 
-  print("== K1: TagLine, pair slots, gain text")
+  print("== TagLine, pair slots, gain text")
   check(plain(UIx.TagLine({ { "a", "|cffff0000" }, { "b" }, { "c", "|cff00ff00" }, { "d", "|cff0000ff" } })) == "a  ·  b  ·  c  ·  d"
     and select(2, UIx.TagLine({ { "a", "|cffff0000" }, { "b" }, { "c", "|cff00ff00" }, { "d", "|cff0000ff" } }):gsub("|c", "")) == 2,
     "TagLine: at most two coloured tags")
@@ -126,9 +126,9 @@ do
     "gain number: one decimal below 10, whole numbers from 10 on")
   local eb, es = UIx.CardGain(fakeSug({ status = "empty-slot" }))
   check(eb == "+12 pts" and es == "(empty slot)" and UIx.ChipGain(fakeSug({ points = 7 })) == "+7.0" and UIx.Pips == nil,
-    "user 2026-11-15: no pips; card '+12 pts' over '(empty slot)', Gildenbedarf '+7.0'")
+    "no pips; card '+12 pts' over '(empty slot)', Gildenbedarf '+7.0'")
 
-  print("== K5: window opens on guild needs (grouped by craft); offline box; expand; click-through")
+  print("== window opens on guild needs (grouped by craft); offline box; expand; click-through")
   ITEM_QUALITY_COLORS = { [2] = { r = 0.12, g = 1, b = 0 }, [3] = { r = 0, g = 0.44, b = 0.87 } }
   local selected = {}
   PanelTemplates_SelectTab = function(t) selected[t] = true end
@@ -148,67 +148,67 @@ do
   check(UIx.tabsTemplated and #UIx.tabs == 2 and UIx.tabs[1]._text == "Guild needs" and UIx.tabs[2]._text == "By member"
     and selected[UIx.tabs[1]] == true and selected[UIx.tabs[2]] == false, "two PanelTabButtonTemplate tabs, 'Guild needs' selected")
   check(UIx.inspectButton == nil and UIx.scanButton == nil and UIx.optionsButton == nil and UIx.survival._points[1][1] == "BOTTOMLEFT",
-    "K5: no 'Inspect target' / 'Scan group' buttons; K6: no Options button, the slider in the bottom-left corner")
+    "no 'Inspect target' / 'Scan group' buttons; K6: no Options button, the slider in the bottom-left corner")
   local nl, nd = UIx.needsList, UIx.needDetail
   local function nkinds() local t = {} for i, e in ipairs(nl.data) do t[i] = e.rowKind == "cat" and ("#" .. e.cat) or e.group.sug.info.name end return table.concat(t, ",") end
-  check(nkinds() == "#5,Vest,#6,Belt,#11,Future Ring", "K8: slot categories with their crafts: " .. nkinds())
+  check(nkinds() == "#5,Vest,#6,Belt,#11,Future Ring", "slot categories with their crafts: " .. nkinds())
   local r1, r3 = nl.rows[1], nl.rows[3]
   check(plain(r1.label._text) == "Vest" and not r1.label._text:find("|c", 1, true) and r1.count._text == " [2]" and r1.count._points[1][2] == r1.label
     and r1.gain._text == "+38" and r1.icon == nil and r1.caret == nil and r1.members == nil and r1._h == 25 and r1.label._points[1][4] == 22,
-    "K8 craft row = a recipe row: plain white name, its count ' [2]' right after it, best gain right, no icon / caret / member run, 25 px: " .. plain(r1.label._text))
+    "craft row = a recipe row: plain white name, its count ' [2]' right after it, best gain right, no icon / caret / member run, 25 px: " .. plain(r1.label._text))
   check(r1.hl._atlas == "Professions_Recipe_Hover" and r1.hl._alpha == 0.5 and r1.hl._h == 21 and r1.hl._points[1][5] == -1
     and r1.sel._atlas == "Professions_Recipe_Active" and r1.sel._h == 19 and r1.sel._shown and not nl.rows[2].sel._shown,
-    "K8 row art from the probe: hover Professions_Recipe_Hover (21 px, alpha 0.5, y -1), the selected craft Professions_Recipe_Active (19 px)")
+    "row art from the probe: hover Professions_Recipe_Hover (21 px, alpha 0.5, y -1), the selected craft Professions_Recipe_Active (19 px)")
   check(plain(r3.label._text) == "Future Ring" and r3.dimmed and r3.label._alpha == 0.55 and r3.gain._text == "+90",
-    "K5: the look-ahead-only craft last and dimmed")
+    "the look-ahead-only craft last and dimmed")
   local cp = nl.pools.cat
   check(cp and cp[1].text._text == "Chest" and cp[2].text._text == "Waist" and cp[3].text._text == "Rings" and cp[1]._h == 25
     and cp[1].bg._atlas == "common-button-list-collapseExpand" and cp[1].hl._atlas == "common-button-list-collapseExpand"
     and cp[1].hl._SetBlendMode[1] == "ADD" and cp[1].hl._alpha == 0.4 and cp[1].text._points[1][1] == "LEFT" and cp[1].text._points[1][4] == 8
     and cp[1].CollapseButton._w == 20 and cp[1].CollapseButton._points[1][1] == "RIGHT" and cp[1].CollapseButton._points[1][4] == -6
     and cp[1].CollapseButton.text._text == "–" and UIx.collapseIconKind == "text" and cp[1].native == nil,
-    "K8 category header replicated from the probe: collapseExpand art + ADD hover 0.4, gold text at 8, 20 px CollapseButton at -6 ('–', no icon atlas in this mock)")
+    "category header replicated from the probe: collapseExpand art + ADD hover 0.4, gold text at 8, 20 px CollapseButton at -6 ('–', no icon atlas in this mock)")
   local fm = menuOf(UIx.filterButton)
   check(plain(UIx.needsCount._text) == "3 crafts are worth it for 2 members" and plain(fm[5].text) == "Include offline members (1)" and not fm[5]:on(),
-    "K5 count line; K6: Filter menu entry 'Include offline members (1)', off by default: " .. plain(UIx.needsCount._text))
+    "count line; K6: Filter menu entry 'Include offline members (1)', off by default: " .. plain(UIx.needsCount._text))
   local s1, s2 = nd.members.rows[1], nd.members.rows[2]
   check(UIx.needSel == "i9001" and nd.entry and nd.entry.group == K5.crafts1 or (nd.entry and nd.entry.group.key == "i9001"),
-    "K8: the best craft is selected and shown in the detail panel")
+    "the best craft is selected and shown in the detail panel")
   check(nd.name._text == "Vest" and plain(nd.desc._text) == "Chest" and nd.forTitle._text == "Would be an upgrade for 2 members:"
     and nd.iconBtn.icon._tex == "x" and nd.iconBtn.iconShape and nd.name._shown and not nd.srcTitle._shown and not nd.reagTitle._shown,
-    "K8 detail: icon, name, slot line, 'Would be an upgrade for 2 members:' (known recipe: no sources; no reagents in this fake)")
+    "detail: icon, name, slot line, 'Would be an upgrade for 2 members:' (known recipe: no sources; no reagents in this fake)")
   check(plain(s1.name._text) == "Cara Field" and plain(s1.state._text) == "Old Vest" and plain(s2.state._text) == "Slot empty" and s1.wornBtn ~= nil
     and s1.state._points[1][1] == "LEFT" and s1.state._points[1][2] == s1.wornBtn and s1.wornBtn._points[1][4] == 8 + UIx.NEED_MEMBER_W + 8
     and s1.offer._shown and not s1.offer.isIcon and s1.offer._text == "Offer" and s1.offer._w == 80 and s1.crafted._shown
     and s1.crafted.template == "MinimalCheckboxTemplate" and plain(s1.gain._text) == "+38" and s1.chip == nil and s1._shown and s2._shown,
-    "K10 / user 2026-11-15: member row on one line: member column | worn icon + its name beside it | gain, 'Offer', box: " .. plain(s1.state._text))
+    "member row on one line: member column | worn icon + its name beside it | gain, 'Offer', box: " .. plain(s1.state._text))
   check(nd.members.viewH == 2 * 42 and UIx.detailListW == nd.w - 44 and s1.stateW >= 40,
-    "K10: the member list is as tall as its rows (2 x 42), as wide as the detail panel")
+    "the member list is as tall as its rows (2 x 42), as wide as the detail panel")
   fm[5]:click()
   r1 = nl.rows[1]
   check(GCA.db.settings.needsOffline == true and r1.count._text == " [3]" and nd.members.rows[1].data.member.key == "Olga Field"
     and nd.members.rows[1].name._alpha == 1 and nd.members.rows[1].name._text:find("StatusIcon-Offline", 1, true)
     and not nd.members.rows[1].name._text:find("|cff7f7f7f", 1, true) and not nd.members.rows[1].offer._shown and menuOf(UIx.filterButton)[5]:on()
-    and plain(UIx.needsCount._text) == "3 crafts are worth it for 3 members", "K6/K8: offline members on: saved, Olga (offline dot + softened class colour, no Offer) leads the vest craft")
+    and plain(UIx.needsCount._text) == "3 crafts are worth it for 3 members", "offline members on: saved, Olga (offline dot + softened class colour, no Offer) leads the vest craft")
   check(UIx.filterButton.resetButton and UIx.filterButton.resetButton._shown and UIx.filterButton.resetButton.icon._atlas == "auctionhouse-ui-filter-redx"
-    and UIx.memberFilter.resetButton._shown, "K8: a filter off its default -> the red reset badge on both Filter buttons")
+    and UIx.memberFilter.resetButton._shown, "a filter off its default -> the red reset badge on both Filter buttons")
   menuOf(UIx.memberFilter)[5]:click()
   check(GCA.db.settings.needsOffline == false and nl.rows[1].count._text == " [2]" and not UIx.filterButton.resetButton._shown,
-    "K6: the member list's Filter turns it off again (one setting); the badge goes")
+    "the member list's Filter turns it off again (one setting); the badge goes")
   GCA.db.settings.showUnlearned = true; UIx:RefreshFilters()
-  check(UIx.filterButton.resetButton._shown, "K8: badge for 'Show missing recipes' too")
+  check(UIx.filterButton.resetButton._shown, "badge for 'Show missing recipes' too")
   UIx.filterButton.resetButton._scripts.OnClick(UIx.filterButton.resetButton)
   check(GCA.db.settings.showUnlearned == false and GCA.db.settings.lookahead == true and not UIx.filterButton.resetButton._shown,
-    "K8: the badge resets the list filters to their defaults")
+    "the badge resets the list filters to their defaults")
   nl.rows[2]._scripts.OnClick(nl.rows[2])
   check(UIx.needSel == "i9002" and nd.name._text == "Belt" and nl.rows[2].sel._shown and not nl.rows[1].sel._shown and #nd.members.data == 1,
-    "K8: a click on a craft shows it in the detail panel (selection moves)")
+    "a click on a craft shows it in the detail panel (selection moves)")
   nl.rows[1]._scripts.OnClick(nl.rows[1])
   s1, s2 = nd.members.rows[1], nd.members.rows[2]
   captureTip(); s1._scripts.OnEnter(s1)
-  check(plainTip(), "K17: member row under a craft: the craft's plain item tooltip: " .. tipText() .. " / " .. table.concat(H.hyper, ","))
+  check(plainTip(), "member row under a craft: the craft's plain item tooltip: " .. tipText() .. " / " .. table.concat(H.hyper, ","))
   captureTip(); nl.rows[1]._scripts.OnEnter(nl.rows[1])
-  check(plainTip(), "K17: craft row tooltip = the plain item tooltip (no member list / hints): " .. tipText() .. " / " .. table.concat(H.hyper, ","))
+  check(plainTip(), "craft row tooltip = the plain item tooltip (no member list / hints): " .. tipText() .. " / " .. table.concat(H.hyper, ","))
   s1.crafted:SetChecked(true); s1.crafted._scripts.OnClick(s1.crafted)
   check(GCA:CraftedMark("Cara Field", "Leatherworking", 9001) ~= nil, "crafted box on a member row marks it for that member")
   GCA:SetCrafted("Cara Field", "Leatherworking", K5.vestB, false)
@@ -222,7 +222,7 @@ do
   IsShiftKeyDown = function() return false end
   check(linked == "|Hitem:9001|h[Vest]|h" and UIx.view == "needs", "shift-click on a member row links, stays on guild needs")
   nd.members.rows[2]._scripts.OnClick(nd.members.rows[2])
-  check(UIx.view == "needs", "user 2026-11-15: a plain click on a member row (their equipped item) does nothing")
+  check(UIx.view == "needs", "a plain click on a member row (their equipped item) does nothing")
   local mrow = nd.members.rows[2].data
   UIx:OpenMember(mrow.member.key, mrow.sug.slot, mrow.sug)
   check(UIx.view == "member" and UIx.selected == "Bud Stone" and UIx.autoKey == nil and UIx.memberView._shown and selected[UIx.tabs[2]] == true
@@ -230,7 +230,7 @@ do
   check(UIx.MemberMode() == "sheet" and UIx.sheet._shown and UIx.sheetSlot == 5 and UIx.sheet.centre.featured == K5.vestA,
     "sheet: that slot selected, that craft compared (" .. tostring(UIx.sheetSlot) .. ")")
   check(UIx.sugList.minimalBar == nil or not UIx.sugList.minimalBar._shown,
-    "K12: in the sheet view the hidden list's scroll bar is hidden too")
+    "in the sheet view the hidden list's scroll bar is hidden too")
   GCA.db.settings.memberView = "list"
   UIx:SetView("needs")
   UIx.needSel = "i9003"
@@ -238,7 +238,7 @@ do
   local ringRow = nd.members.rows[1]
   check(ringRow and ringRow.data.sug == K5.ringF and ringRow.chip == nil and plain(ringRow.name._text) == "Bud Stone" and plain(ringRow.state._text) == "Slot empty (Ring 1)  from level 42 · 3 to go"
     and ringRow.state._text:find("|cfff0b44c", 1, true) and ringRow.dimmed and plain(nd.desc._text) == "Rings  ·  from level 42 · 3 to go",
-    "K10: a look-ahead member row: 'Slot empty (Ring 1)' + the orange level tag beside the icon, dimmed; the detail line names the level: " .. plain(ringRow.state._text))
+    "a look-ahead member row: 'Slot empty (Ring 1)' + the orange level tag beside the icon, dimmed; the detail line names the level: " .. plain(ringRow.state._text))
   UIx:OpenMember(ringRow.data.member.key, ringRow.data.sug.slot, ringRow.data.sug)
   local secY = UIx.sugList:FindY(function(d) return d.rowKind == "section" and d.sec.key == 11 end)
   check(secY and secY > 0 and UIx.sugList.scrolledTo == math.min(secY, math.max(0, UIx.sugList.contentH - UIx.sugList.viewH)),
@@ -248,9 +248,9 @@ do
   UIx.needSel = "i9001"; UIx:RefreshNeeds()
   cp[1]._scripts.OnClick(cp[1])
   check(UIx.needsCollapsed[5] and nkinds() == "#5,#6,Belt,#11,Future Ring" and cp[1].CollapseButton.text._text == "+" and UIx.needSel == "i9001"
-    and nd.name._text == "Vest", "K8: a click on 'Chest' collapses it ('+'), the selected craft stays in the detail panel")
+    and nd.name._text == "Vest", "a click on 'Chest' collapses it ('+'), the selected craft stays in the detail panel")
   cp[1].CollapseButton._scripts.OnClick(cp[1].CollapseButton)
-  check(not UIx.needsCollapsed[5] and nkinds() == "#5,Vest,#6,Belt,#11,Future Ring", "K8: the collapse button opens it again")
+  check(not UIx.needsCollapsed[5] and nkinds() == "#5,Vest,#6,Belt,#11,Future Ring", "the collapse button opens it again")
   local rsug = fakeSug({ known = false, cand = { spellID = 9100, itemID = 9100, recipe = { skill = 100, src = "trainer", r = { { 2318, 5 }, { 2320, 2 }, { 4231, 1 } } } } })
   local rentry = { group = { key = "i9100", sug = rsug, best = { member = K5.bud, sug = rsug }, rows = { { rowKind = "need", member = K5.bud, sug = rsug } } },
     rows = { { rowKind = "need", member = K5.bud, sug = rsug } }, cat = 5 }
@@ -260,13 +260,13 @@ do
     and rg[1].iconBorder._atlas == "Professions-Slot-Frame" and rg[1].qual._atlas == "Professions-Slot-bg" and not rg[1].enough
     and rg[1]._points[1][4] == 16 and rg[2]._points[1][4] == 16 and rg[2]._points[1][5] - rg[1]._points[1][5] == -UIx.REAGENT_STEP
     and rg[3]._points[1][5] < rg[2]._points[1][5],
-    "K8 / user 2026-11-15: reagents as in the crafting window: one column, '0/5 Name' beside the icon: " .. plain(rg[1].text._text))
+    "reagents as in the crafting window: one column, '0/5 Name' beside the icon: " .. plain(rg[1].text._text))
   check(nd.srcTitle._shown and nd.srcTitle._text == "Where to get it:" and plain(nd.src[1]._text) == "Trainer (skill 100)" and nd.src[1]._shown and not nd.src[2]._shown
     and nd.src[1]._text:find("TrainerGossipIcon", 1, true) and plain(nd.desc._text) == "Chest  ·" and nd.learn._shown
     and nd.learn.text._text == UIx.LearnText(rsug, K5.bud) and nd.srcBox._scripts.OnClick,
-    "K8 sources (with their kind icons) under the reagents; the slot line ends in the same source button as the cards: " .. plain(nd.learn.text._text))
+    "sources (with their kind icons) under the reagents; the slot line ends in the same source button as the cards: " .. plain(nd.learn.text._text))
   local rTop = -nd.reagTitle._points[1][5]
-  check(rTop == 92 + 42 + 10 and -nd.srcTitle._points[1][5] == rTop + 18 + 3 * UIx.REAGENT_STEP, "K8: members, then reagents (one column), then sources stacked")
+  check(rTop == 92 + 42 + 10 and -nd.srcTitle._points[1][5] == rTop + 18 + 3 * UIx.REAGENT_STEP, "members, then reagents (one column), then sources stacked")
   check(not nd.cost._shown and not GCA.Auction.Available(), "no Auctionator installed: no 'To craft' / 'Profit' lines")
   do
     local prices = { [2318] = 120, [4231] = 300, [9100] = 2000 }
@@ -311,7 +311,7 @@ do
   UIx:RefreshNeeds()
   local sb = UIx.searchBox
   check(sb.native and sb._template == "SearchBoxTemplate" and sb.placeholder == sb.Instructions and sb.Instructions._text == "Search"
-    and sb._w == UIx.SEARCH_W and sb._parent == UIx.needsInset, "K6/K8: guild-needs search = SearchBoxTemplate on top of the list panel")
+    and sb._w == UIx.SEARCH_W and sb._parent == UIx.needsInset, "guild-needs search = SearchBoxTemplate on top of the list panel")
   sb:SetText("belt"); sb._scripts.OnTextChanged(sb)
   check(nkinds() == "#6,Belt" and plain(UIx.needsCount._text) == "1 craft is worth it for 1 member" and nd.name._text == "Belt",
     "search 'belt': one craft, singular count, the detail follows (the selected vest is not listed)")
@@ -325,7 +325,7 @@ do
   list = { K5.me, K5.olga }
   GCA.needsCache = nil
   UIx:Refresh()
-  check(UIx.needsEmpty._text:find("1 offline member(s) do", 1, true), "K5: nothing online, an offline member needs something: the empty text says so")
+  check(UIx.needsEmpty._text:find("1 offline member(s) do", 1, true), "nothing online, an offline member needs something: the empty text says so")
   list = K5.list
   GCA.knownCount = savedKC
   GCA.needsCache = nil
@@ -345,7 +345,7 @@ do
   check(GCA.needsBuilds == nbB and UIx.layoutW == 1300 and nd.w == 1300 - 290, "resizing, refreshing and searching reuse the cached groups (no rebuild); the detail panel follows")
   f:SetSize(980, 640); advance(0.1)
 
-  print("== K5/K6: member list (search, Online / Offline groups = native category headers, native rows)")
+  print("== member list (search, Online / Offline groups = native category headers, native rows)")
   UIx:SetView("member")
   UIx.collapsed.online, UIx.collapsed.offline = false, true
   UIx.selected = "Bud Stone"
@@ -354,24 +354,24 @@ do
   local kinds = {}
   for i, d in ipairs(ml.data) do kinds[i] = d.rowKind and (d.group .. "(" .. d.count .. ")") or d.key end
   check(table.concat(kinds, ",") == "online(3),Me Stone,Bud Stone,Cara Field,offline(1)",
-    "K5: 'Online 3' (you + recorded online), 'Offline 1' collapsed, nobody without gear: " .. table.concat(kinds, ","))
-  check(ml.rowY[1][2] == 27 and ml.rowY[2][2] == 25 and ml.rows[1]._SetHeight[1] == 25, "K8: recipe rows 25 px, category headers 25 (+2) px")
+    "'Online 3' (you + recorded online), 'Offline 1' collapsed, nobody without gear: " .. table.concat(kinds, ","))
+  check(ml.rowY[1][2] == 27 and ml.rowY[2][2] == 25 and ml.rows[1]._SetHeight[1] == 25, "recipe rows 25 px, category headers 25 (+2) px")
   local gp = ml.pools.group
   check(gp[1].text._text == "Online" and gp[2].text._text == "Offline" and gp[1].open == true and gp[2].open == false
     and gp[1].CollapseButton.text._text == "–" and gp[2].CollapseButton.text._text == "+" and gp[1].bg._atlas == "common-button-list-collapseExpand"
     and gp[1].count == nil and gp[1].RankBar == nil and gp[1]._template == nil,
-    "K8 group headers = the replicated category header: 'Online' (open, '–') / 'Offline' (collapsed, '+'), no count, no template instance")
+    "group headers = the replicated category header: 'Online' (open, '–') / 'Offline' (collapsed, '+'), no count, no template instance")
   local mb = ml.rows[2]
   check(mb.data == K5.bud and mb.badge == nil and mb.classIcon == nil and mb.line == nil and plain(mb.name._text) == "Bud Stone  39" and mb.name._text:find("^|TInterface\\FriendsFrame\\StatusIcon%-Online") and mb.name._text:find("|cff", 1, true)
     and mb.gain._text == "+20" and mb.name._points[1][4] == 22,
-    "K8 / user 2026-11-15: member row: online dot + name in class colour + level, '+20' right (no class icon, no second line): " .. plain(mb.name._text))
+    "member row: online dot + name in class colour + level, '+20' right (no class icon, no second line): " .. plain(mb.name._text))
   check(plain(ml.rows[1].name._text) == "Me Stone  36 (you)", "you marked")
   check(mb.sel._shown and mb.sel._atlas == "Professions_Recipe_Active" and not ml.rows[1].sel._shown
     and mb.hl._atlas == "Professions_Recipe_Hover" and mb.hl._alpha == 0.5,
-    "K8: the selected member = Professions_Recipe_Active, hover = Professions_Recipe_Hover")
+    "the selected member = Professions_Recipe_Active, hover = Professions_Recipe_Hover")
   check(mb.textW == UIx.memberListW - 22 - UIx.MEMBER_GAIN_W - 10 and mb.name._SetWordWrap[1] == false, "name left of the gain, one line")
   captureTip(); mb._scripts.OnEnter(mb)
-  check(tipText():find("3 upgrades · best: Waist", 1, true), "K8: the former second line is in the row's tooltip")
+  check(tipText():find("3 upgrades · best: Waist", 1, true), "the former second line is in the row's tooltip")
   captureTip(); ml.rows[3]._scripts.OnEnter(ml.rows[3])
   check(tipText():find("1 upgrade · best: Chest", 1, true), "singular line (tooltip)")
   gp[2]._scripts.OnClick(gp[2])
@@ -388,20 +388,20 @@ do
   ms:SetText("cara"); ms._scripts.OnTextChanged(ms)
   kinds = {}
   for i, d in ipairs(ml.data) do kinds[i] = d.rowKind and d.group or d.key end
-  check(table.concat(kinds, ",") == "online,Cara Field" and ms.native and ms._template == "SearchBoxTemplate", "K5 member search 'cara': only Cara (K6: SearchBoxTemplate)")
+  check(table.concat(kinds, ",") == "online,Cara Field" and ms.native and ms._template == "SearchBoxTemplate", "member search 'cara': only Cara (K6: SearchBoxTemplate)")
   UIx:OpenMember("Bud Stone")
   check(ms._text == "" and UIx.selected == "Bud Stone", "opening a member hidden by the search clears the search")
   UIx.collapsed.offline = true
-  check(UIx.syncDot.text._text == "Guild sync · 3 recorded", "K5 sync label: 'Guild sync · 3 recorded' (members with gear, not you): " .. tostring(UIx.syncDot.text._text))
+  check(UIx.syncDot.text._text == "Guild sync · 3 recorded", "sync label: 'Guild sync · 3 recorded' (members with gear, not you): " .. tostring(UIx.syncDot.text._text))
 
-  print("== K1/K6: header strip, (i) icon, sync label")
+  print("== header strip, (i) icon, sync label")
   check(UIx.syncText == nil and UIx.syncDot and UIx.syncDot.dot == nil and UIx.survival._parent == f.content, "sync text gone from the header strip; K6: no dot; slider in the bottom bar")
   local sync = GCA.SyncState
   for _, st in ipairs({ "ok", "idle", "paused", "off" }) do
     GCA.SyncState = function() return st end
     UIx.syncDot:Update()
     local c = UIx.SYNC_COLORS[st]
-    check(UIx.syncDot.state == st and UIx.syncDot.text._SetTextColor[1] == c[1] and UIx.syncDot.text._SetTextColor[2] == c[2], "K6: sync label coloured for '" .. st .. "'")
+    check(UIx.syncDot.state == st and UIx.syncDot.text._SetTextColor[1] == c[1] and UIx.syncDot.text._SetTextColor[2] == c[2], "sync label coloured for '" .. st .. "'")
   end
   GCA.SyncState = sync
   GCA.SyncStatusLine = function() return "Guild sync: 2 guildie(s) with the addon seen" end
@@ -417,32 +417,32 @@ do
   f:Hide()
   GCA.GetMemberList = origML
 
-  print("== K5: skill bar (StatusBar path), class icon, skin table")
+  print("== skill bar (StatusBar path), class icon, skin table")
   Frame.SetStatusBarTexture = function(self, t) self._sbTex = t end
   Frame.SetStatusBarColor = function(self, ...) self._sbColor = { ... } end
   UIx.frame:Hide(); GCA.UI.frame = nil; GCA.UI:Toggle(); advance(1)
   local pb2 = GCA.UI.profButton
   pb2:SetSkill("Leatherworking  150 / 225", 150, 225)
   check(pb2.barKind == "statusbar" and pb2.bar._sbTex == "Interface\\PaperDollInfoFrame\\UI-Character-Skills-Bar" and pb2.bar._sbColor
-    and math.abs(pb2.bar._value - 150 / 225) < 1e-9 and pb2.label._parent == pb2.top and pb2.border._atlas == "Professions-skillbar-frame", "K5/K6: StatusBar API present: skill-bar file, value = 150/225, text + rank-bar frame above the fill")
+    and math.abs(pb2.bar._value - 150 / 225) < 1e-9 and pb2.label._parent == pb2.top and pb2.border._atlas == "Professions-skillbar-frame", "StatusBar API present: skill-bar file, value = 150/225, text + rank-bar frame above the fill")
   pb2:SetSkill("Blacksmithing (browse)")
-  check(pb2.bar._value == 0 and pb2.ratio == 0, "K5: no rank (browse): empty bar")
+  check(pb2.bar._value == 0 and pb2.ratio == 0, "no rank (browse): empty bar")
   Frame.SetStatusBarTexture, Frame.SetStatusBarColor = nil, nil
   GetFileIDFromPath = function() return nil end
   GCA.UI.frame:Hide(); GCA.UI.frame = nil; GCA.UI:Toggle(); advance(1)
   pb2 = GCA.UI.profButton
   pb2:SetSkill("x", 60, 300)
-  check(pb2.barKind == "fill" and pb2.fill._SetColorTexture and math.abs(pb2.fill._w - (GCA.UI.PROF_BAR_W - 10) * 0.2) < 1e-9, "K5: skill-bar file not there: plain fill in the skin colour, 20 %")
+  check(pb2.barKind == "fill" and pb2.fill._SetColorTexture and math.abs(pb2.fill._w - (GCA.UI.PROF_BAR_W - 10) * 0.2) < 1e-9, "skill-bar file not there: plain fill in the skin colour, 20 %")
   GetFileIDFromPath = nil
   local ic = GCA.UI.specButton.icon
   CLASS_ICON_TCOORDS = { ROGUE = { 0.5, 0.75, 0, 0.25 } }
   check(GCA.UI.SetClassIcon(ic, "ROGUE") == "file" and ic._tex == "Interface\\TargetingFrame\\UI-Classes-Circles" and ic._SetTexCoord[1] == 0.5,
-    "K5 class icon: the class-circles file + CLASS_ICON_TCOORDS where the atlas is missing")
+    "class icon: the class-circles file + CLASS_ICON_TCOORDS where the atlas is missing")
   ATLASES["classicon-rogue"] = true
-  check(GCA.UI.SetClassIcon(ic, "ROGUE") == "atlas" and ic._atlas == "classicon-rogue", "K5 class icon: the atlas when GetAtlasInfo knows it")
+  check(GCA.UI.SetClassIcon(ic, "ROGUE") == "atlas" and ic._atlas == "classicon-rogue", "class icon: the atlas when GetAtlasInfo knows it")
   ATLASES["classicon-rogue"] = nil
   GetFileIDFromPath = function() return nil end
-  check(GCA.UI.SetClassIcon(ic, "MAGE") == nil and GCA.UI.SetClassIcon(ic, nil) == nil, "K5 class icon: neither -> none (text only)")
+  check(GCA.UI.SetClassIcon(ic, "MAGE") == nil and GCA.UI.SetClassIcon(ic, nil) == nil, "class icon: neither -> none (text only)")
   GetFileIDFromPath = nil
   CLASS_ICON_TCOORDS = nil
   GCA.UI.specButton:SetClass("WARRIOR")
@@ -451,19 +451,19 @@ do
   check(GCA.UI.Skin(tx, "rowSelected") == "atlas" and tx._atlas == "Professions_Recipe_Active" and GCA.UI.Skin(tx, "rowHover") == "atlas"
     and tx._atlas == "Professions_Recipe_Hover" and tx._alpha == 0.5 and GCA.UI.Skin(tx, "listBg") == "atlas"
     and GCA.UI.SKIN.disc == nil and GCA.UI.SKIN.chipBg == nil and GCA.UI.SKIN.selectBar == nil and GCA.UI.SKIN.treeLine == nil and GCA.UI.TEX.disc == nil,
-    "K8 skin table: the recipe row's own hover / selected atlases, summarylist panel; no disc/chip/select-bar/tree roles")
+    "skin table: the recipe row's own hover / selected atlases, summarylist panel; no disc/chip/select-bar/tree roles")
   ATLASES["Professions_Recipe_Hover"] = nil
   local tx2 = UIx.frame:CreateTexture()
-  check(GCA.UI.Skin(tx2, "rowHover") == "file" and tx2._tex == GCA.UI.TEX.rowHL and tx2._SetBlendMode[1] == "ADD", "K8 skin: without the hover atlas the list-row file (ADD)")
+  check(GCA.UI.Skin(tx2, "rowHover") == "file" and tx2._tex == GCA.UI.TEX.rowHL and tx2._SetBlendMode[1] == "ADD", "skin: without the hover atlas the list-row file (ADD)")
   ATLASES["Professions_Recipe_Hover"] = true
   local sk = GCA.UI.SKIN
   check(type(sk.detailBorder) == "table" and sk.category.atlas == "common-button-list-collapseExpand" and sk.categoryHover.atlasBlend == "ADD"
     and #sk.collapseIcon.pairs >= 1 and sk.detailRing.file == "Interface\\Common\\GoldRing",
-    "K8 skin roles: detailBorder (pluggable), category / categoryHover, collapseIcon candidates, detailRing")
+    "skin roles: detailBorder (pluggable), category / categoryHover, collapseIcon candidates, detailRing")
   GCA.UI.frame:Hide()
   UIx = GCA.UI
 
-  print("== K1: German texts on the new parts")
+  print("== German texts on the new parts")
   ns.locale = "deDE"
   GCA.GetMemberList = function() return list end
   GCA.UI.frame = nil
@@ -472,13 +472,13 @@ do
   check(UIx.tabs[1]._text == "Gildenbedarf" and UIx.tabs[2]._text == "Nach Mitglied", "German tabs")
   check(plain(UIx.needsCount._text) == "3 Herstellungen lohnen für 2 Mitglieder" and UIx.searchBox.placeholder._text == "Suchen"
     and plain(menuOf(UIx.filterButton)[5].text) == "Offline-Mitglieder einbeziehen (1)" and plain(menuOf(UIx.filterButton)[7].text):find("^Levelbonus") and plain(menuOf(UIx.filterButton)[8].text):find("^Flüstertext"),
-    "K5 German count, search instructions; K6 Filter menu entries: " .. plain(UIx.needsCount._text))
+    "German count, search instructions; K6 Filter menu entries: " .. plain(UIx.needsCount._text))
   local gr1 = UIx.needsList.rows[1]
   check(gr1.count._text == " [2]" and UIx.needsList.pools.cat[1].text._text == "Chest" and UIx.needsList.pools.cat[3].text._text == "Ringe"
-    and UIx.needDetail.forTitle._text == "Wäre eine Verbesserung für 2 Mitglieder:", "K8 German: craft row ' [2]', categories 'Chest' (client global, absent in the mock) / 'Ringe', detail title")
+    and UIx.needDetail.forTitle._text == "Wäre eine Verbesserung für 2 Mitglieder:", "German: craft row ' [2]', categories 'Chest' (client global, absent in the mock) / 'Ringe', detail title")
   local gs = UIx.needDetail.members.rows[1]
   check(plain(gs.state._text) == "Old Vest" and gs.offer._text == "Anbieten",
-    "K5 German member row: 'Old Vest' beside the icon, K6 red 'Anbieten' button: " .. plain(gs.state._text))
+    "German member row: 'Old Vest' beside the icon, K6 red 'Anbieten' button: " .. plain(gs.state._text))
   UIx.searchBox:SetText("zzz"); UIx.searchBox._scripts.OnTextChanged(UIx.searchBox)
   check(UIx.needsEmpty._text == "Keine Verbesserung passt zu „zzz“.", "German no-match text")
   UIx.searchBox:SetText(""); UIx.searchBox._scripts.OnTextChanged(UIx.searchBox)
@@ -488,7 +488,7 @@ do
   check(gml.pools.group[1].text._text == "Online" and plain(gml.rows[2].name._text) == "Bud Stone  39"
     and UIx.modeToggle._override == "Ansicht: Charakterbogen" and UIx.syncDot.text._text == "Gilden-Sync · 3 erfasst" and UIx.memberSearch.placeholder._text == "Mitglied suchen"
     and menuTexts(menuOf(UIx.modeToggle)) == "Charakterbogen|Liste",
-    "K6/K8 German: 'Online' header, member row, 'Ansicht: Charakterbogen' (radios Charakterbogen|Liste), 'Gilden-Sync · 3 erfasst', 'Mitglied suchen'")
+    "German: 'Online' header, member row, 'Ansicht: Charakterbogen' (radios Charakterbogen|Liste), 'Gilden-Sync · 3 erfasst', 'Mitglied suchen'")
   check(UIx.MemberRows(list)[1].group == "online" and ns.L.OPT_OPEN == "Fenster öffnen", "German: groups, 'Fenster öffnen'")
   for _, sz in ipairs({ { 840, 560 }, { 980, 640 } }) do
     UIx.frame:SetSize(sz[1], sz[2]); UIx:Layout()
@@ -544,7 +544,7 @@ do
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
   local ns1 = UIx.needDetail.members.rows[1]
-  check(ns1.offer._shown and not ns1.offer.isIcon and ns1.offer._text == "Offer" and ns1.offer._w == UIx.OFFER_SMALL_W, "K6: Offer = the red text button 'Offer' (no file needed)")
+  check(ns1.offer._shown and not ns1.offer.isIcon and ns1.offer._text == "Offer" and ns1.offer._w == UIx.OFFER_SMALL_W, "Offer = the red text button 'Offer' (no file needed)")
   check(UIx.needsList.pools.cat[1].CollapseButton.text._text == "–" and UIx.needDetail.iconBtn.iconShape == "square",
     "no files: the category's '–' text; K8 the detail icon falls back to the square reagent-slot icon (mask / ring files not confirmed)")
   check(UIx.infoIcon.kind == "text", "info icon file not confirmed: text '(i)'")
@@ -564,7 +564,7 @@ do
   UIx = GCA.UI
   check(not UIx.filterButton.native and UIx.filterButton._text == "Filter" and UIx.filterPopup and not UIx.searchBox.native
     and UIx.searchBox.placeholder and UIx.searchBox.clear and UIx.needsList.ScrollBar and UIx.needsList.minimalBar == nil,
-    "K6 fallbacks: red 'Filter' button + popup, the K2 search box, UIPanelScrollFrameTemplate")
+    "fallbacks: red 'Filter' button + popup, the K2 search box, UIPanelScrollFrameTemplate")
   UIx.filterButton._scripts.OnClick(UIx.filterButton)
   local fp = UIx.filterPopup
   check(fp._shown and #fp.buttons == 6 and plain(fp.buttons[5].text._text) == "Include offline members (1)", "fallback Filter popup: 4 toggles, offline members, edit whisper")
@@ -588,8 +588,8 @@ do
   check(UIx.profPopup._shown and picked and not picked.mark._shown, "no check file: '> ' marks the pick in the fallback popup")
   UIx.profPopup:Hide()
   local g1 = UIx.memberList.pools.group and UIx.memberList.pools.group[1]
-  check(g1 and not g1.native and g1.text._text and g1.CollapseButton, "K8 group header: the replicated category row (no template involved)")
-  check(UIx.errorCount == errs4, "K6 fallbacks: no error reported")
+  check(g1 and not g1.native and g1.text._text and g1.CollapseButton, "group header: the replicated category row (no template involved)")
+  check(UIx.errorCount == errs4, "fallbacks: no error reported")
   UIx.frame:Hide()
   for k in pairs(nativeMode) do nativeMode[k] = "ok" end
   GetFileIDFromPath = nil

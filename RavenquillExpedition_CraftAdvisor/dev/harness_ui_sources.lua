@@ -6,7 +6,7 @@ H.lateGlobals()
 H.templateMode = "fail"
 
 do
-  print("== K7: where to get missing recipes (own Data/Sources.lua, no other addon) + inner border")
+  print("== where to get missing recipes (own Data/Sources.lua, no other addon) + inner border")
   GCA.UI:Toggle(); advance(1)
   local UIx = GCA.UI
   local Src = UIx.Src
@@ -26,11 +26,11 @@ do
   local dT = fakeSug({ known = false })
   local dP = fakeSug({ known = false, cand = { spellID = 999001, itemID = 4244, recipe = { skill = 120, src = "pattern", r = {} } } })
   check(plain(UIx.SourceLine(dT, cur)) == "Trainer (skill 100)" and plain(UIx.SourceLine(dP, cur)) == "Pattern"
-    and UIx.SourceLine(fakeSug(), cur) == nil, "K7 no data: 'Trainer (skill 100)' / 'Pattern', known recipe -> no line")
+    and UIx.SourceLine(fakeSug(), cur) == nil, "no data: 'Trainer (skill 100)' / 'Pattern', known recipe -> no line")
   captureTip()
   Src.AddTooltip(UIx.SourceInfo(dP, cur))
   check(tipText():find("Pattern", 1, true) and not tipText():find("Crafter's Journal", 1, true) and not tipText():find("Right-click", 1, true),
-    "K7 no data: tooltip shows the coarse label, no hint at another addon, no waypoint hint")
+    "no data: tooltip shows the coarse label, no hint at another addon, no waypoint hint")
   local FAKE = {
     factions = { [59] = "Thorium Brotherhood" },
     trainers = { Leatherworking = { { 301, 1 }, { 303, 2 }, { 302, 2 } } },
@@ -126,7 +126,7 @@ do
   check(t:find("Vendor: Androd Fadran | Arathi Highlands 45, 60", 1, true) and t:find("Drop: Defias Bandit (12-14) | Westfall", 1, true)
     and t:find("Requires Honored with Thorium Brotherhood", 1, true) and t:find("+1 more vendors", 1, true)
     and t:find("show it on the map", 1, true) and not t:find("Shift-right-click", 1, true) and not t:find("pattern in chat", 1, true),
-    "K7 tooltip: vendor + coords, drop + level/zone, reputation, more vendors, click hints")
+    "tooltip: vendor + coords, drop + level/zone, reputation, more vendors, click hints")
   local dTr = fakeSug({ known = false, cand = { spellID = 999002, recipe = { skill = 100, src = "trainer", r = {} } } })
   local it = UIx.SourceInfo(dTr, cur)
   check(it.list[1].kind == "trainer" and it.list[1].cost == 500 and it.list[1].npc and it.list[1].npc.name == "Journeyman A"
@@ -148,7 +148,7 @@ do
     "sources: a malformed NPC row and an other-side vendor -> 'Vendor (other faction only)', no error")
   local entries = Src.MenuEntries(info)
   check(#entries == 1 and entries[1].waypoint and entries[1].waypoint.name == "Androd Fadran",
-    "K7 menu: one waypoint (vendor with coordinates; not the drop without); no 'Link pattern' (user 2026-11-15)")
+    "menu: one waypoint (vendor with coordinates; not the drop without); no 'Link pattern' (user 2026-11-15)")
   local said, savedPrint = {}, GCA.Print
   GCA.Print = function(_, m) said[#said + 1] = plain(m) end
   local native, tt = {}, {}
@@ -170,7 +170,7 @@ do
   C_Map.SetUserWaypoint, C_Map.CanSetUserWaypointOnMap, UiMapPoint, C_SuperTrack = nil, nil, nil, nil
   check(Src.SetWaypoint(vn) == false and said[#said] == "Couldn't set a waypoint: Androd Fadran is at Arathi Highlands 45, 60.",
     "waypoint: no TomTom, no waypoint API -> the coordinates in chat: " .. tostring(said[#said]))
-  check(Src.SetWaypoint(info.list[2].npc) == false and Src.SetWaypoint(idg.list[1].npc) == false, "K7 no coordinates -> no waypoint, nothing invented")
+  check(Src.SetWaypoint(info.list[2].npc) == false and Src.SetWaypoint(idg.list[1].npc) == false, "no coordinates -> no waypoint, nothing invented")
   GCA.Print = savedPrint
   local made
   MenuUtil = { CreateContextMenu = function(owner, gen)
@@ -180,19 +180,19 @@ do
     gen(owner, root); made = root
   end }
   check(Src.Menu(UIParent, info, "Vest") and made and made.title == "Vest" and #made.items == 1
-    and made.items[1] == "Show on map: Androd Fadran (vendor)", "K14 right-click menu via MenuUtil.CreateContextMenu (show on map)")
+    and made.items[1] == "Show on map: Androd Fadran (vendor)", "right-click menu via MenuUtil.CreateContextMenu (show on map)")
   local openedMap
   OpenWorldMap = function(id) openedMap = id end
   GCA.Print = function() end
   Src.ShowOnMap(vn)
   GCA.Print = savedPrint
-  check(openedMap == vn.map, "K14: clicking a source opens the world map on its zone (" .. tostring(openedMap) .. ")")
+  check(openedMap == vn.map, "clicking a source opens the world map on its zone (" .. tostring(openedMap) .. ")")
   OpenWorldMap = nil
-  check(Src.ShowOnMap({ name = "x" }) == false, "K14: no coordinates -> nothing happens")
+  check(Src.ShowOnMap({ name = "x" }) == false, "no coordinates -> nothing happens")
   MenuUtil = nil
-  check(Src.Menu(UIParent, { list = {} }) == false, "K7 no coordinates and no pattern -> no menu")
+  check(Src.Menu(UIParent, { list = {} }) == false, "no coordinates and no pattern -> no menu")
   check(UIx.SourceClick(UIParent, "RightButton", fakeSug(), cur) == true and UIx.SourceClick(UIParent, "LeftButton", dP, cur) == false,
-    "K7 SourceClick: right-click handled, left click not")
+    "SourceClick: right-click handled, left click not")
   ns.Sources = { npcs = {}, recipes = setmetatable({}, { __index = function() error("boom") end }) }
   reset()
   check(plain(UIx.SourceLine(dP, cur)) == "Pattern" and plain(UIx.SourceLine(dT, cur)) == "Trainer (skill 100)", "sources: data erroring -> coarse label")
@@ -305,11 +305,11 @@ do
   local tag
   for _, x in ipairs(tags) do if x[1] == "Not learned" then tag = x end end
   check(tag == nil and UIx.LearnText(dT, cur):find(UIx.COLORS.notLearnedTag, 1, true) and UIx.LearnText(fakeSug({ known = false, cand = { spellID = 1, recipe = {} } }), cur),
-    "user 2026-11-15: no grey 'Not learned' tag any more; one red source text (UI.LearnText) for every view")
+    "no grey 'Not learned' tag any more; one red source text (UI.LearnText) for every view")
   local b = show(dT)
   check(b.source == nil and b.nl._shown and plain(b.nl.text._text) == "Trainer (skill 100)"
     and b.nl.text._text:find("TrainerGossipIcon", 1, true) and b.nl.text._text:find(UIx.COLORS.notLearnedTag, 1, true) and b._SetHeight[1] == 50,
-    "user 2026-11-15: unlearned card = the best source with its icon (trainer), red, no third source line, 50 px: " .. plain(b.nl.text._text))
+    "unlearned card = the best source with its icon (trainer), red, no third source line, 50 px: " .. plain(b.nl.text._text))
   do
     local S = UIx.Src
     check(S.Icon("quest"):find("AvailableQuestIcon", 1, true) and S.Icon("vendor"):find("VendorGossipIcon", 1, true)
@@ -352,15 +352,15 @@ do
   check(not b.nl._shown and b._SetHeight[1] == 50, "known recipe -> no 'Not learned' button, 50 px")
   local de = ns.Locales.deDE
   check(string.format(de.SRC_LINE_VENDOR, "A", "B") == "Händler: A (B)" and string.format(de.SRC_LINE_TRAINER_HAVE, 170, 150) == "Lehrer (Fertigkeit 170, du hast 150)"
-    and de.FILTER_UNLEARNED == "Fehlende Rezepte zeigen" and de.NOT_LEARNED == "Nicht erlernt", "K7 German texts")
+    and de.FILTER_UNLEARNED == "Fehlende Rezepte zeigen" and de.NOT_LEARNED == "Nicht erlernt", "German texts")
   local inset = UIx.frame and (UIx.needsInset or nil)
   local nsf = UIx.AddInnerBorder(CreateFrame("Frame", nil, UIParent))
   check(nsf and nsf.how == "atlas" and nsf.TopLeftCorner._atlas == "UI-Frame-InnerTopLeft" and nsf.RightEdge._atlas == "!UI-Frame-InnerRightTile"
     and nsf.BottomLeftCorner._points[1][5] == -1 and nsf.TopEdge._h == 3 and nsf.LeftEdge._w == 3,
-    "K7 inner border: 6x6 corners (bottom at y -1), 3 px tiles, probe atlases")
+    "inner border: 6x6 corners (bottom at y -1), 3 px tiles, probe atlases")
   NineSliceUtil = { ApplyLayoutByName = function(f, name) f.TopLeftCorner = { layout = name } end }
   local nsu = UIx.AddInnerBorder(CreateFrame("Frame", nil, UIParent))
-  check(nsu.how == "util" and nsu.TopLeftCorner.layout == "InsetFrameTemplate", "K7 inner border: NineSliceUtil 'InsetFrameTemplate' layout when present")
+  check(nsu.how == "util" and nsu.TopLeftCorner.layout == "InsetFrameTemplate", "inner border: NineSliceUtil 'InsetFrameTemplate' layout when present")
   NineSliceUtil = nil
   local origInfo = C_Texture.GetAtlasInfo
   C_Texture.GetAtlasInfo = function(name)
@@ -377,7 +377,7 @@ do
       and rb.clip and rb.fill._w == UIx.PROF_BAR_W - 10 and math.abs(rb.clip._w - (UIx.PROF_BAR_W - 10) * 0.5) < 1e-9
       and tc and math.abs(tc[1] - 0.1) < 1e-9 and math.abs(tc[2] - 0.5) < 1e-9 and math.abs(tc[4] - 1 / 30) < 1e-9
       and rb.flare._shown and rb.flare._points[1][2] == rb.clip,
-      "K7/K8 rank bar: LW flipbook fill at full width in a clipping frame cut to 50 %, one frame (row 1 of 30, column 1 of 2), flare at the cut")
+      "rank bar: LW flipbook fill at full width in a clipping frame cut to 50 %, one frame (row 1 of 30, column 1 of 2), flare at the cut")
     local anim = {}
     local fakeAG = { Play = function() anim.played = (anim.played or 0) + 1 end, Stop = function() end, SetLooping = function(_, v) anim.loop = v end,
       CreateAnimation = function(_, kind)
@@ -391,14 +391,14 @@ do
     Frame.CreateTexture = origCT2
     rb2:SetSkill("x", 150, 300, "Leatherworking"); rb2:SetSkill("x", 150, 300, "Leatherworking")
     check(rb2.anim == fakeAG and anim.kind == "FlipBook" and anim.rows == 30 and anim.cols == 2 and anim.frames == 60 and anim.dur == 2
-      and anim.loop == "NONE" and anim.played == 1, "K8 rank bar: FlipBook 30x2, 60 frames, 2 s, played once per new rank (not on every refresh)")
+      and anim.loop == "NONE" and anim.played == 1, "rank bar: FlipBook 30x2, 60 frames, 2 s, played once per new rank (not on every refresh)")
     rb2:SetSkill("x", 151, 300, "Leatherworking")
-    check(anim.played == 2, "K8 rank bar: a new rank plays it again")
+    check(anim.played == 2, "rank bar: a new rank plays it again")
     rb:SetSkill("Schneiderei 300/300", 300, 300, "Tailoring")
     check(rb.fill._atlas == "Skillbar_Fill_Flipbook_Tailoring" and rb.flare._atlas == "Skillbar_Flare_Leatherworking" and not rb.flare._shown,
-      "K7 rank bar: the profession's own fill when the client has it, LW flare as fallback, no flare at 100 %")
+      "rank bar: the profession's own fill when the client has it, LW flare as fallback, no flare at 100 %")
   else
-    check(false, "K7 rank bar: UI.CreateProfessionPicker exported for the test")
+    check(false, "rank bar: UI.CreateProfessionPicker exported for the test")
   end
   C_Texture.GetAtlasInfo = origInfo
   UIx.frame:Hide()
@@ -463,7 +463,7 @@ do
     "card: second line = 'replaces both hands' (no speed/stat changes on cards): " .. plain(cards[9101] and cards[9101].sub._text))
   check(UIx.NeedsCatTitle(16) == "Main Hand" and UIx.NeedsCatTitle(17) == "Off Hand" and UIx.NeedsCatTitle(18) == "Ranged", "guild needs categories Main Hand / Off Hand / Ranged")
   captureTip(); cards[9101]._scripts.OnEnter(cards[9101])
-  check(plainTip("9101"), "K17: a weapon row's tooltip = the item + only the stat-change block: " .. tipText())
+  check(plainTip("9101"), "a weapon row's tooltip = the item + only the stat-change block: " .. tipText())
   ns.locale = "deDE"
   check(UIx.StatText(UIx.StatDiff(twoH)[1]) == "Tempo 2,60 → 3,40" and UIx.NeedsCatTitle(16) == "Haupthand" and UIx.NeedsCatTitle(17) == "Nebenhand"
     and UIx.NeedsCatTitle(18) == "Distanz" and UIx.RowPair(offH) == "Nebenhand" and UIx.CraftTags(partner)[1][1] == "braucht eine Nebenhand"

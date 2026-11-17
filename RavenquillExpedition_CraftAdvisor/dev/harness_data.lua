@@ -14,7 +14,7 @@ local function readAll(p) local h = assert(io.open(p, "rb")); local s = h:read("
 
 local PROFS = { Leatherworking = 165, Blacksmithing = 164, Tailoring = 197, Engineering = 202, Enchanting = 333 }
 
-section("D1: every Data file of the .toc runs with no globals at all")
+section("every Data file of the .toc runs with no globals at all")
 local dataFiles = {}
 for _, f in ipairs(Files.all()) do if f:find("^Data/") then dataFiles[#dataFiles + 1] = f end end
 local ns, touched = {}, {}
@@ -26,7 +26,7 @@ local ok, err = pcall(Files.load, dataFiles, ns, env)
 check(ok and #dataFiles >= 9, ("%d Data files load (%s)"):format(#dataFiles, ok and "ok" or tostring(err)))
 check(#touched == 0, "no Data file reads or writes a global (another addon's tables included): " .. table.concat(touched, ", "))
 
-section("D2: recipe rows (Data/<Profession>.lua)")
+section("recipe rows (Data/<Profession>.lua)")
 local R, META = ns.Recipes or {}, ns.RecipeMeta or {}
 local EXPECT = { Leatherworking = 501, Blacksmithing = 438, Tailoring = 398, Engineering = 251, Enchanting = 62 }
 for prof, line in pairs(PROFS) do
@@ -82,14 +82,14 @@ check(R.Tailoring[1229504].faction == "Horde" and R.Tailoring[1263425].faction =
 check(R.Tailoring[461692] and R.Leatherworking[461692] and R.Leatherworking[22815].item == 18258 and R.Tailoring[22813].item == 18258,
   "461692 in Tailoring and LW; item 18258 made by 22815 (LW) and 22813 (Tailoring)")
 
-section("D3: game data changes applied by hand (WoW Forever, 2026-11-16)")
+section("game data changes applied by hand (WoW Forever, 2026-11-16)")
 local function reagent(r, id) for _, p in ipairs(r.r) do if p[1] == id then return p[2] end end end
 check(R.Leatherworking[1263031].skill == 125, "Tanning Rack (1263031) needs Leatherworking 125: " .. R.Leatherworking[1263031].skill)
 check(reagent(R.Tailoring[3758], 2997) == 5 and reagent(R.Tailoring[6688], 2997) == 5,
   ("Green / Red Woolen Bag take 5 Bolt of Woolen Cloth: %s / %s"):format(tostring(reagent(R.Tailoring[3758], 2997)),
     tostring(reagent(R.Tailoring[6688], 2997))))
 
-section("D4: enchant rows (Data/Enchants.lua)")
+section("enchant rows (Data/Enchants.lua)")
 local E = ns.Enchants and ns.Enchants.rows or {}
 do
   local kinds, bad, spells = {}, {}, {}
@@ -117,7 +117,7 @@ do
   check(not spells[1217203] and not spells[435481] and spells[13419], "1217203 and 435481 (no counterpart in game) not in the table, 13419 is")
 end
 
-section("D5: maintained here: no generator, no other addon")
+section("maintained here: no generator, no other addon")
 do
   local stale = {}
   for _, f in ipairs(dataFiles) do

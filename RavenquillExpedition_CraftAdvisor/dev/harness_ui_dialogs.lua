@@ -82,7 +82,7 @@ local function sweep(locale)
     locale .. ": the sweep reached the folded line, 2 craft rows + their member rows, group headers, sync dot, (i) icon and search box ("
     .. needEnter .. "/" .. craftEnter .. "/" .. groupEnter .. ")")
   check(sheetSlotEnter == 17 and sheetCardEnter == 2 and sheetAltEnter == 2 and toggleEnter == 1,
-    locale .. ": K4: the sweep reached the 17 sheet slots, both cards, 2 alternatives and the K6 view dropdown ("
+    locale .. ": the sweep reached the 17 sheet slots, both cards, 2 alternatives and the K6 view dropdown ("
     .. sheetSlotEnter .. "/" .. sheetCardEnter .. "/" .. sheetAltEnter .. "/" .. toggleEnter .. ")")
   check(nEnter >= 30 and #bad == 0 and UIx.errorCount == errBefore and GCA:Diag().lastError == nil,
     locale .. ": " .. nEnter .. " OnEnter handlers ran without an error (" .. table.concat(bad, "; ")
@@ -225,7 +225,7 @@ do
   UIx:Refresh()
   GCA.GetMemberList = orig
   check(UIx.errorCount == before and UIx.nameText._text == "No guild members yet" and UIx.emptyText._text == "" and UIx.sugHeader._text == ""
-    and UIx.subText._text == "" and UIx.sourceLine == "" and not UIx.infoIcon._shown, "L-4: name says so; empty text, header, sub-line, source line cleared")
+    and UIx.subText._text == "" and UIx.sourceLine == "" and not UIx.infoIcon._shown, "name says so; empty text, header, sub-line, source line cleared")
   UIx.frame:Hide()
 end
 
@@ -239,11 +239,11 @@ do
   check(f.Bg._shown and f.gcaArt.fill._SetColorTexture[4] < 1, "native Bg kept, translucent dark wash")
   local nIns = 0
   for _, c in ipairs(descendants(f)) do
-    if c.NineSlice and c ~= f and c.Bg then nIns = nIns + 1; check(c.Bg._alpha == nil, "L-3: no art -> inset Bg untouched") end
+    if c.NineSlice and c ~= f and c.Bg then nIns = nIns + 1; check(c.Bg._alpha == nil, "no art -> inset Bg untouched") end
   end
-  check(nIns == 2, "L-3/K8: two list insets in the no-art pass (the detail panels have none)")
+  check(nIns == 2, "two list insets in the no-art pass (the detail panels have none)")
   check(UIx.optionsPopup == nil and UIx.profPopup == nil and UIx.profButton.art == "plain" and UIx.profButton.drop.arrowKind == "file",
-    "K6: no atlases: the rank bar falls back to a plain track, the dropdown arrow to the caret file (no popups: native menus)")
+    "no atlases: the rank bar falls back to a plain track, the dropdown arrow to the caret file (no popups: native menus)")
   UIx.current = { key = "Bud Stone", online = true, prof = "Leatherworking", level = 39 }
   UIx.sugList:SetData({ fakeSug() })
   local b = UIx.sugList.rows[1]
@@ -270,16 +270,16 @@ do
   check(ok and not f._shown, "fallback close button hides")
   local bd = 0
   for _, c in ipairs(descendants(f)) do if c._backdrop and c._shown then bd = bd + 1 end end
-  check(bd == 2, "K8: two fallback list panels with backdrop (guild needs, members) (" .. bd .. ")")
+  check(bd == 2, "two fallback list panels with backdrop (guild needs, members) (" .. bd .. ")")
   local alphas = {}
   for _, c in ipairs(descendants(f)) do if c._backdrop and c._shown and c._SetBackdropColor then alphas[#alphas + 1] = c._SetBackdropColor[4] end end
-  check(#alphas == 2 and alphas[1] == 0.6 and alphas[2] == 0.6, "L-3: fallback look unchanged (panel alpha 0.6)")
+  check(#alphas == 2 and alphas[1] == 0.6 and alphas[2] == 0.6, "fallback look unchanged (panel alpha 0.6)")
   H.atlasMode = "ok"
 end
 CreateFrame = origCF
 
 do
-  print("== K0/L2: whisper to a name with a space; K0/L3: spec reasons + slash replies localized")
+  print("== whisper to a name with a space; K0/L3: spec reasons + slash replies localized")
   local box = { text = "" }
   function box:SetChatType(t) self.chatType = t end
   function box:SetTellTarget(n) self.tell = n end

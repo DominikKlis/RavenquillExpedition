@@ -21,7 +21,7 @@ do
       end
     end
   end
-  check(bad == 0 and n == 9 * 21 * 4, ("W2: %d class/level/weapon-subclass cases = SimGear's equip.weapons + polearm gate (%d differ)"):format(n, bad))
+  check(bad == 0 and n == 9 * 21 * 4, ("%d class/level/weapon-subclass cases = SimGear's equip.weapons + polearm gate (%d differ)"):format(n, bad))
   check(GCA:CanWear("MAGE", 1, { classID = 2, subClassID = 19, equipLoc = "INVTYPE_RANGEDRIGHT" }) and GCA:CanWear("PRIEST", 1, { classID = 2, subClassID = 19 })
     and GCA:CanWear("WARLOCK", 1, { classID = 2, subClassID = 19 }) and not GCA:CanWear("ROGUE", 60, { classID = 2, subClassID = 19 })
     and not GCA:CanWear("HUNTER", 60, { classID = 2, subClassID = 19 }), "wands: Mage/Priest/Warlock only")
@@ -152,13 +152,13 @@ do
   end
   local nCand = 0
   for _, c in ipairs(GCA:GetCandidates("Blacksmithing")) do if recipes[c.spellID] then nCand = nCand + 1 end end
-  check(nCand == 8, "W1: all 8 weapon/shield crafts are candidates (sword, 2H, polearm, dagger, off-hand blade, gun, wand, shield): " .. nCand)
+  check(nCand == 8, "all 8 weapon/shield crafts are candidates (sword, 2H, polearm, dagger, off-hand blade, gun, wand, shield): " .. nCand)
   local by, list = run("WARRIOR", "ARMS", 40, { [16] = link(994101) })
   local gs, sw = by[994002], by[994001]
   check(gs and gs.tier == 1 and gs.slot == 16 and gs.status == "upgrade" and gs.pct and gs.pct > 0, "Arms Lv40 with a 2H: Craft Greatsword is an upgrade (main hand)")
   check(sw and sw.status == "needs-partner" and sw.tier == GCA.TIER_PARTNER and sw.slot == 16 and sw.pct == nil
     and math.abs(sw.points - GCA:ToPoints(gs.e, sw.newScore)) < 1e-9 and sw.equipped and sw.equipped.name == "Old 2H",
-    "W8.2: a one-hander next to a worn 2H: own tier, scored alone (points = its own score), replaces the 2H")
+    "a one-hander next to a worn 2H: own tier, scored alone (points = its own score), replaces the 2H")
   check(by[994008] and by[994008].status == "needs-partner" and by[994008].slot == 17, "a shield next to a worn 2H: needs a main hand, off-hand section")
   check(by[994005] == nil, "Arms: no off-hand weapon (no dual wield)")
   check(GCA:CanWear("WARRIOR", 40, { classID = 2, subClassID = 15 }) and by[994006] and by[994006].slot == 18
@@ -171,7 +171,7 @@ do
   for _, sec in ipairs(list.sections) do if #sec.rows > 0 then secKeys[sec.key] = #sec.rows end end
   check(secKeys[16] and secKeys[17] and secKeys[18], "rows reach the main hand, off hand and ranged sections")
   by = run("WARRIOR", "ARMS", 19, { [16] = link(994101) })
-  check(by[994003] and by[994003].future and by[994003].wearAt == 20, "W2: polearm for a Lv19 Warrior: look-ahead row, wearable at 20")
+  check(by[994003] and by[994003].future and by[994003].wearAt == 20, "polearm for a Lv19 Warrior: look-ahead row, wearable at 20")
   by = run("WARRIOR", "ARMS", 20, { [16] = link(994101) })
   check(by[994003] and not by[994003].future, "polearm at 20: a normal row")
   by = run("WARRIOR", "PROTECTION", 40, { [16] = link(994102), [17] = link(994008) })
@@ -184,7 +184,7 @@ do
   W(994106, "Strong Dagger", "INVTYPE_WEAPON", 20, { ITEM_MOD_AGILITY_SHORT = 25, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 45 }, 15)
   by = run("ROGUE", "COMBAT", 30, { [16] = link(994106), [17] = link(994104) })
   check(by[994004] and by[994004].hand == "off" and by[994004].slot == 17 and by[994004].equipped.name == "Old Dagger",
-    "W4: dual wield: a one-hander better in the off hand is offered for the off hand (hand 'off', section 17, replaces the off-hand dagger)")
+    "dual wield: a one-hander better in the off hand is offered for the off hand (hand 'off', section 17, replaces the off-hand dagger)")
   itemDB[994005].minLevel = 1; GCA.infoCache = {}
   by = run("ROGUE", "COMBAT", 8, {})
   check(by[994005] and by[994005].future and by[994005].wearAt == 10, "Rogue Lv8: the off-hand blade is a look-ahead row, wearable at 10 (Dual Wield)")

@@ -285,14 +285,14 @@ local function windowChecks(label)
   advance(1)
   local f = GCA.UI.frame
   check(f and f._shown, "window opens")
-  check(f._w == 980 and f._h == 640 and f._points[1][1] == "CENTER", "J2: nothing saved -> default size 980x640, centred")
+  check(f._w == 980 and f._h == 640 and f._points[1][1] == "CENTER", "nothing saved -> default size 980x640, centred")
   if H.templateMode == "ok" then
     check(f._title == "Guild Craft Advisor", "title set via SetTitle")
     check(f.PortraitContainer.portrait._tex == "Interface\\Icons\\Trade_LeatherWorking", "portrait set")
     local art = f.gcaArt
     check(art and art.overview and art.overview._atlas == "Profession-Background-Overview", "overview atlas drawn")
     check(art and art.pageArt and art.pageArt._atlas == "Profession-Background-Template2" and art.header == nil
-      and art.page._points[1][4] == 3 and art.page._points[1][5] == -21, "K6: Template2 over the whole page from 3,-21 as the client's CraftingPage (no 54 px clipped strip)")
+      and art.page._points[1][4] == 3 and art.page._points[1][5] == -21, "Template2 over the whole page from 3,-21 as the client's CraftingPage (no 54 px clipped strip)")
     check(art and art.fill._SetColorTexture and art.fill._SetColorTexture[4] == 1, "dark fill under the art")
     check(not f.Bg._shown, "template Bg hidden under the art")
     check(art and f.NineSlice._level > art.canvas._level and f.NineSlice._level > art.page._level
@@ -311,41 +311,41 @@ local function windowChecks(label)
       local sf
       for _, cc in ipairs(c._children) do if cc.minimalBar then sf = cc end end
       check(sf and sf._linkedBar == sf.minimalBar and sf.minimalBar._template == "MinimalScrollBar" and sf._scripts.OnMouseWheel
-        and sf.ScrollBar == nil, "K6: list panel holds a plain scroll frame + MinimalScrollBar (ScrollUtil), wheel scrolls")
+        and sf.ScrollBar == nil, "list panel holds a plain scroll frame + MinimalScrollBar (ScrollUtil), wheel scrolls")
     end
   end
-  check(insets == 2, "K8: two list panels on Professions-background-summarylist: guild needs, member list (the suggestions sit in the member's detail panel) (" .. insets .. ")")
+  check(insets == 2, "two list panels on Professions-background-summarylist: guild needs, member list (the suggestions sit in the member's detail panel) (" .. insets .. ")")
   local nd, md = GCA.UI.needDetail, GCA.UI.memberDetail
   check(nd and md and nd.NineSlice and md.NineSlice and nd.NineSlice.role == "detailBorder" and md.NineSlice.role == "detailBorder"
     and nd.NineSlice.how == "atlas1" and nd.NineSlice.frameTex._atlas == "common-insideframe" and nd.cardBg and md.cardBg
     and nd.bg == nil and md.bg == nil and GCA.UI.sugInset._parent == md and GCA.UI.sugInset.bg == nil,
-    "K9: craft + member detail panels framed by common-insideframe with the profession card behind, the list/sheet inside")
+    "craft + member detail panels framed by common-insideframe with the profession card behind, the list/sheet inside")
   local slotLike = 0
   for _, c in ipairs(descendants(f)) do if c.slot ~= nil and c.up ~= nil then slotLike = slotLike + 1 end end
   check(GCA.UI.slotButtons == nil and GCA.UI.ScrollToSlot == nil and GCA.UI.sugList.ScrollToAnchor == nil and slotLike == 0,
-    "J1: no gear-slot buttons, no ScrollToSlot/ScrollToAnchor (" .. slotLike .. " slot-like frames)")
-  check(GCA.DISPLAY_SLOTS == nil, "J1: Core's DISPLAY_SLOTS (only the gear row used it) removed")
+    "no gear-slot buttons, no ScrollToSlot/ScrollToAnchor (" .. slotLike .. " slot-like frames)")
+  check(GCA.DISPLAY_SLOTS == nil, "Core's DISPLAY_SLOTS (only the gear row used it) removed")
   local ins = GCA.UI.sugInset
   check(ins._points[1][5] == -76 and GCA.UI.sugHeader._points[1][5] == -54 and GCA.UI.infoIcon._points[1][5] == -52
-    and GCA.UI.sourceText == nil, "K1/K8: header -54 beside the (i) icon, list area -76 inside the member detail panel")
+    and GCA.UI.sourceText == nil, "header -54 beside the (i) icon, list area -76 inside the member detail panel")
   check((GCA.UI.subText._text or ""):find("self%-reported"), "source line says self-reported: " .. tostring(GCA.UI.subText._text))
   local sb = GCA.UI.specButton
   GCA.db.specManual = {}; GCA:InvalidateScores(); GCA.UI:Refresh()
   local sdd = sb.dropdown
   check(sb._shown and sdd.native and sdd._template == "WowStyle1DropdownTemplate" and plain(sdd._override):find("unknown – pick", 1, true)
-    and sb.small == nil, "K6: spec picker = native WowStyle1DropdownTemplate, text 'unknown – pick' (no 'SPEC' label box): " .. plain(sdd._override))
+    and sb.small == nil, "spec picker = native WowStyle1DropdownTemplate, text 'unknown – pick' (no 'SPEC' label box): " .. plain(sdd._override))
   check((GCA.UI.emptyText._text or ""):find("Spec unknown"), "empty text asks for a spec")
   local sm = menuOf(sdd)
   check(#sm == 4 and sm[1].kind == "radio" and sm[1]:on() and menuTexts(sm):find("^Automatic.*|Assassination|Combat|Subtlety$"),
-    "K6: spec menu radios: Automatic (selected) + 3 Rogue specs: " .. menuTexts(sm))
+    "spec menu radios: Automatic (selected) + 3 Rogue specs: " .. menuTexts(sm))
   sm[3]:click()
   GCA.UI:Refresh()
   check(GCA.db.specManual["Me Stone"] and GCA.db.specManual["Me Stone"].spec == "COMBAT", "manual pick saved")
-  check(menuOf(sdd)[3]:on() and not menuOf(sdd)[1]:on(), "K6: the Combat radio is selected now")
+  check(menuOf(sdd)[3]:on() and not menuOf(sdd)[1]:on(), "the Combat radio is selected now")
   check(plain(sdd._override):find("Combat") and not sb.icon._shown and sb.iconKind == nil,
     "spec dropdown shows the pick; no class icon in this mock (no atlas, no CLASS_ICON_TCOORDS): " .. plain(sdd._override))
   check((GCA.UI.sourceLine or ""):find("SimGear Forever 0.14.0 · Combat Lv40 %(nearest set for Lv36%) · simmed · leveling bonus 50%%")
-    and GCA.UI.infoIcon._shown, "K1: source line in the (i) icon's tooltip: " .. tostring(GCA.UI.sourceLine))
+    and GCA.UI.infoIcon._shown, "source line in the (i) icon's tooltip: " .. tostring(GCA.UI.sourceLine))
   local sl = GCA.UI.survival.slider
   check(sl._value == 50 and (GCA.UI.survival.label._text or ""):find("50%%"), "slider starts at 50 %")
   local invN, realInv = 0, GCA.InvalidateScores
@@ -466,7 +466,7 @@ local function layoutChecks(UIx, f, label)
   local R = function(fr) return rectOf(fr, f) end
   local common = {
     { "drag bar", UIx.dragBar }, { "profession selector", UIx.profButton }, { "sync dot", UIx.syncDot },
-    { "K6 leveling-bonus slider", UIx.survival },
+    { "leveling-bonus slider", UIx.survival },
     { "resize grip", UIx.resizeGrip },
   }
   if not UIx.tabsTemplated then
@@ -475,7 +475,7 @@ local function layoutChecks(UIx, f, label)
   local views = {
     member = { { "member panel", UIx.memberInset }, { "name", UIx.nameText }, { "spec button", UIx.specButton },
       { "sub-line", UIx.subText }, { "(i) icon", UIx.infoIcon }, { "list header", UIx.sugHeader }, { "suggestion panel", UIx.sugInset },
-      { "K4 view switch", UIx.modeToggle } },
+      { "view switch", UIx.modeToggle } },
     needs = { { "needs panel", UIx.needsInset }, { "craft detail panel", UIx.needDetail } },
   }
   for _, vname in ipairs({ "member", "needs" }) do
@@ -496,16 +496,16 @@ local function layoutChecks(UIx, f, label)
   end
   local pb, dot = R(UIx.profButton), R(UIx.syncDot)
   check(pb.l + pb.r == W and pb.t == 27 and pb.b == 56 and pb.r + 10 <= dot.l and dot.r == W - 20 and dot.b <= 62,
-    label .. ": K8 rank bar centred under the title, sync label right of it, both above the panels (62) " .. rstr(pb) .. " " .. rstr(dot))
+    label .. ": rank bar centred under the title, sync label right of it, both above the panels (62) " .. rstr(pb) .. " " .. rstr(dot))
   if UIx.tabsTemplated then
     local t1, t2 = R(UIx.tabs[1]), R(UIx.tabs[2])
     check(t1.t == H - 2 and t1.l == 12 and t2.l >= t1.r, label .. ": view tabs hang under the window's bottom edge, side by side")
   end
   local mi, md, si = R(UIx.memberInset), R(UIx.memberDetail), R(UIx.sugInset)
-  check(mi.l == 10 and mi.r - mi.l == 260 and mi.t == 62 and mi.b == H - 40, label .. ": K8 member list panel 260 wide, 62..H-40 " .. rstr(mi))
-  check(md.l == 278 and md.r == W - 12 and md.t == 62 and md.b == H - 40, label .. ": K8 member detail panel fills 278..W-12, 62..H-40 " .. rstr(md))
+  check(mi.l == 10 and mi.r - mi.l == 260 and mi.t == 62 and mi.b == H - 40, label .. ": member list panel 260 wide, 62..H-40 " .. rstr(mi))
+  check(md.l == 278 and md.r == W - 12 and md.t == 62 and md.b == H - 40, label .. ": member detail panel fills 278..W-12, 62..H-40 " .. rstr(md))
   check(si.l == md.l + 6 and si.r == md.r - 6 and si.t == md.t + 76 and si.b == md.b - 6,
-    label .. ": K8 sheet / list area inside the detail panel, below its header (76) " .. rstr(si))
+    label .. ": sheet / list area inside the detail panel, below its header (76) " .. rstr(si))
   local ml, sl = R(UIx.memberList), R(UIx.sugList)
   check(ml.b == mi.b - 5 and ml.r == mi.r - 25 and sl.b == si.b - 5 and sl.r == si.r - 29,
     label .. ": both scroll frames fill their panel (25 / 29 px left for the scroll bar, as in 0.5.0) " .. rstr(ml) .. " " .. rstr(sl))
@@ -518,20 +518,20 @@ local function layoutChecks(UIx, f, label)
     label .. ": header texts span the detail panel, (i) icon left of the list header, K4 switch right of it")
   local ni, nl, sbx, cnt, nd = R(UIx.needsInset), R(UIx.needsList), R(UIx.searchBox), R(UIx.needsCount), R(UIx.needDetail)
   check(ni.l == 10 and ni.r == 270 and ni.t == 62 and ni.b == H - 40 and nl.r == ni.r - 25 and nl.b == ni.b - 23 and nl.t == ni.t + 34,
-    label .. ": K8 guild-needs list panel 10..270, 62..H-40, its list between the search and the count " .. rstr(ni) .. " " .. rstr(nl))
+    label .. ": guild-needs list panel 10..270, 62..H-40, its list between the search and the count " .. rstr(ni) .. " " .. rstr(nl))
   check(nd.l == 278 and nd.r == W - 12 and nd.t == 62 and nd.b == H - 40 and UIx.needDetail.w == W - 290 and UIx.needDetail.h == H - 102,
-    label .. ": K8 craft detail panel fills 278..W-12, 62..H-40 " .. rstr(nd))
+    label .. ": craft detail panel fills 278..W-12, 62..H-40 " .. rstr(nd))
   local obx = R(UIx.filterButton)
   check(sbx.l >= ni.l and sbx.t >= ni.t and sbx.b <= nl.t and obx.r == ni.r - 8 and obx.b <= nl.t and sbx.r < obx.l
     and cnt.t >= nl.b and cnt.b <= ni.b and cnt.l == ni.l + 10 and cnt.r == ni.r - 10
     and UIx.needsList.content._w == UIx.needsList.viewW and UIx.needsW == UIx.needsList.viewW,
-    label .. ": K8 search | Filter above the list, the count under it, all inside the list panel " .. rstr(sbx) .. " " .. rstr(obx) .. " " .. rstr(cnt))
+    label .. ": search | Filter above the list, the count under it, all inside the list panel " .. rstr(sbx) .. " " .. rstr(obx) .. " " .. rstr(cnt))
   local ms = R(UIx.memberSearch)
   check(ms.l >= mi.l and ms.r <= mi.r and ms.t >= mi.t and ms.b <= ml.t, label .. ": member search inside the member panel, above the list " .. rstr(ms))
   local art = f.gcaArt
   local cv, hd = R(art.canvas), R(art.page)
   check(cv.l == 2 and cv.t == 21 and cv.r == W - 2 and cv.b == H - 3 and hd.l == 3 and hd.r == W - 3 and hd.t == 21 and hd.b == H - 3,
-    label .. ": K6 art canvas (Overview, 2,-21) and the Template2 page (3,-21) fill the window at every size " .. rstr(cv) .. " " .. rstr(hd))
+    label .. ": art canvas (Overview, 2,-21) and the Template2 page (3,-21) fill the window at every size " .. rstr(cv) .. " " .. rstr(hd))
   local g = R(UIx.resizeGrip)
   check(g.r == W - 4 and g.b == H - 4 and g.t >= md.b and g.t >= nd.b, label .. ": grip in the bottom-right corner, below the panels")
 end

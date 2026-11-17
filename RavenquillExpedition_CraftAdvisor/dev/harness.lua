@@ -141,7 +141,7 @@ GCA.db.settings.showUnlearned = true
 local e = GCA:ComputeSuggestions({class="DRUID", level=28, items=units.target.items, spec="FERAL_CAT"}, false)
 print("with unlearned:", #e)
 check(#e >= 1, "show unlearned: still computes")
-check(GCA.db.settings.memberView == "sheet", "K4: member view defaults to the character sheet")
+check(GCA.db.settings.memberView == "sheet", "member view defaults to the character sheet")
 GCA.db.settings.memberView = "list"
 GCA.UI:Toggle(); runTimers()
 print("UI shown", GCA.UI.frame:IsShown(), "selected", GCA.UI.selected, "auto", GCA.UI.autoKey, "first", GCA.UI.memberList.rows[1].data.key, GCA.UI.memberList.rows[1].data.best, "rows", #GCA.UI.sugList.rows)
@@ -156,18 +156,18 @@ do
   check(first and first.data.sec.key == 5 and #first.data.sec.rows == 1 and sl.rows[1].data == first.data.sec.rows[1]
     and shownSecs == 1 and fold and #fold.data.secs == 14 and sl.data[#sl.data] == fold.data
     and (GCA.UI.errorCount or 0) == 0 and GCA:Diag().lastError == nil,
-    "I/K1: real refresh -> chest section first with the vest row, the 14 others folded into one last line, no reported error ("
+    "real refresh -> chest section first with the vest row, the 14 others folded into one last line, no reported error ("
     .. shownSecs .. " sections, " .. (fold and #fold.data.secs or 0) .. " folded)")
   local nl = GCA.UI.needsList
   check(GCA.UI.view == "needs" and nl.data[1] and nl.data[1].rowKind == "cat" and nl.data[1].cat == 5 and nl.data[2] and nl.data[2].group
     and nl.data[2].rows[1].member.key == "Buddy Stone"
     and nl.data[2].group.sug == first.data.sec.rows[1] and nl.data[2].group == GCA:GuildNeedsByCraft(GCA.UI.lastMembers)[1]
     and GCA.UI.needDetail.entry == nl.data[2] and GCA.UI.needDetail.members.rows[1].data.member.key == "Buddy Stone",
-    "K5/K8: opens on guild needs; 'Chest' category, first craft = Buddy's vest, shown in the detail panel (real Core GuildNeedsByCraft)")
+    "opens on guild needs; 'Chest' category, first craft = Buddy's vest, shown in the detail panel (real Core GuildNeedsByCraft)")
   local mrow
   for _, r in ipairs(rawget(GCA.UI.memberList, "rows")) do if r.data and r.data.key == "Buddy Stone" then mrow = r end end
   local line = mrow and GCA.UI.MemberLine(mrow.data) or ""
-  check(line:find("^%d+ upgrades? · best: Chest$"), "K5: member row second line on real data: " .. line)
+  check(line:find("^%d+ upgrades? · best: Chest$"), "member row second line on real data: " .. line)
   local UIx = GCA.UI
   UIx:SetMemberMode("sheet")
   local c = UIx.sheet.centre
@@ -177,16 +177,16 @@ do
   check(GCA.db.settings.memberView == "sheet" and UIx.selected == "Buddy Stone" and rawget(UIx.sheet, "_shown") and not rawget(sl, "_shown")
     and UIx.sheetSlot == 5 and c.mode == "upgrade" and c.featured == first.data.sec.rows[1] and UIx.sheet.slots[5].hasUpgrade
     and not UIx.sheet.slots[8].hasUpgrade and UIx.sheet.slots[8].worn and UIx.sheet.slots[8].worn.link,
-    "K4: sheet on real data: Buddy kept, chest selected (biggest upgrade, badge), the vest compared; feet worn, no badge")
+    "sheet on real data: Buddy kept, chest selected (biggest upgrade, badge), the vest compared; feet worn, no badge")
   check(#diffs == 3 and all:find("+30 Armor", 1, true) and all:find("+3 Agility", 1, true) and all:find("+3 Stamina", 1, true),
-    "K4: stat differences from the real item stats: " .. all)
-  check((UIx.errorCount or 0) == 0 and GCA:Diag().lastError == nil, "K4: no error reported by the sheet")
+    "stat differences from the real item stats: " .. all)
+  check((UIx.errorCount or 0) == 0 and GCA:Diag().lastError == nil, "no error reported by the sheet")
   UIx:SetMemberMode("list")
 end
 GCA.UI.selected, GCA.UI.autoKey = nil, nil
 GCA.UI:Refresh()
 check(GCA.UI.selected == "Buddy Stone" and GCA.UI.autoKey == "Buddy Stone" and GCA.UI.memberList.rows[1].data.key == "Me" and GCA.UI.memberList.rows[1].data.best ~= nil,
-  "U1: default = best non-self member with a known upgrade; you stay first in the list")
+  "default = best non-self member with a known upgrade; you stay first in the list")
 do
   local selfRow = GCA.UI.memberList.rows[1]
   rawget(selfRow, "_scripts").OnClick(selfRow, "LeftButton")

@@ -567,7 +567,7 @@ check(G:MemberSpec("Ivy Lake", "ROGUE", {}) == "COMBAT", "manual pick on the rec
 check(G.SPEC_INDEX["DRUID/BALANCE"] == 1 and G.SPEC_INDEX["SHAMAN/ENHANCEMENT_DW"] == 24 and G.SPEC_INDEX["WARRIOR/PROTECTION"] == 31 and #G.SPEC_LIST == 31,
   "spec index table unchanged (1 Balance, 24 Enh DW, 31 Warrior Prot)")
 
-section("K0/M1: one chatty sender can't hold everyone's sending; several busy senders still do")
+section("one chatty sender can't hold everyone's sending; several busy senders still do")
 do
   advance(900)
   A.RQ:CommResume()
@@ -614,7 +614,7 @@ do
   check(busSince(t2, function(e) return e.from == A.name and e.msg:match("^G;;") end) >= 1, "held send goes out once it is quiet")
 end
 
-section("K0/M2: the inspect queue waits for the final storing read before the next NotifyInspect")
+section("the inspect queue waits for the final storing read before the next NotifyInspect")
 do
   local G = A.GCA
   local notifies, stores = {}, {}
@@ -665,7 +665,7 @@ do
   for _, u in ipairs({ "party1", "party2", "party3", "party4" }) do A.units[u] = nil end
 end
 
-section("K5: automatic gear reading (group roster, mouseover): rules, combat, throttle, option")
+section("automatic gear reading (group roster, mouseover): rules, combat, throttle, option")
 do
   local G = A.GCA
   local notified = {}
@@ -685,7 +685,7 @@ do
     G.db.members["Emil Brook"] = { time = A.env.time() - G.AUTO_FRESH - 5, items = {} }
   end
   reset()
-  check(G.db.settings.autoInspect == true, "K5: 'autoInspect' defaults to on")
+  check(G.db.settings.autoInspect == true, "'autoInspect' defaults to on")
   A.fire("GROUP_ROSTER_UPDATE"); A.fire("GROUP_ROSTER_UPDATE"); A.fire("GROUP_ROSTER_UPDATE")
   check(#notified == 0, "GROUP_ROSTER_UPDATE is debounced (" .. G.AUTO_GROUP_DELAY .. " s), nothing at once")
   advance(G.AUTO_GROUP_DELAY + 0.1)
@@ -744,7 +744,7 @@ do
   for _, u in ipairs({ "party1", "party2", "mouseover", "target" }) do A.units[u] = nil end
 end
 
-section("K0/L5-L7: own spec persisted for alts; receive time; resume message only when paused")
+section("own spec persisted for alts; receive time; resume message only when paused")
 do
   local IG = I.GCA
   local own = IG.db.specs[IG.playerKey]
@@ -768,7 +768,7 @@ do
   check(resumed() == n0 + 1 and not A.RQ:CommState().slow, "SyncRetry while paused: resumed + message, slow mode left")
 end
 
-section("K0/L4: pruning characters that left the guild (conservative)")
+section("pruning characters that left the guild (conservative)")
 do
   local G, db = A.GCA, A.GCA.db
   local T = A.env.time()

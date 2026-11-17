@@ -7,7 +7,7 @@ H.lateGlobals()
 H.templateMode = "fail"
 
 do
-  print("== K4: member view variants (character sheet / list)")
+  print("== member view variants (character sheet / list)")
   local savedTM, savedBrowse = H.templateMode, GCA.IsBrowse
   H.templateMode = "ok"
   GCA.IsBrowse = function() return false end
@@ -72,7 +72,7 @@ do
   local mm = menuOf(mt)
   check(UIx.MemberMode() == "sheet" and mt.native and mt._template == "WowStyle1DropdownTemplate" and mt.buttons == nil and #mm == 2
     and menuTexts(mm) == "Character sheet|List" and mm[1].kind == "radio" and mm[1]:on() and not mm[2]:on() and mt._override == "View: Character sheet",
-    "K6: the view switch is a WowStyle1DropdownTemplate (radios Character sheet|List, text View: Character sheet), the sheet is the default")
+    "the view switch is a WowStyle1DropdownTemplate (radios Character sheet|List, text View: Character sheet), the sheet is the default")
   GCA.db.settings.memberView = "junk"
   check(UIx.MemberMode() == "sheet", "a junk saved value means the sheet")
   GCA.db.settings.memberView = nil
@@ -81,7 +81,7 @@ do
   local sh, c = UIx.sheet, UIx.sheet.centre
   check(sh._shown and not UIx.sugList._shown and UIx.current == bud and UIx.emptyText._text == "", "member view: the sheet is shown, the list hidden")
 
-  print("== K4: sheet: default slot, badges, selection")
+  print("== sheet: default slot, badges, selection")
   check(UIx.sheetSlot == 12 and UIx.sheetAuto and UIx.SheetDefaultSlot(bud.suggestions) == 12,
     "default slot = the biggest upgrade (Craft Ring +50% replaces Ring 2), not the first in character order")
   local badges, sel = {}, {}
@@ -135,7 +135,7 @@ do
   c.alts[1]._scripts.OnClick(c.alts[1])
   check(c.featured == s2 and c.best.label._text == "Compared" and c.alts[1].data == s1 and UIx.sheetSlot == 5, "alternative clicked: compared above ('Compared'), the best one listed below")
   captureTip(); c.alts[1]._scripts.OnEnter(c.alts[1])
-  check(plainTip(), "K17: alternative tooltip = the plain item tooltip (no click hint): " .. tipText())
+  check(plainTip(), "alternative tooltip = the plain item tooltip (no click hint): " .. tipText())
   linked = nil
   IsShiftKeyDown = function() return true end
   c.alts[1]._scripts.OnClick(c.alts[1])
@@ -159,21 +159,21 @@ do
   sh.slots[2]._scripts.OnClick(sh.slots[2])
   check(c.mode == "none" and c.none._shown, "...also for another empty slot")
   captureTip(); sh.slots[5]._scripts.OnEnter(sh.slots[5])
-  check(plainTip(), "K17: slot with a worn item: the plain item tooltip only: " .. tipText())
+  check(plainTip(), "slot with a worn item: the plain item tooltip only: " .. tipText())
   captureTip(); sh.slots[1]._scripts.OnEnter(sh.slots[1])
   check(tipText():find("Head (empty / unknown)", 1, true) and tipText():find("Nothing in this list beats", 1, true), "empty slot tooltip")
   sh.slots[5]._scripts.OnClick(sh.slots[5])
   captureTip(); c.best._scripts.OnEnter(c.best)
-  check(plainTip("4244") and UIx.modWatcher == nil, "K17: best card tooltip = the plain item tooltip (no Shift re-render any more)")
+  check(plainTip("4244") and UIx.modWatcher == nil, "best card tooltip = the plain item tooltip (no Shift re-render any more)")
   captureTip(); c.worn._scripts.OnEnter(c.worn)
-  check(plainTip(), "K17: worn card tooltip = the plain item tooltip: " .. tipText())
+  check(plainTip(), "worn card tooltip = the plain item tooltip: " .. tipText())
   sh.slots[3]._scripts.OnClick(sh.slots[3])
   check(c.nStats == 6 and c.nAlts == 2 and plain(c.tags._text):find("+1 more", 1, true) and plain(c.tags._text):find("some stats not readable", 1, true)
     and c.source._shown and c.source.text._text == UIx.LearnText(c.featured, UIx.current) and not c.offer._shown,
     "7 stat changes: 6 shown + '+1 more', 'some stats not readable'; the shared source button (no Offer for an unlearned recipe)")
   check(c.alts[2].data == sh3 and c.alts[2].offer._shown and plain(c.alts[2].tag._text) == "from level 44 · 5 to go" and c.alts[2].dimmed
     and (c.alts[2].offer._alpha or 1) == 1, "alternatives: level tag (orange text) + dimmed for too-high-level (Offer stays at full alpha)")
-  print("== K4: switch keeps the member and the slot; saved (K6: the dropdown's radios)")
+  print("== switch keeps the member and the slot; saved (K6: the dropdown's radios)")
   menuOf(UIx.modeToggle)[2]:click()
   check(GCA.db.settings.memberView == "list" and UIx.selected == "Bud Stone" and UIx.current == bud and UIx.sugList._shown and not sh._shown
     and menuOf(UIx.modeToggle)[2]:on() and not menuOf(UIx.modeToggle)[1]:on() and UIx.modeToggle._override == "View: List",
@@ -202,7 +202,7 @@ do
   UIx.selected = "Bud Stone"; UIx:Refresh()
   check(UIx.sheetSlot == 12 and UIx.sheetAuto, "back to Bud: his best slot again (the pick belonged to the member shown then)")
 
-  print("== K4: members without upgrades / without gear")
+  print("== members without upgrades / without gear")
   UIx.selected = "Cara Field"; UIx:Refresh()
   local anyBadge = false
   for _, b in pairs(sh.slots) do if b.badge._shown then anyBadge = true end end
@@ -211,7 +211,7 @@ do
   UIx.selected = "Nobody Yet"; UIx:Refresh()
   check(not sh._shown and UIx.emptyText._text == ns.Locales.enUS.EMPTY_NOGEAR, "no gear recorded: no sheet, the empty-state text explains: " .. tostring(UIx.emptyText._text))
 
-  print("== K4: list cards (MemberCards)")
+  print("== list cards (MemberCards)")
   UIx.selected = "Bud Stone"
   UIx:SetMemberMode("list")
   sl = UIx.sugList
@@ -220,7 +220,7 @@ do
   check(card and plain(card.title._text) == "Hillman's Leather Vest" and plain(card.sub._text) == ""
     and card.gain._text == "+12 pts" and card.points._text == "" and card.offer._shown and card.crafted._shown,
     "card (user 2026-11-15): name, no stat-difference line, '+12 pts', box, Offer: " .. plain(card and card.sub._text))
-  check(card.textW + (16 + 4 + 38 + 4 + 10) + (6 + 84 + 4 + 22 + 6 + 84 + 10) == UIx.listW, "K6: card texts (16 px indent) end where the gain / box / Offer block starts (no overlap)")
+  check(card.textW + (16 + 4 + 38 + 4 + 10) + (6 + 84 + 4 + 22 + 6 + 84 + 10) == UIx.listW, "card texts (16 px indent) end where the gain / box / Offer block starts (no overlap)")
   card.crafted:SetChecked(true); card.crafted._scripts.OnClick(card.crafted)
   check(GCA:CraftedMark("Bud Stone", "Leatherworking", 3762) ~= nil, "card crafted box stores the mark")
   GCA:SetCrafted("Bud Stone", "Leatherworking", s1, false)
@@ -231,14 +231,14 @@ do
   local hdr
   for _, h in ipairs(sl.pools.section) do if h._shown and h.data.sec.key == 11 then hdr = h end end
   check(hdr and plain(hdr.wornName._text) == "Ring A  ·  Ring B" and hdr.label == nil and hdr.count._text == "1 upgrade",
-    "K5 ring worn row: 'EQUIPPED', both rings named, '1 upgrade'")
+    "ring worn row: 'EQUIPPED', both rings named, '1 upgrade'")
   local fold = sl.pools.fold[1]
   check(fold._shown and fold.edges == nil and fold.line and fold.text._text:find("^No craftable upgrade: Head, Neck, ") and sl.data[#sl.data].rowKind == "fold",
     "the slots without an upgrade: one grey line at the end (K6: no box border)")
   local glHdr
   for _, h in ipairs(sl.pools.section) do if h._shown and h.data.sec.key == 10 then glHdr = h end end
   check(glHdr and plain(glHdr.wornName._text) == UIx.SectionTitle(glHdr.data.sec) .. " (empty)" and glHdr.empty and glHdr.box.bg == nil and glHdr.box.icon._SetDesaturated[1] == true
-    and glHdr.box.icon._alpha == 0.45, "K5 empty slot: dimmed '<Slot> (empty)', (K6: no box at all), the slot art desaturated")
+    and glHdr.box.icon._alpha == 0.45, "empty slot: dimmed '<Slot> (empty)', (K6: no box at all), the slot art desaturated")
   local gcard
   for _, r in ipairs(sl.rows) do if r._shown and r.data == glove then gcard = r end end
   check(gcard and gcard.dimmed and gcard.chip == nil and plain(gcard.sub._text):find("^from level 42 · 3 to go") and gcard.title._alpha == 0.55,
@@ -248,7 +248,7 @@ do
   check(ecard and plain(ecard.sub._text) == "replaces Minor Stamina on Bracers", "enchant card: what it replaces (no stat changes): " .. plain(ecard and ecard.sub._text))
   check(UIx.errorCount == errs, "no error reported (K4 English)")
 
-  print("== K4: German")
+  print("== German")
   ns.locale = "deDE"
   f = UIx.frame
   f:Hide(); GCA.UI.frame = nil; GCA.UI:Toggle(); advance(1)
@@ -274,7 +274,7 @@ do
   sh.slots[10]._scripts.OnClick(sh.slots[10])
   check(plain(c.tags._text) == "ab Stufe 42 · noch 3", "German level tag: " .. plain(c.tags._text))
 
-  print("== K4: layout of both variants (840x560 / 980x640 / 1600x1000, both languages)")
+  print("== layout of both variants (840x560 / 980x640 / 1600x1000, both languages)")
   local function sheetLayout(UIy, label)
     local fw = UIy.frame
     local R = function(fr) return rectOf(fr, fw) end
@@ -338,9 +338,9 @@ do
         UIx.sheet.slots[slot]._scripts.OnClick(UIx.sheet.slots[slot])
         sheetLayout(UIx, loc .. " " .. sz[1] .. "x" .. sz[2] .. " slot " .. slot)
       end
-      layoutChecks(UIx, UIx.frame, "K4 " .. loc .. " " .. sz[1] .. "x" .. sz[2] .. " (sheet)")
+      layoutChecks(UIx, UIx.frame, "" .. loc .. " " .. sz[1] .. "x" .. sz[2] .. " (sheet)")
       UIx:SetMemberMode("list")
-      layoutChecks(UIx, UIx.frame, "K4 " .. loc .. " " .. sz[1] .. "x" .. sz[2] .. " (list)")
+      layoutChecks(UIx, UIx.frame, "" .. loc .. " " .. sz[1] .. "x" .. sz[2] .. " (list)")
       local okCards = true
       for _, r in ipairs(UIx.sugList.rows) do
         if r._shown and r.textW then
@@ -349,7 +349,7 @@ do
           if r.textW + 72 + rightW ~= UIx.listW or r.textW < 60 then okCards = false end
         end
       end
-      check(okCards, "K4 " .. loc .. " " .. sz[1] .. "x" .. sz[2] .. ": every card's texts end at its right block, at least 60 px wide (K6: 16 px indent)")
+      check(okCards, "" .. loc .. " " .. sz[1] .. "x" .. sz[2] .. ": every card's texts end at its right block, at least 60 px wide (K6: 16 px indent)")
       UIx:SetMemberMode("sheet")
     end
   end
@@ -368,9 +368,9 @@ do
   fit("more title", D.SHEET_MORE, shx.iw, 5.6)
   fit("count", string.format(D.SHEET_COUNT_ENCH, 3), shx.iw - 100, 5.6)
   fit("level tag", string.format(D.LEVEL_TAG, 60, 10), 160, 5.6)
-  check(#tooWide == 0, "K4 German text fit at 840x560 (estimate): " .. table.concat(tooWide, "; "))
+  check(#tooWide == 0, "German text fit at 840x560 (estimate): " .. table.concat(tooWide, "; "))
 
-  print("== K4: fallbacks")
+  print("== fallbacks")
   GetFileIDFromPath = function() return nil end
   UIx.frame:Hide(); GCA.UI.frame = nil; GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
@@ -380,14 +380,14 @@ do
   check(s12.badgeKind == "text" and s12.badge._text == "+" and s12.badge._shown and not s12.frameArt and s12.qual._SetColorTexture[2] == 1
     and not s12.iconBorder._shown, "no files: badge = a green '+', the quality colour as a square behind the icon")
   UIx:SetMemberMode("list")
-  check(UIx.sugList.rows[1].frameArt == "atlas" and UIx.sugList.rows[1].slotBg and UIx.errorCount == errs, "K6 no files: cards keep the reagent-slot atlas (no file needed)")
+  check(UIx.sugList.rows[1].frameArt == "atlas" and UIx.sugList.rows[1].slotBg and UIx.errorCount == errs, "no files: cards keep the reagent-slot atlas (no file needed)")
   UIx:SetMemberMode("sheet")
   GetFileIDFromPath = nil
   GameFontGreenLarge = {}
   Frame.SetFontObject = function(self, fo) self._font = fo; fontSet = true end
   UIx.frame:Hide(); GCA.UI.frame = nil; GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
-  check(fontSet and UIx.sheet.centre.best.gain._font == GameFontGreenLarge and UIx.sheet.centre.best.gain.nativeFont == "GameFontGreenLarge", "K6: GameFontGreenLarge exists: the sheet's big gain uses it")
+  check(fontSet and UIx.sheet.centre.best.gain._font == GameFontGreenLarge and UIx.sheet.centre.best.gain.nativeFont == "GameFontGreenLarge", "GameFontGreenLarge exists: the sheet's big gain uses it")
   GameFontGreenLarge, Frame.SetFontObject = nil, nil
   local origCF = CreateFrame
   CreateFrame = function(otype, name, parent, template)
@@ -422,14 +422,14 @@ end
 
 check(badAtlas == 0, "SetAtlas was never called for an atlas the client lacks (" .. badAtlas .. ")")
 do
-  print("== K6: native look (no mockup gimmicks left, atlases from the probe, slot art, fallbacks)")
+  print("== native look (no mockup gimmicks left, atlases from the probe, slot art, fallbacks)")
   local src = Files.source(Files.group("UI"))
   local gone = {}
   for _, word in ipairs({ "CreateRing", "CreateModeToggle", "CreateChip", "CreateMemberChip", "SetRingColor",
     "selectBar", "treeLine", "chipBg", "sectionHeader", "rowAlt", "BigFont", "CreateOptionsMenu", "CreateOfflineBox" }) do
     if src:find(word, 1, true) then gone[#gone + 1] = word end
   end
-  check(#gone == 0, "K6: no custom circle / segmented control / chip / select-bar / tree-line / Options-popup code left in UI.lua " .. table.concat(gone, ", "))
+  check(#gone == 0, "no custom circle / segmented control / chip / select-bar / tree-line / Options-popup code left in UI.lua " .. table.concat(gone, ", "))
   local PROBE = { ["Profession-Background-Overview"] = 1, ["Profession-Background-Template2"] = 1, ["Professions-Slot-Frame"] = 1,
     ["Professions-Slot-bg"] = 1, ["Professions-background-summarylist"] = 1, ["Professions-skillbar-bg"] = 1, ["Professions-skillbar-frame"] = 1,
     ["UI-Character-Info-GearSlot"] = 1, ["common-dropdown-a-button"] = 1, ["search-highlight"] = 1,
@@ -448,20 +448,20 @@ do
       if not (PROBE[name] or OLD[name]) then unknown[#unknown + 1] = name end
     end
   end
-  check(n >= 12 and #unknown == 0, "K6: every atlas named in UI.lua (" .. n .. ") is from the probe or an older guarded one " .. table.concat(unknown, ", "))
+  check(n >= 12 and #unknown == 0, "every atlas named in UI.lua (" .. n .. ") is from the probe or an older guarded one " .. table.concat(unknown, ", "))
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   local UIx = GCA.UI
   local s5 = UIx.sheet.slots[5]
   check(s5.gearArt and s5.bg._atlas == "UI-Character-Info-GearSlot" and s5.bg._w == 59 and s5.frameArt == "file"
     and s5.iconBorder._tex == "Interface\\Common\\WhiteIconFrame" and s5.hl._tex == UIx.TEX.iconHL and s5.selKind == "file",
-    "K6 sheet slot: UI-Character-Info-GearSlot behind (55/37 scaled), WhiteIconFrame border, ButtonHilight-Square hover + kept on when selected")
+    "sheet slot: UI-Character-Info-GearSlot behind (55/37 scaled), WhiteIconFrame border, ButtonHilight-Square hover + kept on when selected")
   check(UIx.sheet.centre.edges == nil and UIx.sheet.centre.bg == nil and UIx.sheet.centre.best.edges == nil and UIx.sheet.centre.best.tint == nil,
-    "K6 sheet: no hand-drawn boxes / green tint around the middle panel and the cards")
+    "sheet: no hand-drawn boxes / green tint around the middle panel and the cards")
   local cb, tb = UIx.NewCheck(UIx.frame, 22), UIx.NewTextButton(UIx.frame, 84, 22, "x")
-  check(cb.template == "MinimalCheckboxTemplate" and not cb.plain and not tb.plain, "K6: check boxes from MinimalCheckboxTemplate, buttons from UIPanelButtonTemplate")
+  check(cb.template == "MinimalCheckboxTemplate" and not cb.plain and not tb.plain, "check boxes from MinimalCheckboxTemplate, buttons from UIPanelButtonTemplate")
   check(UIx.MemberRun == nil and UIx.expanded == nil and UIx.NEED_RIGHT_W == nil and not src:find("caretText", 1, true)
-    and not src:find("membersShown", 1, true), "K8: no member text runs / carets / expand state left (the detail panel lists the members)")
+    and not src:find("membersShown", 1, true), "no member text runs / carets / expand state left (the detail panel lists the members)")
   local boxy = {}
   local function scanRow(name, b)
     for _, t in ipairs(descendants(b)) do
@@ -473,24 +473,24 @@ do
   scanRow("group header", UIx.memberList.pools.group[1])
   if UIx.needsList.rows[1] then scanRow("craft row", UIx.needsList.rows[1]) end
   if UIx.needsList.pools.cat then scanRow("slot category", UIx.needsList.pools.cat[1]) end
-  check(UIx.memberList.rows[1] and #boxy == 0, "K8: list rows and category headers draw no colour boxes / borders (atlas art only) " .. table.concat(boxy, ", "))
+  check(UIx.memberList.rows[1] and #boxy == 0, "list rows and category headers draw no colour boxes / borders (atlas art only) " .. table.concat(boxy, ", "))
   local skinDB = UIx.SKIN.detailBorder
   UIx.SKIN.detailBorder = { pieces = { { key = "TopLeftCorner", atlas = "UI-Frame-InnerTopLeft", w = 12, p = { "TOPLEFT", -2, 2 } },
     { key = "TopRightCorner", atlas = "UI-Frame-InnerTopRight", w = 12, p = { "TOPRIGHT", 2, 2 } },
     { key = "TopEdge", atlas = "_UI-Frame-InnerTopTile", h = 5, a = { "TOPLEFT", "TopLeftCorner", "TOPRIGHT" }, b = { "TOPRIGHT", "TopRightCorner", "TOPLEFT" }, horiz = true } } }
   local pb = UIx.AddDetailBorder(CreateFrame("Frame", nil, UIParent))
   check(pb.how == "pieces" and pb.role == "detailBorder" and pb.TopLeftCorner._w == 12 and pb.TopEdge._h == 5 and pb.TopLeftCorner._points[1][4] == -2,
-    "K8 detailBorder: a piece list from the skin (sizes / offsets per piece)")
+    "detailBorder: a piece list from the skin (sizes / offsets per piece)")
   UIx.SKIN.detailBorder = { pieces = { { key = "TopLeftCorner", atlas = "NotAnAtlas-K8", p = { "TOPLEFT", 0, 0 } } } }
   local pf = UIx.AddDetailBorder(CreateFrame("Frame", nil, UIParent))
-  check(pf.how == "atlas" and pf.role == "detailBorder" and pf.TopLeftCorner._atlas == "UI-Frame-InnerTopLeft", "K8 detailBorder: a missing piece atlas -> the inner border")
+  check(pf.how == "atlas" and pf.role == "detailBorder" and pf.TopLeftCorner._atlas == "UI-Frame-InnerTopLeft", "detailBorder: a missing piece atlas -> the inner border")
   NineSliceUtil = { ApplyLayoutByName = function(f, name) if name == "K8TestLayout" then f.TopLeftCorner = { layout = name } else error("no layout") end end }
   UIx.SKIN.detailBorder = { layout = "K8TestLayout" }
   local pl = UIx.AddDetailBorder(CreateFrame("Frame", nil, UIParent))
-  check(pl.how == "layout" and pl.TopLeftCorner.layout == "K8TestLayout", "K8 detailBorder: a NineSliceUtil layout name from the skin")
+  check(pl.how == "layout" and pl.TopLeftCorner.layout == "K8TestLayout", "detailBorder: a NineSliceUtil layout name from the skin")
   UIx.SKIN.detailBorder = { layout = "Missing" }
   local pm = UIx.AddDetailBorder(CreateFrame("Frame", nil, UIParent))
-  check(pm.how == "atlas" and pm.role == "detailBorder", "K8 detailBorder: an unknown layout -> the inner border")
+  check(pm.how == "atlas" and pm.role == "detailBorder", "detailBorder: an unknown layout -> the inner border")
   NineSliceUtil = nil
   UIx.SKIN.detailBorder = skinDB
   local rf = CreateFrame("Button", nil, UIParent)
@@ -501,10 +501,10 @@ do
   UIx.AddRoundIcon(rf, 46)
   Frame.CreateTexture = origCT
   check(rf.iconShape == "round" and masked == rf.mask and rf.mask._tex == "Interface\\CharacterFrame\\TempPortraitAlphaMask" and rf.ring._tex == "Interface\\Common\\GoldRing"
-    and rf.ring._w == 57 and rf.icon._w == 46, "K8 round icon: TempPortraitAlphaMask on the icon, GoldRing 57 px around 46 px (FDJ's 37/30)")
+    and rf.ring._w == 57 and rf.icon._w == 46, "round icon: TempPortraitAlphaMask on the icon, GoldRing 57 px around 46 px (FDJ's 37/30)")
   local sq = CreateFrame("Button", nil, UIParent)
   UIx.AddRoundIcon(sq, 46)
-  check(sq.iconShape == "square" and sq.iconBorder._atlas == "Professions-Slot-Frame", "K8 round icon: no mask API -> the square reagent-slot icon")
+  check(sq.iconShape == "square" and sq.iconBorder._atlas == "Professions-Slot-Frame", "round icon: no mask API -> the square reagent-slot icon")
   UIx.frame:Hide()
 end
 

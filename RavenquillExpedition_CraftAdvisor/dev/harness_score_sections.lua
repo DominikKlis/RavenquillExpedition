@@ -27,7 +27,7 @@ do
   local order = {}
   for i, x in ipairs(list) do order[i] = x.name end
   check(table.concat(order, ",") == "now5,now4,now2,future50,future9,partner",
-    "H5.2 order: look-ahead after the wearable ones in each tier: " .. table.concat(order, ","))
+    "order: look-ahead after the wearable ones in each tier: " .. table.concat(order, ","))
   check(B(list[4], list[1]), "per-slot pick (Better) still takes the bigger look-ahead gain")
 
   local spells = {}
@@ -173,7 +173,7 @@ do
   GCA.db.settings.whisperCraft = string.rep("\195\164", 60) .. " {item}"
   local t1 = UIx.OfferText("Leatherworking", dl, "Bud Stone")
   check(#(string.rep("\195\164", 60) .. " " .. longLink) > 255 and t1 == string.rep("\195\164", 60) .. " Hillmans Lederweste",
-    "L-2: too long with the link -> item name (" .. #t1 .. " bytes)")
+    "too long with the link -> item name (" .. #t1 .. " bytes)")
   H.printed = {}
   UIx.warnedLong = nil
   GCA.db.settings.whisperCraft = "xy" .. string.rep("\195\164", 200) .. " {item}"
@@ -182,11 +182,11 @@ do
   local warned = 0
   for _, p in ipairs(H.printed) do if p:find("255 Bytes", 1, true) then warned = warned + 1 end end
   check(#t2 == 254 and t2 == "xy" .. string.rep("\195\164", 126) and t3 == t2 and warned == 1,
-    "L-2: cut to " .. #t2 .. " bytes on a character boundary (not inside an umlaut), told once (" .. warned .. ")")
+    "cut to " .. #t2 .. " bytes on a character boundary (not inside an umlaut), told once (" .. warned .. ")")
   check(UIx.Utf8Cut("ab|", 3) == "ab|" and UIx.Utf8Cut("abc|d", 4) == "abc" and UIx.Utf8Cut("a\226\130\172b", 3) == "a"
     and UIx.Utf8Cut("a\226\130\172b", 4) == "a\226\130\172", "Utf8Cut: no split characters, no dangling '|'")
   GCA.db.settings.whisperCraft = "{name}: {item}"
-  check(UIx.OfferText("Leatherworking", dl, "Bud Stone") == "Bud: " .. longLink, "L-2: short enough -> the link stays")
+  check(UIx.OfferText("Leatherworking", dl, "Bud Stone") == "Bud: " .. longLink, "short enough -> the link stays")
   GCA.db.settings.whisperCraft = nil
   check(GCA:SourceLine(GCA:WeightSetFor("ROGUE", "COMBAT", 40)):find("Kampf Lv40 · simuliert · Levelbonus 50%", 1, true), "source line in German: "
     .. GCA:SourceLine(GCA:WeightSetFor("ROGUE", "COMBAT", 40)))
@@ -464,7 +464,7 @@ do
   GCA:SelectProfession("Leatherworking")
 end
 
-section("K0/L1: look-ahead offers mail/plate that becomes wearable at 40, marked as a future row")
+section("look-ahead offers mail/plate that becomes wearable at 40, marked as a future row")
 do
   setProfs({ { "Lederverarbeitung", 300, 300, 165 } })
   GCA:RefreshKnown()
