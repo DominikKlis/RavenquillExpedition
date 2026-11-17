@@ -195,14 +195,11 @@ local function itemValue(item, set)
   if not item then return 0 end
   return Scoring.value(item.stats, set) + Scoring.speedValue(item, set)
 end
-local valueOf
-local function val(item, set)
+local function val(item, ctx)
   if not item then return 0 end
-  if valueOf then
-    local v = valueOf(item)
-    if v then return v end
-  end
-  return itemValue(item, set)
+  local v = ctx.valueOf and ctx.valueOf(item)
+  if v then return v end
+  return itemValue(item, ctx.set)
 end
 Scoring.itemValue = itemValue
 
@@ -351,11 +348,11 @@ end
 
 local function isTwoHand(item) return item ~= nil and item.equipLoc == "INVTYPE_2HWEAPON" end
 
-local function compareWeapon(candidate, equipped, hand, set, opts)
+local function compareWeapon(candidate, equipped, hand, ctx)
   local mh, oh = equipped[16], equipped[17]
-  local cand = val(candidate, set)
-  local ohValue = val(Scoring.inOffHand(oh), set)
-  local result = { replaces = { 16, 17 }, oldValue = val(mh, set) + ohValue }
+  local cand = val(candidate, ctx)
+  local ohValue = val(Scoring.inOffHand(oh), ctx)
+  local result = { replaces = { 16, 17 }, oldValue = val(mh, ctx) + ohValue }
   local loc = candidate.equipLoc
   if hand == "two" then
     result.newValue = cand
@@ -365,8 +362,8 @@ local function compareWeapon(candidate, equipped, hand, set, opts)
       result.newValue, result.status = cand, "needs-partner"
     else
       local asMain = cand + ohValue
-      local asOff = opts.dualWield and loc == "INVTYPE_WEAPON" and val(mh, set) + val(Scoring.inOffHand(candidate), set) or nil
-      if asOff and (opts.hand == "off" or (opts.hand ~= "main" and asOff > asMain)) then
+      local asOff = ctx.opts.dualWield and loc == "INVTYPE_WEAPON" and val(mh, ctx) + val(Scoring.inOffHand(candidate), ctx) or nil
+      if asOff and (ctx.opts.hand == "off" or (ctx.opts.hand ~= "main" and asOff > asMain)) then
         result.replaces, result.newValue, result.hand = { 17 }, asOff, "off"
       else
         result.newValue = asMain
@@ -378,7 +375,7 @@ local function compareWeapon(candidate, equipped, hand, set, opts)
       result.replaces = { 16 }
       result.newValue, result.status = cand, "needs-partner"
     else
-      result.newValue = val(mh, set) + val(Scoring.inOffHand(candidate), set)
+      result.newValue = val(mh, ctx) + val(Scoring.inOffHand(candidate), ctx)
     end
   else
     return nil
@@ -386,44 +383,41 @@ local function compareWeapon(candidate, equipped, hand, set, opts)
   return finish(result)
 end
 
-local function compareSlot(candidate, equipped, slot, set)
+local function compareSlot(candidate, equipped, slot, ctx)
   local current = equipped[slot]
   if not current then
-    return { status = "empty-slot", replaces = { slot }, newValue = val(candidate, set), oldValue = 0 }
+    return { status = "empty-slot", replaces = { slot }, newValue = val(candidate, ctx), oldValue = 0 }
   end
-  return finish({ replaces = { slot }, newValue = val(candidate, set), oldValue = val(current, set) })
+  return finish({ replaces = { slot }, newValue = val(candidate, ctx), oldValue = val(current, ctx) })
 end
 
-local function comparePair(candidate, equipped, slots, set)
+local function comparePair(candidate, equipped, slots, ctx)
   local a, b = equipped[slots[1]], equipped[slots[2]]
-  local newValue = val(candidate, set)
+  local newValue = val(candidate, ctx)
   if not a or not b then
     return { status = "empty-slot", replaces = { a and slots[2] or slots[1] }, newValue = newValue, oldValue = 0 }
   end
-  local va, vb = val(a, set), val(b, set)
+  local va, vb = val(a, ctx), val(b, ctx)
   local weaker, weakerValue = slots[1], va
   if vb < va then weaker, weakerValue = slots[2], vb end
   return finish({ replaces = { weaker }, newValue = newValue, oldValue = weakerValue })
 end
 
-local function compareLinear(candidate, equipped, set, opts)
+local function compareLinear(candidate, equipped, ctx)
   for _, item in pairs(equipped) do
     if item.itemID ~= nil and item.itemID == candidate.itemID then
-      return { status = "equipped", newValue = val(candidate, set), oldValue = val(item, set) }
+      return { status = "equipped", newValue = val(candidate, ctx), oldValue = val(item, ctx) }
     end
   end
   local rule = EQUIP_LOCS[candidate.equipLoc]
-  if not rule or rule.hand then return compareWeapon(candidate, equipped, rule and rule.hand, set, opts or {}) end
-  if rule.slots[2] then return comparePair(candidate, equipped, rule.slots, set) end
-  return compareSlot(candidate, equipped, rule.slots[1], set)
+  if not rule or rule.hand then return compareWeapon(candidate, equipped, rule and rule.hand, ctx) end
+  if rule.slots[2] then return comparePair(candidate, equipped, rule.slots, ctx) end
+  return compareSlot(candidate, equipped, rule.slots[1], ctx)
 end
 
 function Scoring.compare(candidate, equipped, set, sets, valueFn, opts)
   equipped = equipped or {}
-  valueOf = valueFn
-  local ok, result = pcall(compareLinear, candidate, equipped, set, opts)
-  valueOf = nil
-  if not ok then error(result, 0) end
+  local result = compareLinear(candidate, equipped, { set = set, valueOf = valueFn, opts = opts or {} })
   if not result or result.status == "equipped" or not sets then return result end
   local replaced = {}
   for _, slot in ipairs(result.replaces or {}) do replaced[slot] = true end

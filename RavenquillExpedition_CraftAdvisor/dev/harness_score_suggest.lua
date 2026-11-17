@@ -91,6 +91,13 @@ do
   check(not zeroArmor or (r.status == "no-baseline" and r.pct == nil and r.newValue > 0), "armor-only equipped item (score ≤ 0) -> no-baseline, no % (" .. r.status .. ")")
   local neg = Scoring.compare(cand, { [5] = { itemID = 1, equipLoc = "INVTYPE_CHEST", stats = { Agility = -3 } } }, e.set, OURSETS)
   check(neg.status == "no-baseline", "negative equipped score -> no-baseline")
+  local thrown = { reason = "valueOf failed" }
+  local okText, errText = pcall(Scoring.compare, cand, eq, e.set, OURSETS, function() error("valueOf failed", 0) end)
+  local okTable, errTable = pcall(Scoring.compare, cand, eq, e.set, OURSETS, function() error(thrown) end)
+  local again = Scoring.compare(cand, eq, e.set, OURSETS)
+  check(not okText and errText == "valueOf failed" and not okTable and errTable == thrown
+    and again.newValue == r.newValue and again.oldValue == r.oldValue and again.status == r.status,
+    "a throwing valueOf reaches the caller unchanged and the next compare scores as before")
   local B = GCA.BetterSuggestion
   local list = {
     { tier = 1, points = 50, known = true, slot = 1, name = "nobase-50" },
