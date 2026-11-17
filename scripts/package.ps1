@@ -6,10 +6,9 @@ $ErrorActionPreference = 'Stop'
 $repo   = Split-Path $PSScriptRoot -Parent
 $outDir = Join-Path $repo 'dist'
 
-$addons = @('RavenquillExpedition', 'RavenquillExpedition_Map', 'RavenquillExpedition_Highlights', 'RavenquillExpedition_CraftAdvisor')
-foreach ($never in 'RavenquillExpedition_Dev') {
-    if ($addons -contains $never) { throw "$never must never be packaged" }
-}
+$addons = git -C $repo ls-files '*.toc' | ForEach-Object { if ($_ -match '^(RavenquillExpedition[^/]*)/\1\.toc$') { $Matches[1] } } |
+    Where-Object { $_ -ne 'RavenquillExpedition_Dev' }
+if (-not $addons) { throw "No tracked RavenquillExpedition* addon folders in $repo" }
 
 if (-not $Version) {
     $m = Select-String -Path (Join-Path $repo 'RavenquillExpedition\RavenquillExpedition.toc') -Pattern '^## Version:\s*(\S+)'
