@@ -625,6 +625,20 @@ check(not ov:IsShown(), "/rq on the overview closes it")
 check(#errors == 0, "no Lua errors (" .. #errors .. ")")
 
 do
+  local s = H:Settings()
+  local chatAll = s.chatAll
+  s.chatAll = false
+  local shown = {}
+  for _, e in ipairs({ { k = "gear", q = 3 }, { k = "gear", q = 4 }, { k = "loot", q = 3 }, { k = "boss" }, { k = "quest" },
+    { k = "level" }, { k = "other" } }) do
+    shown[#shown + 1] = e.k .. (e.q or "") .. "=" .. tostring(H:ShouldPrint(e))
+  end
+  s.chatAll = chatAll
+  check(table.concat(shown, " ") == "gear3=false gear4=true loot3=true boss=true quest=false level=true other=false",
+    "chat by default: epic gear, loot, boss kills and levels, no quests (" .. table.concat(shown, " ") .. ")")
+end
+
+do
   local shareOpt = H:Option("share")
   check(shareOpt and shareOpt.get() == true and H:Option("questRedLevels"), "options are found by their settings key")
   fire("PLAYER_LEVEL_UP", 90)

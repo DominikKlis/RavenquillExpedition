@@ -2,11 +2,10 @@ local ADDON, ns = ...
 local GS = RavenquillExpedition
 local H = ns.H
 
-local KIND_CODE = { gear = "g", loot = "l", boss = "b", quest = "q", level = "v" }
-local CODE_KIND = {}
-for k, c in pairs(KIND_CODE) do CODE_KIND[c] = k end
+local KIND_CODE, CODE_KIND = {}, {}
+for k, kind in pairs(H.KINDS) do KIND_CODE[k], CODE_KIND[kind.code] = kind.code, k end
 local CLASSES, CLASS_IDX = GS.Wire.CLASSES, GS.Wire.CLASS_IDX
-local QUEST_TAGS = { elite = true, group = true, dungeon = true, raid = true, red = true, hard = true }
+local QUEST_TAGS = H.QUEST_TAGS
 
 H.PUMP_EVERY = 15
 H.RETRY_AFTER = 600

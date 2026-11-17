@@ -33,8 +33,6 @@ H.OUTBOX_MAX_AGE = 2 * 86400
 H.RECV_PER_HOUR = 30
 H.MAX_PER_WHO = 300
 
-H.KINDS = { gear = true, loot = true, boss = true, quest = true, level = true }
-
 H.migrations = {
   [2] = function(db)
     if type(db.settings) ~= "table" then db.settings = {} end
@@ -266,44 +264,60 @@ function H:ItemText(e)
   return ("|cff%s[%s]|r"):format(hex, Plain(name, "string") or ("item:" .. id))
 end
 
-local QUEST_TAGS = { elite = "TAG_ELITE", group = "TAG_GROUP", dungeon = "TAG_DUNGEON", raid = "TAG_RAID", red = "TAG_RED" }
+H.QUEST_TAGS = { elite = "TAG_ELITE", group = "TAG_GROUP", dungeon = "TAG_DUNGEON", raid = "TAG_RAID", red = "TAG_RED",
+  hard = "TAG_HARD" }
 
 local function Gold(text) return "|cffffd100" .. text .. "|r" end
 local function NonEmpty(s, fallback) return (s and s ~= "") and s or fallback end
 
-local FormatKind = {
-  gear = function(self, e, who)
-    local item = self:ItemText(e)
-    local quality = e.q or 0
-    local gain = (e.il and e.oil) and (e.il - e.oil) or nil
-    if gain and gain > 0 and quality < 4 then return L.GEAR:format(who, item, gain) end
-    if quality >= 4 then return L.GEAR_EPIC:format(who, item) end
-    return L.GEAR_FILL:format(who, item)
-  end,
-  loot = function(self, e, who)
-    local count = (e.n or 1) > 1 and ("x" .. e.n) or ""
-    return (e.src == "bag" and L.LOOT_GOT or L.LOOT):format(who, self:ItemText(e) .. count)
-  end,
-  boss = function(_, e, who)
-    local boss, inst = Gold(NonEmpty(e.boss, L.A_BOSS)), NonEmpty(e.inst, L.AN_INSTANCE)
-    if e.grp and (e.n or 1) > 1 then return L.BOSS_GROUP:format(who, e.n - 1, boss, inst) end
-    return (e.first and L.BOSS_FIRST or L.BOSS):format(who, boss, inst)
-  end,
-  quest = function(_, e, who)
-    local title = Gold(e.title or ("#" .. tostring(e.qid)))
-    if e.act and not e.tag then return L.QUEST_PLAIN:format(who, title) end
-    return L.QUEST:format(who, L[QUEST_TAGS[e.tag] or "TAG_HARD"], title)
-  end,
-  level = function(_, e, who)
-    local max = Plain(SafeCall(GetMaxPlayerLevel), "number")
-    return ((max and e.lvl == max) and L.LEVEL_MAX or L.LEVEL):format(who, e.lvl or 0)
-  end,
+H.KINDS = {
+  gear = {
+    code = "g", chat = true, chatMinQuality = 4,
+    format = function(self, e, who)
+      local item = self:ItemText(e)
+      local quality = e.q or 0
+      local gain = (e.il and e.oil) and (e.il - e.oil) or nil
+      if gain and gain > 0 and quality < 4 then return L.GEAR:format(who, item, gain) end
+      if quality >= 4 then return L.GEAR_EPIC:format(who, item) end
+      return L.GEAR_FILL:format(who, item)
+    end,
+  },
+  loot = {
+    code = "l", chat = true,
+    format = function(self, e, who)
+      local count = (e.n or 1) > 1 and ("x" .. e.n) or ""
+      return (e.src == "bag" and L.LOOT_GOT or L.LOOT):format(who, self:ItemText(e) .. count)
+    end,
+  },
+  boss = {
+    code = "b", chat = true,
+    format = function(_, e, who)
+      local boss, inst = Gold(NonEmpty(e.boss, L.A_BOSS)), NonEmpty(e.inst, L.AN_INSTANCE)
+      if e.grp and (e.n or 1) > 1 then return L.BOSS_GROUP:format(who, e.n - 1, boss, inst) end
+      return (e.first and L.BOSS_FIRST or L.BOSS):format(who, boss, inst)
+    end,
+  },
+  quest = {
+    code = "q", chat = false,
+    format = function(_, e, who)
+      local title = Gold(e.title or ("#" .. tostring(e.qid)))
+      if e.act and not e.tag then return L.QUEST_PLAIN:format(who, title) end
+      return L.QUEST:format(who, L[H.QUEST_TAGS[e.tag] or H.QUEST_TAGS.hard], title)
+    end,
+  },
+  level = {
+    code = "v", chat = true,
+    format = function(_, e, who)
+      local max = Plain(SafeCall(GetMaxPlayerLevel), "number")
+      return ((max and e.lvl == max) and L.LEVEL_MAX or L.LEVEL):format(who, e.lvl or 0)
+    end,
+  },
 }
 
 function H:Format(e)
   local who = self.ClassColorName(e.who, e.cls)
-  local format = FormatKind[e.k]
-  local text = format and format(self, e, who) or tostring(e.k)
+  local kind = self.KINDS[e.k]
+  local text = kind and kind.format(self, e, who) or tostring(e.k)
   if e.by and e.by ~= e.who then text = text .. " |cff888888(" .. L.WITNESSED:format(e.by) .. ")|r" end
   if e.test then text = "|cff888888[" .. L.TEST .. "]|r " .. text end
   return text
@@ -313,8 +327,9 @@ function H:ShouldPrint(e)
   local s = self:Settings()
   if not s.chat then return false end
   if s.chatAll or e.test then return true end
-  if e.k == "gear" then return (e.q or 0) >= 4 end
-  return e.k == "boss" or e.k == "loot" or e.k == "level"
+  local kind = self.KINDS[e.k]
+  if not (kind and kind.chat) then return false end
+  return not kind.chatMinQuality or (e.q or 0) >= kind.chatMinQuality
 end
 
 function H:Announce(e)
