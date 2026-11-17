@@ -14,6 +14,7 @@ local NewInset, RaiseInsetBorder = P.NewInset, P.RaiseInsetBorder
 local CreateScrollList = P.CreateScrollList
 local Num = P.Num
 local CreateSearchBox = P.CreateSearchBox
+local ViewKey = P.ViewKey
 
 UI.VIEWS = { { "needs", "VIEW_NEEDS" }, { "member", "VIEW_MEMBER" } }
 local function CreateTemplatedTabs(f)
@@ -111,14 +112,15 @@ local function ScrollToSlotSection(self, slot)
   if sy then self.sugList:ScrollTo(sy) end
 end
 
-function UI:OpenMember(key, slot, sug)
+function UI:SelectMember(key, slot, pick)
   self.selected, self.autoKey = key, nil
+  if slot then self:FocusSheet(key, slot, pick) end
+end
+
+function UI:OpenMember(key, slot, sug)
+  self:SelectMember(key, slot, sug)
   ExpandGroupOf(self, key)
   ClearSearchHiding(self, key)
-  if slot then
-    self.sheetFor = tostring(key) .. "|" .. tostring(GCA:SelectedProfession())
-    self.sheetSlot, self.sheetAuto, self.sheetPickSug = slot, false, sug
-  end
   self:SetView("member")
   ScrollMemberIntoView(self, key)
   if slot and UI.MemberMode() == "list" then ScrollToSlotSection(self, slot) end
@@ -590,7 +592,7 @@ local function ShowSuggestionList(self, current, list, prof, why)
   self.sheet:Hide()
   self.sugList:Show()
   self.sugList:SetData(UI.SectionRows(list))
-  local listKey = tostring(current.key) .. "|" .. tostring(prof)
+  local listKey = ViewKey(current.key, prof)
   if self.listKey ~= listKey then
     self.listKey = listKey
     self.sugList:ScrollTo(0)

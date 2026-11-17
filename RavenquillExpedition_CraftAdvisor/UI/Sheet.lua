@@ -602,9 +602,13 @@ function Fill.FeaturedRow(rows, pick)
   return d
 end
 
+local function ViewKey(key, prof)
+  return tostring(key) .. "|" .. tostring(prof)
+end
+
 function UI:UpdateSheet(cur, list, prof, why)
   local sh = self.sheet
-  local forKey = tostring(cur.key) .. "|" .. tostring(prof)
+  local forKey = ViewKey(cur.key, prof)
   if self.sheetFor ~= forKey then self.sheetFor, self.sheetAuto, self.sheetPickSug = forKey, true, nil end
   if self.sheetAuto or not self.sheetSlot then self.sheetSlot = UI.SheetDefaultSlot(list) end
   local unit = GCA:UnitLabel(cur.weights)
@@ -626,6 +630,11 @@ function UI:UpdateSheet(cur, list, prof, why)
   self:PlaceSheet()
 end
 
+function UI:FocusSheet(key, slot, pick)
+  self.sheetFor = ViewKey(key, GCA:SelectedProfession())
+  self.sheetSlot, self.sheetAuto, self.sheetPickSug = slot, false, pick
+end
+
 function UI:SelectSheetSlot(slot)
   self.sheetSlot, self.sheetAuto, self.sheetPickSug = slot, false, nil
   self:Refresh()
@@ -637,3 +646,4 @@ function UI:PickSheetRow(d)
 end
 
 P.CreateSheet = CreateSheet
+P.ViewKey = ViewKey

@@ -76,8 +76,7 @@ local function CreateMemberRow(parent)
       GCA.db.members[self.data.key] = nil
       GCA:Print(string.format(L.FORGOT, self.data.key))
     else
-      UI.selected = self.data.key
-      UI.autoKey = nil
+      UI:SelectMember(self.data.key)
     end
     UI:Refresh()
   end)
