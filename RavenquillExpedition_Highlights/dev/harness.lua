@@ -590,7 +590,7 @@ do
     "a received item without data shows its id, and its name once the item data arrives (" .. arrived .. ")")
 end
 
-local probe = GS:NewModule("Probe", { addon = "Probe" })
+local probe = me.newModule("Probe")
 local okDup, errDup = pcall(probe.NewChannel, probe, { tag = "H" })
 check(not okDup and tostring(errDup):find("already taken", 1, true), "a channel on Highlights' tag raises")
 check(pcall(probe.NewChannel, probe, { tag = "ZZ" }), "a channel on a free tag works")

@@ -89,6 +89,11 @@ function Kit.Bus(sched)
     for _, e in ipairs(self.log) do if pred(e) then n = n + 1 end end
     return n
   end
+  function b:sentBy(who, pred)
+    local out = {}
+    for _, e in ipairs(self.log) do if e.sender == who and (not pred or pred(e)) then out[#out + 1] = e end end
+    return out
+  end
   function b:maxPer(seconds, sender, prefixes)
     local times = {}
     for _, e in ipairs(self.log) do
@@ -108,6 +113,15 @@ end
 function Kit.Setup()
   local sched = Kit.Scheduler()
   return sched, Kit.Bus(sched)
+end
+
+function Kit.Two(opts)
+  local sched, bus = Kit.Setup()
+  local a = Kit.Client(sched, bus, "Anna Stone", opts and opts.a)
+  local b = Kit.Client(sched, bus, "Bert Hill", opts and opts.b)
+  a.login(); b.login()
+  sched:advance(5)
+  return sched, bus, a, b
 end
 
 function Kit.strsplit(sep, s)
@@ -295,6 +309,7 @@ function Kit.Client(sched, bus, name, opts)
   end
   c.RQ = env.RavenquillExpedition
   function c.module(n) return c.RQ and c.RQ:GetModule(n) end
+  function c.newModule(n) return c.RQ:NewModule(n, { addon = n }) end
   function c.login()
     for _, a in ipairs(c.addons) do c.fire("ADDON_LOADED", a) end
     c.fire("PLAYER_LOGIN")

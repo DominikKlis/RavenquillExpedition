@@ -2,24 +2,10 @@ local DEV = (arg[0]:gsub("[^/\\]*$", ""))
 local Kit = dofile(DEV .. "testkit.lua")
 local check, section = Kit.check, Kit.section
 
-local function Two(opts)
-  local sched, bus = Kit.Setup()
-  local a = Kit.Client(sched, bus, "Anna Stone", opts and opts.a)
-  local b = Kit.Client(sched, bus, "Bert Hill", opts and opts.b)
-  a.login(); b.login()
-  sched:advance(5)
-  return sched, bus, a, b
-end
-local function sentBy(bus, who, pred)
-  local out = {}
-  for _, e in ipairs(bus.log) do if e.sender == who and (not pred or pred(e)) then out[#out + 1] = e end end
-  return out
-end
-local function Mod(c, name) return c.RQ:NewModule(name, { addon = name }) end
 local evt = setmetatable({}, { __mode = "k" })
 local function EvtChannel(c)
   if not evt[c] then
-    evt[c] = Mod(c, "Evt" .. (c.name:gsub("%s", ""))):NewRawChannel({ prefix = "TstEvt", lane = "event" })
+    evt[c] = c.newModule("Evt" .. (c.name:gsub("%s", ""))):NewRawChannel({ prefix = "TstEvt", lane = "event" })
     c.prefixes.TstEvt = true
   end
   return evt[c]
@@ -30,7 +16,7 @@ local function Send(c, text, cb)
 end
 
 section("Event lane: budget, order, echo results")
-local sched, bus, a, b = Two()
+local sched, bus, a, b = Kit.Two()
 local C = a.RQ.CommConst
 local PACE = 1 / C.RATE
 local CAP60 = C.BURST + 60 * C.RATE
@@ -43,13 +29,13 @@ local results = {}
 local N = 20
 for i = 1, N do Send(a, "m" .. i, function(s) results[i] = s end) end
 sched:advance(2)
-check(#sentBy(bus, "Anna Stone") == 1, "the first goes out on the first pump tick (1 s)")
+check(#bus:sentBy("Anna Stone") == 1, "the first goes out on the first pump tick (1 s)")
 sched:advance(58)
-local inMinute = #sentBy(bus, "Anna Stone")
+local inMinute = #bus:sentBy("Anna Stone")
 check(inMinute >= 60 * C.RATE and inMinute <= CAP60,
   ("paced: %d in the first 60 s (%d..%d)"):format(inMinute, 60 * C.RATE, CAP60))
 sched:advance(PACE * N + 60)
-local sends = sentBy(bus, "Anna Stone")
+local sends = bus:sentBy("Anna Stone")
 check(#sends == N and sends[1].msg == "m1" and sends[N].msg == "m" .. N, "all " .. N .. " in order (" .. #sends .. ")")
 check(minGapOf(sends) >= PACE, ("queued at once: one per pump tick, never two within %d s (closest %s s)"):format(PACE, tostring(minGapOf(sends))))
 check(bus:maxPer(60, "Anna Stone") <= CAP60, ("never more than %d in 60 s (burst %d + refill)"):format(CAP60, C.BURST))
@@ -57,7 +43,7 @@ check(results[1] == "delivered" and results[N] == "delivered", "every message re
 sched:advance(60)
 check(math.abs(a.RQ:CommState().tokens - C.BURST) < 1e-9, "idle: the bucket refills to the burst (" .. a.RQ:CommState().tokens .. ")")
 for _ = 1, C.BURST - 1 do a.env.C_ChatInfo.SendAddonMessage("OtherAddon", "x", "GUILD") end
-local function ownEvt() return sentBy(bus, "Anna Stone", function(e) return e.prefix == "TstEvt" end) end
+local function ownEvt() return bus:sentBy("Anna Stone", function(e) return e.prefix == "TstEvt" end) end
 local t0 = sched.t
 Send(a, "after-small-burst")
 sched:advance(2)
@@ -96,7 +82,7 @@ sched:advance(120)
 check(r1 == "delivered" and r2 == "delivered", "two identical messages: both echoed (" .. tostring(r1) .. ", " .. tostring(r2) .. ")")
 
 section("Holds: instance, combat, throttled, busy guild")
-sched, bus, a, b = Two()
+sched, bus, a, b = Kit.Two()
 a.instance = true
 local deferred
 check(Send(a, "x", function(s) deferred = s end) == false, "inside an instance nothing is queued")
@@ -105,16 +91,16 @@ Send(a, "y", function(s) deferred = s end)
 a.instance = true
 a.fire("PLAYER_ENTERING_WORLD")
 sched:advance(5)
-check(deferred == "dropped" and #sentBy(bus, "Anna Stone") == 0, "entering an instance hands queued messages back")
+check(deferred == "dropped" and #bus:sentBy("Anna Stone") == 0, "entering an instance hands queued messages back")
 a.instance = false
 a.throttle = true
 Send(a, "z")
 sched:advance(3)
 a.throttle = false
 sched:advance(20)
-check(#sentBy(bus, "Anna Stone") == 0 and a.RQ:CommState().hold > 0, "a throttled result holds sending for 30 s")
+check(#bus:sentBy("Anna Stone") == 0 and a.RQ:CommState().hold > 0, "a throttled result holds sending for 30 s")
 sched:advance(40)
-check(#sentBy(bus, "Anna Stone") == 1, "after the hold it goes out")
+check(#bus:sentBy("Anna Stone") == 1, "after the hold it goes out")
 local sched2, bus2 = Kit.Setup()
 local cs = { Kit.Client(sched2, bus2, "Anna Stone") }
 local noisy = math.ceil(C.BUSY_HEARD / C.HEARD_PER_SENDER)
@@ -125,19 +111,19 @@ for _ = 1, C.HEARD_PER_SENDER + 4 do Send(cs[2], "noise") end
 sched2:advance(PACE * (C.HEARD_PER_SENDER + 4) + 5)
 Send(cs[1], "solo")
 sched2:advance(5)
-check(#sentBy(bus2, "Anna Stone") == 1, ("one chatty client (%d messages) doesn't hold Anna"):format(C.HEARD_PER_SENDER + 4))
+check(#bus2:sentBy("Anna Stone") == 1, ("one chatty client (%d messages) doesn't hold Anna"):format(C.HEARD_PER_SENDER + 4))
 sched2:advance(90)
 for i = 2, #cs do for _ = 1, C.HEARD_PER_SENDER do Send(cs[i], "noise") end end
 sched2:advance(PACE * C.HEARD_PER_SENDER + 5)
 check(#cs[1].RQ.Comm.heard >= C.BUSY_HEARD, ("%d senders x %d heard (counted %d)"):format(noisy, C.HEARD_PER_SENDER, #cs[1].RQ.Comm.heard))
 Send(cs[1], "mine")
 sched2:advance(5)
-check(#sentBy(bus2, "Anna Stone") == 1, ("busy guild (%d+ event messages heard in 60 s): Anna holds"):format(C.BUSY_HEARD))
+check(#bus2:sentBy("Anna Stone") == 1, ("busy guild (%d+ event messages heard in 60 s): Anna holds"):format(C.BUSY_HEARD))
 sched2:advance(90)
-check(#sentBy(bus2, "Anna Stone") == 2, "and sends once it quiets down")
+check(#bus2:sentBy("Anna Stone") == 2, "and sends once it quiets down")
 
 section("A chatty other addon can't silence the suite (in game: War Effort sends every 5-50 s)")
-sched, bus, a, b = Two()
+sched, bus, a, b = Kit.Two()
 local every = PACE - 1
 sched:at(sched.t + 1, function() a.env.C_ChatInfo.SendAddonMessage("WEFF1", "x", "GUILD") end, every)
 sched:advance(60)
@@ -147,7 +133,7 @@ local queuedAt = sched.t
 for i = 1, 3 do Send(a, "starved" .. i, function(s) got3[i] = s end) end
 local minTokens = math.huge
 for _ = 1, C.STARVE + 120 do sched:advance(1); minTokens = math.min(minTokens, a.RQ:CommState().tokens) end
-local own = sentBy(bus, "Anna Stone", function(e) return e.prefix == "TstEvt" end)
+local own = bus:sentBy("Anna Stone", function(e) return e.prefix == "TstEvt" end)
 local minGap = minGapOf(own)
 check(#own == 3 and got3[3] == "delivered", ("all 3 of ours went out anyway (%d sent)"):format(#own))
 check(own[1] and own[1].t - queuedAt >= C.STARVE and own[1].t - queuedAt <= C.STARVE + 5,
@@ -156,7 +142,7 @@ check(minGap >= PACE, ("our own messages stay >= %d s apart (closest %s s)"):for
 check(minTokens >= -1, ("the bucket never goes below -1 (lowest %.1f)"):format(minTokens))
 
 section("Slow mode: our messages never come back")
-sched, bus, a, b = Two()
+sched, bus, a, b = Kit.Two()
 bus.drop = function(sender) return sender == "Anna Stone" end
 local lost = 0
 for i = 1, 3 do Send(a, "lost" .. i, function(s) if s == "lost" then lost = lost + 1 end end) end
@@ -164,16 +150,16 @@ sched:advance(300)
 check(lost >= 2 and a.RQ:CommState().slow, "no echo for 120 s: lost, then slow mode")
 check(a.printedMatch("sending slowly") ~= nil, "the player is told once")
 do
-  local before = #sentBy(bus, "Anna Stone")
+  local before = #bus:sentBy("Anna Stone")
   for i = 1, 10 do Send(a, "slow" .. i) end
   sched:advance(600)
-  local n = #sentBy(bus, "Anna Stone") - before
+  local n = #bus:sentBy("Anna Stone") - before
   check(a.RQ:CommState().slow and n <= 2, "while slow: 10 queued events, 600 s -> at most 2 sent (1 per 5 min), sent " .. n)
 end
 bus.drop = function() return false end
 a.RQ:CommResume()
 check(not a.RQ:CommState().slow, "CommResume leaves slow mode")
-sched, bus, a, b = Two()
+sched, bus, a, b = Kit.Two()
 Send(a, "fine")
 sched:advance(40)
 check(a.RQ:CommState().delivered == 1 and not a.RQ:CommState().slow, "first message echoed")
@@ -187,9 +173,9 @@ sched:advance(700)
 check(not a.RQ:CommState().slow, "the next echo ends slow mode")
 
 section("Record lane: whole records, replace, drop")
-sched, bus, a, b = Two()
-local ra = Mod(a, "RecA"):NewRawChannel({ prefix = "TstRec", lane = "record" })
-local rb = Mod(b, "RecB"):NewRawChannel({ prefix = "TstRec", lane = "record" })
+sched, bus, a, b = Kit.Two()
+local ra = a.newModule("RecA"):NewRawChannel({ prefix = "TstRec", lane = "record" })
+local rb = b.newModule("RecB"):NewRawChannel({ prefix = "TstRec", lane = "record" })
 a.fire("PLAYER_LOGIN"); b.fire("PLAYER_LOGIN")
 local got = {}
 rb:OnMessage(function(sender, text) got[#got + 1] = sender .. ":" .. text end)
@@ -201,7 +187,7 @@ check(table.concat(got, ",") == "Anna Stone:n1,Anna Stone:n2" and done == "new",
 Send(a, "evt")
 ra:SendRecord("r:x", { "r1", "r2" })
 sched:advance(2)
-check(sentBy(bus, "Anna Stone")[3].msg == "evt", "events go before record chunks")
+check(bus:sentBy("Anna Stone")[3].msg == "evt", "events go before record chunks")
 sched:advance(120)
 a.combat = true
 local dropped
@@ -211,9 +197,9 @@ check(dropped == "timeout", "a record not started within 5 min is dropped whole 
 a.combat = false
 
 section("State lane: now or never, lowest priority")
-sched, bus, a, b = Two()
-local sa = Mod(a, "PosA"):NewRawChannel({ prefix = "TstPos", lane = "state" })
-local sb = Mod(b, "PosB"):NewRawChannel({ prefix = "TstPos", lane = "state" })
+sched, bus, a, b = Kit.Two()
+local sa = a.newModule("PosA"):NewRawChannel({ prefix = "TstPos", lane = "state" })
+local sb = b.newModule("PosB"):NewRawChannel({ prefix = "TstPos", lane = "state" })
 a.fire("PLAYER_LOGIN"); b.fire("PLAYER_LOGIN")
 local heardPos = 0
 sb:OnMessage(function() heardPos = heardPos + 1 end)
@@ -244,14 +230,14 @@ local sentBefore = sa:Status().sent
 check(sa:SendNow("L;1") == true, "SendNow: best effort now")
 check(sa:Status().sent == sentBefore + 1, ("SendNow counts in the channel's sent statistics (%d -> %d)"):format(sentBefore, sa:Status().sent))
 sched:advance(200)
-local wireBefore = #sentBy(bus, "Anna Stone")
+local wireBefore = #bus:sentBy("Anna Stone")
 ok, why = sa:TrySend("P;\0x", { starving = true })
-check(not ok and #sentBy(bus, "Anna Stone") == wireBefore, "TrySend refuses a NUL byte: " .. tostring(why))
-check(sa:SendNow("L;\0x") == false and #sentBy(bus, "Anna Stone") == wireBefore, "SendNow refuses a NUL byte")
+check(not ok and #bus:sentBy("Anna Stone") == wireBefore, "TrySend refuses a NUL byte: " .. tostring(why))
+check(sa:SendNow("L;\0x") == false and #bus:sentBy("Anna Stone") == wireBefore, "SendNow refuses a NUL byte")
 
 section("Intake caps and busy counting by lane")
-sched, bus, a, b = Two()
-sb = Mod(b, "PosB2"):NewRawChannel({ prefix = "TstPos", lane = "state" })
+sched, bus, a, b = Kit.Two()
+sb = b.newModule("PosB2"):NewRawChannel({ prefix = "TstPos", lane = "state" })
 b.fire("PLAYER_LOGIN")
 local n = 0
 sb:OnMessage(function() n = n + 1 end)
@@ -262,7 +248,7 @@ check(C.INTAKE_STATE_PER_MIN >= CAP60 and C.INTAKE_PER_MIN >= CAP60,
 local heardBefore = #b.RQ.Comm.heard
 check(heardBefore == 0, "state messages don't count towards the busy hold")
 local m = 0
-local zz = Mod(b, "ZZ"):NewRawChannel({ prefix = "TstZZ", lane = "event" })
+local zz = b.newModule("ZZ"):NewRawChannel({ prefix = "TstZZ", lane = "event" })
 zz:OnMessage(function() m = m + 1 end)
 for i = 1, C.INTAKE_PER_MIN + 5 do b.fire("CHAT_MSG_ADDON", "TstZZ", "x" .. i, "GUILD", "Dora Field-Realm") end
 check(m == C.INTAKE_PER_MIN and #b.RQ.Comm.heard == C.HEARD_PER_SENDER,
@@ -272,7 +258,7 @@ for i = 1, 3 do b.fire("CHAT_MSG_ADDON", "TstZZ", "y" .. i, "GUILD", "Dora Field
 check(m == C.INTAKE_PER_MIN + 3, "a minute later the same sender is read again")
 
 section("Registration rules and the foreign-send hook")
-local tm = Mod(a, "Tags")
+local tm = a.newModule("Tags")
 check(not pcall(tm.NewChannel, tm, { tag = "~T" }) == false, "a free tag works")
 check(not pcall(tm.NewChannel, tm, { tag = "~T" }), "the same tag twice: error")
 check(a.RQ.RegisterComm == nil and a.RQ.SendGuild == nil and a.RQ.CanSendGuild == nil, "the old sync API is gone (channels only)")
@@ -286,9 +272,9 @@ a.env.C_ChatInfo.SendAddonMessage("OtherAddon", "hi", "WHISPER")
 check(a.RQ:CommState().foreign == after.foreign, "a whisper is not")
 
 section("Schema channels")
-sched, bus, a, b = Two()
+sched, bus, a, b = Kit.Two()
 local function Fishing(c)
-  local mod = Mod(c, "Fish")
+  local mod = c.newModule("Fish")
   local ch = mod:NewChannel({ tag = "F", version = 1 })
   ch:Define("catch", { lane = "event", from = "self", fields = { { "who", "key" }, { "item", "int", 1, 9999999 },
     { "q", "int", 0, 8, opt = true }, { "note", "text", 20 }, { "cls", "class" }, { "t", "time" }, { "big", "flag" },
@@ -303,7 +289,7 @@ local status
 cha:Send("catch", { who = "Anna Stone", item = 6522, note = "Großer |cffff0000Fisch|r; echt", cls = "MAGE", t = a.RQ:Now(),
   big = true, kind = "fish", w = 1234 }, { onResult = function(s) status = s end })
 sched:advance(10)
-local wire = sentBy(bus, "Anna Stone")[1]
+local wire = bus:sentBy("Anna Stone")[1]
 check(wire and wire.prefix == "RQE1" and wire.msg == "F;1;catch;Anna Stone;6522;;Großer Fisch echt;7;" .. a.RQ:Now() - 10 + 0 .. ";1;fish;ya"
   or (wire and wire.msg:match("^F;1;catch;Anna Stone;6522;;Großer Fisch echt;7;%d+;1;fish;ya$")), "wire format: " .. tostring(wire and wire.msg))
 local c1 = caught[1]
@@ -338,13 +324,13 @@ for what, bad in pairs({ ["item 0"] = { item = 0 }, ["item inf"] = { item = math
 end
 check(a.RQ.Wire.b36(math.huge) == "0" and a.RQ.Wire.b36(0 / 0) == "0" and a.RQ.Wire.b36(-5) == "0"
   and a.RQ.Wire.b36(2 ^ 60) == "0" and a.RQ.Wire.b36(46655) == "zzz", "b36: NaN, infinity, negative, huge -> 0; normal unchanged")
-check(not pcall(function() Mod(a, "StateType"):NewChannel({ tag = "ST", version = 1 }):Define("pos", { lane = "state",
+check(not pcall(function() a.newModule("StateType"):NewChannel({ tag = "ST", version = 1 }):Define("pos", { lane = "state",
   fields = {} }) end), "Define rejects lane = state (schema types are always event traffic)")
 local dropped2
 cha:Send("catch", { who = "Anna Stone", item = 1, note = "x", cls = "MAGE", t = now, big = false, kind = "nope", w = 1 },
   { onResult = function(s) dropped2 = s end })
 check(dropped2 == "dropped", "a message that can't be encoded reports dropped")
-local longCh = Mod(a, "Long"):NewChannel({ tag = "LG", version = 1 })
+local longCh = a.newModule("Long"):NewChannel({ tag = "LG", version = 1 })
 longCh:Define("t", { fields = { { "a", "text", 200 }, { "b", "text", 200 } } })
 local enc = longCh:Encode("t", { a = string.rep("x", 200), b = string.rep("y", 200) })
 check(enc and #enc <= 250 and enc:find("x;y", 1, true), "too long: text fields are halved once")
@@ -385,7 +371,7 @@ check(has(new, "Alt Frau"), "the new client stores the 0.2.0 client's highlight"
 check(#new.errors == 0 and #old.errors == 0, "no Lua errors on either (" .. tostring(new.errors[1] or old.errors[1]) .. ")")
 
 section("Review 2026-11-15: bounded lists, a module that never loads")
-sched, bus, a, b = Two()
+sched, bus, a, b = Kit.Two()
 a.combat = true
 for _ = 1, 2000 do
   a.env.C_ChatInfo.SendAddonMessage("OtherAddon", "x", "GUILD")

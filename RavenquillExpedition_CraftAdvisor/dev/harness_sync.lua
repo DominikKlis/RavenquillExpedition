@@ -129,8 +129,7 @@ local function Logout(c) c.online = false end
 
 local function rec(c, key) return c.GCA.db.members[key] end
 local function sameGear(a, b, GCA) return GCA:GearSignature(a) == GCA:GearSignature(b) end
-local function countBus(pred) local n = 0 for _, e in ipairs(bus.log) do if pred(e) then n = n + 1 end end return n end
-local function busSince(t0, pred) local n = 0 for _, e in ipairs(bus.log) do if e.t >= t0 and pred(e) then n = n + 1 end end return n end
+local function busSince(t0, pred) return bus:count(function(e) return e.t >= t0 and pred(e) end) end
 
 section("Encoding: every real link round-trips; real sets fit")
 local A = Login("Anna Stone", copy(GEAR[1]))
@@ -166,8 +165,8 @@ check(wc and #wc <= 6, "worst-case 17-slot set encodes in " .. (wc and #wc or "n
 
 section("Login: first player alone sends only Q; no gear without listeners")
 advance(60)
-check(countBus(function(e) return e.sender == "Anna Stone" and e.msg:sub(1, 2) == "Q;" end) == 1, "Anna sent one Q")
-check(countBus(function(e) return e.sender == "Anna Stone" and e.msg:sub(1, 2) == "G;" end) == 0, "Anna sent no gear (nobody listening)")
+check(bus:count(function(e) return e.sender == "Anna Stone" and e.msg:sub(1, 2) == "Q;" end) == 1, "Anna sent one Q")
+check(bus:count(function(e) return e.sender == "Anna Stone" and e.msg:sub(1, 2) == "G;" end) == 0, "Anna sent no gear (nobody listening)")
 check(A.S.echoSeen ~= nil, "Anna saw her own echo")
 
 section("Second login: Bert gets Anna's gear, Anna gets Bert's")
@@ -236,7 +235,7 @@ local function inspect(c, uname, items, opts)
   advance(2)
   c.units.target = nil
 end
-local relaysBefore = countBus(function(e) return e.sender == "Anna Stone" and e.msg:match("^G;Dora") end)
+local relaysBefore = bus:count(function(e) return e.sender == "Anna Stone" and e.msg:match("^G;Dora") end)
 inspect(A, "Dora Field", doraGear)
 local doraTs = rec(A, "Dora Field") and rec(A, "Dora Field").ts
 check(doraTs ~= nil and rec(A, "Dora Field").source == "inspect", "Dora stored from inspect")
@@ -255,7 +254,7 @@ advance(5)
 inspect(A, "Emil Brook", copy(GEAR[1]), { loseAt = 0.7 })
 check(rec(A, "Emil Brook") ~= nil, "target lost before the final pass: still stored")
 advance(400)
-local relaysDora = countBus(function(e) return e.sender == "Anna Stone" and e.msg:match("^G;Dora Field;") and e.msg:match(";1/%d;") end) - relaysBefore
+local relaysDora = bus:count(function(e) return e.sender == "Anna Stone" and e.msg:match("^G;Dora Field;") and e.msg:match(";1/%d;") end) - relaysBefore
 check(relaysDora == 1, "Dora relayed once (" .. relaysDora .. ")")
 check(rec(B, "Dora Field") and rec(B, "Dora Field").from == "Anna Stone", "Bert has Dora via Anna")
 

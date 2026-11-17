@@ -2,13 +2,9 @@ local HERE = (arg[0]:gsub("[^/\\]*$", ""))
 local Kit = dofile(HERE .. "../../../RavenquillExpedition/dev/testkit.lua")
 local check = Kit.check
 
-local function Client(sched, bus, name)
-  return Kit.Client(sched, bus, name, { files = { { HERE .. "../Example.lua", "RavenquillExpedition_Example" } } })
-end
-local sched, bus = Kit.Setup()
-local a = Client(sched, bus, "Anna Stone")
-local b = Client(sched, bus, "Bert Hill")
-a.login(); b.login(); sched:advance(10)
+local example = { files = { { HERE .. "../Example.lua", "RavenquillExpedition_Example" } } }
+local sched, bus, a, b = Kit.Two({ a = example, b = example })
+sched:advance(5)
 
 a.fire("PLAYER_LEVEL_UP", 31)
 sched:advance(10)
