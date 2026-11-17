@@ -175,7 +175,7 @@ H.recv = {}
 function H:Admit(sender, now)
   local list = self.recv[sender]
   if not list then list = {}; self.recv[sender] = list end
-  while list[1] and now - list[1] > 3600 do table.remove(list, 1) end
+  GS.PruneTimes(list, 3600, now)
   if #list >= self.RECV_PER_HOUR then
     self.db.diag.recvCapped = (self.db.diag.recvCapped or 0) + 1
     return false

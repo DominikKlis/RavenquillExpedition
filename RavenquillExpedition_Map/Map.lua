@@ -1,7 +1,7 @@
 local ADDON, ns = ...
 local L = ns.L
 local GS = RavenquillExpedition
-local IsSecret, SafeCall, Bool = GS.IsSecret, GS.SafeCall, GS.Bool
+local IsSecret, SafeCall, Bool, Plain = GS.IsSecret, GS.SafeCall, GS.Bool, GS.Plain
 
 local M = {}
 ns.Map = M
@@ -61,12 +61,10 @@ function M:State(m)
   return "fresh"
 end
 
-local function ReadNumber(v) if type(v) == "number" and not IsSecret(v) then return v end end
-
 local function PositionXY(pos)
   local x, y
   if pos.GetXY then x, y = SafeCall(pos.GetXY, pos) else x, y = pos.x, pos.y end
-  return ReadNumber(x), ReadNumber(y)
+  return Plain(x, "number"), Plain(y, "number")
 end
 
 local function OffMap(x, y)
@@ -75,7 +73,7 @@ end
 
 function M:ReadOwnPosition()
   if not (C_Map and C_Map.GetBestMapForUnit and C_Map.GetPlayerMapPosition) then return end
-  local mapID = ReadNumber(SafeCall(C_Map.GetBestMapForUnit, "player"))
+  local mapID = Plain(SafeCall(C_Map.GetBestMapForUnit, "player"), "number")
   if not mapID then return end
   local pos = SafeCall(C_Map.GetPlayerMapPosition, mapID, "player")
   if type(pos) ~= "table" or IsSecret(pos) then return end
@@ -99,7 +97,7 @@ function M:UpdateSelfPin()
   local _, class = SafeCall(UnitClass, "player")
   self.members[key] = {
     key = key, name = GS:PlayerKey() or UNKNOWNOBJECT, mapID = mapID, x = x, y = y,
-    level = ReadNumber(SafeCall(UnitLevel, "player")) or 0, class = (not IsSecret(class)) and class or nil,
+    level = Plain(SafeCall(UnitLevel, "player"), "number") or 0, class = (not IsSecret(class)) and class or nil,
     heard = GetTime(), flags = PlayerFlags(), isSelf = true,
   }
 end
