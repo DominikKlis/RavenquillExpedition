@@ -167,7 +167,7 @@ end
 local function NeedsEmptyText(prof, crafts, q, offN, settings)
   if crafts > 0 then return "" end
   if q ~= "" then return string.format(L.NEEDS_NO_MATCH, q) end
-  if (GCA.knownCount or 0) == 0 and not GCA:IsBrowse(prof) then
+  if GCA:KnownCount(prof) == 0 and not GCA:IsBrowse(prof) then
     return string.format(L.EMPTY_NOKNOWN, ProfName(prof), ProfName(prof))
   end
   if offN > 0 and not settings.needsOffline then return string.format(L.NEEDS_EMPTY_OFFLINE, offN) end
@@ -554,7 +554,7 @@ end
 local function NoSuggestionsReason(current, prof, browse)
   if (current.pending or 0) > 0 then return L.EMPTY_LOADING end
   if browse then return string.format(L.EMPTY_BROWSE, ProfName(prof)) end
-  if (GCA.knownCount or 0) == 0 then return string.format(L.EMPTY_NOKNOWN, ProfName(prof), ProfName(prof)) end
+  if GCA:KnownCount(prof) == 0 then return string.format(L.EMPTY_NOKNOWN, ProfName(prof), ProfName(prof)) end
   return prof == "Enchanting" and L.EMPTY_ENCHANT or L.EMPTY_NONE
 end
 

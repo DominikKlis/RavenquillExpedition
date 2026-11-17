@@ -103,13 +103,12 @@ function GCA:SelectProfession(prof)
 end
 
 function GCA:OnProfessionChanged()
-  local prof = self:SelectedProfession()
-  self.knownCount = self.knownCounts[prof] or 0
   self:PreloadItems()
   self:Invalidate()
 end
 
 GCA.knownNow, GCA.knownCounts = {}, {}
+function GCA:KnownCount(prof) return self.knownCounts[prof] or 0 end
 
 local function SpellKnown(spellID)
   local known = PlainCall(nil, C_SpellBook and C_SpellBook.IsSpellKnown, spellID) or PlainCall(nil, IsPlayerSpell, spellID)
@@ -162,7 +161,6 @@ function GCA:RefreshKnown()
     if not SameSet(now, self.knownNow[p.key] or EMPTY) then changed = true end
     self.knownNow[p.key], self.knownCounts[p.key] = now, n
   end
-  self.knownCount = self.knownCounts[self:SelectedProfession()] or 0
   if changed then
     self.knownGen = (self.knownGen or 0) + 1
     self:Invalidate()

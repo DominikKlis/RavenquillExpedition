@@ -329,14 +329,15 @@ do
     "no match: the detail panel's empty text says so")
   sb:SetText(""); sb._scripts.OnTextChanged(sb)
   check(sb._text == "" and UIx.needsEmpty._text == "", "clearing the search resets it")
-  local savedKC = GCA.knownCount
-  GCA.knownCount = 5
+  local kcProf = GCA:SelectedProfession()
+  local savedKC = GCA.knownCounts[kcProf]
+  GCA.knownCounts[kcProf] = 5
   list = { K5.me, K5.olga }
   GCA.needsCache = nil
   UIx:Refresh()
   check(UIx.needsEmpty._text:find("1 offline member(s) do", 1, true), "nothing online, an offline member needs something: the empty text says so")
   list = K5.list
-  GCA.knownCount = savedKC
+  GCA.knownCounts[kcProf] = savedKC
   GCA.needsCache = nil
   UIx:OpenMember("Olga Field", 5)
   check(UIx.collapsed.offline == false and UIx.selected == "Olga Field" and UIx.current == K5.olga, "opening an offline member expands the offline group")
