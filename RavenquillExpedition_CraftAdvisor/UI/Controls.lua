@@ -78,31 +78,36 @@ end
 local function SearchTip(placeholder, tipText)
   return function(self)
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
-    GameTooltip:SetText(placeholder or L.NEEDS_SEARCH, 1, 1, 1)
-    GameTooltip:AddLine(tipText or L.NEEDS_SEARCH_TIP, nil, nil, nil, true)
+    GameTooltip:SetText(placeholder, 1, 1, 1)
+    GameTooltip:AddLine(tipText, nil, nil, nil, true)
     GameTooltip:Show()
   end
 end
-local function CreateSearchBox(parent, width, placeholder, tipText, onChange)
+
+local function NativeSearchBox(parent, width, placeholder, tipText, onChange)
   local ok, sb = pcall(CreateFrame, "EditBox", nil, parent, "SearchBoxTemplate")
-  if ok and sb and type(sb.Instructions) == "table" and sb.HookScript then
-    sb:SetSize(width or 230, 20)
-    sb.native = true
-    sb.Instructions:SetText(placeholder or L.NEEDS_SEARCH)
-    sb.placeholder = sb.Instructions
-    if sb.SetAutoFocus then sb:SetAutoFocus(false) end
-    if sb.SetMaxLetters then sb:SetMaxLetters(40) end
-    function sb:Changed()
-      if onChange then onChange(self:GetText() or "") end
-    end
-    sb:HookScript("OnTextChanged", Guard("search", function() sb:Changed() end))
-    sb:HookScript("OnHide", function(self) if self.ClearFocus then self:ClearFocus() end end)
-    sb:HookScript("OnEnter", Guard("tooltip: search", SearchTip(placeholder, tipText)))
-    sb:HookScript("OnLeave", GameTooltip_Hide)
-    return sb
+  if not (ok and sb and type(sb.Instructions) == "table" and sb.HookScript) then
+    if ok and sb and sb.Hide then sb:Hide() end
+    return nil
   end
-  if ok and sb and sb.Hide then sb:Hide() end
-  local eb = NewEditBox(parent, width or 230)
+  sb:SetSize(width, 20)
+  sb.native = true
+  sb.Instructions:SetText(placeholder)
+  sb.placeholder = sb.Instructions
+  if sb.SetAutoFocus then sb:SetAutoFocus(false) end
+  if sb.SetMaxLetters then sb:SetMaxLetters(40) end
+  function sb:Changed()
+    onChange(self:GetText() or "")
+  end
+  sb:HookScript("OnTextChanged", Guard("search", function() sb:Changed() end))
+  sb:HookScript("OnHide", function(self) if self.ClearFocus then self:ClearFocus() end end)
+  sb:HookScript("OnEnter", Guard("tooltip: search", SearchTip(placeholder, tipText)))
+  sb:HookScript("OnLeave", GameTooltip_Hide)
+  return sb
+end
+
+local function PlainSearchBox(parent, width, placeholder, tipText, onChange)
+  local eb = NewEditBox(parent, width)
   eb:SetMaxLetters(40)
   if eb.SetTextInsets then pcall(eb.SetTextInsets, eb, 16, 18, 0, 0) end
   if TexOK("search") then
@@ -114,7 +119,7 @@ local function CreateSearchBox(parent, width, placeholder, tipText, onChange)
   end
   eb.placeholder = eb:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   eb.placeholder:SetPoint("LEFT", 17, 0)
-  eb.placeholder:SetText(placeholder or L.NEEDS_SEARCH)
+  eb.placeholder:SetText(placeholder)
   SingleLine(eb.placeholder)
   eb.clear = CreateFrame("Button", nil, eb)
   eb.clear:SetSize(14, 14)
@@ -131,7 +136,7 @@ local function CreateSearchBox(parent, width, placeholder, tipText, onChange)
     local text = self:GetText() or ""
     self.placeholder:SetShown(text == "")
     self.clear:SetShown(text ~= "")
-    if onChange then onChange(text) end
+    onChange(text)
   end
   eb.clear:SetScript("OnClick", function()
     eb:SetText("")
@@ -142,6 +147,11 @@ local function CreateSearchBox(parent, width, placeholder, tipText, onChange)
   SetTip(eb, "search", SearchTip(placeholder, tipText))
   eb:SetScript("OnLeave", GameTooltip_Hide)
   return eb
+end
+
+local function CreateSearchBox(parent, width, placeholder, tipText, onChange)
+  return NativeSearchBox(parent, width, placeholder, tipText, onChange)
+    or PlainSearchBox(parent, width, placeholder, tipText, onChange)
 end
 
 UI.PROF_BAR_W, UI.PROF_DROP, UI.PROF_BAR_H = 340, 19, 29
