@@ -21,7 +21,7 @@ local function readFile(path) local f = io.open(path, "rb"); if not f then retur
 local function lines(s) local out = {} for l in (s .. "\n"):gmatch("([^\n]*)\n") do out[#out + 1] = (l:gsub("\r$", "")) end return out end
 
 local all = {}
-for p in shell('git -C "' .. ROOT .. '" ls-files --cached --others --exclude-standard'):gmatch("[^\r\n]+") do all[#all + 1] = p end
+for p in shell('git -C "' .. ROOT .. '" ls-files --cached'):gmatch("[^\r\n]+") do all[#all + 1] = p end
 table.sort(all)
 
 local function isShippedLua(p)
