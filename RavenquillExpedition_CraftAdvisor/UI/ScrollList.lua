@@ -36,7 +36,17 @@ local function LinkScrollBar(sf)
   end
 end
 
-local function CreateScrollList(parent, width, height, rowHeight, createRow, updateRow, kinds)
+local function NextRow(sf, kinds, used, d)
+  local name = kinds[d.rowKind] and d.rowKind or "default"
+  local n = (used[name] or 0) + 1
+  used[name] = n
+  local pool = sf.pools[name] or {}
+  sf.pools[name] = pool
+  pool[n] = pool[n] or kinds[name].create(sf.content)
+  return pool[n], kinds[name]
+end
+
+local function CreateScrollList(parent, width, height, kinds)
   local sf = NewScrollFrame(parent)
   sf:SetSize(width, height)
   local content = CreateFrame("Frame", nil, sf)
@@ -44,33 +54,19 @@ local function CreateScrollList(parent, width, height, rowHeight, createRow, upd
   sf:SetScrollChild(content)
   LinkScrollBar(sf)
   sf.content = content
-  sf.rows, sf.pools, sf.rowY, sf.viewW, sf.viewH, sf.contentH = {}, {}, {}, width, height, 0
+  sf.pools, sf.rowY, sf.viewW, sf.viewH, sf.contentH = { default = {} }, {}, width, height, 0
   function sf:SetData(data)
-    local used, nRows, y = {}, 0, 0
+    local used, y = {}, 0
     self.data = data
     self.rowY = {}
     for _, d in ipairs(data) do
-      local kind = kinds and d.rowKind and kinds[d.rowKind]
-      local row, h, update
-      if kind then
-        local pool = self.pools[d.rowKind]
-        if not pool then pool = {}; self.pools[d.rowKind] = pool end
-        local n = (used[d.rowKind] or 0) + 1
-        used[d.rowKind] = n
-        row = pool[n]
-        if not row then row = kind.create(content); pool[n] = row end
-        h, update = kind.height, kind.update
-      else
-        nRows = nRows + 1
-        row = self.rows[nRows]
-        if not row then row = createRow(content); self.rows[nRows] = row end
-        h, update = rowHeight, updateRow
-      end
+      local row, kind = NextRow(self, kinds, used, d)
       row:ClearAllPoints()
       row:SetPoint("TOPLEFT", 0, -y)
       row:SetPoint("RIGHT", content, "RIGHT")
       row.data = d
-      update(row, d, self.viewW)
+      kind.update(row, d, self.viewW)
+      local h = kind.height
       if type(h) == "function" then
         h = h(row, d, self.viewW)
         row:SetHeight(h - 2)
@@ -79,9 +75,8 @@ local function CreateScrollList(parent, width, height, rowHeight, createRow, upd
       row:Show()
       y = y + h
     end
-    for i = nRows + 1, #self.rows do self.rows[i]:Hide() end
-    for k, pool in pairs(self.pools) do
-      for i = (used[k] or 0) + 1, #pool do pool[i]:Hide() end
+    for name, pool in pairs(self.pools) do
+      for i = (used[name] or 0) + 1, #pool do pool[i]:Hide() end
     end
     self.contentH = y
     content:SetHeight(math.max(1, y))

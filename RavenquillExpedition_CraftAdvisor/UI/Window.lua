@@ -321,8 +321,7 @@ function Build.NeedsView(self, f, c, painted, listH, rw)
   self.needsInset = ni
   self.searchBox, self.filterButton, self.filterPopup = Build.SearchAndFilter(ni, f, L.NEEDS_SEARCH, L.NEEDS_SEARCH_TIP,
     function() UI:RefreshNeeds() end)
-  self.needsList = CreateScrollList(ni, LEFT_W - 30, listH - MEMBER_LIST_TOP - 5 - COUNT_H, P.NEED_ROW_H, P.CreateCraftGroupRow,
-    P.UpdateCraftGroupRow, UI.NEEDS_KINDS)
+  self.needsList = CreateScrollList(ni, LEFT_W - 30, listH - MEMBER_LIST_TOP - 5 - COUNT_H, UI.NEEDS_KINDS)
   self.needsList:SetPoint("TOPLEFT", 5, -MEMBER_LIST_TOP)
   RaiseInsetBorder(ni, self.needsList)
   self.needsCount = Build.NeedsCount(ni)
@@ -339,8 +338,9 @@ function Build.MemberListPanel(self, f, mv, painted, listH)
   self.memberInset = left
   self.memberSearch, self.memberFilter, self.memberFilterPopup = Build.SearchAndFilter(left, f, L.MEMBER_SEARCH,
     L.MEMBER_SEARCH_TIP, function() UI:RefreshMemberList() end)
-  self.memberList = CreateScrollList(left, LEFT_W - 30, listH - MEMBER_LIST_TOP - 5, MEMBER_ROW_H, P.CreateMemberRow, P.UpdateMemberRow,
-    { group = { create = P.CreateGroupRow, update = P.UpdateGroupRow, height = P.GROUP_ROW_H } })
+  self.memberList = CreateScrollList(left, LEFT_W - 30, listH - MEMBER_LIST_TOP - 5,
+    { default = { create = P.CreateMemberRow, update = P.UpdateMemberRow, height = MEMBER_ROW_H },
+      group = { create = P.CreateGroupRow, update = P.UpdateGroupRow, height = P.GROUP_ROW_H } })
   self.memberList:SetPoint("TOPLEFT", 5, -MEMBER_LIST_TOP)
   RaiseInsetBorder(left, self.memberList)
 end
@@ -370,8 +370,9 @@ function Build.SuggestionPanel(self, md, listH, rw)
   right:SetPoint("TOPLEFT", md, "TOPLEFT", 6, -DETAIL_HEAD)
   right:SetSize(rw - 8, listH - DETAIL_HEAD - 6)
   self.sugInset = right
-  self.sugList = CreateScrollList(right, rw - 42, listH - DETAIL_HEAD - 16, UI.CardHeight, P.CreateCardRow, P.UpdateCardRow,
-    { section = { create = P.CreateSectionRow, update = P.UpdateSectionRow, height = P.SECTION_H },
+  self.sugList = CreateScrollList(right, rw - 42, listH - DETAIL_HEAD - 16,
+    { default = { create = P.CreateCardRow, update = P.UpdateCardRow, height = UI.CardHeight },
+      section = { create = P.CreateSectionRow, update = P.UpdateSectionRow, height = P.SECTION_H },
       fold = { create = P.CreateFoldRow, update = P.UpdateFoldRow, height = P.FoldHeight } })
   self.sugList:SetPoint("TOPLEFT", 5, -5)
   self.emptyText = right:CreateFontString(nil, "OVERLAY", "GameFontDisable")

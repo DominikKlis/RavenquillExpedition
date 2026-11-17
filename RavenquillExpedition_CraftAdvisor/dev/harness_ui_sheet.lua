@@ -195,7 +195,7 @@ do
     and menuOf(UIx.modeToggle)[2]:on() and not menuOf(UIx.modeToggle)[1]:on() and UIx.modeToggle._override == "View: List",
     "-> List: saved, Bud still selected, cards shown, dropdown text 'View: List'")
   local sl = UIx.sugList
-  check(sl.pools.section and sl.pools.section[1]._shown and sl.rows[1]._shown and sl.rows[1].data == ring, "list: section headers + cards, biggest first")
+  check(sl.pools.section and sl.pools.section[1]._shown and sl.pools.default[1]._shown and sl.pools.default[1].data == ring, "list: section headers + cards, biggest first")
   menuOf(UIx.modeToggle)[1]:click()
   check(GCA.db.settings.memberView == "sheet" and UIx.selected == "Bud Stone" and UIx.sheetSlot == 3 and sh._shown and not sl._shown,
     "-> Character sheet: Bud and the shoulders slot kept")
@@ -232,7 +232,7 @@ do
   UIx:SetMemberMode("list")
   sl = UIx.sugList
   local card
-  for _, r in ipairs(sl.rows) do if r._shown and r.data == s1 then card = r end end
+  for _, r in ipairs(sl.pools.default) do if r._shown and r.data == s1 then card = r end end
   check(card and plain(card.title._text) == "Hillman's Leather Vest" and plain(card.sub._text) == ""
     and card.gain._text == "+12 pts" and card.points._text == "" and card.offer._shown and card.crafted._shown,
     "card (user 2026-11-15): name, no stat-difference line, '+12 pts', box, Offer: " .. plain(card and card.sub._text))
@@ -241,7 +241,7 @@ do
   check(GCA:CraftedMark("Bud Stone", "Leatherworking", 3762) ~= nil, "card crafted box stores the mark")
   GCA:SetCrafted("Bud Stone", "Leatherworking", s1, false)
   printed = {}
-  for _, r in ipairs(sl.rows) do if r._shown and r.data == s1 then card = r end end
+  for _, r in ipairs(sl.pools.default) do if r._shown and r.data == s1 then card = r end end
   card.offer._scripts.OnClick(card.offer)
   check(table.concat(printed, "\n"):find("could craft you |Hitem:4244", 1, true), "card Offer writes the whisper")
   local hdr
@@ -256,11 +256,11 @@ do
   check(glHdr and plain(glHdr.wornName._text) == UIx.SectionTitle(glHdr.data.sec) .. " (empty)" and glHdr.empty and glHdr.box.bg == nil and glHdr.box.icon._SetDesaturated[1] == true
     and glHdr.box.icon._alpha == 0.45, "empty slot: dimmed '<Slot> (empty)', (K6: no box at all), the slot art desaturated")
   local gcard
-  for _, r in ipairs(sl.rows) do if r._shown and r.data == glove then gcard = r end end
+  for _, r in ipairs(sl.pools.default) do if r._shown and r.data == glove then gcard = r end end
   check(gcard and gcard.dimmed and gcard.chip == nil and plain(gcard.sub._text):find("^from level 42 · 3 to go") and gcard.title._alpha == 0.55,
     "too-high-level card: dimmed, the orange level tag first on its second line")
   local ecard
-  for _, r in ipairs(sl.rows) do if r._shown and r.data == ench1 then ecard = r end end
+  for _, r in ipairs(sl.pools.default) do if r._shown and r.data == ench1 then ecard = r end end
   check(ecard and plain(ecard.sub._text) == "replaces Minor Stamina on Bracers", "enchant card: what it replaces (no stat changes): " .. plain(ecard and ecard.sub._text))
   check(UIx.errorCount == errs, "no error reported (K4 English)")
 
@@ -358,7 +358,7 @@ do
       UIx:SetMemberMode("list")
       layoutChecks(UIx, UIx.frame, "" .. loc .. " " .. sz[1] .. "x" .. sz[2] .. " (list)")
       local okCards = true
-      for _, r in ipairs(UIx.sugList.rows) do
+      for _, r in ipairs(UIx.sugList.pools.default) do
         if r._shown and r.textW then
           local showO, showC = r.offer._shown, r.crafted._shown
           local rightW = 6 + (showO and 88 or 0) + (showC and 28 or 0) + 84 + 10
@@ -396,7 +396,7 @@ do
   check(s12.badgeKind == "text" and s12.badge._text == "+" and s12.badge._shown and not s12.frameArt and s12.qual._SetColorTexture[2] == 1
     and not s12.iconBorder._shown, "no files: badge = a green '+', the quality colour as a square behind the icon")
   UIx:SetMemberMode("list")
-  check(UIx.sugList.rows[1].frameArt == "atlas" and UIx.sugList.rows[1].slotBg and UIx.errorCount == errs, "no files: cards keep the reagent-slot atlas (no file needed)")
+  check(UIx.sugList.pools.default[1].frameArt == "atlas" and UIx.sugList.pools.default[1].slotBg and UIx.errorCount == errs, "no files: cards keep the reagent-slot atlas (no file needed)")
   UIx:SetMemberMode("sheet")
   GetFileIDFromPath = nil
   GameFontGreenLarge = {}
@@ -485,11 +485,11 @@ do
     end
     if b.edges or b._backdrop then boxy[#boxy + 1] = name end
   end
-  scanRow("member row", UIx.memberList.rows[1])
+  scanRow("member row", UIx.memberList.pools.default[1])
   scanRow("group header", UIx.memberList.pools.group[1])
-  if UIx.needsList.rows[1] then scanRow("craft row", UIx.needsList.rows[1]) end
+  if UIx.needsList.pools.default[1] then scanRow("craft row", UIx.needsList.pools.default[1]) end
   if UIx.needsList.pools.cat then scanRow("slot category", UIx.needsList.pools.cat[1]) end
-  check(UIx.memberList.rows[1] and #boxy == 0, "list rows and category headers draw no colour boxes / borders (atlas art only) " .. table.concat(boxy, ", "))
+  check(UIx.memberList.pools.default[1] and #boxy == 0, "list rows and category headers draw no colour boxes / borders (atlas art only) " .. table.concat(boxy, ", "))
   local skinDB = UIx.SKIN.detailBorder
   UIx.SKIN.detailBorder = { pieces = { { key = "TopLeftCorner", atlas = "UI-Frame-InnerTopLeft", w = 12, p = { "TOPLEFT", -2, 2 } },
     { key = "TopRightCorner", atlas = "UI-Frame-InnerTopRight", w = 12, p = { "TOPRIGHT", 2, 2 } },

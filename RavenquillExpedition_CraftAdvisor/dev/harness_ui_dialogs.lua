@@ -246,7 +246,7 @@ do
     "no atlases: the rank bar falls back to a plain track, the dropdown arrow to the caret file (no popups: native menus)")
   UIx.current = { key = "Bud Stone", online = true, prof = "Leatherworking", level = 39 }
   UIx.sugList:SetData({ fakeSug() })
-  local b = UIx.sugList.rows[1]
+  local b = UIx.sugList.pools.default[1]
   check(not b.slotFrame and b.qual._shown ~= false and b.qual._SetColorTexture, "row icon: quality square instead of the slot frame")
   f:Hide()
   H.atlasMode = "ok"

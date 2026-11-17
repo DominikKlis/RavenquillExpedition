@@ -60,7 +60,7 @@ do
   local function show(d, c)
     UIx.current = c or cur
     UIx.sugList:SetData({ d })
-    return UIx.sugList.rows[1]
+    return UIx.sugList.pools.default[1]
   end
   local d = fakeSug()
   local b = show(d)
@@ -198,7 +198,7 @@ do
   b = show(fakeSug({ kind = "enchant", enchant = { enchant = 247, name = "Minor Agility" }, item = { name = "Bracers" }, slot = 9,
     equipped = { name = "Minor Stamina" }, cand = { spellID = 7779, enchant = true, recipe = { skill = 80, src = "trainer", r = {} } } }))
   check(plain(b.sub._text) == "replaces Minor Stamina on Bracers", "enchant row keeps 'replaces X on Y': " .. plain(b.sub._text))
-  captureTip(); show(fakeSug({ equipped = { name = "Old Vest", quality = 2 } }))._scripts.OnEnter(UIx.sugList.rows[1])
+  captureTip(); show(fakeSug({ equipped = { name = "Old Vest", quality = 2 } }))._scripts.OnEnter(UIx.sugList.pools.default[1])
   check(plainTip("item:4244"), "no 'replaces' line in the item tooltip either")
   b = show(d)
   b.crafted:SetChecked(true); b.crafted._scripts.OnClick(b.crafted)
@@ -272,7 +272,7 @@ do
   captureTip(); UIx.memberSearch._scripts.OnEnter(UIx.memberSearch)
   check(UIx.memberHeader == nil and tipText():find("Search member", 1, true) and tipText():find("by name", 1, true),
     "a member search box on top of the list (replaces the column header / badge legend)")
-  local mr = UIx.memberList.rows[1]
+  local mr = UIx.memberList.pools.default[1]
   check(mr and mr.name._SetWordWrap and mr.name._SetWordWrap[1] == false, "member rows single-line")
   check(UIx.survival.label._text == "Leveling bonus (Stamina/Spirit): 50%", "slider renamed: " .. tostring(UIx.survival.label._text))
   f:Hide()
@@ -294,7 +294,7 @@ do
   local d = fakeSug()
   UIx.current = { key = "Bud Stone", online = true, prof = "Leatherworking", level = 39 }
   UIx.sugList:SetData({ d })
-  local b = UIx.sugList.rows[1]
+  local b = UIx.sugList.pools.default[1]
   captureTip(); b.crafted._scripts.OnEnter(b.crafted)
   check(H.tip[1] == "Hergestellt" and UIx.WearableText({ wearAt = 42, levelsToGo = 3 }) == "tragbar ab Stufe 42 (in 3 Stufen)", "row texts in German")
   check(UIx.SpecialisationText("Engineering", "Gnomish Goggles"):find("Gnomen-Ingenieurskunst", 1, true)
@@ -326,10 +326,10 @@ do
   sl:SetData(data)
   local H = sl.pools.section
   local FP = sl.pools.fold
-  check(H and #H == 2 and FP and #FP == 1 and sl.rows[1].data == s1 and sl.rows[3].data == ring and (sl.rows[4] == nil or not sl.rows[4]._shown),
+  check(H and #H == 2 and FP and #FP == 1 and sl.pools.default[1].data == s1 and sl.pools.default[3].data == ring and (sl.pools.default[4] == nil or not sl.pools.default[4]._shown),
     "row kinds: 2 section rows + 1 folded line (own pools) + 3 suggestion rows")
   local foldH = sl.rowY[6][2]
-  check(sl.rows[1]._points[1][3] == -56 and sl.rows[2]._points[1][3] == -108 and H[2]._points[1][3] == -160 and FP[1]._points[1][3] == -268,
+  check(sl.pools.default[1]._points[1][3] == -56 and sl.pools.default[2]._points[1][3] == -108 and H[2]._points[1][3] == -160 and FP[1]._points[1][3] == -268,
     "rows stacked by kind height (worn row 56, card 52, then the folded box; K4 had a 30 px header)")
   check(sl.contentH == 2 * 56 + 3 * 52 + foldH and foldH >= 30, "content height = 2 worn rows + 3 cards + the folded box (" .. tostring(sl.contentH) .. ", box " .. foldH .. ")")
   local h = H[1]
@@ -342,7 +342,7 @@ do
   local r = H[2]
   check(r.name == nil and plain(r.wornName._text) == "Ring A  ·  Ring B" and r.count._text == "1 upgrade",
     "rings worn row: both rings named, '1 upgrade': " .. plain(r.wornName._text))
-  local c1, c2, c3 = sl.rows[1], sl.rows[2], sl.rows[3]
+  local c1, c2, c3 = sl.pools.default[1], sl.pools.default[2], sl.pools.default[3]
   check(c1.treeV == nil and c1.treeH == nil and c1.alt == nil and UIx.TREE_X == nil and c1.qual._points[1][4] == UIx.CARD_INDENT + 4 and UIx.CARD_INDENT == 16,
     "cards indented 16 px under their worn row, no tree lines / row shading")
   local g = FP[1]
@@ -351,11 +351,11 @@ do
     "one folded, wrapping line names the 13 slots (unloaded trinket marked): " .. tostring(g.text._text))
   check(not (g.text._text or ""):find("–", 1, true), "no '– no upgrade –' lines any more")
   local gt = g
-  local b = sl.rows[1]
+  local b = sl.pools.default[1]
   check(b.offer._shown and b.crafted._shown and plain(b.title._text) == "Hillman's Leather Vest", "suggestion rows inside a section (K1 title)")
-  check(plain(sl.rows[3].title._text) == "Craft Ring (Ring 2)" and plain(sl.rows[3].sub._text):find("replaces", 1, true)
+  check(plain(sl.pools.default[3].title._text) == "Craft Ring (Ring 2)" and plain(sl.pools.default[3].sub._text):find("replaces", 1, true)
     and not plain(b.sub._text):find("replaces", 1, true),
-    "ring row keeps a disambiguator '(Ring 2)' and 'replaces …'; a normal slot's row doesn't repeat the worn item: " .. plain(sl.rows[3].title._text))
+    "ring row keeps a disambiguator '(Ring 2)' and 'replaces …'; a normal slot's row doesn't repeat the worn item: " .. plain(sl.pools.default[3].title._text))
   captureTip(); h._scripts.OnEnter(h)
   check(plainTip(), "worn row (section header) tooltip = the worn item's plain tooltip: " .. tipText())
   captureTip(); g._scripts.OnEnter(g)
@@ -408,7 +408,7 @@ do
   sl:SetData(UIx.SectionRows(fakeSections({ [9] = { fakeSug({ slot = 9 }) } })))
   local shownH = 0
   for _, x in ipairs(H) do if x._shown then shownH = shownH + 1 end end
-  check(shownH == 1 and FP[1]._shown and sl.rows[1]._shown and not sl.rows[2]._shown and not sl.rows[3]._shown, "pools reused; unused rows hidden")
+  check(shownH == 1 and FP[1]._shown and sl.pools.default[1]._shown and not sl.pools.default[2]._shown and not sl.pools.default[3]._shown, "pools reused; unused rows hidden")
   check(UIx.errorCount == before, "no error reported")
   HandleModifiedItemClick = function() end
 
@@ -484,7 +484,7 @@ do
     string.format("visible rows grow with the height: suggestions %d/%d/%d, members %d/%d/%d", vis[1][1], vis[2][1], vis[3][1], vis[1][2], vis[2][2], vis[3][2]))
   check(vis[1][2] == 16 and vis[3][2] == 34, "25 px recipe-list member rows visible (incl. the Online header): 16 at 560 high, 34 at 1000 high (K6: 11/23 with 34 px rows) ("
     .. vis[1][2] .. "/" .. vis[3][2] .. ")")
-  local hdr, card, fold = UIx.sugList.pools.section[1], UIx.sugList.rows[1], UIx.sugList.pools.fold[1]
+  local hdr, card, fold = UIx.sugList.pools.section[1], UIx.sugList.pools.default[1], UIx.sugList.pools.fold[1]
   local function lineW() return hdr.textW end
   local wide = { lineW(), card.textW, fold.text._SetWidth[1] }
   drag(840, 560)

@@ -16,7 +16,7 @@ do
   local function show(d, c)
     UIx.current = c or cur
     UIx.sugList:SetData({ d })
-    return UIx.sugList.rows[1]
+    return UIx.sugList.pools.default[1]
   end
   local function reset() Src.Reset(); RS.world = {} end
   check(_G.CraftersJournal == nil and _G.LibQuestieDB == nil and type(REAL) == "table" and type(RS) == "table",
@@ -455,7 +455,7 @@ do
   check(secs[16] and secs[17] and secs[18] and titles[16] == "Main Hand" and titles[17] == "Off Hand" and titles[18] == "Ranged",
     "list: weapon sections Main Hand / Off Hand / Ranged: " .. tostring(titles[16]) .. "/" .. tostring(titles[17]) .. "/" .. tostring(titles[18]))
   local cards = {}
-  for _, b in ipairs(UIx.sugList.rows) do if b.data and b.data.cand then cards[b.data.cand.itemID] = b end end
+  for _, b in ipairs(UIx.sugList.pools.default) do if b.data and b.data.cand then cards[b.data.cand.itemID] = b end end
   check(cards[9102] and plain(cards[9102].title._text) == "Craft Sword (off hand)" and cards[9102].offer._shown,
     "card: 'Craft Sword (off hand)', Offer shown as for armour")
   check(cards[9103] and plain(cards[9103].sub._text):find("needs an off hand", 1, true), "card: the needs-partner row says 'needs an off hand': " .. plain(cards[9103] and cards[9103].sub._text))

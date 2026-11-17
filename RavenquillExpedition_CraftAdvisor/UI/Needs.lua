@@ -101,7 +101,10 @@ end
 local function UpdateNeedsCatRow(b, d, listW)
   b:SetCategory(CatTitle(d.cat), not UI.needsCollapsed[d.cat], listW)
 end
-UI.NEEDS_KINDS = { cat = { create = CreateNeedsCatRow, update = UpdateNeedsCatRow, height = P.GROUP_ROW_H } }
+UI.NEEDS_KINDS = {
+  default = { create = CreateCraftGroupRow, update = UpdateCraftGroupRow, height = P.NEED_ROW_H },
+  cat = { create = CreateNeedsCatRow, update = UpdateNeedsCatRow, height = P.GROUP_ROW_H },
+}
 
 local NEED_SUB_X = 8
 UI.NEED_MEMBER_W = 110
@@ -330,7 +333,8 @@ function UI.CreateCraftDetail(parent)
   p.learn = UI.CreateLearnButton(p)
   p.forTitle = DetailTitle(p, L.DETAIL_FOR)
   p.forTitle:SetPoint("TOPLEFT", p, "TOPLEFT", 18, -76)
-  p.members = P.CreateScrollList(p, 300, NEED_SUB_H * 3, NEED_SUB_H, CreateNeedMemberRow, UpdateNeedMemberRow)
+  p.members = P.CreateScrollList(p, 300, NEED_SUB_H * 3,
+    { default = { create = CreateNeedMemberRow, update = UpdateNeedMemberRow, height = NEED_SUB_H } })
   p.members:SetPoint("TOPLEFT", p, "TOPLEFT", 10, -92)
   P.RaiseInsetBorder(p, p.members)
   p.reagTitle = DetailTitle(p, L.TIP_REAGENTS)
@@ -600,5 +604,3 @@ function Detail.Fill(p, e, w, h)
   p.contentH = y + srcH
 end
 
-P.CreateCraftGroupRow = CreateCraftGroupRow
-P.UpdateCraftGroupRow = UpdateCraftGroupRow

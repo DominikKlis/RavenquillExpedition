@@ -144,8 +144,8 @@ check(#e >= 1, "show unlearned: still computes")
 check(GCA.db.settings.memberView == "sheet", "member view defaults to the character sheet")
 GCA.db.settings.memberView = "list"
 GCA.UI:Toggle(); runTimers()
-print("UI shown", GCA.UI.frame:IsShown(), "selected", GCA.UI.selected, "auto", GCA.UI.autoKey, "first", GCA.UI.memberList.rows[1].data.key, GCA.UI.memberList.rows[1].data.best, "rows", #GCA.UI.sugList.rows)
-check(GCA.UI.frame:IsShown() and GCA.UI.selected == "Buddy Stone" and #GCA.UI.sugList.rows >= 1, "/gca opens the window with Buddy selected and a suggestion row")
+print("UI shown", GCA.UI.frame:IsShown(), "selected", GCA.UI.selected, "auto", GCA.UI.autoKey, "first", GCA.UI.memberList.pools.default[1].data.key, GCA.UI.memberList.pools.default[1].data.best, "rows", #GCA.UI.sugList.pools.default)
+check(GCA.UI.frame:IsShown() and GCA.UI.selected == "Buddy Stone" and #GCA.UI.sugList.pools.default >= 1, "/gca opens the window with Buddy selected and a suggestion row")
 do
   local sl = GCA.UI.sugList
   local pools = rawget(sl, "pools")
@@ -153,7 +153,7 @@ do
   local shownSecs = 0
   for _, s in ipairs(secs) do if rawget(s, "_shown") ~= false then shownSecs = shownSecs + 1 end end
   local first = secs[1]
-  check(first and first.data.sec.key == 5 and #first.data.sec.rows == 1 and sl.rows[1].data == first.data.sec.rows[1]
+  check(first and first.data.sec.key == 5 and #first.data.sec.rows == 1 and sl.pools.default[1].data == first.data.sec.rows[1]
     and shownSecs == 1 and fold and #fold.data.secs == 14 and sl.data[#sl.data] == fold.data
     and (GCA.UI.errorCount or 0) == 0 and GCA:Diag().lastError == nil,
     "real refresh -> chest section first with the vest row, the 14 others folded into one last line, no reported error ("
@@ -162,10 +162,10 @@ do
   check(GCA.UI.view == "needs" and nl.data[1] and nl.data[1].rowKind == "cat" and nl.data[1].cat == 5 and nl.data[2] and nl.data[2].group
     and nl.data[2].rows[1].member.key == "Buddy Stone"
     and nl.data[2].group.sug == first.data.sec.rows[1] and nl.data[2].group == GCA:GuildNeedsByCraft(GCA.UI.lastMembers)[1]
-    and GCA.UI.needDetail.entry == nl.data[2] and GCA.UI.needDetail.members.rows[1].data.member.key == "Buddy Stone",
+    and GCA.UI.needDetail.entry == nl.data[2] and GCA.UI.needDetail.members.pools.default[1].data.member.key == "Buddy Stone",
     "opens on guild needs; 'Chest' category, first craft = Buddy's vest, shown in the detail panel (real Core GuildNeedsByCraft)")
   local mrow
-  for _, r in ipairs(rawget(GCA.UI.memberList, "rows")) do if r.data and r.data.key == "Buddy Stone" then mrow = r end end
+  for _, r in ipairs(rawget(GCA.UI.memberList, "pools").default) do if r.data and r.data.key == "Buddy Stone" then mrow = r end end
   local line = mrow and GCA.UI.MemberLine(mrow.data) or ""
   check(line:find("^%d+ upgrades? · best: Chest$"), "member row second line on real data: " .. line)
   local UIx = GCA.UI
@@ -185,10 +185,10 @@ do
 end
 GCA.UI.selected, GCA.UI.autoKey = nil, nil
 GCA.UI:Refresh()
-check(GCA.UI.selected == "Buddy Stone" and GCA.UI.autoKey == "Buddy Stone" and GCA.UI.memberList.rows[1].data.key == "Me" and GCA.UI.memberList.rows[1].data.best ~= nil,
+check(GCA.UI.selected == "Buddy Stone" and GCA.UI.autoKey == "Buddy Stone" and GCA.UI.memberList.pools.default[1].data.key == "Me" and GCA.UI.memberList.pools.default[1].data.best ~= nil,
   "default = best non-self member with a known upgrade; you stay first in the list")
 do
-  local selfRow = GCA.UI.memberList.rows[1]
+  local selfRow = GCA.UI.memberList.pools.default[1]
   rawget(selfRow, "_scripts").OnClick(selfRow, "LeftButton")
   GCA.UI:Refresh()
   check(GCA.UI.selected == "Me" and GCA.UI.autoKey == nil, "clicking yourself sticks (no automatic re-pick)")
@@ -203,7 +203,7 @@ GameTooltip.AddLine = function(_, t) tipLines[#tipLines + 1] = t end
 GameTooltip.AddDoubleLine = function(_, a, b) tipLines[#tipLines + 1] = a .. " | " .. b end
 local savedHyper = GameTooltip.SetHyperlink
 GameTooltip.SetHyperlink = function(_, l) hyper[#hyper + 1] = l end
-local row = GCA.UI.sugList.rows[1]
+local row = GCA.UI.sugList.pools.default[1]
 rawget(row, "_scripts").OnEnter(row)
 IsShiftKeyDown = function() return true end
 ns.locale = "deDE"
@@ -224,7 +224,7 @@ do
   check(r1 and r1[1] and r1[1].label == "Beweglichkeit" and r2[1].label == "Beweglichkeit (Client)",
     "German stat names in the stat differences; the client's SPELL_STAT2_NAME wins when it exists")
 end
-local mrow = GCA.UI.memberList.rows[2]
+local mrow = GCA.UI.memberList.pools.default[2]
 tipLines = {}
 rawget(mrow, "_scripts").OnEnter(mrow)
 for _, l in ipairs(tipLines) do print("  member tip:", l) end
