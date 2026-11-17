@@ -159,7 +159,7 @@ function H:Add(e, source, opts)
   elseif source == "self" or source == "witness" then
     OnSeenHere(self, e, source, opts, gkey)
   end
-  if self.RefreshSoon then self:RefreshSoon() elseif self.Refresh then self:Refresh() end
+  self:RefreshSoon()
   return e
 end
 
@@ -219,7 +219,7 @@ function H:Activity(e)
   a[#a + 1] = e
   local cutoff = e.t - self.ACTIVITY_AGE
   while a[1] and (#a > self.ACTIVITY_MAX or a[1].t < cutoff) do table.remove(a, 1) end
-  if self.RefreshSoon then self:RefreshSoon() end
+  self:RefreshSoon()
   return e
 end
 
@@ -237,7 +237,7 @@ function H:ClearTests()
       if g.events[i].test then idx[g.events[i].id] = nil; table.remove(g.events, i); n = n + 1 end
     end
   end
-  if self.Refresh then self:Refresh() end
+  self:Refresh()
   return n
 end
 
@@ -364,7 +364,7 @@ local function Setter(key, after)
   return function(v)
     S()[key] = v
     if after then after(v) end
-    if H.Refresh then H:Refresh() end
+    H:Refresh()
   end
 end
 local function Getter(key) return function() return S()[key] end end
@@ -374,7 +374,7 @@ local function ChatOff() return not S().chat end
 H.options = {
   { type = "header", label = L.OPT_SHARE_H },
   { type = "toggle", label = L.OPT_SHARE, tooltip = L.OPT_SHARE_TIP, get = Getter("share"),
-    set = Setter("share", function(v) if v and H.OutboxPump then H:OutboxPump() end end) },
+    set = Setter("share", function(v) if v then H:OutboxPump() end end) },
   { type = "range", label = L.OPT_CAP, tooltip = L.OPT_CAP_TIP, min = 1, max = 20, step = 1,
     get = Getter("shareCap"), set = Setter("shareCap"), disabled = ShareOff },
   { type = "header", label = L.OPT_CHAT_H },
@@ -436,7 +436,7 @@ function H:DiagLines()
 end
 
 function H:Open()
-  if self.ShowWindow then self:ShowWindow() elseif self.ToggleWindow then self:ToggleWindow() end
+  self:ShowWindow()
 end
 
 function H:OverviewStatus()

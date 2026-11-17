@@ -210,7 +210,7 @@ local function Store(key, m)
   local old = M.members[key]
   if old and old.ts and m.ts < old.ts then Reject("older than shown"); return end
   M.members[key] = m
-  if M.RefreshPins then M:RefreshPins() end
+  M:RefreshPins()
   M:Wake()
 end
 
@@ -251,7 +251,7 @@ local function OnLeave(self, key, f)
   local old = self.members[key]
   if old and not old.fake and (not old.ts or ts >= old.ts) then
     self.members[key] = nil
-    if self.RefreshPins then self:RefreshPins() end
+    self:RefreshPins()
   end
   S.senders[key], S.nHeard[key], S.pending[key] = nil, nil, nil
 end
@@ -287,7 +287,7 @@ function M:WipeRemote()
     if not m.fake and not m.isSelf then self.members[key] = nil end
   end
   wipe(S.pending); wipe(S.senders); wipe(S.nHeard); wipe(S.heard)
-  if self.RefreshPins then self:RefreshPins() end
+  self:RefreshPins()
 end
 
 function M.mod:OnGuildChanged() M:WipeRemote() end

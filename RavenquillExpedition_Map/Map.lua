@@ -150,11 +150,11 @@ end
 function M:Refresh()
   if not self.settings then return end
   self:UpdateSelfPin()
-  if self.DropOffline then self:DropOffline() end
+  self:DropOffline()
   for key, m in pairs(self.members) do
     if self:State(m) == "gone" then self.members[key] = nil end
   end
-  if self.RefreshPins then self:RefreshPins() end
+  self:RefreshPins()
 end
 
 function M:NeedsTick()
@@ -166,7 +166,7 @@ end
 
 function M:Tick()
   self:MoveFakes()
-  if self.SyncTick then self:SyncTick() end
+  self:SyncTick()
   self:Refresh()
   if not self:NeedsTick() and self.ticker then
     self.ticker:Cancel()
@@ -196,8 +196,8 @@ function M:SetOption(key, v)
   end
   if s[key] == v then return end
   s[key] = v
-  if key == "share" and self.OnShareChanged then self:OnShareChanged(v) end
-  if key == "size" and self.ApplySize then self:ApplySize() end
+  if key == "share" then self:OnShareChanged(v) end
+  if key == "size" then self:ApplySize() end
   self:Refresh()
   self:Wake()
 end
@@ -297,8 +297,7 @@ local function MembersLine(self)
     n = n + 1
     if self:State(m) == "stale" then stale = stale + 1 else fresh = fresh + 1 end
   end
-  local w, mm
-  if self.CountPins then w, mm = self:CountPins() end
+  local w, mm = self:CountPins()
   return ("Members %d (fresh %d, stale %d); pins: world %s, minimap %s; minimap zoom %s, indoors %s, rotate %s"):format(
     n, fresh, stale, F(w), F(mm), F(Minimap and SafeCall(Minimap.GetZoom, Minimap)), F(SafeCall(IsIndoors)),
     F(C_CVar and SafeCall(C_CVar.GetCVar, "rotateMinimap")))
@@ -310,7 +309,7 @@ function M:DebugLines()
   VersionLines(self, P)
   PositionLines(self, P)
   P(MembersLine(self))
-  if self.SyncDebug then self:SyncDebug(P) end
+  self:SyncDebug(P)
   local err = RavenquillExpeditionDB and RavenquillExpeditionDB.lastError
   if err then P("Last error (suite): " .. F(err.msg)) end
   return lines
@@ -321,7 +320,7 @@ function mod:OnLogin()
   M:Wake()
   self:After(M.C.NOTICE_DELAY, function() M:MaybeNotice() end)
   M:Refresh()
-  if M.SyncLogin then M:SyncLogin() end
+  M:SyncLogin()
 end
 
 local function Refresh() M:Refresh() end

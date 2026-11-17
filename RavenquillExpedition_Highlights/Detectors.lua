@@ -478,7 +478,7 @@ do
     BANKFRAME_OPENED = function() GS:Call(OnBankOpened) end,
     BANKFRAME_CLOSED = function() C_Timer.After(1, function() bankOpen = false end) end,
     GET_ITEM_INFO_RECEIVED = function()
-      if not (H.waitingItems and H.Refresh) then return end
+      if not H.waitingItems then return end
       Soon("refresh", 0.5, function() H.waitingItems = false; H:Refresh() end)
     end,
   }
