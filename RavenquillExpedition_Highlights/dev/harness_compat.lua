@@ -172,7 +172,7 @@ table.sort(names)
 for _, name in ipairs(names) do
   local c = SV_CASES[name]
   RavenquillExpeditionHighlightsDB, RavenquillExpeditionHighlightsCharDB = c[1], c[2]
-  RavenquillExpedition.SetupModuleDB(H)
+  coreNS.SetupModuleDB(H)
   H:OnLoad()
   local cdb = RavenquillExpeditionHighlightsCharDB
   if cdb.installedAt == time() then cdb.installedAt = "<now>" end

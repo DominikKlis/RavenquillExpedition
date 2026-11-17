@@ -124,10 +124,10 @@ function GS:IsPeer(key)
   return t and self:Now() - t <= self.PEER_MAX_AGE or false
 end
 
-function GS:PeerCount(window)
-  local n, now = 0, self:Now()
-  for _, t in pairs(self:Peers() or {}) do
-    if type(t) == "number" and now - t <= (window or self.PEER_MAX_AGE) then n = n + 1 end
+function ns.PeerCount(window)
+  local n, now = 0, GS:Now()
+  for _, t in pairs(GS:Peers() or {}) do
+    if type(t) == "number" and now - t <= (window or GS.PEER_MAX_AGE) then n = n + 1 end
   end
   return n
 end

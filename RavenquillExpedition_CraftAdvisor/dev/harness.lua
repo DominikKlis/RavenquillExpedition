@@ -261,13 +261,13 @@ rawset(Minimap, "GetCenter", function() return 100, 100 end)
 rawset(Minimap, "GetEffectiveScale", function() return 1 end)
 local RQ = K.RQ
 RQ:UpdateLauncher()
-local b = RQ:LauncherButton()
+local b = K.ns.LauncherButton()
 check(b ~= nil and _G.GuildCraftAdvisorMinimapButton == nil, "the suite launcher is the minimap button (no own Craft Advisor button)")
 tipLines = {}
 local mmEnter = b and rawget(b, "_scripts") and rawget(b, "_scripts").OnEnter
 local okTip = mmEnter and pcall(mmEnter, b)
 local tipText = table.concat(tipLines, " | ")
-check(okTip and tipText:find("Guild Craft Advisor: " .. (GCA:OverviewStatus() or RQ.LauncherL.NO_STATUS), 1, true) and tipText:find("Right-click", 1, true),
+check(okTip and tipText:find("Guild Craft Advisor: " .. (GCA:OverviewStatus() or K.ns.LauncherL.NO_STATUS), 1, true) and tipText:find("Right-click", 1, true),
   "launcher tooltip: the Craft Advisor's status line, right-click opens our window: " .. tipText)
 local showOpt
 for _, o in ipairs(GCA.options) do if o.label == ns.L.OPT_MINIMAP then showOpt = o end end

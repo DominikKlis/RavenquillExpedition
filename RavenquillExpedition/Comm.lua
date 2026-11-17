@@ -317,7 +317,6 @@ Pump = function()
     if more then C_Timer.After(4, Pump) end
   end)
 end
-GS.CommPump = Pump
 
 local STATUS = { echo = "delivered", lost = "lost", deferred = "dropped" }
 local Channel = {}
@@ -481,7 +480,7 @@ end
 
 function Channel:Status() return self.stats end
 
-function GS.ModuleProto:NewChannel(spec)
+function ns.ModuleProto:NewChannel(spec)
   local tag, version = spec and spec.tag, spec and spec.version or 1
   if type(tag) ~= "string" or tag == "" or tag:find("[;|]") then error("NewChannel: bad tag " .. tostring(tag), 2) end
   if S.tags[tag] then error("NewChannel: tag '" .. tag .. "' is already taken", 2) end
@@ -515,7 +514,7 @@ function Raw:SendRecord(key, chunks, opts) return QueueRecord(self.prefix, key, 
 function Raw:Cancel(key) CancelRecords(self.prefix, key) end
 function Raw:Status() return self.stats end
 
-function GS.ModuleProto:NewRawChannel(spec)
+function ns.ModuleProto:NewRawChannel(spec)
   local prefix, lane = spec and spec.prefix, spec and spec.lane or "event"
   if type(prefix) ~= "string" or prefix == "" or #prefix > 16 or prefix == PREFIX then error("NewRawChannel: bad prefix " .. tostring(prefix), 2) end
   if S.prefixes[prefix] then error("NewRawChannel: prefix '" .. prefix .. "' is already taken", 2) end

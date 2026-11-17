@@ -191,14 +191,14 @@ for _ in RQ:EachMember() do n = n + 1 end
 check(n == 4 and RQ:RosterReadAt() == now, "EachMember / RosterReadAt")
 RavenquillExpeditionDB.peersByGuild = nil
 RavenquillExpeditionDB.peers = { ["Bud Stone"] = RQ:Now() - 100, ["Cara Moss"] = RQ:Now() - 5000 }
-check(RQ:PeerCount(3600) == 1 and RQ:PeerCount() == 2, "PeerCount(window)")
+check(coreNS.PeerCount(3600) == 1 and coreNS.PeerCount() == 2, "PeerCount(window)")
 check(RavenquillExpeditionDB.peers == nil and RavenquillExpeditionDB.peersByGuild["Die Gilde@Forever"]["Bud Stone"],
   "the old peers table moved into the current guild")
 G.guild = "Andere Gilde"
-check(RQ:PeerCount() == 0 and not RQ:IsPeer("Bud Stone"), "another guild: none of the first guild's peers count")
+check(coreNS.PeerCount() == 0 and not RQ:IsPeer("Bud Stone"), "another guild: none of the first guild's peers count")
 RQ:NotePeer("Zed Other")
 G.guild = "Die Gilde"
-check(RQ:PeerCount() == 2 and not RQ:IsPeer("Zed Other") and RQ:IsPeer("Bud Stone"), "back: the first guild's peers again, not the other's")
+check(coreNS.PeerCount() == 2 and not RQ:IsPeer("Zed Other") and RQ:IsPeer("Bud Stone"), "back: the first guild's peers again, not the other's")
 RavenquillExpeditionDB.peersByGuild["Andere Gilde@Forever"]["Zed Other"] = RQ:Now() - RQ.PEER_MAX_AGE - 5
 RQ:PrunePeers()
 check(RavenquillExpeditionDB.peersByGuild["Andere Gilde@Forever"] == nil, "PrunePeers drops old peers and empty guilds")

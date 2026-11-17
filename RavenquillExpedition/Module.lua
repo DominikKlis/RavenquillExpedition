@@ -6,7 +6,7 @@ GS.modules, GS.moduleOrder = {}, {}
 
 local Proto = {}
 local ProtoMeta = { __index = Proto }
-GS.ModuleProto = Proto
+ns.ModuleProto = Proto
 
 function Proto:Print(...) GS.Print(self.title or self.name, ...) end
 
@@ -140,7 +140,7 @@ local function SetupDB(mod)
     mod.cdb = cdb
   end
 end
-GS.SetupModuleDB = SetupDB
+ns.SetupModuleDB = SetupDB
 
 function GS:NewModule(name, spec)
   local mod = spec or {}

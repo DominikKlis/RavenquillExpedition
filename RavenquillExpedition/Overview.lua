@@ -3,7 +3,7 @@ local GS = ns.GS
 local SafeCall, Plain = GS.SafeCall, GS.Plain
 local L = GS.OverviewL
 
-GS.KNOWN = {
+local KNOWN_ADDONS = {
   { module = "Highlights", addon = "RavenquillExpedition_Highlights", slash = "hl", icon = "Interface\\Icons\\INV_Misc_Note_01" },
   { module = "Map", addon = "RavenquillExpedition_Map", slash = "map", icon = "Interface\\Icons\\INV_Misc_Map_01" },
   { module = "Craft", addon = "RavenquillExpedition_CraftAdvisor", slash = "craft", title = "Guild Craft Advisor",
@@ -17,7 +17,6 @@ local function AddonState(name)
   if not ok or Plain(title) == nil or Plain(reason) == "MISSING" then return "missing" end
   return "disabled"
 end
-GS.AddonState = AddonState
 
 local function ModuleRow(mod, k)
   local row = { name = mod.name, title = mod.title or (k and k.title) or mod.name, icon = mod.icon or (k and k.icon)
@@ -31,7 +30,7 @@ end
 
 function GS:OverviewRows()
   local rows, seen = {}, {}
-  for _, k in ipairs(self.KNOWN) do
+  for _, k in ipairs(KNOWN_ADDONS) do
     local mod = k.module and self.modules[k.module]
     if mod then
       seen[k.module] = true

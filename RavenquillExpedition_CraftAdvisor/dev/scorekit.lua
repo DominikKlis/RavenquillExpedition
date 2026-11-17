@@ -134,7 +134,7 @@ local GCA, Scoring, W = ns.GCA, ns.Scoring, ns.Weights
 H.refreshes = 0
 GCA.UI = { Refresh = function() H.refreshes = H.refreshes + 1; if GCA.UI.onRefresh then GCA.UI.onRefresh() end end }
 local fire = function(_, ev, ...) K.fire(ev, ...) end
-local function reloadDB() RQ.SetupModuleDB(GCA); GCA:OnLoad() end
+local function reloadDB() K.ns.SetupModuleDB(GCA); GCA:OnLoad() end
 fire(GCA, "ADDON_LOADED", "RavenquillExpedition_CraftAdvisor")
 fire(GCA, "PLAYER_LOGIN")
 

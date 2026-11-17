@@ -12,7 +12,7 @@ local L = GS.NewLocale({
     NO_STATUS = "kein Status",
   },
 })
-GS.LauncherL = L
+ns.LauncherL = L
 
 local atan2 = math.atan2 or function(y, x) return math.atan(y, x) end
 local CRAFT_V01_DEFAULT_ANGLE = 200
@@ -130,34 +130,34 @@ local function OnDragUpdate()
   UpdatePosition()
 end
 
-function GS:LauncherTooltip(tip)
+local function LauncherTooltip(tip)
   tip:AddLine(GS.OverviewL.TITLE)
-  for _, name in ipairs(self.moduleOrder) do
-    local m = self.modules[name]
+  for _, name in ipairs(GS.moduleOrder) do
+    local m = GS.modules[name]
     if m.loaded then
-      local status = m.OverviewStatus and Plain(self:Call(m.OverviewStatus, m), "string")
+      local status = m.OverviewStatus and Plain(GS:Call(m.OverviewStatus, m), "string")
       tip:AddLine((m.title or name) .. ": " .. (status or L.NO_STATUS), 1, 1, 1)
     end
   end
   tip:AddLine(" ")
   tip:AddLine(L.LEFT, 0.8, 0.8, 0.8)
-  local craft = self:GetModule("Craft")
+  local craft = GS:GetModule("Craft")
   if craft and craft.loaded and craft.Open then tip:AddLine(L.RIGHT, 0.8, 0.8, 0.8) end
   tip:AddLine(L.DRAG, 0.8, 0.8, 0.8)
 end
 
 local function ShowTooltip(self)
   GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-  GS:LauncherTooltip(GameTooltip)
+  LauncherTooltip(GameTooltip)
   GameTooltip:Show()
 end
 
-function GS:LauncherClick(button)
+local function LauncherClick(button)
   if button == "RightButton" then
-    local craft = self:GetModule("Craft")
-    if craft and craft.loaded and craft.Open then self:Call(craft.Open, craft) return end
+    local craft = GS:GetModule("Craft")
+    if craft and craft.loaded and craft.Open then GS:Call(craft.Open, craft) return end
   end
-  self:Call(self.ToggleOverview, self)
+  GS:Call(GS.ToggleOverview, GS)
 end
 
 local function Create()
@@ -182,7 +182,7 @@ local function Create()
   border:SetSize(53, 53)
   border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
   border:SetPoint("TOPLEFT")
-  btn:SetScript("OnClick", function(_, button) GS:LauncherClick(button) end)
+  btn:SetScript("OnClick", function(_, button) LauncherClick(button) end)
   btn:SetScript("OnMouseDown", function() icon:SetPoint("TOPLEFT", 8, -7) end)
   btn:SetScript("OnMouseUp", function() icon:SetPoint("TOPLEFT", 7, -6) end)
   btn:SetScript("OnDragStart", function(self)
@@ -221,7 +221,7 @@ function GS:SetLauncherShown(on)
   self:LauncherSettings().hide = (not on) or nil
   self:UpdateLauncher()
 end
-function GS:LauncherButton() return btn end
+function ns.LauncherButton() return btn end
 
 function GS:LauncherDebug(P)
   P = P or function(line) GS.Print(nil, line) end

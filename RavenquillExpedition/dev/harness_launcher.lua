@@ -136,7 +136,7 @@ check(RQ:LauncherSettings() == s and not s.hide, "copied once: later changes to 
 RavenquillExpeditionCraftDB.settings.minimapHide = nil
 
 section("Placement")
-local btn = RQ:LauncherButton()
+local btn = coreNS.LauncherButton()
 check(btn ~= nil and btn == _G.RavenquillExpeditionLauncher and btn._shown, "button created at PLAYER_LOGIN")
 check(btn and btn._strata == "MEDIUM" and btn._level == 8, "strata MEDIUM, level 8")
 local a = RQ:LauncherFreeAngle()
