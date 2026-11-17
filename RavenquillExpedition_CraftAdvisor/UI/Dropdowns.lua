@@ -2,7 +2,7 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 local P = UI.P
-local G, SetAtlasSafe, TexOK = P.G, P.SetAtlasSafe, P.TexOK
+local G, C, SetAtlasSafe, TexOK = P.G, P.C, P.SetAtlasSafe, P.TexOK
 local SingleLine, SetTip, SpecHowText = P.SingleLine, P.SetTip, P.SpecHowText
 local NewTextButton = P.NewTextButton
 local NewPopup, KeepNativeHover = P.NewPopup, P.KeepNativeHover
@@ -25,12 +25,151 @@ local function RefreshDropdown(dd, text)
 end
 UI.RefreshDropdown = RefreshDropdown
 
+local NATIVE_ITEM = {}
+function NATIVE_ITEM.radio(root, it) return root:CreateRadio(it.label, it.checked, it.onClick) end
+function NATIVE_ITEM.check(root, it) return root:CreateCheckbox(it.label, it.checked, it.onClick) end
+function NATIVE_ITEM.button(root, it) return root:CreateButton(it.label, it.onClick) end
+function NATIVE_ITEM.title(root, it) if root.CreateTitle then root:CreateTitle(it.label) end end
+function NATIVE_ITEM.divider(root) if root.CreateDivider then root:CreateDivider() end end
+function NATIVE_ITEM.native(root, it) pcall(it.build, root) end
+
+local function NativeMenu(items)
+  return function(_, root)
+    for _, it in ipairs(items()) do
+      local e = NATIVE_ITEM[it.kind](root, it)
+      if it.tip and type(e) == "table" and e.SetTooltip then
+        pcall(e.SetTooltip, e, function(tooltip)
+          tooltip:SetText(it.label, 1, 1, 1)
+          tooltip:AddLine(it.tip, nil, nil, nil, true)
+        end)
+      end
+    end
+  end
+end
+
+local function SetRowMark(b, on)
+  if not b.mark then
+    b.mark = b:CreateTexture(nil, "ARTWORK")
+    b.mark:SetSize(14, 14)
+    b.mark:SetPoint("LEFT", 2, 0)
+    b.markOK = TexOK("check")
+    if b.markOK then b.mark:SetTexture(UI.TEX.check) end
+    b.text:ClearAllPoints()
+    b.text:SetPoint("LEFT", 18, 0)
+  end
+  b.mark:SetShown(on and b.markOK or false)
+  return (on and not b.markOK) and "> " or ""
+end
+
+local function SetRowCheck(b, on)
+  if not b.check then
+    b.text:ClearAllPoints()
+    b.text:SetPoint("LEFT", 22, 0)
+    b.check = b:CreateTexture(nil, "ARTWORK")
+    b.check:SetSize(16, 16)
+    b.check:SetPoint("LEFT", 3, 0)
+    b.check:SetTexture(UI.TEX.check)
+  end
+  b.check:SetShown(on and true or false)
+end
+
+local PAINT_ROW = {}
+function PAINT_ROW.radio(b, it) b.text:SetText(SetRowMark(b, it.checked()) .. it.label) end
+function PAINT_ROW.title(b, it)
+  SetRowMark(b, false)
+  b.text:SetText(C.dim .. it.label .. "|r")
+end
+function PAINT_ROW.check(b, it)
+  SetRowCheck(b, it.checked())
+  b.text:SetText(it.label)
+end
+function PAINT_ROW.button(b, it)
+  SetRowCheck(b, false)
+  b.text:SetText(it.label)
+end
+
+local function ClickPopupRow(b)
+  local it, pop = b.item, b.pop
+  if it.kind == "title" then return end
+  if it.kind == "check" then
+    it.onClick()
+    if pop:IsShown() then pop:Fill() end
+    return
+  end
+  pop:Hide()
+  it.onClick()
+end
+
+local function PopupRowTip(b)
+  local it = b.item
+  if not (it and it.tip) then return end
+  GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+  GameTooltip:SetText(it.label, 1, 1, 1)
+  GameTooltip:AddLine(it.tip, nil, nil, nil, true)
+  GameTooltip:Show()
+end
+
+local function PopupRow(pop, i, width)
+  local b = CreateFrame("Button", nil, pop)
+  b:SetSize(width, 18)
+  b:SetPoint("TOPLEFT", 6, -6 - (i - 1) * 18)
+  b.hl = b:CreateTexture(nil, "HIGHLIGHT")
+  b.hl:SetAllPoints()
+  b.hl:SetColorTexture(1, 1, 1, 0.08)
+  b.text = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  b.text:SetPoint("LEFT", 4, 0)
+  SingleLine(b.text)
+  b.pop = pop
+  b:SetScript("OnClick", ClickPopupRow)
+  SetTip(b, "menu row", PopupRowTip)
+  b:SetScript("OnLeave", GameTooltip_Hide)
+  pop.buttons[i] = b
+  return b
+end
+
+local function NewMenuPopup(parent, window, items, rowW)
+  local pop = NewPopup(parent)
+  pop.buttons = {}
+  function pop:Fill()
+    local n = 0
+    for _, it in ipairs(items()) do
+      local paint = PAINT_ROW[it.kind]
+      if paint then
+        n = n + 1
+        local b = self.buttons[n] or PopupRow(self, n, rowW)
+        b.item = it
+        paint(b, it)
+        b:Show()
+      end
+    end
+    for i = n + 1, #self.buttons do self.buttons[i]:Hide() end
+    self:SetSize(rowW + 12, 12 + n * 18)
+    return n
+  end
+  function pop:Toggle()
+    if self:IsShown() then self:Hide() return end
+    if self:Fill() > 0 then self:Show() end
+  end
+  window:HookScript("OnHide", function() pop:Hide() end)
+  return pop
+end
+
+local function OpenPopupOnClick(b, pop, tipName, tip)
+  b:SetScript("OnClick", function() pop:Toggle() end)
+  SetTip(b, tipName, tip)
+  b:SetScript("OnLeave", GameTooltip_Hide)
+end
+
 UI.MEMBER_MODES = { { "sheet", "MVIEW_SHEET" }, { "list", "MVIEW_LIST" } }
 UI.TOGGLE_W = 170
-function UI.ModeMenu(_, root)
+local function ModeItems()
+  local items = {}
   for _, def in ipairs(UI.MEMBER_MODES) do
-    root:CreateRadio(L[def[2]], function(mode) return UI.MemberMode() == mode end, function(mode) UI:SetMemberMode(mode) end, def[1])
+    local mode = def[1]
+    items[#items + 1] = { kind = "radio", label = L[def[2]], checked = function() return UI.MemberMode() == mode end,
+      onClick = function() UI:SetMemberMode(mode) end }
   end
+  return items
 end
 local function ModeLabel(mode)
   return string.format(L.MVIEW_LABEL, L[mode == "list" and "MVIEW_LIST" or "MVIEW_SHEET"])
@@ -45,7 +184,7 @@ end
 P.CreateModeSwitch = function(parent)
   local dd = NewDropdown(parent, "WowStyle1DropdownTemplate", UI.TOGGLE_W, 22)
   if dd then
-    dd:SetupMenu(UI.ModeMenu)
+    dd:SetupMenu(NativeMenu(ModeItems))
     KeepNativeHover(dd, "member view", ModeTip)
   else
     dd = NewTextButton(parent, UI.TOGGLE_W, 22, ModeLabel("sheet"))
@@ -74,38 +213,6 @@ function UI:ApplyMemberMode()
   if self.sheet and mode ~= "sheet" then self.sheet:Hide() end
 end
 
-local function PopupRow(pop, i, width, top)
-  local b = pop.buttons[i]
-  if b then return b end
-  b = CreateFrame("Button", nil, pop)
-  b:SetSize(width, 18)
-  b:SetPoint("TOPLEFT", 6, -(top or 6) - (i - 1) * 18)
-  b.hl = b:CreateTexture(nil, "HIGHLIGHT")
-  b.hl:SetAllPoints()
-  b.hl:SetColorTexture(1, 1, 1, 0.08)
-  b.text = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  b.text:SetPoint("LEFT", 4, 0)
-  SingleLine(b.text)
-  pop.buttons[i] = b
-  return b
-end
-
-local function SetRowMark(b, on)
-  if not b.mark then
-    b.mark = b:CreateTexture(nil, "ARTWORK")
-    b.mark:SetSize(14, 14)
-    b.mark:SetPoint("LEFT", 2, 0)
-    b.markOK = TexOK("check")
-    if b.markOK then b.mark:SetTexture(UI.TEX.check) end
-    b.text:ClearAllPoints()
-    b.text:SetPoint("LEFT", 18, 0)
-  end
-  b.mark:SetShown(on and b.markOK or false)
-  return (on and not b.markOK) and "> " or ""
-end
-UI.SetRowMark = SetRowMark
-P.PopupRow, P.SetRowMark = PopupRow, SetRowMark
-
 function UI.SetClassIcon(tex, class)
   if type(class) ~= "string" then return nil end
   if SetAtlasSafe(tex, "classicon-" .. class:lower()) then
@@ -127,16 +234,19 @@ local function ChooseSpec(spec)
   GCA:SetManualSpec(cur.key, cur.class, spec)
   UI:Refresh()
 end
-function UI.SpecMenu(_, root)
+local function SpecItems()
   local d = UI.current
-  if not (d and d.class) then return end
-  root:CreateRadio(L.SPEC_AUTOMATIC, function() return not GCA.db.specManual[d.key] end, function() ChooseSpec(nil) end)
+  if not (d and d.class) then return {} end
+  local items = { { kind = "radio", label = L.SPEC_AUTOMATIC, checked = function() return not GCA.db.specManual[d.key] end,
+    onClick = function() ChooseSpec(nil) end } }
   for _, spec in ipairs(GCA.SPECS_OF[d.class] or {}) do
-    root:CreateRadio(GCA:SpecName(d.class, spec), function(v)
-      local m = GCA.db.specManual[d.key]
-      return m ~= nil and m.spec == v
-    end, function(v) ChooseSpec(v) end, spec)
+    items[#items + 1] = { kind = "radio", label = GCA:SpecName(d.class, spec), onClick = function() ChooseSpec(spec) end,
+      checked = function()
+        local m = GCA.db.specManual[d.key]
+        return m ~= nil and m.spec == spec
+      end }
   end
+  return items
 end
 local function SpecTip(self)
   GameTooltip:SetOwner(self, "ANCHOR_TOP")
@@ -154,40 +264,13 @@ P.CreateSpecPicker = function(parent, window)
   local dd = NewDropdown(btn, "WowStyle1DropdownTemplate", UI.SPEC_BTN_W - 28, 22)
   local pop
   if dd then
-    dd:SetupMenu(UI.SpecMenu)
+    dd:SetupMenu(NativeMenu(SpecItems))
     KeepNativeHover(dd, "spec button", SpecTip)
   else
     dd = NewTextButton(btn, UI.SPEC_BTN_W - 28, 22, "?")
-    pop = NewPopup(parent)
+    pop = NewMenuPopup(parent, window, SpecItems, 190)
     pop:SetPoint("TOPRIGHT", btn, "BOTTOMRIGHT", 0, -2)
-    pop.buttons = {}
-    function pop:Fill(d)
-      local list = { { nil, L.SPEC_AUTOMATIC } }
-      for _, spec in ipairs(GCA.SPECS_OF[d.class or ""] or {}) do list[#list + 1] = { spec, GCA:SpecName(d.class, spec) } end
-      for i, item in ipairs(list) do
-        local b = self.buttons[i]
-        if not b then
-          b = PopupRow(self, i, 190)
-          b:SetScript("OnClick", function(selfBtn) self:Hide(); ChooseSpec(selfBtn.spec) end)
-        end
-        b.spec = item[1]
-        local manual = GCA.db.specManual[d.key]
-        local picked = (item[1] == nil and not manual) or (manual and manual.spec == item[1])
-        b.text:SetText(SetRowMark(b, picked) .. item[2])
-        b:Show()
-      end
-      for i = #list + 1, #self.buttons do self.buttons[i]:Hide() end
-      self:SetSize(202, 12 + #list * 18)
-    end
-    dd:SetScript("OnClick", function()
-      if pop:IsShown() then pop:Hide() return end
-      if not (UI.current and UI.current.class) then return end
-      pop:Fill(UI.current)
-      pop:Show()
-    end)
-    SetTip(dd, "spec button", SpecTip)
-    dd:SetScript("OnLeave", GameTooltip_Hide)
-    window:HookScript("OnHide", function() pop:Hide() end)
+    OpenPopupOnClick(dd, pop, "spec button", SpecTip)
   end
   dd:SetPoint("RIGHT", btn, "RIGHT", 0, 0)
   btn.dropdown = dd
@@ -221,29 +304,10 @@ function UI.ToggleSetting(key)
 end
 
 UI.FILTER_W, UI.FILTER_H = 90, 18
-local OPTIONS_W = 300
-local function FilterEntries()
-  local entries = {}
-  for _, def in ipairs(UI.FILTERS) do entries[#entries + 1] = def end
-  entries[#entries + 1] = { needsOffline = true, label = "NEEDS_OFFLINE", tip = "NEEDS_OFFLINE_TIP" }
-  entries[#entries + 1] = { action = "whisper", label = "EDIT_WHISPER", tip = "EDIT_WHISPER_TIP" }
-  return entries
-end
-local function EntryLabel(def)
-  if def.needsOffline then return string.format(L.NEEDS_OFFLINE, UI.offlineN or 0) end
-  return L[def.label]
-end
-local function EntryOn(def)
+local function SettingOn(key)
   local s = GCA.db and GCA.db.settings or {}
-  if def.needsOffline then return s.needsOffline and true or false end
-  return def.key ~= nil and s[def.key] and true or false
+  return s[key] and true or false
 end
-local function EntryDo(def)
-  if def.action == "whisper" then UI:OpenWhisperEditor(); return end
-  if def.needsOffline then UI:SetNeedsOffline(not EntryOn(def)); return end
-  UI.ToggleSetting(def.key)
-end
-UI.FilterEntryDo = EntryDo
 UI.SURVIVAL_STEPS = { 0, 25, 50, 75, 100 }
 function UI.SetSurvival(v)
   if GCA:SetSurvival(v) then UI:Refresh() end
@@ -265,23 +329,19 @@ local function SurvivalSubmenu(root)
   end
   return true
 end
-function UI.FilterMenu(_, root)
-  for _, def in ipairs(FilterEntries()) do
-    local e
-    if def.action then
-      if root.CreateDivider then root:CreateDivider() end
-      pcall(SurvivalSubmenu, root)
-      e = root:CreateButton(EntryLabel(def), function() EntryDo(def) end)
-    else
-      e = root:CreateCheckbox(EntryLabel(def), function() return EntryOn(def) end, function() EntryDo(def) end)
-    end
-    if type(e) == "table" and e.SetTooltip then
-      pcall(e.SetTooltip, e, function(tooltip)
-        tooltip:SetText(EntryLabel(def), 1, 1, 1)
-        tooltip:AddLine(L[def.tip], nil, nil, nil, true)
-      end)
-    end
+local function FilterItems()
+  local items = {}
+  for _, def in ipairs(UI.FILTERS) do
+    local key = def.key
+    items[#items + 1] = { kind = "check", label = L[def.label], tip = L[def.tip], checked = function() return SettingOn(key) end,
+      onClick = function() UI.ToggleSetting(key) end }
   end
+  items[#items + 1] = { kind = "check", label = string.format(L.NEEDS_OFFLINE, UI.offlineN or 0), tip = L.NEEDS_OFFLINE_TIP,
+    checked = function() return SettingOn("needsOffline") end, onClick = function() UI:SetNeedsOffline(not SettingOn("needsOffline")) end }
+  items[#items + 1] = { kind = "divider" }
+  items[#items + 1] = { kind = "native", build = SurvivalSubmenu }
+  items[#items + 1] = { kind = "button", label = L.EDIT_WHISPER, tip = L.EDIT_WHISPER_TIP, onClick = function() UI:OpenWhisperEditor() end }
+  return items
 end
 local function FilterTip(self)
   GameTooltip:SetOwner(self, "ANCHOR_TOP")
@@ -338,56 +398,16 @@ end
 P.CreateFilterMenu = function(parent, window)
   local dd = NewDropdown(parent, "WowStyle1FilterDropdownTemplate", UI.FILTER_W, UI.FILTER_H)
   if dd then
-    dd:SetupMenu(UI.FilterMenu)
+    dd:SetupMenu(NativeMenu(FilterItems))
     KeepNativeHover(dd, "filter button", FilterTip)
     UI.AddFilterReset(dd)
     return dd, nil
   end
   local btn = NewTextButton(parent, UI.FILTER_W, 22, L.FILTER_BUTTON)
   UI.AddFilterReset(btn)
-  local pop = NewPopup(parent)
+  local pop = NewMenuPopup(parent, window, FilterItems, 288)
   pop:SetPoint("TOPRIGHT", btn, "BOTTOMRIGHT", 0, -4)
-  pop.buttons = {}
-  local entries = FilterEntries()
-  function pop:Fill()
-    for i, def in ipairs(entries) do
-      local b = self.buttons[i]
-      if not b then
-        b = PopupRow(self, i, OPTIONS_W - 12)
-        b.text:ClearAllPoints()
-        b.text:SetPoint("LEFT", 22, 0)
-        b.check = b:CreateTexture(nil, "ARTWORK")
-        b.check:SetSize(16, 16)
-        b.check:SetPoint("LEFT", 3, 0)
-        b.check:SetTexture(UI.TEX.check)
-        b:SetScript("OnClick", function(selfBtn)
-          if selfBtn.def.action == "whisper" then pop:Hide() end
-          EntryDo(selfBtn.def)
-          if pop:IsShown() then pop:Fill() end
-        end)
-        SetTip(b, "options row", function(selfBtn)
-          GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
-          GameTooltip:SetText(EntryLabel(selfBtn.def), 1, 1, 1)
-          GameTooltip:AddLine(L[selfBtn.def.tip], nil, nil, nil, true)
-          GameTooltip:Show()
-        end)
-        b:SetScript("OnLeave", GameTooltip_Hide)
-      end
-      b.def = def
-      b.text:SetText(EntryLabel(def))
-      b.check:SetShown(EntryOn(def))
-      b:Show()
-    end
-    self:SetSize(OPTIONS_W, 12 + #entries * 18)
-  end
-  btn:SetScript("OnClick", function()
-    if pop:IsShown() then pop:Hide() return end
-    pop:Fill()
-    pop:Show()
-  end)
-  SetTip(btn, "filter button", FilterTip)
-  btn:SetScript("OnLeave", GameTooltip_Hide)
-  window:HookScript("OnHide", function() pop:Hide() end)
+  OpenPopupOnClick(btn, pop, "filter button", FilterTip)
   return btn, pop
 end
 
@@ -399,3 +419,7 @@ function UI:RefreshFilters()
     if f.button.resetKind == "native" and f.button.ValidateResetState then pcall(f.button.ValidateResetState, f.button) end
   end
 end
+
+P.NativeMenu = NativeMenu
+P.NewMenuPopup = NewMenuPopup
+P.OpenPopupOnClick = OpenPopupOnClick

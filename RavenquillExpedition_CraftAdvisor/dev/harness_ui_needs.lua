@@ -596,6 +596,30 @@ do
   for _, pbn in ipairs(UIx.profPopup.buttons) do if plain(pbn.text._text):find("^> Leatherworking") then picked = pbn end end
   check(UIx.profPopup._shown and picked and not picked.mark._shown, "no check file: '> ' marks the pick in the fallback popup")
   UIx.profPopup:Hide()
+  UIx.filterButton._scripts.OnClick(UIx.filterButton)
+  captureTip(); fp.buttons[1]._scripts.OnEnter(fp.buttons[1])
+  check(fp._shown and H.tip[1] == plain(fp.buttons[1].text._text) and #H.tip >= 2, "fallback Filter popup rows: the label as tooltip title + the explanation")
+  fp.buttons[6]._scripts.OnClick(fp.buttons[6])
+  check(not fp._shown and UIx.whisperEditor and UIx.whisperEditor._shown, "fallback Filter popup: 'Edit whisper text' closes the popup and opens the editor")
+  UIx.whisperEditor:Hide()
+  sdd._scripts.OnClick(sdd)
+  local sp, specKey = UIx.specPopup, UIx.current.key
+  sp.buttons[2]._scripts.OnClick(sp.buttons[2])
+  check(not sp._shown and GCA.db.specManual[specKey] ~= nil, "fallback spec popup: picking a spec closes it and saves the pick")
+  sdd._scripts.OnClick(sdd)
+  sp.buttons[1]._scripts.OnClick(sp.buttons[1])
+  check(not sp._shown and GCA.db.specManual[specKey] == nil, "...'Automatic' clears it again")
+  local savedProf = GCA:SelectedProfession()
+  UIx.profButton.drop._scripts.OnClick(UIx.profButton.drop)
+  local otherProf
+  for _, pbn in ipairs(UIx.profPopup.buttons) do
+    if pbn._shown and not otherProf and not plain(pbn.text._text):find("^> ") then otherProf = pbn end
+  end
+  otherProf._scripts.OnClick(otherProf)
+  check(not UIx.profPopup._shown and GCA:SelectedProfession() ~= savedProf,
+    "fallback profession popup (opened from the arrow): picking another one closes it and selects it")
+  GCA:SelectProfession(savedProf)
+  UIx:Refresh()
   local g1 = UIx.memberList.pools.group and UIx.memberList.pools.group[1]
   check(g1 and not g1.native and g1.text._text and g1.CollapseButton, "group header: the replicated category row (no template involved)")
   check(UIx.errorCount == errs4, "fallbacks: no error reported")

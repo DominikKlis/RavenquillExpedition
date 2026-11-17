@@ -4,9 +4,9 @@ local UI = GCA.UI
 local P = UI.P
 local SetAtlasSafe, FileOK, TexOK, SingleLine = P.SetAtlasSafe, P.FileOK, P.TexOK, P.SingleLine
 local Guard, SetTip, TextWidth, NewEditBox = P.Guard, P.SetTip, P.TextWidth, P.NewEditBox
-local HasAtlas, AddBorder, NativeFont, ProfLabel, C = P.HasAtlas, P.AddBorder, P.NativeFont, P.ProfLabel, P.C
-local NewPopup, KeepNativeHover, PopupRow, SetRowMark = P.NewPopup, P.KeepNativeHover, P.PopupRow, P.SetRowMark
-local RefreshDropdown = UI.RefreshDropdown
+local HasAtlas, AddBorder, NativeFont, ProfLabel = P.HasAtlas, P.AddBorder, P.NativeFont, P.ProfLabel
+local KeepNativeHover, NativeMenu, NewMenuPopup, OpenPopupOnClick = P.KeepNativeHover, P.NativeMenu, P.NewMenuPopup, P.OpenPopupOnClick
+local NewDropdown, RefreshDropdown = UI.NewDropdown, UI.RefreshDropdown
 
 UI.SYNC_COLORS = { ok = { 0.25, 0.9, 0.25 }, idle = { 1, 0.82, 0 }, paused = { 1, 0.3, 0.3 }, off = { 0.5, 0.5, 0.5 }, noguild = { 0.5, 0.5, 0.5 } }
 function UI.SyncState()
@@ -168,18 +168,20 @@ local function SplitProfessions()
   return mine, others
 end
 
-function UI.ProfMenu(_, root)
+local function ProfItems()
   local mine, others = SplitProfessions()
+  local items = {}
   local function radio(k)
-    root:CreateRadio(ProfLabel(k, true), function(v) return GCA:SelectedProfession() == v end,
-      function(v) GCA:SelectProfession(v); UI:Refresh() end, k)
+    items[#items + 1] = { kind = "radio", label = ProfLabel(k, true), checked = function() return GCA:SelectedProfession() == k end,
+      onClick = function() GCA:SelectProfession(k); UI:Refresh() end }
   end
   for _, k in ipairs(mine) do radio(k) end
   if #others > 0 then
-    if root.CreateDivider then root:CreateDivider() end
-    if root.CreateTitle then root:CreateTitle(L.PROF_BROWSE_HEADER) end
+    items[#items + 1] = { kind = "divider" }
+    items[#items + 1] = { kind = "title", label = L.PROF_BROWSE_HEADER }
     for _, k in ipairs(others) do radio(k) end
   end
+  return items
 end
 
 local Picker = { BAR_H = 18 }
@@ -317,15 +319,13 @@ function Picker.DropArrow(drop)
 end
 
 function Picker.Drop(btn, top)
-  local okd, drop = pcall(CreateFrame, "DropdownButton", nil, top)
-  if okd and drop and type(drop.SetupMenu) == "function" then
-    drop.native = true
-    drop:SetupMenu(UI.ProfMenu)
+  local drop = NewDropdown(top, nil, UI.PROF_DROP, UI.PROF_DROP)
+  if drop then
+    drop:SetupMenu(NativeMenu(ProfItems))
   else
-    if okd and drop and drop.Hide then drop:Hide() end
     drop = CreateFrame("Button", nil, top)
+    drop:SetSize(UI.PROF_DROP, UI.PROF_DROP)
   end
-  drop:SetSize(UI.PROF_DROP, UI.PROF_DROP)
   drop:SetPoint("LEFT", btn, "RIGHT", 2, 0)
   Picker.DropArrow(drop)
   return drop
@@ -398,63 +398,10 @@ function Picker.Tip(self)
   GameTooltip:Show()
 end
 
-function Picker.PopupItems()
-  local mine, others = SplitProfessions()
-  local list = {}
-  for _, k in ipairs(mine) do list[#list + 1] = { prof = k } end
-  if #others > 0 then
-    list[#list + 1] = { header = L.PROF_BROWSE_HEADER }
-    for _, k in ipairs(others) do list[#list + 1] = { prof = k } end
-  end
-  return list
-end
-
-function Picker.PopupButton(pop, i)
-  local b = PopupRow(pop, i, 260)
-  b:SetScript("OnClick", function(selfBtn)
-    if not selfBtn.prof then return end
-    GCA:SelectProfession(selfBtn.prof)
-    pop:Hide()
-    UI:Refresh()
-  end)
-  return b
-end
-
-function Picker.FillPopupRow(b, item, sel)
-  b.prof = item.prof
-  if item.header then
-    SetRowMark(b, false)
-    b.text:SetText(C.dim .. item.header .. "|r")
-  else
-    b.text:SetText(SetRowMark(b, item.prof == sel) .. ProfLabel(item.prof, true))
-  end
-  b:Show()
-end
-
 function Picker.Popup(parent, btn, drop, window)
-  local pop = NewPopup(parent)
-  pop.buttons = {}
-  function pop:Fill()
-    local list = Picker.PopupItems()
-    local sel = GCA:SelectedProfession()
-    for i, item in ipairs(list) do
-      Picker.FillPopupRow(self.buttons[i] or Picker.PopupButton(self, i), item, sel)
-    end
-    for i = #list + 1, #self.buttons do self.buttons[i]:Hide() end
-    self:SetSize(272, 12 + #list * 18)
-  end
+  local pop = NewMenuPopup(parent, window, ProfItems, 260)
   pop:SetPoint("TOPLEFT", btn, "BOTTOMLEFT", 0, -4)
-  local function toggle()
-    if pop:IsShown() then pop:Hide() return end
-    pop:Fill()
-    pop:Show()
-  end
-  for _, b in ipairs({ btn, drop }) do
-    b:SetScript("OnClick", toggle)
-    SetTip(b, "profession button", Picker.Tip)
-    b:SetScript("OnLeave", GameTooltip_Hide)
-  end
-  window:HookScript("OnHide", function() pop:Hide() end)
+  for _, b in ipairs({ btn, drop }) do OpenPopupOnClick(b, pop, "profession button", Picker.Tip) end
   return pop
 end
 
