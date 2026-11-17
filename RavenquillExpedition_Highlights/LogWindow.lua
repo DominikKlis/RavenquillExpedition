@@ -5,18 +5,7 @@ local L = ns.L
 
 local win, refreshArmed
 
-local function CreateWindow()
-  local ok, f = pcall(CreateFrame, "Frame", "RavenquillExpeditionHighlightsFrame", UIParent, "ButtonFrameTemplate")
-  local native = ok and f
-  if not native then
-    f = CreateFrame("Frame", "RavenquillExpeditionHighlightsFrame", UIParent, "BackdropTemplate")
-    if f.SetBackdrop then
-      f:SetBackdrop({ bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background", edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 32, insets = { left = 11, right = 12, top = 12, bottom = 11 } })
-    end
-    local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", -4, -4)
-  end
+local function Chrome(f, native)
   f:SetSize(560, 420)
   f:SetPoint("CENTER")
   f:SetFrameStrata("HIGH")
@@ -40,7 +29,9 @@ local function CreateWindow()
     title:SetText(L.TITLE)
   end
   tinsert(UISpecialFrames, "RavenquillExpeditionHighlightsFrame")
+end
 
+local function MessageArea(f)
   local msg = CreateFrame("ScrollingMessageFrame", nil, f)
   msg:SetPoint("TOPLEFT", 16, -32)
   msg:SetPoint("BOTTOMRIGHT", -16, 32)
@@ -70,7 +61,9 @@ local function CreateWindow()
     end
   end)
   f.msg = msg
+end
 
+local function Footer(f)
   local footer = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   footer:SetPoint("BOTTOMLEFT", 18, 12)
   footer:SetPoint("BOTTOMRIGHT", -170, 12)
@@ -92,7 +85,23 @@ local function CreateWindow()
     GS:Call(H.Refresh, H)
   end)
   f.onlyHL = cb
+end
 
+local function CreateWindow()
+  local ok, f = pcall(CreateFrame, "Frame", "RavenquillExpeditionHighlightsFrame", UIParent, "ButtonFrameTemplate")
+  local native = ok and f
+  if not native then
+    f = CreateFrame("Frame", "RavenquillExpeditionHighlightsFrame", UIParent, "BackdropTemplate")
+    if f.SetBackdrop then
+      f:SetBackdrop({ bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background", edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true, tileSize = 32, edgeSize = 32, insets = { left = 11, right = 12, top = 12, bottom = 11 } })
+    end
+    local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", -4, -4)
+  end
+  Chrome(f, native)
+  MessageArea(f)
+  Footer(f)
   f:SetScript("OnShow", function() GS:Call(H.Refresh, H) end)
   f:Hide()
   return f
