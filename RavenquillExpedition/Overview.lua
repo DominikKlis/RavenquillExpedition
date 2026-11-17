@@ -1,18 +1,8 @@
--- Ravenquill Expedition core: the overview window (/rq) and every module's options.
--- User decision 2026-11-14: all options live in this UI, not in chat commands. "/rq" opens the overview,
--- "/rq <key>" opens that module's options.
---
--- Home view: guild, sync state, guildies running Ravenquill, one row per Ravenquill addon (loaded modules and
--- known ones that are disabled / not installed), the latest highlights.
--- Options view: drawn from mod.options by Options.lua.
--- Other optional hooks: mod.icon, mod:Open(), mod:OverviewStatus(), mod:OverviewRecent(n). All calls go through GS:Call.
 local ADDON, ns = ...
 local GS = ns.GS
 local SafeCall, Plain = GS.SafeCall, GS.Plain
 local L = GS.OverviewL
 
-
--- Ravenquill addons we know about, so a disabled or missing one still gets a row.
 GS.KNOWN = {
   { module = "Highlights", addon = "RavenquillExpedition_Highlights", slash = "hl", icon = "Interface\\Icons\\INV_Misc_Note_01" },
   { module = "Map", addon = "RavenquillExpedition_Map", slash = "map", icon = "Interface\\Icons\\INV_Misc_Map_01" },
@@ -39,7 +29,6 @@ local function ModuleRow(mod, k)
   return row
 end
 
--- The rows to show: { name, title, icon, status, slash, state, open, options }
 function GS:OverviewRows()
   local rows, seen = {}, {}
   for _, k in ipairs(self.KNOWN) do
@@ -50,7 +39,7 @@ function GS:OverviewRows()
     else
       local state = AddonState(k.addon)
       local row = { title = k.title or k.module, icon = k.icon, slash = "/rq " .. k.slash, state = state }
-      if state == "loaded" then -- loaded, but not registered with the core (an older version)
+      if state == "loaded" then
         row.status = (k.legacyStatus and k.legacyStatus()) or L.LEGACY
         row.open = k.legacyOpen
       elseif state == "disabled" then row.status = L.ENABLE_HINT
@@ -59,7 +48,7 @@ function GS:OverviewRows()
       rows[#rows + 1] = row
     end
   end
-  for _, name in ipairs(self.moduleOrder) do -- modules we don't know yet (future ones)
+  for _, name in ipairs(self.moduleOrder) do
     if not seen[name] then rows[#rows + 1] = ModuleRow(self.modules[name]) end
   end
   return rows
@@ -88,7 +77,6 @@ function GS:OverviewPeersLine()
   return L.PEERS:format(total, online)
 end
 
--- Core diagnostics for the copy box (to paste to whoever debugs it).
 function GS:DiagLines()
   local db = RavenquillExpeditionDB or {}
   local out = {
@@ -111,10 +99,6 @@ function GS:DiagLines()
   return out
 end
 
-
----------------------------------------------------------------------------
--- Window
----------------------------------------------------------------------------
 local win
 local ROW_H, MAX_ROWS = 52, 6
 
@@ -353,19 +337,17 @@ function GS:RefreshOverview()
   if m.ScrollToBottom then m:ScrollToBottom() end
 end
 
--- keeps the home view current while it is open (sync numbers, new highlights). One chain at most: closing and
--- reopening within 3 s used to start a second one.
-local tickArmed = false
+local refreshTickPending = false
 local function Tick()
-  tickArmed = false
+  refreshTickPending = false
   if not (win and win:IsShown()) then return end
   if not GS.optionsModule then GS:Call(GS.RefreshOverview, GS) end
-  tickArmed = true
+  refreshTickPending = true
   C_Timer.After(3, Tick)
 end
 local function StartTick()
-  if tickArmed then return end
-  tickArmed = true
+  if refreshTickPending then return end
+  refreshTickPending = true
   C_Timer.After(3, Tick)
 end
 
@@ -376,7 +358,6 @@ function GS:ToggleOverview()
   if not win:IsShown() then win:Show(); StartTick() end
 end
 
--- true while the /rq window is open; second value: the module whose options it shows (nil = home view)
 function GS:OverviewShown()
   return (win and win:IsShown()) and true or false, self.optionsModule
 end
@@ -387,5 +368,4 @@ function GS:OpenModule(name)
   if not wasShown then StartTick() end
 end
 
--- the AddOns compartment button (## AddonCompartmentFunc in the .toc) [U: compartment on Forever; GCA uses it too]
 function RavenquillExpedition_OnCompartmentClick() GS:Call(GS.ToggleOverview, GS) end

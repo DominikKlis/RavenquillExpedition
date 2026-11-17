@@ -1,18 +1,7 @@
--- Ravenquill Expedition core: what draws a module's options in the /rq window, and the copy box.
--- Options are data (mod.options, set with mod:SetOptions); the entry types:
---   { type = "header", label }
---   { type = "toggle", label, tooltip?, get = fn() -> bool, set = fn(bool) }        (or key = "setting")
---   { type = "range",  label, tooltip?, min, max, step, format? ("%.1f"), get, set }  (or key = "setting")
---   { type = "button", label, tooltip?, func = fn() }
---   { type = "text",   label, tooltip?, lines = fn() -> { string, ... } }   -- read-only copyable box (diagnostics)
---   any entry: disabled = fn() -> bool. get()/disabled() are re-read when the view shows and after every change.
 local ADDON, ns = ...
 local GS = ns.GS
 local L = GS.OverviewL
 
----------------------------------------------------------------------------
--- Copy box: read-only multi-line text the user can select and copy
----------------------------------------------------------------------------
 local copy
 local function CopyBox()
   if copy then return copy end
@@ -70,9 +59,6 @@ function GS:ShowCopyBox(title, lines)
   f.eb:HighlightText()
 end
 
----------------------------------------------------------------------------
--- Option widgets
----------------------------------------------------------------------------
 local function Tooltip(frame, title, text)
   if not text then return end
   frame:SetScript("OnEnter", function(self)
@@ -125,7 +111,6 @@ function Build.toggle(parent, o, y, refreshAll)
   end, cb
 end
 
--- a stepper (− value +): no slider template needed, works for small integer and 0.1 ranges
 function Build.range(parent, o, y, refreshAll)
   local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   fs:SetPoint("TOPLEFT", 12, y - 5)
@@ -148,7 +133,7 @@ function Build.range(parent, o, y, refreshAll)
   local function Change(dir)
     local v = tonumber(Get(o)) or o.min or 0
     v = v + dir * step
-    v = math.floor(v / step + 0.5) * step -- no 0.30000000000000004
+    v = math.floor(v / step + 0.5) * step
     v = math.max(o.min or v, math.min(o.max or v, v))
     GS:Call(o.set, v)
     refreshAll()
@@ -188,10 +173,6 @@ function Build.text(parent, o, y)
   end)
 end
 
-
----------------------------------------------------------------------------
--- Panels: one scroll child per module, built once; refresh() re-reads every get()/disabled()
----------------------------------------------------------------------------
 function ns.Panel(opt, mod)
   local p = opt.panels[mod.name]
   if p then return p end

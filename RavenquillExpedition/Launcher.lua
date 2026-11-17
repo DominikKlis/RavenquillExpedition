@@ -1,10 +1,3 @@
--- Ravenquill Expedition core: the suite's minimap button (the launcher). Left-click opens the /rq overview,
--- right-click the Craft Advisor window (when that module is loaded); the tooltip lists every module's status line
--- (mod:OverviewStatus()). Drag it around the minimap; until it is dragged it sits in the largest free gap between the
--- other addons' minimap buttons (placed 5 s after entering the world, when late addons have made theirs).
--- Settings: RavenquillExpeditionDB.launcher = { hide, angle, dragged }. The button used to be the Craft Advisor's own:
--- its minimapHide / minimapAngle / minimapDragged are copied once.
--- API: GS:LauncherShown() / GS:SetLauncherShown(on) / GS:LauncherReplace() -> angle / GS:LauncherDebug(P) / GS:LauncherFreeAngle()
 local ADDON, ns = ...
 local GS = ns.GS
 local SafeCall, Plain = GS.SafeCall, GS.Plain
@@ -22,15 +15,15 @@ local L = GS.NewLocale({
 GS.LauncherL = L
 
 local atan2 = math.atan2 or function(y, x) return math.atan(y, x) end
-local OLD_DEFAULT = 200  -- the Craft Advisor's v0.1 default: treated as "never placed"
-local EMPTY_ANGLE = 225  -- no other buttons on the rim
-local RIM_SLACK = 12     -- how far inside the rim a button may sit and still count
-local MIN_W, MAX_W = 24, 40 -- size of a minimap button (map pins are smaller)
+local CRAFT_V01_DEFAULT_ANGLE = 200
+local ANGLE_WITHOUT_OTHER_BUTTONS = 225
+local RIM_TOLERANCE = 12
+local MIN_BUTTON_W, MAX_BUTTON_W = 24, 40
+local PLACE_DELAY_AFTER_WORLD = 5
 local ICON = "Interface\\Icons\\INV_Misc_Book_09"
 
 local btn
 
--- RavenquillExpeditionDB.launcher, with the one-time copy of the Craft Advisor's settings
 function GS:LauncherSettings()
   local db = self.db
   if not db then return {} end
@@ -55,43 +48,39 @@ end
 
 local function UpdatePosition()
   if not btn then return end
-  local angle = math.rad(GS:LauncherSettings().angle or EMPTY_ANGLE)
+  local angle = math.rad(GS:LauncherSettings().angle or ANGLE_WITHOUT_OTHER_BUTTONS)
   local r = Radius()
   btn:ClearAllPoints()
   btn:SetPoint("CENTER", Minimap, "CENTER", math.cos(angle) * r, math.sin(angle) * r)
 end
 
----------------------------------------------------------------------------
--- Other addons' buttons on the rim (client frames: every call probed)
----------------------------------------------------------------------------
-local function Call(obj, method, ...)
-  local fn = obj and SafeCall(function() return obj[method] end) -- even the lookup may raise on a forbidden frame
+local function ProbeMethod(obj, method, ...)
+  local fn = obj and SafeCall(function() return obj[method] end)
   if type(fn) ~= "function" then return end
   return SafeCall(fn, obj, ...)
 end
 
--- { name, angle, dist, w, type, counted, why } for every Minimap child
 local function ScanChildren()
   local out = {}
-  local children = { Call(Minimap, "GetChildren") }
-  local ms = Plain(Call(Minimap, "GetEffectiveScale"), "number") or 1
-  local mx, my = Call(Minimap, "GetCenter")
+  local children = { ProbeMethod(Minimap, "GetChildren") }
+  local ms = Plain(ProbeMethod(Minimap, "GetEffectiveScale"), "number") or 1
+  local mx, my = ProbeMethod(Minimap, "GetCenter")
   mx, my = Plain(mx, "number"), Plain(my, "number")
   if not (mx and my) then return out end
   mx, my = mx * ms, my * ms
-  local rim = math.min(Plain(Call(Minimap, "GetWidth"), "number") or 140, Plain(Call(Minimap, "GetHeight"), "number") or 140) / 2
+  local rim = math.min(Plain(ProbeMethod(Minimap, "GetWidth"), "number") or 140, Plain(ProbeMethod(Minimap, "GetHeight"), "number") or 140) / 2
   for _, c in ipairs(children) do
     if c ~= btn and type(c) == "table" then
-      local e = { name = Plain(Call(c, "GetName"), "string") or "?", type = Plain(Call(c, "GetObjectType"), "string") or "?" }
+      local e = { name = Plain(ProbeMethod(c, "GetName"), "string") or "?", type = Plain(ProbeMethod(c, "GetObjectType"), "string") or "?" }
       out[#out + 1] = e
-      if Call(c, "IsForbidden") then
+      if ProbeMethod(c, "IsForbidden") then
         e.why = "forbidden"
       else
-        local cx, cy = Call(c, "GetCenter")
+        local cx, cy = ProbeMethod(c, "GetCenter")
         cx, cy = Plain(cx, "number"), Plain(cy, "number")
-        local cs = Plain(Call(c, "GetEffectiveScale"), "number") or 1
-        e.w = Plain(Call(c, "GetWidth"), "number") or 0
-        e.visible = Plain(Call(c, "IsVisible")) and true or false
+        local cs = Plain(ProbeMethod(c, "GetEffectiveScale"), "number") or 1
+        e.w = Plain(ProbeMethod(c, "GetWidth"), "number") or 0
+        e.visible = Plain(ProbeMethod(c, "IsVisible")) and true or false
         if cx and cy then
           local dx, dy = (cx * cs - mx) / ms, (cy * cs - my) / ms
           e.dist = math.sqrt(dx * dx + dy * dy)
@@ -99,9 +88,9 @@ local function ScanChildren()
         end
         if e.type ~= "Button" then e.why = "not a button"
         elseif not e.visible then e.why = "hidden"
-        elseif e.w < MIN_W or e.w > MAX_W then e.why = "size " .. math.floor(e.w + 0.5)
+        elseif e.w < MIN_BUTTON_W or e.w > MAX_BUTTON_W then e.why = "size " .. math.floor(e.w + 0.5)
         elseif not e.dist then e.why = "no position"
-        elseif e.dist < rim - RIM_SLACK then e.why = "not on rim"
+        elseif e.dist < rim - RIM_TOLERANCE then e.why = "not on rim"
         else e.counted = true end
       end
     end
@@ -109,13 +98,12 @@ local function ScanChildren()
   return out
 end
 
--- middle of the largest gap between the counted buttons' angles
 function GS:LauncherFreeAngle()
   local angles = {}
   for _, e in ipairs(ScanChildren()) do if e.counted then angles[#angles + 1] = e.angle end end
-  if #angles == 0 then return EMPTY_ANGLE end
+  if #angles == 0 then return ANGLE_WITHOUT_OTHER_BUTTONS end
   table.sort(angles)
-  local bestGap, bestMid = -1, EMPTY_ANGLE
+  local bestGap, bestMid = -1, ANGLE_WITHOUT_OTHER_BUTTONS
   for i, a in ipairs(angles) do
     local gap = (angles[i + 1] or (angles[1] + 360)) - a
     if gap > bestGap then bestGap, bestMid = gap, (a + gap / 2) % 360 end
@@ -123,7 +111,6 @@ function GS:LauncherFreeAngle()
   return bestMid
 end
 
--- forget a drag and move the button into the largest free gap; returns the new angle
 function GS:LauncherReplace()
   local s = self:LauncherSettings()
   s.dragged = nil
@@ -132,9 +119,6 @@ function GS:LauncherReplace()
   return s.angle
 end
 
----------------------------------------------------------------------------
--- The button
----------------------------------------------------------------------------
 local function OnDragUpdate()
   local mx, my = Minimap:GetCenter()
   local px, py = GetCursorPosition()
@@ -146,7 +130,6 @@ local function OnDragUpdate()
   UpdatePosition()
 end
 
--- every module's status line (mod:OverviewStatus) in the tooltip
 function GS:LauncherTooltip(tip)
   tip:AddLine(GS.OverviewL.TITLE)
   for _, name in ipairs(self.moduleOrder) do
@@ -216,7 +199,6 @@ local function Create()
   UpdatePosition()
 end
 
--- shows or hides the button by the setting (made on first show)
 function GS:UpdateLauncher()
   if not (self.db and Minimap) then return end
   if self:LauncherSettings().hide then
@@ -224,8 +206,6 @@ function GS:UpdateLauncher()
     return
   end
   if not btn then
-    -- the button is client frame API only (probed like any client API): a client that lacks one of these methods
-    -- gets no button rather than an error at every login
     local ok, err = pcall(Create)
     if not ok then
       btn = nil
@@ -243,7 +223,6 @@ function GS:SetLauncherShown(on)
 end
 function GS:LauncherButton() return btn end
 
--- diagnostics: the button and every minimap child the free-gap search looked at; P(line), default chat
 function GS:LauncherDebug(P)
   P = P or function(line) GS.Print(nil, line) end
   local s = self:LauncherSettings()
@@ -266,7 +245,7 @@ end
 
 local function NeedsPlace(s)
   if s.dragged then return false end
-  return s.angle == nil or s.angle == OLD_DEFAULT
+  return s.angle == nil or s.angle == CRAFT_V01_DEFAULT_ANGLE
 end
 
 local frame = CreateFrame("Frame")
@@ -277,8 +256,7 @@ frame:SetScript("OnEvent", function(self, event)
     GS:Call(GS.UpdateLauncher, GS)
   else
     self:UnregisterEvent("PLAYER_ENTERING_WORLD")
-    -- other addons create their minimap buttons late: look for the free gap 5 s later
-    C_Timer.After(5, function()
+    C_Timer.After(PLACE_DELAY_AFTER_WORLD, function()
       if btn and NeedsPlace(GS:LauncherSettings()) then GS:Call(GS.LauncherReplace, GS) end
     end)
   end
