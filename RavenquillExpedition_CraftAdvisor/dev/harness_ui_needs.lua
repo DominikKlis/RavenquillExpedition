@@ -383,6 +383,46 @@ do
   check(tipText():find("3 upgrades · best: Waist", 1, true), "the former second line is in the row's tooltip")
   captureTip(); ml.pools.default[3]._scripts.OnEnter(ml.pools.default[3])
   check(tipText():find("1 upgrade · best: Chest", 1, true), "singular line (tooltip)")
+  do
+    local L, lines, savedData, savedAdd = ns.L, {}, mb.data, GameTooltip.AddLine
+    GameTooltip.AddLine = function(_, t, r, g, b) lines[#lines + 1] = table.concat({ tostring(t), tostring(r), tostring(g), tostring(b) }, "/") end
+    local rec = { items = {}, time = time(), source = "inspect" }
+    local function member(over)
+      local d = { key = "Tess Field", class = "MAGE", level = 30, online = true, prof = "Leatherworking", member = rec, spec = "FROST", specHow = "manual" }
+      for k, v in pairs(over) do d[k] = v end
+      return d
+    end
+    local best = { slot = 6, points = 12 }
+    local cases = {
+      { d = member({ member = false }), line = L.MEMBER_TIP_NOT_INSPECTED, tip = L.MEMBER_TIP_NOT_INSPECTED .. "/0.7/0.7/0.7" },
+      { d = member({ browse = true, suggestions = { 1, 2 } }), line = string.format(L.MEMBER_LINE_BROWSE, 2),
+        tip = string.format(L.MEMBER_TIP_BROWSE, UIx.ProfName("Leatherworking"), 2) .. "/0.7/0.7/0.7", forget = true },
+      { d = member({ best = best, knownCount = 1 }), line = string.format(L.MEMBER_LINE_UPGRADES_1, 1, UIx.ShortSlotName(6)),
+        tip = string.format(L.MEMBER_TIP_BEST, 1, UIx.GainText(best)) .. "/0.3/1/0.3", forget = true },
+      { d = member({ state = "no-spec" }), line = L.MEMBER_LINE_NOSPEC, tip = L.MEMBER_TIP_NOSPEC .. "/1/0.5/0.2", forget = true },
+      { d = member({ state = "no-level" }), line = L.MEMBER_LINE_NOLEVEL, tip = L.MEMBER_TIP_NOLEVEL .. "/1/0.5/0.2", forget = true },
+      { d = member({ state = "loading" }), line = L.MEMBER_LINE_LOADING, tip = L.MEMBER_TIP_NONE .. "/0.7/0.7/0.7", forget = true },
+      { d = member({ state = "no-weights" }), line = L.MEMBER_LINE_NONE, tip = L.MEMBER_TIP_NONE .. "/0.7/0.7/0.7", forget = true },
+      { d = member({ state = "no-spec", isSelf = true }), line = L.MEMBER_LINE_NOSPEC, tip = L.MEMBER_TIP_NOSPEC .. "/1/0.5/0.2" },
+    }
+    local bad = {}
+    for i, case in ipairs(cases) do
+      if case.d.member == false then case.d.member = nil end
+      lines = {}
+      mb.data = case.d
+      mb._scripts.OnEnter(mb)
+      local text = UIx.MemberLine(case.d)
+      local forgetLine = L.MEMBER_TIP_FORGET .. "/0.5/0.5/0.5"
+      local stateLine = lines[#lines - (case.forget and 1 or 0)]
+      if plain(text) ~= case.line or lines[3] ~= text .. "/0.75/0.72/0.65" or stateLine ~= case.tip
+        or (lines[#lines] == forgetLine) ~= (case.forget == true) then
+        bad[#bad + 1] = i .. ": " .. plain(text) .. " | " .. table.concat(lines, " | ")
+      end
+    end
+    GameTooltip.AddLine, mb.data = savedAdd, savedData
+    check(#bad == 0, "member line and tooltip per state (not inspected, browse, upgrades, no spec, no level, loading, none, yourself): "
+      .. table.concat(bad, "; "))
+  end
   gp[2]._scripts.OnClick(gp[2])
   local olgaRow
   for _, r in ipairs(ml.pools.default) do if r._shown and r.data == K5.olga then olgaRow = r end end

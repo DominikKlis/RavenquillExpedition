@@ -10,20 +10,70 @@ local SourceText, ProfName, GainFont = P.SourceText, P.ProfName, P.GainFont
 
 UI.collapsed = { online = false, offline = true }
 
-local function MemberLine(d)
-  if not d.member then return C.dim .. L.MEMBER_TIP_NOT_INSPECTED .. "|r" end
-  if d.browse then return C.browse .. string.format(L.MEMBER_LINE_BROWSE, d.suggestions and #d.suggestions or 0) .. "|r" end
-  if d.best then
-    local n = d.knownCount or 0
-    if n == 1 then return string.format(L.MEMBER_LINE_UPGRADES_1, n, ShortSlotName(d.best.slot)) end
-    return string.format(L.MEMBER_LINE_UPGRADES, n, ShortSlotName(d.best.slot))
-  end
-  if d.state == "no-spec" then return C.warn .. L.MEMBER_LINE_NOSPEC .. "|r" end
-  if d.state == "no-level" then return C.warn .. L.MEMBER_LINE_NOLEVEL .. "|r" end
-  if d.state == "loading" then return C.dim .. L.MEMBER_LINE_LOADING .. "|r" end
-  return C.dim .. L.MEMBER_LINE_NONE .. "|r"
+local function DimText(text) return C.dim .. text .. "|r" end
+local function WarnText(text) return C.warn .. text .. "|r" end
+local function SugCount(d) return d.suggestions and #d.suggestions or 0 end
+local function NoneTip() return L.MEMBER_TIP_NONE, 0.7, 0.7, 0.7 end
+
+local MEMBER_STATE = {
+  uninspected = {
+    line = function() return DimText(L.MEMBER_TIP_NOT_INSPECTED) end,
+    tip = function() return L.MEMBER_TIP_NOT_INSPECTED, 0.7, 0.7, 0.7 end,
+  },
+  browse = {
+    line = function(d) return C.browse .. string.format(L.MEMBER_LINE_BROWSE, SugCount(d)) .. "|r" end,
+    tip = function(d) return string.format(L.MEMBER_TIP_BROWSE, ProfName(d.prof), SugCount(d)), 0.7, 0.7, 0.7 end,
+  },
+  best = {
+    line = function(d)
+      local n = d.knownCount or 0
+      if n == 1 then return string.format(L.MEMBER_LINE_UPGRADES_1, n, ShortSlotName(d.best.slot)) end
+      return string.format(L.MEMBER_LINE_UPGRADES, n, ShortSlotName(d.best.slot))
+    end,
+    tip = function(d) return string.format(L.MEMBER_TIP_BEST, d.knownCount or 0, GainText(d.best)), 0.3, 1, 0.3 end,
+  },
+  noSpec = {
+    line = function() return WarnText(L.MEMBER_LINE_NOSPEC) end,
+    tip = function() return L.MEMBER_TIP_NOSPEC, 1, 0.5, 0.2 end,
+  },
+  noLevel = {
+    line = function() return WarnText(L.MEMBER_LINE_NOLEVEL) end,
+    tip = function() return L.MEMBER_TIP_NOLEVEL, 1, 0.5, 0.2 end,
+  },
+  loading = { line = function() return DimText(L.MEMBER_LINE_LOADING) end, tip = NoneTip },
+  none = { line = function() return DimText(L.MEMBER_LINE_NONE) end, tip = NoneTip },
+}
+local STATE_FROM_CORE = { ["no-spec"] = MEMBER_STATE.noSpec, ["no-level"] = MEMBER_STATE.noLevel, loading = MEMBER_STATE.loading }
+
+local function MemberState(d)
+  if not d.member then return MEMBER_STATE.uninspected end
+  if d.browse then return MEMBER_STATE.browse end
+  if d.best then return MEMBER_STATE.best end
+  return STATE_FROM_CORE[d.state] or MEMBER_STATE.none
 end
+
+local function MemberLine(d) return MemberState(d).line(d) end
 UI.MemberLine = MemberLine
+
+local function LevelLine(d)
+  local status = d.isSelf and "" or (d.online and G("FRIENDS_LIST_ONLINE") or (C.offline .. G("FRIENDS_LIST_OFFLINE") .. "|r"))
+  return string.format(L.MEMBER_TIP_LEVEL, G("LEVEL"), tostring(d.level or "?"), ClassName(d.class)) .. (status ~= "" and ("  ·  " .. status) or "")
+end
+
+local function MemberTip(self)
+  local d = self.data
+  GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+  GameTooltip:AddLine(d.key, ClassColor(d.class))
+  GameTooltip:AddLine(LevelLine(d), 1, 1, 1)
+  GameTooltip:AddLine(MemberLine(d), SUB_TINT[1], SUB_TINT[2], SUB_TINT[3])
+  if d.member then
+    GameTooltip:AddLine(string.format(L.MEMBER_TIP_GEAR, SourceText(d.member), Ago(d.member.time)), 0.7, 0.7, 0.7)
+    GameTooltip:AddLine(string.format(L.MEMBER_TIP_SPEC, SpecHowText(d)), 1, 1, 1)
+  end
+  GameTooltip:AddLine(MemberState(d).tip(d))
+  if d.member and not d.isSelf then GameTooltip:AddLine(L.MEMBER_TIP_FORGET, 0.5, 0.5, 0.5) end
+  GameTooltip:Show()
+end
 
 local function MemberGain(d)
   if d.browse or not d.best then return "" end
@@ -57,33 +107,7 @@ local function CreateMemberRow(parent)
     end
     UI:Refresh()
   end)
-  SetTip(b, "member row", function(self)
-    local d = self.data
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:AddLine(d.key, ClassColor(d.class))
-    local status = d.isSelf and "" or (d.online and G("FRIENDS_LIST_ONLINE") or (C.offline .. G("FRIENDS_LIST_OFFLINE") .. "|r"))
-    GameTooltip:AddLine(string.format(L.MEMBER_TIP_LEVEL, G("LEVEL"), tostring(d.level or "?"), ClassName(d.class)) .. (status ~= "" and ("  ·  " .. status) or ""), 1, 1, 1)
-    GameTooltip:AddLine(MemberLine(d), SUB_TINT[1], SUB_TINT[2], SUB_TINT[3])
-    if d.member then
-      GameTooltip:AddLine(string.format(L.MEMBER_TIP_GEAR, SourceText(d.member), Ago(d.member.time)), 0.7, 0.7, 0.7)
-      GameTooltip:AddLine(string.format(L.MEMBER_TIP_SPEC, SpecHowText(d)), 1, 1, 1)
-      if d.browse then
-        GameTooltip:AddLine(string.format(L.MEMBER_TIP_BROWSE, ProfName(d.prof), d.suggestions and #d.suggestions or 0), 0.7, 0.7, 0.7)
-      elseif d.best then
-        GameTooltip:AddLine(string.format(L.MEMBER_TIP_BEST, d.knownCount or 0, GainText(d.best)), 0.3, 1, 0.3)
-      elseif d.state == "no-spec" then
-        GameTooltip:AddLine(L.MEMBER_TIP_NOSPEC, 1, 0.5, 0.2)
-      elseif d.state == "no-level" then
-        GameTooltip:AddLine(L.MEMBER_TIP_NOLEVEL, 1, 0.5, 0.2)
-      else
-        GameTooltip:AddLine(L.MEMBER_TIP_NONE, 0.7, 0.7, 0.7)
-      end
-      if not d.isSelf then GameTooltip:AddLine(L.MEMBER_TIP_FORGET, 0.5, 0.5, 0.5) end
-    else
-      GameTooltip:AddLine(L.MEMBER_TIP_NOT_INSPECTED, 0.7, 0.7, 0.7)
-    end
-    GameTooltip:Show()
-  end)
+  SetTip(b, "member row", MemberTip)
   b:SetScript("OnLeave", GameTooltip_Hide)
   return b
 end
