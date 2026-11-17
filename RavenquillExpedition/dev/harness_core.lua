@@ -1,6 +1,3 @@
--- Offline test of the core's module API 2: SavedVariables defaults and migrations, locale, events, timers,
--- guild store, options shorthand, API check, guild changes, names, roster and wire helpers.
--- Run: lua RavenquillExpedition/dev/harness_core.lua
 unpack = table.unpack
 local DEV = (arg[0]:gsub("[^/\\]*$", ""))
 local ADDONS = DEV .. "../../"
@@ -10,7 +7,6 @@ local function check(cond, what)
 end
 local function section(s) io.write("== ", s, "\n") end
 
--- minimal client ---------------------------------------------------------
 local now, BASE = 100, 1800000000
 local timers = {}
 C_Timer = { After = function(d, fn) timers[#timers + 1] = { at = now + d, fn = fn } end }
@@ -84,9 +80,7 @@ end
 local RQ = RavenquillExpedition
 fire("ADDON_LOADED", "RavenquillExpedition")
 
----------------------------------------------------------------------------
 section("Module: SavedVariables, defaults, migrations")
----------------------------------------------------------------------------
 check(RQ.API == 2, "core API is 2")
 local order = {}
 TestModDB = { v = 1, settings = { share = "yes", keep = 5 }, old = true }
@@ -116,7 +110,6 @@ check(mod.defaults.list[1] == 1, "table defaults are copied, not shared")
 check(mod.cdb == TestModCharDB and mod.cdb.seq == 0 and type(mod.cdb.outbox) == "table", "per-character table with its defaults")
 check(mod.L.HELLO == "Hallo" and mod.L.ONLY_EN == "only english" and mod.L.NOPE == "NOPE", "locale: client language, then English, then the key")
 
--- a failing migration stops the chain and keeps the version
 FailDB = { v = 0 }
 local ran3 = false
 local fm = RQ:NewModule("Failing", { addon = "FailAddon", sv = "FailDB", dbVersion = 3,
@@ -126,15 +119,12 @@ fire("ADDON_LOADED", "FailAddon")
 check(FailDB.v == 1 and not ran3 and #errors == errBefore + 1, "a failing migration stops the chain (v stays 1) and reaches BugSack")
 check(fm.db == FailDB, "the module still gets its db")
 
--- a fresh install
 check(FreshDB == nil, "precondition: no FreshDB")
 RQ:NewModule("Fresh", { addon = "FreshAddon", sv = "FreshDB", dbVersion = 2, defaults = { a = 1 } })
 fire("ADDON_LOADED", "FreshAddon")
 check(type(FreshDB) == "table" and FreshDB.v == 2 and FreshDB.settings.a == 1, "fresh install: table created at the current version")
 
----------------------------------------------------------------------------
 section("Module: API check, login, guild changes")
----------------------------------------------------------------------------
 local future = RQ:NewModule("Future", { addon = "FutureAddon", api = 99 })
 check(RQ:GetModule("Future") == nil and future.Print, "a module needing API 99 is not registered (but gets a usable table)")
 check(printed[#printed]:find("API 99", 1, true) ~= nil, "and the player is told once: " .. tostring(printed[#printed]))
@@ -154,9 +144,7 @@ check(guildChanges[1] == "Die Gilde@Forever>Neue Gilde@Forever" and guildChanges
 G.guild, G.inGuild = "Die Gilde", true
 fire("PLAYER_GUILD_UPDATE")
 
----------------------------------------------------------------------------
 section("Module: events, timers, guild store, options")
----------------------------------------------------------------------------
 local got = {}
 mod:RegisterEvent("BAG_UPDATE", function(m, bag) got[#got + 1] = (m == mod) and bag end)
 function mod:PLAYER_LEVEL_UP(level) got[#got + 1] = "lvl" .. level end
@@ -189,9 +177,7 @@ o.set(false)
 check(db.settings.share == false and changed[1] == "share=false", "set writes mod.settings and calls OnOptionChanged")
 check(mod:Option("go") and mod:Option("nope") == nil, "Option(id)")
 
----------------------------------------------------------------------------
 section("Names and roster")
----------------------------------------------------------------------------
 fire("GUILD_ROSTER_UPDATE")
 check(RQ:PlayerKey() == "Me Smith" and RQ:IsMe("Me Smith-Forever") and not RQ:IsMe("Bud Stone"), "PlayerKey / IsMe with the realm suffix")
 check(RQ:NormName("Anna Muller-Lee-Forever") == "Anna Muller-Lee" and RQ:StripRealm("Anna Muller-Lee") == nil,
@@ -204,7 +190,7 @@ local n = 0
 for _ in RQ:EachMember() do n = n + 1 end
 check(n == 4 and RQ:RosterReadAt() == now, "EachMember / RosterReadAt")
 RavenquillExpeditionDB.peersByGuild = nil
-RavenquillExpeditionDB.peers = { ["Bud Stone"] = RQ:Now() - 100, ["Cara Moss"] = RQ:Now() - 5000 } -- the old account-wide table
+RavenquillExpeditionDB.peers = { ["Bud Stone"] = RQ:Now() - 100, ["Cara Moss"] = RQ:Now() - 5000 }
 check(RQ:PeerCount(3600) == 1 and RQ:PeerCount() == 2, "PeerCount(window)")
 check(RavenquillExpeditionDB.peers == nil and RavenquillExpeditionDB.peersByGuild["Die Gilde@Forever"]["Bud Stone"],
   "the old peers table moved into the current guild")
@@ -220,9 +206,7 @@ G.guild = nil
 check(RQ:Peers() ~= nil, "guild unknown for a moment: the last known guild is used")
 check(RQ:MaxLevel() == 60, "MaxLevel")
 
----------------------------------------------------------------------------
 section("Wire helpers (byte-compatible with Map's and CraftAdvisor's own)")
----------------------------------------------------------------------------
 local W = RQ.Wire
 check(W.b36(0) == "0" and W.b36(46655) == "zzz" and W.b36(-5) == "0" and W.b36(1800000000) == "tro8w0", "b36 (Map's form, negatives -> 0)")
 check(W.b36s(-37) == "-11" and W.b36s(35) == "z", "b36s (CraftAdvisor's form, '-' for negatives)")

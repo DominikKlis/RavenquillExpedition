@@ -1,16 +1,10 @@
--- Score harness, golden tests against SimGear Forever: Data/Weights.lua equals its tables, stat normalising,
--- composed weight sets (pickSet + survival layer) and item comparisons (real LW crafts, random worn gear, set
--- bonuses), weapon comparisons and speed (W7). They draw from one random sequence (rnd), in this order.
--- SimGear Forever is needed (see dev/scorekit.lua). Run: lua dev/harness_score_golden.lua [SimGear unzip dir]
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "scorekit.lua")
 local section, CLASSES, SGW, W, SGns, check, ns = H.section, H.CLASSES, H.SGW, H.W, H.SGns, H.check, H.ns
 local SGSets, rnd, Scoring, near, LEVELS, SHARES = H.SGSets, H.rnd, H.Scoring, H.near, H.LEVELS, H.SHARES
 local GCA, sgCompose, CRAFT, itemDB, OURSETS, SG = H.GCA, H.sgCompose, H.CRAFT, H.itemDB, H.OURSETS, H.SG
 local cap, sgEnv, SGItems = H.cap, H.sgEnv, H.SGItems
 
----------------------------------------------------------------------------
 section("Generator: Data/Weights.lua equals SimGear's tables (every set, every weight)")
----------------------------------------------------------------------------
 do
   local sets, bad, dungeon = 0, 0, 0
   for _, class in ipairs(CLASSES) do
@@ -46,8 +40,6 @@ do
     end
   end
   check(bad == 0 and sets == 175, ("%d weight sets identical to SimGear's, %d dungeon specs left out, %d differences"):format(sets, dungeon, bad))
-  -- item sets: every kept set has a craftable piece (any of the five professions, G7.14) and equals SimGear's;
-  -- every SimGear set with a craftable piece is kept
   local recipeOf = {}
   for _, prof in ipairs({ "Leatherworking", "Blacksmithing", "Tailoring", "Engineering", "Enchanting" }) do
     for spellID, r in pairs(ns.Recipes[prof]) do recipeOf[r.item] = spellID end
@@ -71,9 +63,7 @@ do
   check(W.itemSets[143] and W.itemSets[143].bonuses[1].stats.MeleeHit == 2, "Devilsaur Armor 2-piece: +2 MeleeHit / SpellHit")
 end
 
----------------------------------------------------------------------------
 section("Stats: our normalize = SimGear Stats.normalize (ratings -> %, Crit/Hit expand)")
----------------------------------------------------------------------------
 do
   local keys = {}
   for k in pairs(SGns.Stats.KEY_MAP) do keys[#keys + 1] = k end
@@ -97,9 +87,7 @@ do
   check(s.SpellPower == 9, "ITEM_MOD_SPELL_POWER counted once when _SHORT is there too")
 end
 
----------------------------------------------------------------------------
 section("Golden: composed weight sets (pickSet + survival layer) = SimGear Score.pickSet + Plan.apply")
----------------------------------------------------------------------------
 do
   local cmp, bad = 0, 0
   for _, class in ipairs(CLASSES) do
@@ -124,9 +112,7 @@ do
   check(bad == 0, ("%d class/spec/level/share combinations identical (%d differ)"):format(cmp, bad))
 end
 
----------------------------------------------------------------------------
 section("Golden: item comparisons (real LW crafts, random worn gear, set bonuses) = SimGear Score.compare")
----------------------------------------------------------------------------
 do
   local cmp, bad, statuses, withSets = 0, 0, {}, 0
   local SLOT_OF = { INVTYPE_HEAD = { 1 }, INVTYPE_NECK = { 2 }, INVTYPE_SHOULDER = { 3 }, INVTYPE_CHEST = { 5 }, INVTYPE_ROBE = { 5 },
@@ -148,7 +134,6 @@ do
               local slot = slots[rnd(#slots)]
               if rnd(3) == 1 then equipped[slot] = it end
             end
-            -- force set situations: sometimes wear one Devilsaur piece, sometimes both
             if rnd(3) == 1 and itemDB[15063] then equipped[10] = { itemID = 15063, equipLoc = "INVTYPE_HAND", stats = Scoring.normalize(itemDB[15063].raw) } end
             local cand = pool[rnd(#pool)]
             local a = SGns.Score.compare(cand, equipped, sg, { sets = SGSets[class] })
@@ -178,11 +163,7 @@ do
   check(bad == 0, ("%d comparisons identical to SimGear (%d differ); %s; %d with a set change"):format(cmp, bad, table.concat(st, ", "), withSets))
 end
 
----------------------------------------------------------------------------
 section("W: weapons - golden compare/speed vs SimGear, proficiency, dual wield, speed parse, crafts end to end")
----------------------------------------------------------------------------
--- W7 golden: SimGear's own Score.compare (compareWeapon + speedValue) on its own weapon items (stats, speeds from
--- the extras, daggers) against our Scoring.compare, with random worn hands, dual wield on/off, set bonuses.
 do
   local WEAPON_LOCS = { INVTYPE_WEAPON = true, INVTYPE_WEAPONMAINHAND = true, INVTYPE_WEAPONOFFHAND = true, INVTYPE_2HWEAPON = true,
     INVTYPE_SHIELD = true, INVTYPE_HOLDABLE = true, INVTYPE_RANGED = true, INVTYPE_RANGEDRIGHT = true, INVTYPE_THROWN = true }
@@ -209,7 +190,10 @@ do
       end
     end
     local function pick(list) return list and #list > 0 and list[rnd(#list)] or nil end
-    for spec in pairs(W.classes[class]) do
+    local specs = {}
+    for spec in pairs(W.classes[class]) do specs[#specs + 1] = spec end
+    table.sort(specs)
+    for _, spec in ipairs(specs) do
       for _, level in ipairs({ 25, 30, 40, 50, 60 }) do
         local share = SHARES[rnd(3)]
         GCA.db.settings.survival = share
@@ -243,7 +227,6 @@ do
               if bad <= 5 then print(("    differs: %s %s Lv%d item %d dw %s: %s %s vs %s %s"):format(class, spec, level, cand.itemID, tostring(dw),
                 a and a.status, a and a.newValue, b and b.status, b and b.newValue)) end
             end
-            -- speedFactor / speedValue on the same item for every weapon-DPS key
             for _, key in ipairs({ "MainHandDps", "TwoHandDps", "OffHandDps", "RangedDps" }) do
               speedCmp = speedCmp + 1
               if not near(SGns.Score.speedFactor(cand, key, sg), Scoring.speedFactor(cand, key, e.set)) then speedBad = speedBad + 1 end
@@ -263,7 +246,6 @@ do
     ("W golden: %d weapon comparisons identical to SimGear's compareWeapon (%d differ); %s; %d in the off hand; %d with a speed"):format(
       cmp, bad, table.concat(st, ", "), offHand, withSpeed))
   check(speedBad == 0, ("W golden: speedFactor/speedValue identical to SimGear on %d cases (%d differ)"):format(speedCmp, speedBad))
-  -- speed changes a score at all (not a silent factor 1): a slow 2H for a Lv60 Ret Paladin (mainHand curve)
   local e = GCA:WeightSetFor("PALADIN", "RETRIBUTION", 60)
   local slow = { equipLoc = "INVTYPE_2HWEAPON", stats = { TwoHandDps = 50 }, speed = 3.8 }
   local none = { equipLoc = "INVTYPE_2HWEAPON", stats = { TwoHandDps = 50 } }

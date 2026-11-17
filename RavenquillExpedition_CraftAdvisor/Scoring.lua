@@ -1,29 +1,8 @@
--- Scoring: item stats -> canonical stats -> score with SimGear Forever's weights.
--- Pure: no WoW API access, so the offline harness can run it next to SimGear's own code.
---
--- Parts of this file are ported from SimGear Forever 0.14.0 (Stats.lua, Score.lua, Plan.lua):
---   Copyright (c) 2026 Flavius and SimGear Forever contributors
---   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
---   associated documentation files (the "Software"), to deal in the Software without restriction,
---   including without limitation the rights to use, copy, modify, merge, publish, distribute,
---   sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
---   furnished to do so, subject to the following conditions: The above copyright notice and this
---   permission notice shall be included in all copies or substantial portions of the Software.
---   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
---   NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
---   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
---   OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
---   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
--- See NOTICE.txt. Differences from SimGear are marked "GCA:".
 local _, ns = ...
 
 local Scoring = {}
 ns.Scoring = Scoring
 
----------------------------------------------------------------------------
--- Stats (SimGear Stats.lua)
----------------------------------------------------------------------------
--- GetItemStats key -> canonical key (SimGear Stats.KEY_MAP, keys confirmed in game by SimGear).
 Scoring.KEY_MAP = {
   ITEM_MOD_STRENGTH_SHORT = "Strength",
   ITEM_MOD_AGILITY_SHORT = "Agility",
@@ -35,7 +14,7 @@ Scoring.KEY_MAP = {
   ITEM_MOD_PARRY_RATING_SHORT = "Parry",
   ITEM_MOD_BLOCK_RATING_SHORT = "Block",
   ITEM_MOD_BLOCK_VALUE_SHORT = "BlockValue",
-  SHIELD_BLOCK = "BlockValue", -- never in GetItemStats (SimGear reads it from the tooltip); GCA: not read yet
+  SHIELD_BLOCK = "BlockValue",
   ITEM_MOD_CRIT_RATING_SHORT = "Crit",
   ITEM_MOD_HIT_RATING_SHORT = "Hit",
   ITEM_MOD_ATTACK_POWER_SHORT = "AttackPower",
@@ -53,11 +32,9 @@ Scoring.KEY_MAP = {
   ITEM_MOD_SPELL_POWER = "SpellPower",
 }
 Scoring.SAME_AS = { ITEM_MOD_SPELL_POWER = "ITEM_MOD_SPELL_POWER_SHORT" }
--- Rating per percentage point (Forever stores "+1%" as ratings; SimGear Stats.RATING_PER_POINT).
 Scoring.RATING_PER_POINT = { Crit = 14, Hit = 10, Dodge = 12, Parry = 15, Block = 5 }
 Scoring.EXPANDS = { Crit = { "MeleeCrit", "SpellCrit" }, Hit = { "MeleeHit", "SpellHit" } }
 
--- raw GetItemStats table -> canonical stats, sorted list of unmapped client keys.
 function Scoring.normalize(raw)
   local keyMap, perPoint = Scoring.KEY_MAP, Scoring.RATING_PER_POINT
   local stats, unknown = {}, {}
@@ -65,7 +42,6 @@ function Scoring.normalize(raw)
     local canonical = keyMap[key]
     local twin = Scoring.SAME_AS[key]
     if twin and raw[twin] ~= nil then
-      -- counted under its other name
     elseif canonical and type(amount) == "number" then
       stats[canonical] = (stats[canonical] or 0) + amount
     else
@@ -91,7 +67,6 @@ local DPS_KEY_BY_EQUIPLOC = {
   INVTYPE_WEAPONOFFHAND = "OffHandDps",
   INVTYPE_RANGED = "RangedDps", INVTYPE_RANGEDRIGHT = "RangedDps", INVTYPE_THROWN = "RangedDps",
 }
--- Moves the intermediate "Dps" stat to the per-hand stat for this equip location (changes stats in place).
 function Scoring.addWeaponDps(stats, equipLoc)
   local dps = stats.Dps
   stats.Dps = nil
@@ -100,7 +75,6 @@ function Scoring.addWeaponDps(stats, equipLoc)
   return stats
 end
 
--- The item as it counts in the off hand: MainHandDps weighs as OffHandDps (SimGear Score.inOffHand).
 function Scoring.inOffHand(item)
   local dps = item and item.stats and item.stats.MainHandDps
   if not dps then return item end
@@ -110,32 +84,32 @@ function Scoring.inOffHand(item)
   local copy = {}
   for k, v in pairs(item) do copy[k] = v end
   copy.stats = stats
-  copy.info = nil -- GCA: a cached score (Core valueOf) belongs to the main-hand stats
+  copy.info = nil
   return copy
 end
 
----------------------------------------------------------------------------
--- Weight sets (SimGear Score.lua)
----------------------------------------------------------------------------
--- The set whose level range is nearest to `level`; no range = any level; tie -> lower; same level -> sim.
+local function levelDistance(src, level)
+  if src.minLevel and level < src.minLevel then return src.minLevel - level end
+  if src.maxLevel and level > src.maxLevel then return level - src.maxLevel end
+  return 0
+end
+
+local function closerSet(set, distance, best, bestDistance)
+  if not best or distance ~= bestDistance then return not best or distance < bestDistance end
+  local lo, bestLo = set.source.minLevel or 0, best.source.minLevel or 0
+  if lo ~= bestLo then return lo < bestLo end
+  return set.source.kind == "sim" and best.source.kind ~= "sim"
+end
+
 function Scoring.pickSet(sets, level)
   local best, bestDistance
   for _, set in ipairs(sets or {}) do
-    local lo, hi = set.source.minLevel, set.source.maxLevel
-    local distance = 0
-    if lo and level < lo then distance = lo - level
-    elseif hi and level > hi then distance = level - hi end
-    local bestLo = bestDistance and (best.source.minLevel or 0)
-    if not bestDistance or distance < bestDistance
-      or (distance == bestDistance and ((lo or 0) < bestLo
-        or ((lo or 0) == bestLo and set.source.kind == "sim" and best.source.kind ~= "sim"))) then
-      best, bestDistance = set, distance
-    end
+    local distance = levelDistance(set.source, level)
+    if closerSet(set, distance, best, bestDistance) then best, bestDistance = set, distance end
   end
   return best
 end
 
--- Spell power counts 0 on an item that also has healing when the set weighs healing (Score.weightOf).
 function Scoring.weightOf(stats, key, set)
   local w = set.weights[key] or 0
   if key == "SpellPower" and (stats.HealingPower or 0) > 0 and (set.weights.HealingPower or 0) > 0 then return 0 end
@@ -151,16 +125,11 @@ function Scoring.value(stats, set)
   return total
 end
 
----------------------------------------------------------------------------
--- Weapon speed (SimGear Score.lua:159-199 speedKind/speedFactor/speedValue, Stats.lua:143-160)
----------------------------------------------------------------------------
 Scoring.SPEED_KINDS = {
   twoHand = { ref = 3.3, min = 2.8, max = 3.9 }, oneHand = { ref = 2.4, min = 1.5, max = 2.9 },
   dagger = { ref = 1.7, min = 1.3, max = 1.9 }, ranged = { ref = 2.8, min = 2.0, max = 3.2 },
 }
 local CURVE_OF = { MainHandDps = "mainHand", TwoHandDps = "mainHand", OffHandDps = "offHand", RangedDps = "ranged" }
--- GCA: SimGear iterates CURVE_OF with pairs (an item has one weapon-DPS key, so the order doesn't matter); a fixed
--- order keeps it deterministic.
 local CURVE_KEYS = { "MainHandDps", "TwoHandDps", "OffHandDps", "RangedDps" }
 
 function Scoring.speedKind(item, key)
@@ -169,7 +138,6 @@ function Scoring.speedKind(item, key)
   return item.dagger and "dagger" or "oneHand"
 end
 
--- The multiplier on the item's `key` weapon DPS for its speed: 1 without a speed or a curve.
 function Scoring.speedFactor(item, key, set)
   local curves = set and set.speedCurves
   local curve = curves and CURVE_OF[key] and curves[CURVE_OF[key]]
@@ -182,7 +150,6 @@ function Scoring.speedFactor(item, key, set)
   return 1 + curve.perSecond * (math.min(math.max(speed, k.min), k.max) - k.ref)
 end
 
--- What the item's speed adds to (or takes from) its value: its weapon DPS value x (factor - 1), and the key.
 function Scoring.speedValue(item, set)
   local stats = item and item.stats
   if not stats or not item.speed or not (set and set.weights) then return 0 end
@@ -195,8 +162,6 @@ function Scoring.speedValue(item, set)
   return 0
 end
 
--- A weapon's speed in seconds from tooltip lines (the damage line's right text: "Speed 2.60", deDE "Tempo 2,60"),
--- or nil. label = the client's SPEED; "Speed" is always tried too. Callers pass no secret text.
 function Scoring.weaponSpeedFromLines(lines, label)
   local labels = { "Speed" }
   if type(label) == "string" and label ~= "Speed" and label ~= "" then table.insert(labels, 1, label) end
@@ -213,12 +178,10 @@ function Scoring.weaponSpeedFromLines(lines, label)
   end
 end
 
--- GCA: SimGear's itemValue also adds simmed trinket effects (stripped from our data: 0 here).
 local function itemValue(item, set)
   if not item then return 0 end
   return Scoring.value(item.stats, set) + Scoring.speedValue(item, set)
 end
--- GCA: compare() may get a valueOf(item) that returns a cached score (Core: per item and weight set).
 local valueOf
 local function val(item, set)
   if not item then return 0 end
@@ -236,19 +199,14 @@ function Scoring.isPlaceholder(set)
   return src ~= nil and src.kind == "curated" and src.label == Scoring.PLACEHOLDER_LABEL
 end
 
----------------------------------------------------------------------------
--- Survival layer (SimGear Plan.lua)
----------------------------------------------------------------------------
 Scoring.FADE_FROM, Scoring.FADE_TO = 50, 58
 
--- 0..1: how far the handover to the raid sim has gone at a level (no "preparing for raids" option here).
 function Scoring.handover(level)
   if not level then return 0 end
   local t = (level - Scoring.FADE_FROM) / (Scoring.FADE_TO - Scoring.FADE_FROM)
   return math.max(0, math.min(1, t))
 end
 
--- The set with a `survival` table nearest to the level (pickSet's rule), or nil.
 function Scoring.leveling(sets, level)
   local with = {}
   for _, set in ipairs(sets or {}) do
@@ -257,7 +215,6 @@ function Scoring.leveling(sets, level)
   return with[1] and Scoring.pickSet(with, level or 1) or nil
 end
 
--- GCA: SimGear derives this from `derivation` (stripped); the generator stores the result as `unit`.
 function Scoring.unitKey(set)
   return set and set.unit or nil
 end
@@ -281,39 +238,45 @@ end
 
 local applied = setmetatable({}, { __mode = "k" })
 
--- `set` minus its own survival layer plus ref's x share x (1 - t) x scale (SimGear Plan.apply).
-function Scoring.apply(set, ref, share, t)
-  if not (set and set.weights) then return set end
-  local own = set.survival
-  local keep = (1 - (t or 0)) * (share or 1)
-  local scale = ref and scaleOf(set, ref)
-  if not own and (not scale or (t or 0) >= 1) then return set end
-  local key = tostring(ref) .. "|" .. keep
-  local byKey = applied[set]
-  if byKey and byKey[key] then return byKey[key] end
-  local out = copySet(set)
-  for k, v in pairs(own or {}) do out.weights[k] = (out.weights[k] or 0) - v end
+local function addScaled(weights, delta, factor)
+  for k, v in pairs(delta or {}) do weights[k] = (weights[k] or 0) + factor * v end
+end
+
+local function snapTiny(weights)
+  for k, w in pairs(weights) do
+    if math.abs(w) < 1e-12 then weights[k] = 0 end
+  end
+end
+
+local function survivalAdded(ref, keep, scale)
   local added = {}
   if scale and keep > 0 then
-    for k, v in pairs(ref.survival) do
-      added[k] = v * keep * scale
-      out.weights[k] = (out.weights[k] or 0) + added[k]
-    end
+    for k, v in pairs(ref.survival) do added[k] = v * keep * scale end
   end
-  for k, w in pairs(out.weights) do
-    if math.abs(w) < 1e-12 then out.weights[k] = 0 end
-  end
+  return added
+end
+
+function Scoring.apply(set, ref, share, t)
+  if not (set and set.weights) then return set end
+  share, t = share or 1, t or 0
+  local keep = (1 - t) * share
+  local scale = ref and scaleOf(set, ref)
+  if not set.survival and (not scale or t >= 1) then return set end
+  local key = tostring(ref) .. "|" .. keep
+  local byKey = applied[set] or {}
+  if byKey[key] then return byKey[key] end
+  local out = copySet(set)
+  local added = survivalAdded(ref, keep, scale)
+  addScaled(out.weights, set.survival, -1)
+  addScaled(out.weights, added, 1)
+  snapTiny(out.weights)
   out.survival = nil
-  out.source.plan = { share = share or 1, t = t or 0, added = added }
-  applied[set] = byKey or {}
-  applied[set][key] = out
+  out.source.plan = { share = share, t = t, added = added }
+  applied[set] = byKey
+  byKey[key] = out
   return out
 end
 
----------------------------------------------------------------------------
--- Item sets (SimGear Score.setChanges)
----------------------------------------------------------------------------
--- itemSets: [setID] = { name, items, bonuses }; returns { bySet, ofItem } as SimGear's Data.lua builds it.
 function Scoring.buildSets(itemSets)
   local ofItem = {}
   for setID, set in pairs(itemSets or {}) do
@@ -363,9 +326,6 @@ function Scoring.setChanges(before, after, sets, set)
   return delta, changes
 end
 
----------------------------------------------------------------------------
--- Compare (SimGear Score.compareLinear + compareWeapon + applySets)
----------------------------------------------------------------------------
 local SINGLE = {
   INVTYPE_HEAD = 1, INVTYPE_NECK = 2, INVTYPE_SHOULDER = 3, INVTYPE_CHEST = 5, INVTYPE_ROBE = 5,
   INVTYPE_WAIST = 6, INVTYPE_LEGS = 7, INVTYPE_FEET = 8, INVTYPE_WRIST = 9, INVTYPE_HAND = 10,
@@ -377,7 +337,6 @@ local MAIN_HAND_TYPES = { INVTYPE_WEAPON = true, INVTYPE_WEAPONMAINHAND = true }
 local OFF_HAND_TYPES = { INVTYPE_SHIELD = true, INVTYPE_HOLDABLE = true, INVTYPE_WEAPONOFFHAND = true }
 Scoring.MAIN_HAND_TYPES, Scoring.OFF_HAND_TYPES = MAIN_HAND_TYPES, OFF_HAND_TYPES
 
--- Adds pct and status. A preset status ("needs-partner") is kept, but pct is still filled in (SimGear finish).
 local function finish(result)
   if result.oldValue <= 0 then
     result.status = result.status or "no-baseline"
@@ -390,11 +349,6 @@ end
 
 local function isTwoHand(item) return item ~= nil and item.equipLoc == "INVTYPE_2HWEAPON" end
 
--- The main hand + off hand pair (SimGear Score.compareWeapon): a two-hander against both worn hands; a one-hander or
--- off hand against a worn two-hander is scored alone, status "needs-partner" (SimGear takes the best partner from
--- your bags; GCA can't see a guildie's bags, so there never is one). opts.dualWield: a one-hander
--- (INVTYPE_WEAPON) may also replace the off hand; opts.hand "main"/"off" picks the hand, otherwise the better of the
--- two (result.hand = "off" when used).
 local function compareWeapon(candidate, equipped, set, opts)
   local mh, oh = equipped[16], equipped[17]
   local cand = val(candidate, set)
@@ -460,11 +414,6 @@ local function compareLinear(candidate, equipped, set, opts)
   return compareWeapon(candidate, equipped, set, opts or {})
 end
 
--- candidate/equipped items: { itemID, equipLoc, stats (canonical), speed?, dagger? }; equipped: slot -> item.
--- sets: Scoring.buildSets(...) or nil; valueFn(item): optional cached item score (nil = compute);
--- opts: { dualWield = bool, hand = "main"|"off"|nil } (SimGear's opts without bags, hit and effects).
--- Returns SimGear's result shape: { status, pct, newValue, oldValue, replaces, hand, sets, setDelta } or nil when
--- the item has no slot we compare.
 function Scoring.compare(candidate, equipped, set, sets, valueFn, opts)
   equipped = equipped or {}
   valueOf = valueFn

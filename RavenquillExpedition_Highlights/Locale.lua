@@ -2,12 +2,11 @@ local ADDON, ns = ...
 
 local L = {
   TITLE = "Guild Highlights",
-  FMT_TIME = "%m/%d %H:%M", -- os.date formats
+  FMT_TIME = "%m/%d %H:%M",
   FMT_DAY = "%Y-%m-%d",
   EMPTY = "Nothing logged yet – nothing counted as a highlight since you installed it.\n\nWhat counts: a boss killed for the first time, epic loot, a rare+ item at least 8 item levels better than the old one, group / elite / dungeon quests, level 10, 20, 30 ... (change it under /rq hl).\nGuildies running Ravenquill show up here too.\n\nTo see how it looks: /rq hl > Add test entries.",
   NO_GUILD = "(no guild)",
 
-  -- log lines: %1 = name
   GEAR = "%s equipped %s (+%d item level)",
   GEAR_EPIC = "%s equipped %s (epic upgrade)",
   GEAR_FILL = "%s equipped %s",
@@ -109,6 +108,5 @@ local deDE = {
   OV_WAITING = "%d warten aufs Senden",
 }
 
--- the core picks the client's language, falls back to English, then to the key (Module.lua / Locale.lua)
 ns.Locales = { enUS = L, deDE = deDE }
 ns.L = RavenquillExpedition.NewLocale(ns.Locales)

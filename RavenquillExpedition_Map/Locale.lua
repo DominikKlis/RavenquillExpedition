@@ -1,12 +1,9 @@
--- Strings, English and German (ns.Locales); the core turns them into ns.L. Same pattern as the Highlights module.
--- Never pass a client global (e.g. ERR_*) to string.format: deDE uses positional "%1$s".
 local ADDON, ns = ...
 
 local L = {
   TITLE = "Guild Map",
   NOTICE = "Guild Map shares your position with your guild (only guildmates who run it see it). You can turn this off in |cffffff00/rq|r → Map.",
 
-  -- tooltip
   TT_LEVEL_CLASS = "Level %d %s",
   TT_AGE_S = "Updated %d s ago",
   TT_AGE_M = "Updated %d min ago",
@@ -85,6 +82,5 @@ local deDE = {
   TT_DIAG = "Technische Angaben zum Kopieren für alle, die dir beim Addon helfen.",
 }
 
--- the core picks the client's language, falls back to English, then to the key (core Locale.lua)
 ns.Locales = { enUS = L, deDE = deDE }
 ns.L = RavenquillExpedition.NewLocale(ns.Locales)

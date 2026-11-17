@@ -1,12 +1,3 @@
--- The real Ravenquill Expedition core for the CraftAdvisor harnesses that build their own WoW mock (harness.lua,
--- harness_rq.lua, uikit.lua, scorekit.lua): loads the core's .toc files into the harness's environment
--- (the global one by default) and returns fire(event, ...) for the frames the core and the addon register events
--- on. Multi-client tests use RavenquillExpedition/dev/testkit.lua instead.
---   local K = dofile(DEV .. "corekit.lua")(env)   -- before the addon's files are loaded
---   ... load the addon ...
---   K.done()                                     -- stop watching new frames (UI frames don't register events)
---   K.fire("PLAYER_LOGIN")                       -- the first ADDON_LOADED also loads the core (its own event first)
---   K.RQ                                         -- the core (RavenquillExpedition)
 local DEV = (debug.getinfo(1, "S").source:gsub("^@", ""):gsub("[^/\\]*$", ""))
 local ADDONS = DEV .. "../../"
 local TocFiles = dofile(ADDONS .. "RavenquillExpedition/dev/toc.lua")
@@ -15,7 +6,7 @@ return function(env)
   env = env or _G
   local K = { frames = {} }
   if env.SlashCmdList == nil then env.SlashCmdList = {} end
-  if rawget(env, "_G") == nil then rawset(env, "_G", env) end -- the core reads SavedVariables through _G[name]
+  if rawget(env, "_G") == nil then rawset(env, "_G", env) end
   local create = env.CreateFrame
   local watching = true
   env.CreateFrame = function(...)

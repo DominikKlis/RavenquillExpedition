@@ -1,10 +1,3 @@
--- Ravenquill Expedition: Dev - in-game test runner and the inbox.
---   Dev:Register(name, fn, timeout)   fn(t): t:ok(cond, label), t:note(text), t:done(), t:after(sec, fn)
---   Dev:Run(names | "all", runId, onFinished)   one test after the other; each ends on t:done(), an error, or its
---                                               timeout (default 20 s). Results go to RavenquillExpeditionDevDB.runs.
--- Inbox (Inbox.lua, written by the developer's tools): on login, if RQDevInbox.id differs from the last one run,
--- the id is stored FIRST (so a run can never repeat), the tests run, and the player's next /reload saves them so
--- the results reach the SavedVariables file on disk.
 local ADDON, ns = ...
 local RQ = RavenquillExpedition
 local Dev = ns.Dev
@@ -14,7 +7,7 @@ Dev.RUNS_MAX = 20
 
 function Dev:Register(name, fn, timeout, opts)
   if not self.tests[name] then self.testOrder[#self.testOrder + 1] = name end
-  self.tests[name] = { fn = fn, timeout = timeout or 20, manual = opts and opts.manual or false } -- manual: only when named
+  self.tests[name] = { fn = fn, timeout = timeout or 20, manual = opts and opts.manual or false }
 end
 
 local function Names(sel)
@@ -27,7 +20,6 @@ local function Names(sel)
   local out = {}
   for _, want in ipairs(sel) do
     for _, name in ipairs(Dev.testOrder) do
-      -- "comm" runs every test whose name starts with "comm"
       if name == want or (name:sub(1, #want + 1) == want .. "." and not Dev.tests[name].manual) then out[#out + 1] = name end
     end
   end
@@ -94,18 +86,15 @@ end
 
 function Dev:RunAll() return self:Run("all") end
 
--- Login: the inbox (see the header)
 function Dev:OnLoginTests()
   local inbox = rawget(_G, "RQDevInbox")
   if type(inbox) ~= "table" or inbox.id == nil then return end
   local id = tostring(inbox.id)
   if id == self.db.lastId then return end
-  self.db.lastId = id -- first: whatever happens next, this id never runs again
+  self.db.lastId = id
   Dev.Add("inbox", "run " .. id)
   C_Timer.After(tonumber(inbox.delay) or 5, function()
     self:Run(inbox.run or "all", id, function(run)
-      -- ReloadUI() is protected on Forever (ADDON_ACTION_BLOCKED when called from a timer, verified in game
-      -- 2026-11-15), so the player saves the results with /reload.
       RQ.Print("Dev", ("|cffffff00inbox %s: %s. Type /reload to save the results.|r"):format(id, run.summary or "?"))
     end)
   end)

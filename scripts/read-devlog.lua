@@ -1,7 +1,3 @@
--- Prints what the RavenquillExpedition_Dev addon saved: sessions, the log timeline, in-game test runs; plus the suite's
--- Lua errors from BugGrabber and its load errors from Logs/FrameXML.log. Use scripts/devlog.sh, which finds the files.
--- Usage: lua scripts/read-devlog.lua --sv <RavenquillExpedition_Dev.lua> [--bugs <!BugGrabber.lua>] [--framexml <FrameXML.log>]
---          [--runs] [--run <id>] [--cat <prefix>] [--last <n>] [--session]   (default: sessions + last 80 entries + last run)
 local o = { last = 80 }
 do
   local i = 1

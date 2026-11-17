@@ -1,10 +1,3 @@
--- Architecture scorecard for the rework: measures the code, compares with scripts/arch-baseline.lua (a ratchet:
--- a metric may only get better) and prints metric | baseline | now | target | status.
--- Exit 1 when any metric is worse than its baseline (or main_slots > 198).
--- Usage: lua scripts/check-architecture.lua [--update] [--checks N] [--skips N] [--skipnames a,b] [--luacheck N]
---   --update   tightens the baseline for every metric that improved (never loosens it)
--- Rules for each metric: docs in the METRICS table below. "Shipped Lua" = RavenquillExpedition*/**/*.lua without dev/,
--- libs/, Data/ and without the never-packaged RavenquillExpedition_Dev addon. "Code" = a line with its -- comment removed.
 local ROOT = (arg[0]:gsub("[^/\\]*$", "")) .. "../"
 local BASELINE = ROOT .. "scripts/arch-baseline.lua"
 
@@ -23,9 +16,6 @@ do
   end
 end
 
----------------------------------------------------------------------------
--- Files
----------------------------------------------------------------------------
 local function shell(cmd) local p = io.popen(cmd); local o = p:read("*a"); p:close(); return o end
 local function readFile(path) local f = io.open(path, "rb"); if not f then return nil end; local s = f:read("*a"); f:close(); return s end
 local function lines(s) local out = {} for l in (s .. "\n"):gmatch("([^\n]*)\n") do out[#out + 1] = (l:gsub("\r$", "")) end return out end
@@ -51,10 +41,8 @@ local function fileLines(p)
   if not cache[p] then cache[p] = lines(readFile(ROOT .. p) or "") end
   return cache[p]
 end
--- code part of a line: drops a "--" comment (good enough: no metric pattern contains "--" inside a string)
 local function code(l) return (l:gsub("%-%-.*$", "")) end
 
--- count code lines (or occurrences) matching any pattern, in a file list, with an optional file filter
 local function countCode(files, patterns, filter, occurrences)
   local n, where = 0, {}
   for _, p in ipairs(files) do
@@ -72,9 +60,6 @@ local function countCode(files, patterns, filter, occurrences)
   return n, where
 end
 
----------------------------------------------------------------------------
--- luac (main chunk slots, global writes)
----------------------------------------------------------------------------
 local LUAC
 for _, c in ipairs({ os.getenv("LUAC") or "", "luac", "luac5.4", "luac54" }) do
   if c ~= "" and shell(c .. " -v 2>&1"):match("Lua") then LUAC = c break end
@@ -92,12 +77,11 @@ local function globalWrites(p)
     local out = shell(LUAC .. ' -l -l -p "' .. ROOT .. p .. '" 2>&1')
     for name in out:gmatch('SETTABUP[^\n]-; _ENV "([%w_]+)"') do names[name] = true end
     for name in out:gmatch('SETGLOBAL[^\n]-; ([%w_]+)') do names[name] = true end
-    -- big files (more than 255 constants): GETUPVAL r _ENV; LOADK k "name"; SETTABLE r k v
     local env, kstr = {}, {}
     for l in out:gmatch("[^\n]+") do
       if l:match("^%a+ <") then env, kstr = {}, {} end
       local op, a = l:match("^%s*%d+%s+%[%d+%]%s+(%u+)%s+(%d+)")
-      if op and not op:match("^SET") then env[a], kstr[a] = nil, nil end -- register overwritten
+      if op and not op:match("^SET") then env[a], kstr[a] = nil, nil end
       local r = l:match("GETUPVAL%s+(%d+)%s+%d+%s*; _ENV")
       if r then env[r] = true end
       local kr, ks = l:match('LOADK%s+(%d+)%s+%d+%s*; "([%w_]+)"')
@@ -113,9 +97,6 @@ local function globalWrites(p)
   return names
 end
 
----------------------------------------------------------------------------
--- Baseline
----------------------------------------------------------------------------
 local base = {}
 do
   local f = loadfile(BASELINE, "t", {})
@@ -127,10 +108,7 @@ for _, n in ipairs(base.allow or {}) do allow[n] = true end
 local legacy = {}
 for _, n in ipairs(base.legacy or {}) do legacy[n] = true; allow[n] = true end
 
----------------------------------------------------------------------------
--- Metrics
----------------------------------------------------------------------------
-local M = {} -- name -> { now, target, higherBetter, note, where }
+local M = {}
 local order = {}
 local function metric(name, now, target, note, where, higherBetter)
   order[#order + 1] = name
@@ -138,11 +116,11 @@ local function metric(name, now, target, note, where, higherBetter)
 end
 local outsideCore = function(p) return not isCore(p) end
 
-do -- GUILD send call sites outside the core's Comm.lua
+do
   local n, w = countCode(shipped, { "C_ChatInfo%.SendAddonMessage%s*[,(]" }, function(p) return p ~= "RavenquillExpedition/Comm.lua" end)
   metric("send_sites", n, 0, "SendAddonMessage calls outside core Comm.lua", w)
 end
-do -- hooks on the send function
+do
   local n, w = 0, {}
   for _, p in ipairs(shipped) do
     local ls = fileLines(p)
@@ -159,7 +137,7 @@ do
   local n, w = countCode(shipped, { "RegisterAddonMessagePrefix%s*[,(]" }, function(p) return p ~= "RavenquillExpedition/Comm.lua" end)
   metric("foreign_prefixes", n, 0, "prefixes registered outside core Comm.lua", w)
 end
-do -- duplicated primitives
+do
   local NAMES = { "IsSecret", "SafeCall", "UnitKey", "NormName", "StripRealm", "RealmSuffixes", "SurnameSeparator",
     "ReadRoster", "RequestRoster", "b36", "n36" }
   local n, w = 0, {}
@@ -192,6 +170,13 @@ do
     if n > best then best, where = n, p end
   end
   metric("max_file_lines", best, 1000, "largest shipped Lua file (" .. tostring(where) .. ")")
+end
+do
+  local Health = dofile(ROOT .. "scripts/health.lua")
+  local r = Health.analyze(shipped, function(p) return readFile(ROOT .. p) end)
+  metric("health_clean_pct", r.cleanPct, 100, "functions within complexity/length/nesting limits, % (lua scripts/health.lua)", nil, true)
+  metric("health_debt", r.debt, 0, "maintenance debt: excess complexity, length, nesting, file size (lua scripts/health.lua)")
+  metric("max_fn_complexity", r.maxComplexity, 10, "highest cyclomatic complexity (" .. tostring(r.maxComplexityAt) .. ")")
 end
 if LUAC then
   local best, where = 0, nil
@@ -230,13 +215,63 @@ do
 end
 do
   local pats = { "PLAN%.md", "HANDOFF%.md", "%f[%a]plan [%u%d]", "%(plan ", "review #%d", "F#%d", "%f[%w][FGHIJKLMW]%d+[%./]%w" }
+  local commentPats = { "%f[%w][A-Z]%d%d?%f[^%w]", "post%-review", "[Uu]ser,? 20%d%d%-" }
   local n, w = 0, {}
   for _, p in ipairs(shipped) do
     for i, l in ipairs(fileLines(p)) do
-      for _, pat in ipairs(pats) do if l:find(pat) then n = n + 1; w[#w + 1] = p .. ":" .. i; break end end
+      local hit = false
+      for _, pat in ipairs(pats) do if l:find(pat) then hit = true; break end end
+      local c = l:match("%-%-(.*)$")
+      if c and not hit then for _, pat in ipairs(commentPats) do if c:find(pat) then hit = true; break end end end
+      if hit then n = n + 1; w[#w + 1] = p .. ":" .. i end
     end
   end
-  metric("plan_refs", n, 0, "comments pointing at git-ignored notes (PLAN.md, plan codes)", w)
+  metric("plan_refs", n, 0, "comments pointing at git-ignored notes (PLAN.md, plan codes, dated user notes)", w)
+end
+local function luaCommentLines(src)
+  local found, i, n, line = {}, 1, #src, 1
+  while i <= n do
+    local c = src:sub(i, i)
+    if c == "\n" then line = line + 1; i = i + 1
+    elseif src:sub(i, i + 1) == "--" then
+      found[#found + 1] = line
+      local eq = src:match("^%[(=*)%[", i + 2)
+      local e = eq and select(2, src:find("]" .. eq .. "]", i + 4 + #eq, true)) or (src:find("\n", i, true) or n + 1) - 1
+      for _ in src:sub(i, e):gmatch("\n") do line = line + 1 end
+      i = e + 1
+    elseif c == "[" and src:match("^%[=*%[", i) then
+      local eq = src:match("^%[(=*)%[", i)
+      local e = select(2, src:find("]" .. eq .. "]", i + 2 + #eq, true)) or n
+      for _ in src:sub(i, e):gmatch("\n") do line = line + 1 end
+      i = e + 1
+    elseif c == '"' or c == "'" then
+      local j = i + 1
+      while j <= n and src:sub(j, j) ~= c and src:sub(j, j) ~= "\n" do
+        j = j + (src:sub(j, j) == "\\" and 2 or 1)
+      end
+      i = j + 1
+    else i = i + 1 end
+  end
+  return found
+end
+do
+  local HASH = { sh = true, ps1 = true, yml = true, yaml = true, toc = true }
+  local DOT = { [".gitignore"] = true, [".gitattributes"] = true, [".editorconfig"] = true }
+  local n, w = 0, {}
+  for _, p in ipairs(all) do
+    if not (p:match("/libs/") or p:match("/fixtures/compat_")) then
+      local ext = p:match("%.([%w]+)$")
+      if ext == "lua" or p == ".luacheckrc" then
+        for _, l in ipairs(luaCommentLines(readFile(ROOT .. p) or "")) do n = n + 1; w[#w + 1] = p .. ":" .. l end
+      elseif HASH[ext] or DOT[p] then
+        for i, l in ipairs(fileLines(p)) do
+          local full = l:match("^%s*#") and not l:match("^#!") and not l:match("^##")
+          if full or l:match("%S%s%s+#%s") or l:match("^%s*<#") then n = n + 1; w[#w + 1] = p .. ":" .. i end
+        end
+      end
+    end
+  end
+  metric("comments", n, 0, "comments in the codebase (none allowed; libs/ and compat fixtures exempt)", w)
 end
 do
   local n, w = 0, {}
@@ -284,8 +319,6 @@ do
   end
   metric("goal_module_lines", n, 40, s and "code lines of templates/Module/Example.lua" or "goal not yet reached (no template yet)")
 end
--- Skips caused by the machine (an optional source missing, e.g. SimGear on CI) lower the check count without any
--- code change: then the two check metrics are shown but not compared.
 local ENV_SKIPS = { ["score:simgear-source"] = true, ["score:craftersjournal-source"] = true, ["ui:craftersjournal-source"] = true }
 local envSkip = false
 for name in (opts.skipnames or ""):gmatch("[^,]+") do if ENV_SKIPS[name] then envSkip = true end end
@@ -298,9 +331,6 @@ metric("checks_skipped", opts.skips, 0, "skipped harness sections" .. (opts.skip
 if envSkip then M.checks_skipped.uncompared = true end
 metric("luacheck_warnings", opts.luacheck, 0, opts.luacheck and "luacheck warnings" or "luacheck not run")
 
----------------------------------------------------------------------------
--- Report
----------------------------------------------------------------------------
 local worse, improved = {}, {}
 local function fmt(v) return v == nil and "n/a" or tostring(v) end
 print(("%-20s %9s %9s %8s  %s"):format("metric", "baseline", "now", "target", "status"))
@@ -341,8 +371,7 @@ if opts.update or not next(base.metrics) then
       else base.metrics[name] = math.min(b, m.now) end
     end
   end
-  local out = { "-- Ratchet baseline for scripts/check-architecture.lua. Values only ever tighten (--update).",
-    "-- allow: globals the suite may write; legacy: allowed for now, counted by legacy_globals until removed.", "return {",
+  local out = { "return {",
     "  metrics = {" }
   local names = {}
   for k in pairs(base.metrics) do names[#names + 1] = k end

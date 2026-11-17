@@ -4,7 +4,6 @@
 ## Notes-deDE: Zeigt die Ausrüstung deiner Gildenmitglieder (aus Betrachten und Gilden-Sync) und welche deiner Herstellungen und Verzauberungen für sie eine Verbesserung wären.
 ## Author: domin
 ## Version: 0.6.0
-## X-License: GPL-3.0
 ## Dependencies: RavenquillExpedition
 ## OptionalDeps: Auctionator
 ## SavedVariables: RavenquillExpeditionCraftDB
@@ -52,4 +51,6 @@ UI\Needs.lua
 UI\Sheet.lua
 UI\Dropdowns.lua
 UI\Dialogs.lua
+UI\Geometry.lua
+UI\Controls.lua
 UI\Window.lua

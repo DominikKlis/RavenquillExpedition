@@ -1,7 +1,3 @@
--- One-off tool: writes RavenquillExpedition_CraftAdvisor/dev/fixtures/gear_sets.lua from a real
--- RavenquillExpedition_CraftAdvisor SavedVariables file, anonymised (member names and crafter GUIDs replaced).
--- Usage: lua scripts/extract-gear-fixture.lua <path to RavenquillExpedition_CraftAdvisor.lua> [max sets]
--- Read the output before committing it: it must not contain player names.
 local src, maxSets = arg[1], tonumber(arg[2] or "") or 8
 assert(src, "usage: lua scripts/extract-gear-fixture.lua <SavedVariables file> [max sets]")
 local root = (arg[0]:gsub("[^/\\]*$", "")) .. "../"

@@ -8,15 +8,10 @@ local SetTip, ClassColor, ClassName, Hex = P.SetTip, P.ClassColor, P.ClassName, 
 local GainText, ShortSlotName, SpecHowText, Ago = P.GainText, P.ShortSlotName, P.SpecHowText, P.Ago
 local SourceText, ProfName, NativeFont, GainFont = P.SourceText, P.ProfName, P.NativeFont, P.GainFont
 
----------------------------------------------------------------------------
--- Member list rows (K2: two lines - name, level and badge; below it the best craft you know for them) and
--- collapsible groups ("Not recorded (n)", "Offline (n)"). Group state is per session only (nothing saved).
----------------------------------------------------------------------------
 UI.collapsed = { online = false, offline = true }
 
--- The badge of a member (kept for the tooltips / older callers; the K5 rows show the big gain instead).
 local function MemberBadge(d)
-  local count = d.knownCount or 0 -- only recipes you know count
+  local count = d.knownCount or 0
   if not d.member then return C.dim .. "–|r" end
   if d.state == "no-spec" then return C.warn .. "spec?|r" end
   if d.state == "no-level" then return C.warn .. "lvl?|r" end
@@ -27,7 +22,6 @@ local function MemberBadge(d)
 end
 UI.MemberBadge = MemberBadge
 
--- K5 (Member mockup): second line of a member row = "3 upgrades · best: Chest", else why there is none
 local function MemberLine(d)
   if not d.member then return C.dim .. L.MEMBER_TIP_NOT_INSPECTED .. "|r" end
   if d.browse then return C.browse .. string.format(L.MEMBER_LINE_BROWSE, d.suggestions and #d.suggestions or 0) .. "|r" end
@@ -43,7 +37,6 @@ local function MemberLine(d)
 end
 UI.MemberLine = MemberLine
 
--- K5: the big gain on the right of a member row ("+8.4", the member's AP/SP-equivalents); "" without one
 local function MemberGain(d)
   if d.browse or not d.best then return "" end
   return UI.GainNum(d.best.points)
@@ -51,11 +44,7 @@ end
 UI.MemberGain = MemberGain
 
 UI.MEMBER_GAIN_W = 46
-local MEMBER_TEXT_X = 22 -- K8: the recipe row's label indent (the category text sits at 8)
--- K8: the recipe list row's own art (probe tpl:ProfessionsRecipeListRecipeTemplate): HighlightOverlay =
--- Professions_Recipe_Hover (HIGHLIGHT, alpha 0.5) and SelectedOverlay = Professions_Recipe_Active (OVERLAY), both
--- centred on the row at 0,-1 with the atlas height (21 / 19); across the row's width (the client's rows are as wide
--- as the list). Without the atlases: the role's file / colour over the whole row. Sets b.hl, b.sel, b.selKind.
+local MEMBER_TEXT_X = 22
 function UI.AddRowArt(b)
   local function place(tex, role)
     local kind = UI.Skin(tex, role)
@@ -75,14 +64,10 @@ function UI.AddRowArt(b)
   b.hl = b:CreateTexture(nil, "HIGHLIGHT")
   b.hlKind = place(b.hl, "rowHover")
 end
--- K8: a recipe row's label font (GameFontHighlight_NoShadow, white), from GameFontHighlight where it is missing
 function UI.RowFont(fs)
   NativeFont(fs, "GameFontHighlight_NoShadow")
   return fs
 end
--- K8 (native rows, as the recipe list): ONE plain text line per member: the name in class colour + the level in
--- grey, the best gain right in the client's green; hover / selected = the recipe row's own art. No class icon, no
--- second line (it moved into the tooltip), no boxes.
 local function CreateMemberRow(parent)
   local b = CreateFrame("Button", nil, parent)
   b:SetHeight(MEMBER_ROW_H)
@@ -104,7 +89,7 @@ local function CreateMemberRow(parent)
       GCA:Print(string.format(L.FORGOT, self.data.key))
     else
       UI.selected = self.data.key
-      UI.autoKey = nil -- a pick of yours: no more automatic selection (U1)
+      UI.autoKey = nil
     end
     UI:Refresh()
   end)
@@ -114,7 +99,7 @@ local function CreateMemberRow(parent)
     GameTooltip:AddLine(d.key, ClassColor(d.class))
     local status = d.isSelf and "" or (d.online and G("FRIENDS_LIST_ONLINE") or (C.offline .. G("FRIENDS_LIST_OFFLINE") .. "|r"))
     GameTooltip:AddLine(string.format(L.MEMBER_TIP_LEVEL, G("LEVEL"), tostring(d.level or "?"), ClassName(d.class)) .. (status ~= "" and ("  ·  " .. status) or ""), 1, 1, 1)
-    GameTooltip:AddLine(MemberLine(d), SUB_TINT[1], SUB_TINT[2], SUB_TINT[3]) -- K8: the former second line
+    GameTooltip:AddLine(MemberLine(d), SUB_TINT[1], SUB_TINT[2], SUB_TINT[3])
     if d.member then
       GameTooltip:AddLine(string.format(L.MEMBER_TIP_GEAR, SourceText(d.member), Ago(d.member.time)), 0.7, 0.7, 0.7)
       GameTooltip:AddLine(string.format(L.MEMBER_TIP_SPEC, SpecHowText(d)), 1, 1, 1)
@@ -139,13 +124,10 @@ local function CreateMemberRow(parent)
   return b
 end
 
--- User 2026-11-15: member names always in class colour, with the friends list's online/offline dot in front
--- (Interface\FriendsFrame\StatusIcon-Online / -Offline) instead of a greyed or dimmed name.
 function UI.StatusDot(online)
   return online and "|TInterface\\FriendsFrame\\StatusIcon-Online:12:12:0:0|t"
     or "|TInterface\\FriendsFrame\\StatusIcon-Offline:12:12:0:0|t"
 end
--- offline: the class colour, half-way to its own grey and a bit darker (still recognisable, clearly quieter)
 function UI.OfflineColor(r, g, b)
   local l = 0.3 * r + 0.59 * g + 0.11 * b
   return (r + l) * 0.4, (g + l) * 0.4, (b + l) * 0.4
@@ -166,8 +148,6 @@ local function UpdateMemberRow(b, d, n)
   local textW = math.max(40, rowW - MEMBER_TEXT_X - UI.MEMBER_GAIN_W - 10)
   b.name:SetWidth(textW)
   b.textW = textW
-  -- offline: the grey dot says it (the name keeps its class colour, no dimming); a best craft that is too high
-  -- level yet: its gain dimmed
   b.name:SetAlpha(1)
   b.gain:SetAlpha((d.best and d.best.future) and 0.55 or 1)
   local on = UI.selected == d.key
@@ -175,8 +155,6 @@ local function UpdateMemberRow(b, d, n)
   b.offline = offline
 end
 
--- K5 (Member mockup): only members with recorded gear (and you); "Online n" and "Offline n" as quiet collapsible
--- headers (no "Not recorded" group). query: member search (plain text, ASCII case-insensitive).
 function UI.MemberRows(members, query)
   local q = tostring(query or ""):lower():match("^%s*(.-)%s*$") or ""
   local online, offline = {}, {}
@@ -196,9 +174,6 @@ function UI.MemberRows(members, query)
   return out
 end
 
--- Collapsible group headers of the member list ("Online" / "Offline"). K6 created the client's
--- ProfessionsRecipeListCategoryTemplate itself; K8 replicates its regions instead (UI.CreateCategoryRow below; the
--- mixin expects profession tree nodes). KeepNativeHover stays for the native dropdowns.
 local GROUP_TIP = { online = "GROUP_TIP_ONLINE", offline = "GROUP_TIP_OFFLINE" }
 local function GroupLabel(key)
   if key == "online" then return G("FRIENDS_LIST_ONLINE") end
@@ -213,7 +188,6 @@ local function GroupTip(self)
   GameTooltip:Show()
 end
 
--- a template made outside its scroll box: keep its own OnEnter/OnLeave (hover look), each in pcall, then ours
 local function KeepNativeHover(b, name, tip)
   local onEnter, onLeave = b:GetScript("OnEnter"), b:GetScript("OnLeave")
   SetTip(b, name, function(self)
@@ -226,12 +200,6 @@ local function KeepNativeHover(b, name, tip)
   end)
 end
 
--- K8: the category header, replicated region by region from the probe (tpl:ProfessionsRecipeListCategoryTemplate):
--- a 25 px Button; ButtonText = Game15Font_Shadow in gold (1, 0.82, 0) at LEFT 8,0; common-button-list-collapseExpand
--- on ARTWORK over the whole button and again on HIGHLIGHT (ADD, alpha 0.4); CollapseButton 20x20 at RIGHT -6,0 with
--- its Icon centred (atlas: UI.SKIN.collapseIcon candidates, else a gold "–" / "+" in GameFontNormal). The template
--- itself is NOT created: its mixin expects profession tree nodes. No count, no rank bar (hidden in our lists).
--- b:SetCategory(text, open); b.onToggle(b) runs on a click on the header or its button.
 function UI.CollapseAtlases()
   if UI.collapsePair ~= nil then return UI.collapsePair or nil end
   UI.collapsePair = false
@@ -291,7 +259,6 @@ function UI.CreateCategoryRow(parent, onToggle)
   return b
 end
 
--- member list groups ("Online" / "Offline") on the K8 category header
 local function CreateGroupRow(parent)
   local b = UI.CreateCategoryRow(parent, function(self)
     local d = self.data
@@ -309,7 +276,6 @@ local function UpdateGroupRow(b, d)
   b:SetCategory(GroupLabel(d.group), open)
 end
 
--- shared with the files loaded after this one (P)
 P.CreateGroupRow = CreateGroupRow
 P.CreateMemberRow = CreateMemberRow
 P.KeepNativeHover = KeepNativeHover

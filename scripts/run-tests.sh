@@ -1,10 +1,4 @@
 #!/usr/bin/env bash
-# Runs every offline test harness (*/dev/harness*.lua), then luacheck (when installed), then the architecture
-# scorecard (scripts/check-architecture.lua). Exit 1 if any part fails.
-# Usage: scripts/run-tests.sh [lua-binary]   (default: lua)
-#   RQ_SKIP: space-separated addon folders to skip.
-#   RQ_VERBOSE=1: print every harness's full output.
-#   RQ_UPDATE=1: tighten scripts/arch-baseline.lua for every metric that improved (end of a rework stage).
 set -u
 LUA="${1:-lua}"
 cd "$(dirname "$0")/.."
@@ -44,7 +38,6 @@ if command -v luacheck >/dev/null 2>&1; then
   [ -d templates ] && lc_dirs+=(templates)
   lc_out="$(luacheck "${lc_dirs[@]}" --codes --formatter plain --no-color 2>&1)"
   warnings="$(printf '%s\n' "$lc_out" | grep -cE ':[0-9]+:[0-9]+: \(W')"
-  # E011 and friends are syntax errors: (E[0-9]+), not (E) (review 2026-11-15: they counted as 0)
   errors="$(printf '%s\n' "$lc_out" | grep -cE ':[0-9]+:[0-9]+: \((E[0-9]+|W0[0-9][0-9]|W1[0-9][0-9])\)')"
   echo "luacheck: $warnings warnings, $errors errors (syntax / undefined globals)"
   if [ "$errors" -ne 0 ]; then
@@ -56,7 +49,6 @@ else
   echo "luacheck: not installed (n/a)"
 fi
 
-# The game runs Lua 5.1: no 5.2+ syntax in anything a .toc loads; luac5.1 -p as well where installed (CI)
 "$LUA" scripts/check-lua51.lua || status=1
 if command -v luac5.1 >/dev/null 2>&1; then
   mapfile -t shipped < <("$LUA" scripts/check-lua51.lua --list)

@@ -4,9 +4,6 @@ local UI = GCA.UI
 local P = UI.P
 local SafeCall, G, LGet, C = P.SafeCall, P.G, P.LGet, P.C
 
----------------------------------------------------------------------------
--- Small helpers
----------------------------------------------------------------------------
 local SLOT_INFO = {
   [1] = { "HeadSlot", HEADSLOT or "Head" }, [2] = { "NeckSlot", NECKSLOT or "Neck" },
   [3] = { "ShoulderSlot", SHOULDERSLOT or "Shoulder" }, [5] = { "ChestSlot", CHESTSLOT or "Chest" },
@@ -44,23 +41,22 @@ local function Hex(r, g, b)
   local f = math.floor
   return string.format("|cff%02x%02x%02x", f(r * 255 + 0.5), f(g * 255 + 0.5), f(b * 255 + 0.5))
 end
+local function ColoredItemName(item)
+  return Hex(QualityColor(item.quality)) .. (item.name or "?") .. "|r"
+end
 local function FirstName(key)
   if type(key) ~= "string" then return "" end
   return key:match("^([^%s%-]+)") or key
 end
 
--- The gain number (user 2026-11-14: no more %): "+8.4", whole numbers from 10 on ("+12").
 function UI.GainNum(points)
   local v = points or 0
   if math.abs(v) >= 9.95 then return string.format("%+d", v < 0 and -math.floor(-v + 0.5) or math.floor(v + 0.5)) end
   return string.format("%+.1f", v)
 end
 
--- "+8.4 AP" (AP/SP/RAP-equivalents, "pts" without a unit stat)
 function UI.GainUnit(d) return UI.GainNum(d.points) .. " " .. GCA:UnitLabel(d.e) end
 
--- (User 2026-11-15: the size pips are gone again; the gain is the number only.)
--- tooltips: "+8.4 AP", "+8.4 AP (empty slot)"
 local function GainText(d)
   local t = C.upgrade .. UI.GainUnit(d) .. "|r"
   if d.status == "empty-slot" then t = t .. " " .. C.muted .. L.GAIN_EMPTY .. "|r" end
@@ -68,7 +64,6 @@ local function GainText(d)
 end
 UI.GainText = GainText
 
--- K1: the gain on a row in GameFontHighlight (white, not big green); "(empty slot)" muted.
 local function RowGainText(d)
   local t = UI.GainUnit(d)
   if d.status == "empty-slot" then t = t .. " " .. C.muted .. L.GAIN_EMPTY .. "|r" end
@@ -76,18 +71,14 @@ local function RowGainText(d)
 end
 UI.RowGainText = RowGainText
 
--- K1 (J3): rows no longer start with "Slot:"; only the pair slots get a disambiguator ("Ring 2", "Trinket 1").
 local function PairSlotName(slot)
   if slot == 11 or slot == 12 then return string.format(L.SLOT_RING_N, slot - 10) end
   if slot == 13 or slot == 14 then return string.format(L.SLOT_TRINKET_N, slot - 12) end
 end
 UI.PairSlotName = PairSlotName
--- slot as shown on a guild-needs row: the pair name where there are two, else the slot name
 local function ShortSlotName(slot) return PairSlotName(slot) or SlotName(slot) end
 UI.ShortSlotName = ShortSlotName
 
--- K1: a sub-line from { text, colour } tags: the first two coloured tags keep their colour, the rest (and every
--- plain tag) take the font string's tint, so a row never shows more than two tag colours.
 local function TagLine(tags)
   local out, coloured = {}, 0
   for _, t in ipairs(tags) do
@@ -102,7 +93,6 @@ local function TagLine(tags)
 end
 UI.TagLine = TagLine
 
--- Stat names in the Shift breakdown: the client's own words where it has them (H4), else ours.
 local STAT_GLOBAL = { Strength = "SPELL_STAT1_NAME", Agility = "SPELL_STAT2_NAME", Stamina = "SPELL_STAT3_NAME",
   Intellect = "SPELL_STAT4_NAME", Spirit = "SPELL_STAT5_NAME", Armor = "ARMOR", Defense = "DEFENSE" }
 local function StatLabel(key)
@@ -111,7 +101,6 @@ local function StatLabel(key)
   return (LGet and LGet(lkey)) or key
 end
 
--- why a spec is unknown, in the client's language (Spec.lua reasons; technical ones = "not readable")
 local SPEC_WHY = { ["class unknown"] = "SPEC_WHY_CLASS", ["talents not read yet"] = "SPEC_WHY_NOT_READ",
   ["no-talents"] = "SPEC_WHY_NO_TALENTS", ["no points"] = "SPEC_WHY_NO_TALENTS", tie = "SPEC_WHY_TIE" }
 local function SpecWhyText(why) return L[SPEC_WHY[why] or "SPEC_WHY_UNREADABLE"] end
@@ -159,9 +148,6 @@ local function ActiveEditBox()
   return eb
 end
 
--- names are "First Surname" (space), so "/w First Surname text" whispers "First". Preferred route:
--- set the edit box to WHISPER with the full name as tell target (ForeverLFG_GroupQuest\QuestWhisper.lua:55-60),
--- then put the text in. Returns true only when the box verifiably targets `name`.
 local function NativeWhisper(name, msg)
   if not (CFU and type(CFU.OpenChat) == "function") then return false end
   local ok, done = pcall(function()
@@ -186,17 +172,14 @@ local function NativeWhisper(name, msg)
 end
 UI.NativeWhisper = NativeWhisper
 
--- Puts msg into the chat box as a whisper to name; you press Enter to send.
 local function OpenWhisper(name, msg)
   if NativeWhisper(name, msg) then return end
-  -- Fallback (0.5.0 behaviour): open chat with "/w Name text" - the chat box turns it into a whisper.
   local open = (CFU and CFU.OpenChat) or ChatFrame_OpenChat
   if open and pcall(open, "/w " .. name .. " " .. msg) then
     C_Timer.After(0.05, function()
       local eb = ActiveEditBox()
       local text = eb and eb.GetText and SafeCall(eb.GetText, eb)
       if eb and text and text:find(msg, 1, true) then return end
-      -- Didn't take: fall back to opening a tell and inserting the text.
       local tell = (CFU and CFU.SendTell) or ChatFrame_SendTell
       if tell then pcall(tell, name) end
       C_Timer.After(0.05, function()
@@ -236,7 +219,6 @@ local function Backdrop(f, bgAlpha)
   f:SetBackdropBorderColor(0.45, 0.4, 0.3, 1)
 end
 
--- Where a member's gear record came from
 local function SourceText(m)
   if not m then return "" end
   if m.from then return string.format(L.SRC_VIA, m.from) end
@@ -246,7 +228,6 @@ local function SourceText(m)
   return m.source or ""
 end
 
--- Profession display name: your client's name when you have it, else ours (localized, H4).
 local function ProfName(prof)
   local own = GCA:OwnProfessions()
   if own[prof] and own[prof].name then return own[prof].name end
@@ -254,8 +235,6 @@ local function ProfName(prof)
 end
 UI.ProfName = ProfName
 
--- Button: "Leatherworking 120/150" / "Blacksmithing (browse)" (L4: no "known" count on the button);
--- the popup adds the known count.
 local function ProfLabel(prof, withKnown)
   if GCA:IsBrowse(prof) then return ProfName(prof) .. " " .. C.browse .. L.PROF_BROWSE_TAG .. "|r" end
   local rank, maxRank = GCA:GetSkill(prof)
@@ -265,8 +244,6 @@ local function ProfLabel(prof, withKnown)
 end
 UI.ProfLabel = ProfLabel
 
--- Specialisation recipes aren't marked in the data; the name tells only for Gnomish/Goblin engineering.
--- `name` is the recipe name from our data (English); the word shown is localized (review M-1).
 local function SpecialisationText(prof, name)
   if prof == "Engineering" and type(name) == "string" and (name:find("Gnomish", 1, true) or name:find("Goblin", 1, true)) then
     return string.format(L.SPECIALISATION_NAME, name:find("Gnomish", 1, true) and L.SPECIALISATION_GNOMISH or L.SPECIALISATION_GOBLIN)
@@ -276,11 +253,11 @@ local function SpecialisationText(prof, name)
 end
 UI.SpecialisationText = SpecialisationText
 
--- shared with the files loaded after this one (P)
 P.Ago = Ago
 P.Backdrop = Backdrop
 P.ClassColor = ClassColor
 P.ClassName = ClassName
+P.ColoredItemName = ColoredItemName
 P.FirstName = FirstName
 P.GainText = GainText
 P.Hex = Hex

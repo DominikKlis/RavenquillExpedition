@@ -1,14 +1,9 @@
-# This repository can live directly in WoW's Interface\AddOns folder.
-# Track only the Ravenquill Expedition suite; every other addon in the folder is ignored.
-# WARNING: never run `git clean -x` / `-X` here - it would delete the other addons.
 /*
 !/.gitignore
 !/.gitattributes
 !/.github/
 !/README.md
-!/CONTRIBUTING.md
 !/scripts/
-!/docs/
 !/templates/
 !/.luacheckrc
 !/.editorconfig
@@ -16,16 +11,12 @@
 !/RavenquillExpedition_Map/
 !/RavenquillExpedition_Highlights/
 !/RavenquillExpedition_CraftAdvisor/
-# Developer tools (never packaged, see scripts/package.ps1)
 !/RavenquillExpedition_Dev/
 
-# Internal working notes and assistant instructions: kept locally, not shared (for now).
 PLAN.md
 HANDOFF.md
 CLAUDE.md
 .claude/
-# ...except the shared root CLAUDE.md, which Claude Code loads for every contributor.
 !/CLAUDE.md
 
-# Build output (scripts/package.ps1) and local caches (.cache/simgear for the score harness) stay ignored by /*.
 /RavenquillExpedition/dev/release/

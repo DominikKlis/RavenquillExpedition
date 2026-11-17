@@ -1,5 +1,3 @@
--- UI harness, the window: template path, profession selector, suggestion rows, Filter dropdowns, whisper
--- editor, German texts, slot sections, resizing. Shared setup: dev/uikit.lua. Run: lua dev/harness_ui_window.lua
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "uikit.lua")
 local windowChecks, GCA, descendants, check, advance = H.windowChecks, H.GCA, H.descendants, H.check, H.advance
 local menuOf, menuTexts, fakeSug, plain, captureTip = H.menuOf, H.menuTexts, H.fakeSug, H.plain, H.captureTip
@@ -8,7 +6,6 @@ local longList, manyMembers, layoutChecks, Frame = H.longList, H.manyMembers, H.
 
 H.templateMode = "ok"; windowChecks("PortraitFrameTemplate path")
 do
-  -- review L-3 (K1 alpha 0.75) applies to the InsetFrameTemplate fallback only; K6 panels are the list atlas
   local f, n = GCA.UI.frame, 0
   for _, c in ipairs(descendants(f)) do if c.NineSlice and c ~= f and c.Bg then n = n + 1 end end
   check(n == 0, "K6: no InsetFrameTemplate panels while the list atlas exists (" .. n .. ")")
@@ -34,7 +31,7 @@ do
   local radios = menuTexts(pm, "radio")
   check(#pm == 7 and pm[1]:on() and radios:find("^Lederverarbeitung.*|Verzauberkunst.*|Blacksmithing %(browse%)") and pm[3].kind == "divider"
     and pm[4].kind == "title" and pm[4].text:find("Browse", 1, true), "K6: profession menu: your 2 (radio, picked one on), divider, 'Browse' title, 3 others: " .. radios)
-  pm[5]:click() -- Blacksmithing
+  pm[5]:click()
   GCA.UI:Refresh()
   check(GCA:SelectedProfession() == "Blacksmithing" and GCA:IsBrowse(), "picked Blacksmithing: browse")
   check((pb.label._text or ""):find("(browse)", 1, true) and f.PortraitContainer.portrait._tex == "Interface\\Icons\\Trade_BlackSmithing",
@@ -43,6 +40,17 @@ do
   check(GCA:SelectedProfession() == "Enchanting" and not GCA:IsBrowse(), "picked Enchanting (yours)")
   menuOf(pb.drop)[1]:click(); GCA.UI:Refresh()
   check(GCA:SelectedProfession() == "Leatherworking" and f.PortraitContainer.portrait._tex == "Interface\\Icons\\Trade_LeatherWorking", "back to Leatherworking")
+  GetProfessions = function() return 2 end
+  GCA.UI:Refresh()
+  local staleLabel, staleHeader = pb.label._text or "", GCA.UI.sugHeader._text or ""
+  GCA.UI:Refresh()
+  check(not staleLabel:find("(browse)", 1, true) and not staleHeader:find("browsing", 1, true)
+    and (pb.label._text or ""):find("(browse)", 1, true),
+    "one refresh reads 'browse' once, before the skill read refreshes the professions: " .. staleLabel .. " / " .. staleHeader
+      .. " / then " .. tostring(pb.label._text))
+  GetProfessions = function() return 1, 2 end
+  GCA:RefreshKnown()
+  GCA.UI:Refresh()
   f:Hide()
   GetProfessions = function() return nil end
 end
@@ -72,7 +80,6 @@ do
   check(plain(b.gain._text) == "+12 pts" and plain(b.points._text) == "" and b.gain._SetTextColor and b.gain._SetTextColor[2] > 0.8
     and b._SetHeight[1] == 50 and b.alt == nil and b.treeV == nil, "K4 card: 50 px, green '+12 pts' (no size line without a share); K6: no row shading, no tree lines")
   check(b.title._alpha == 1 and not b.dimmed, "wearable row not dimmed")
-  -- U3: offline -> no Offer; tooltip says why; gain re-anchors (L6)
   local off = { key = "Bud Stone", online = false, prof = "Leatherworking", level = 39, class = "ROGUE" }
   b = show(d, off)
   check(not b.offer._shown and b.crafted._shown and b.crafted._points[1][2] == b, "offline: no Offer, crafted box moves to the right edge")
@@ -81,7 +88,7 @@ do
   captureTip()
   b._scripts.OnEnter(b)
   check(plainTip("item:4244"), "K17: row tooltip = the plain item tooltip (no Offer/Shift/gain lines): " .. tipText())
-  do -- user 2026-11-15: the compare tooltips show what THIS member wears, not your gear
+  do
     local function fakeCompare()
       local t = New("GameTooltip")
       t.links, t.lines = {}, {}
@@ -106,7 +113,6 @@ do
     local s1 = ShoppingTooltip1
     check(s1._shown and s1.links[1] == "item:2105" and plain(s1.lines[#s1.lines]) == "Equipped by Bud Stone" and not ShoppingTooltip2._shown,
       "hovering a craft: compare tooltip = the member's worn Old Vest, 'Equipped by Bud Stone': " .. table.concat(s1.lines, " | "))
-    -- Blizzard's own comparison (Shift / always compare) is put back to the member's item
     s1.links = {}
     UIx.FillCompare()
     check(s1.links[1] == "item:2105", "a later Blizzard compare is overwritten with the member's item")
@@ -126,12 +132,11 @@ do
     GameTooltip.IsShown, GameTooltip.GetOwner, GameTooltip.GetRight, GameTooltip.SetOwner = savedShown, savedOwner, savedRight, savedSetOwner
     captureTip()
   end
-  -- browse: no Offer, no box -> gain anchored to the row
   b = show(fakeSug({ known = false }), { key = "Bud Stone", online = true, prof = "Blacksmithing", browse = true, level = 39 })
   check(not b.offer._shown and not b.crafted._shown and b.gainAnchor == b and b.nl._shown and plain(b.nl.text._text) == "Trainer (skill 100)"
     and not plain(b.sub._text):find("Not learned", 1, true),
     "browse: no Offer, no box, gain at the right edge, the source button (trainer) starts the second line: " .. plain(b.nl.text._text))
-  do -- user 2026-11-15: clicking a craft opens Blizzard's profession window on the recipe
+  do
     local opened, savedTS, savedPrint = {}, C_TradeSkillUI, GCA.Print
     local said = {}
     GCA.Print = function(_, m) said[#said + 1] = tostring(m) end
@@ -162,7 +167,6 @@ do
     check(said[#said] == ns.L.OPEN_FAIL and UIx.frame._shown, "OpenRecipe failing: no Lua error, a chat hint, window stays")
     C_TradeSkillUI, GCA.Print = savedTS, savedPrint
   end
-  -- H5.2: too high level
   b = show(fakeSug({ future = true, wearAt = 42, levelsToGo = 3, info = { name = "Future Vest", quality = 3, icon = "x", minLevel = 42 } }))
   check(b.chip == nil and plain(b.sub._text):find("^from level 42 · 3 to go") and b.sub._text:find("|cfff0b44c", 1, true),
     "H5.2/K6: too-high-level row: the level tag is orange TEXT first on the second line (no chip box): " .. plain(b.sub._text))
@@ -173,8 +177,6 @@ do
   check(plain(b.sub._text):find("^from level 40 · 1 to go"), "K6 level tag with 1 level to go: " .. plain(b.sub._text))
   b = show(fakeSug())
   check(b.qual._alpha == 1 and b.iconBorder._alpha == 1, "L-5: a wearable row on the same (pooled) frame is full alpha again")
-  -- K1: a normal slot's row doesn't repeat the worn item (the section header shows it); ring/trinket rows and
-  -- enchants still say what they replace; an empty slot shows no tag either (header + "(empty slot)" gain say it)
   b = show(fakeSug({ equipped = { name = "Old Vest", quality = 2 } }))
   check(plain(b.sub._text) == "" and b.title._points[1][1] == "LEFT", "K1: chest row: no 'replaces Old Vest', title centred (no sub-line)")
   b = show(fakeSug({ slot = 13, equipped = { name = "Old Charm", quality = 2 } }))
@@ -185,7 +187,6 @@ do
   check(plain(b.sub._text) == "replaces Minor Stamina on Bracers", "K1: enchant row keeps 'replaces X on Y': " .. plain(b.sub._text))
   captureTip(); show(fakeSug({ equipped = { name = "Old Vest", quality = 2 } }))._scripts.OnEnter(UIx.sugList.rows[1])
   check(plainTip("item:4244"), "K17: no 'replaces' line in the item tooltip either")
-  -- H5.1: tick -> mark stored locally; untick -> gone
   b = show(d)
   b.crafted:SetChecked(true); b.crafted._scripts.OnClick(b.crafted)
   local mark = GCA:CraftedMark("Bud Stone", "Leatherworking", 3762)
@@ -203,7 +204,6 @@ do
     cand = { spellID = 7779, enchant = true, recipe = { skill = 80, src = "trainer", r = {} } } }))
   captureTip(); b.crafted._scripts.OnEnter(b.crafted)
   check(H.tip[1] == "Enchanted", "enchant row: box tooltip title 'Enchanted'")
-  -- the row's Offer whisper uses the member's first name
   check(UIx.OfferText("Leatherworking", d, "Bud Stone"):find("^Hi Bud! I'm a leatherworker and could craft you |Hitem:4244"),
     "whisper: " .. UIx.OfferText("Leatherworking", d, "Bud Stone"))
 
@@ -319,7 +319,6 @@ do
   check(sl.rows[1]._points[1][3] == -56 and sl.rows[2]._points[1][3] == -108 and H[2]._points[1][3] == -160 and FP[1]._points[1][3] == -268,
     "K5: rows stacked by kind height (worn row 56, card 52, then the folded box; K4 had a 30 px header)")
   check(sl.contentH == 2 * 56 + 3 * 52 + foldH and foldH >= 30, "content height = 2 worn rows + 3 cards + the folded box (" .. tostring(sl.contentH) .. ", box " .. foldH .. ")")
-  -- header: slot name + worn item (icon, link, score)
   local h = H[1]
   check(h.name == nil and h.label == nil and plain(h.wornName._text) == "Worn Vest" and h.wornName._text:find("^|cff")
     and h.wornName._points[1][1] == "LEFT" and h.wornName._points[1][2] == h.box.qual and h.wornName._points[1][4] == 12
@@ -327,28 +326,23 @@ do
     "K5 / user 2026-11-15: chest worn row: icon + the worn name only (centred, 12 px gap; no slot name, no 'Equipped'), '2 upgrades' on the right, a box 6 px below the row top: " .. plain(h.wornName._text))
   check(h.box.icon._tex == 134 and h.box.icon._w == 34 and h.box.iconBorder._SetVertexColor
     and h.wornName._SetWordWrap[1] == false, "K5: worn row: 34 px item icon in its quality frame, single-line texts")
-  -- rings: one section, both items side by side
   local r = H[2]
   check(r.name == nil and plain(r.wornName._text) == "Ring A  ·  Ring B" and r.count._text == "1 upgrade",
     "K5: rings worn row: both rings named, '1 upgrade': " .. plain(r.wornName._text))
-  -- K6: the cards hang under the worn row, indented 16 px; no tree lines, no row shading (mockup gimmicks)
   local c1, c2, c3 = sl.rows[1], sl.rows[2], sl.rows[3]
   check(c1.treeV == nil and c1.treeH == nil and c1.alt == nil and UIx.TREE_X == nil and c1.qual._points[1][4] == UIx.CARD_INDENT + 4 and UIx.CARD_INDENT == 16,
     "K6: cards indented 16 px under their worn row, no tree lines / row shading")
-  -- K1: the slots without an upgrade = one wrapped grey line, in character order
   local g = FP[1]
   check(g.text._text == "No craftable upgrade: Head, Neck, Shoulder, Back, Wrist, Hands, Waist, Legs, Feet, Trinkets (not loaded), Main Hand, Off Hand, Ranged"
     and g.text._SetWordWrap and g.text._SetWordWrap[1] == true and g.text._SetMaxLines == nil and g.text._SetWidth[1] == UIx.listW - 20 and g.edges == nil and g.line ~= nil,
     "K1: one folded, wrapping line names the 13 slots (unloaded trinket marked): " .. tostring(g.text._text))
   check(not (g.text._text or ""):find("–", 1, true), "K1: no '– no upgrade –' lines any more")
   local gt = g
-  -- the suggestion rows inside a section are the usual rows (Offer, crafted box, gain)
   local b = sl.rows[1]
   check(b.offer._shown and b.crafted._shown and plain(b.title._text) == "Hillman's Leather Vest", "suggestion rows inside a section (K1 title)")
   check(plain(sl.rows[3].title._text) == "Craft Ring (Ring 2)" and plain(sl.rows[3].sub._text):find("replaces", 1, true)
     and not plain(b.sub._text):find("replaces", 1, true),
     "K1: ring row keeps a disambiguator '(Ring 2)' and 'replaces …'; a normal slot's row doesn't repeat the worn item: " .. plain(sl.rows[3].title._text))
-  -- tooltips
   captureTip(); h._scripts.OnEnter(h)
   check(plainTip(), "K17: worn row (section header) tooltip = the worn item's plain tooltip: " .. tipText())
   captureTip(); g._scripts.OnEnter(g)
@@ -368,8 +362,6 @@ do
   h._scripts.OnClick(h)
   IsShiftKeyDown = savedShift
   check(clicked == "|Hitem:4244|h[Worn Vest]|h", "worn row Shift-click links the real hyperlink")
-  -- ScrollTo is clamped to the scroll range (J1: the gear-row jump is gone; ScrollTo stays for the reset)
-  -- (K1: with the folded line this list is shorter than the view, so a longer one is used here)
   local saveData = sl.data
   sl:SetData(UIx.SectionRows(fakeSections({ [1] = { fakeSug({ slot = 1 }), fakeSug({ slot = 1 }), fakeSug({ slot = 1 }) },
     [3] = { fakeSug({ slot = 3 }), fakeSug({ slot = 3 }), fakeSug({ slot = 3 }) }, [5] = { fakeSug(), fakeSug(), fakeSug() },
@@ -379,10 +371,7 @@ do
     "ScrollTo clamped to [0, content - view]")
   sl:SetData(saveData)
   check(data[1].anchor == nil, "J1: section entries carry no jump anchor any more")
-  -- another member starts at the top; a refresh of the same member keeps the position (a member with a long list)
   local origML = GCA.GetMemberList
-  -- (J2: the default view is taller now, so the list needs more rows to be "long")
-  -- (K1: the grey lines are folded into one, so more rows are needed to be "long")
   local long = fakeSections({ [1] = { fakeSug({ slot = 1 }), fakeSug({ slot = 1 }), fakeSug({ slot = 1 }) },
     [5] = { fakeSug(), fakeSug(), fakeSug() }, [9] = { fakeSug({ slot = 9 }), fakeSug({ slot = 9 }), fakeSug({ slot = 9 }) },
     [10] = { fakeSug({ slot = 10 }), fakeSug({ slot = 10 }), fakeSug({ slot = 10 }) } })
@@ -391,7 +380,7 @@ do
       member = { items = {}, time = time(), source = "inspect" }, suggestions = long, best = long[1], knownCount = 1 } }
   end
   UIx.selected, UIx.autoKey = "Bud Stone", nil
-  GCA.db.settings.memberView = "list" -- K4: the list variant (the character sheet is the default)
+  GCA.db.settings.memberView = "list"
   UIx:Refresh()
   sl:ScrollTo(100)
   UIx.listKey = "Someone Else|Leatherworking"
@@ -403,7 +392,6 @@ do
   check(sl:Offset() == 50, "a refresh of the same member keeps the scroll position")
   GCA.db.settings.memberView = "sheet"
   GCA.GetMemberList = origML
-  -- pooled: a smaller list hides the rest of both pools
   sl:SetData(UIx.SectionRows(fakeSections({ [9] = { fakeSug({ slot = 9 }) } })))
   local shownH = 0
   for _, x in ipairs(H) do if x._shown then shownH = shownH + 1 end end
@@ -451,7 +439,6 @@ do
   UIx.sugList:SetData(UIx.SectionRows(longList()))
   UIx.memberList:SetData(UIx.MemberRows(manyMembers()))
 
-  -- drag the corner: mouse down pins the top-left and starts sizing; size changes are throttled; mouse up lays out and saves
   local function drag(w, h, steps)
     g._scripts.OnMouseDown(g, "LeftButton")
     local n0 = UIx.layoutCount
@@ -484,29 +471,25 @@ do
     string.format("visible rows grow with the height: suggestions %d/%d/%d, members %d/%d/%d", vis[1][1], vis[2][1], vis[3][1], vis[1][2], vis[2][2], vis[3][2]))
   check(vis[1][2] == 16 and vis[3][2] == 34, "K8: 25 px recipe-list member rows visible (incl. the Online header): 16 at 560 high, 34 at 1000 high (K6: 11/23 with 34 px rows) ("
     .. vis[1][2] .. "/" .. vis[3][2] .. ")")
-  -- section rows re-laid out: the worn-item buttons split the wider row
-  -- (K4: the header chips are as wide as their text; the header line, the cards' texts and the folded box grow)
   local hdr, card, fold = UIx.sugList.pools.section[1], UIx.sugList.rows[1], UIx.sugList.pools.fold[1]
-  local function lineW() return hdr.textW end -- K5: the worn row's name width
+  local function lineW() return hdr.textW end
   local wide = { lineW(), card.textW, fold.text._SetWidth[1] }
   drag(840, 560)
   local narrow = { lineW(), card.textW, fold.text._SetWidth[1] }
   check(wide[1] - narrow[1] == 1600 - 840 and wide[2] - narrow[2] == 1600 - 840 and wide[3] - narrow[3] == 1600 - 840,
     "K5: worn-row text, card texts and the folded box grow with the width (" .. narrow[1] .. "/" .. narrow[2] .. "/" .. narrow[3]
     .. " -> " .. wide[1] .. "/" .. wide[2] .. "/" .. wide[3] .. ")")
-  -- scrolled to the end, then made taller: the offset is clamped to the new range
   UIx.sugList:ScrollTo(1e6)
   local endAt = UIx.sugList.scrolledTo
   drag(840, 1000)
   check(UIx.sugList.scrolledTo == math.max(0, UIx.sugList.contentH - UIx.sugList.viewH) and UIx.sugList.scrolledTo < endAt,
     "taller window: scroll offset clamped to the new range (" .. endAt .. " -> " .. UIx.sugList.scrolledTo .. ")")
 
-  -- saved and restored
   drag(1200, 800)
   local win = GCA.db.settings.window
   check(win and win.w == 1200 and win.h == 800 and win.left == left0 and win.top == top0, "size and position saved after the drag")
   check(f._SetUserPlaced and f._SetUserPlaced[1] == false, "client layout cache not used (SetUserPlaced(false)): SavedVariables own the geometry")
-  f:ClearAllPoints(); f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 100, 900) -- the drag bar moved it
+  f:ClearAllPoints(); f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 100, 900)
   UIx.dragBar._scripts.OnMouseDown(UIx.dragBar, "LeftButton")
   UIx.dragBar._scripts.OnMouseUp(UIx.dragBar, "LeftButton")
   check(GCA.db.settings.window.left == 100 and GCA.db.settings.window.top == 900 and GCA.db.settings.window.w == 1200, "moving saves the position")
@@ -520,7 +503,6 @@ do
   local p = f._points[1]
   check(f._w == 1200 and f._h == 800 and p[1] == "TOPLEFT" and p[2] == UIParent and p[3] == "BOTTOMLEFT" and p[4] == 100 and p[5] == 900
     and GCA.UI.layoutW == 1200, "reopened (new session): 1200x800 at (100, 900), laid out")
-  -- clamped on restore
   GCA.db.settings.window = { w = 5000, h = 3000, left = -500, top = 5000 }
   f:Hide(); f = reopen()
   check(f._w == 1920 and f._h == 1080 and f._points[1][4] == 0 and f._points[1][5] == 1080, "too big / off screen -> screen size at (0, 1080)")
@@ -533,18 +515,15 @@ do
   GCA.db.settings.window = { w = 0 / 0, h = "x", left = 0 / 0, top = 10 }
   f:Hide(); f = reopen()
   check(f._w == 980 and f._h == 640 and f._points[1][1] == "CENTER", "NaN / strings -> default, centred")
-  -- right-click on the grip: default size again
   UIx = GCA.UI
   local gg = UIx.resizeGrip
   gg._scripts.OnMouseDown(gg, "LeftButton"); f:SetSize(1500, 900); gg._scripts.OnMouseUp(gg, "LeftButton")
   gg._scripts.OnMouseUp(gg, "RightButton")
   check(f._w == 980 and f._h == 640 and GCA.db.settings.window.w == 980 and UIx.layoutW == 980, "right-click on the grip: back to 980x640, saved")
-  -- hiding the window mid-drag (ESC) stops sizing and saves
   gg._scripts.OnMouseDown(gg, "LeftButton"); f:SetSize(1111, 777)
   f:Hide()
   check(not f.isSizing and GCA.db.settings.window.w == 1111 and GCA.db.settings.window.h == 777 and UIx.layoutW == 1111, "hidden while sizing: stopped, laid out, saved")
   advance(1)
-  -- tooltips (English, then German below)
   GCA.UI:Toggle(); advance(1)
   captureTip(); gg._scripts.OnEnter(gg)
   check(tipText():find("Resize", 1, true) and tipText():find("Right-click: back to the default size", 1, true), "grip tooltip")

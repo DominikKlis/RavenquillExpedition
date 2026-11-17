@@ -1,6 +1,3 @@
--- Ravenquill Expedition core: locale tables. GS.NewLocale({ enUS = {...}, deDE = {...} }) gives a table that answers
--- in the client's language, falls back to English, then to the key itself (a missing text shows its key, never nil).
--- Modules get theirs through NewModule(name, { locale = ... }) as mod.L.
 local ADDON, ns = ...
 local GS = ns.GS
 
@@ -17,7 +14,6 @@ function GS.NewLocale(tables)
   end })
 end
 
--- The core's own texts (the /rq window).
 GS.OverviewL = GS.NewLocale({
   enUS = {
     TITLE = "Ravenquill Expedition",

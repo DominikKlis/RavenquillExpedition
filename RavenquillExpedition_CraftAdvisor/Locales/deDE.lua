@@ -1,9 +1,3 @@
--- Deutsche Texte. ALLE Texte in dieser Datei sind von uns geschrieben (GuildCraftAdvisor), nicht von
--- Blizzard übernommen. Wo der Client ein eigenes Wort hat (LEVEL, FRIENDS_LIST_ONLINE/OFFLINE, UNKNOWN,
--- SPELL_STAT3_NAME/SPELL_STAT5_NAME, Slot-Namen wie HEADSLOT, Klassennamen, Berufsnamen aus der Fertigkeitsliste),
--- gewinnt das Wort des Clients (ns.G); die Einträge hier sind nur der Ersatz, falls es fehlt.
--- Ein Schlüssel, der hier fehlt, fällt auf Englisch (enUS.lua) zurück.
--- Format-Platzhalter (%s, %d, …) stehen in derselben Reihenfolge wie im Englischen (wird im Test geprüft).
 local ADDON, ns = ...
 ns.Locales = ns.Locales or {}
 
@@ -12,7 +6,6 @@ ns.Locales.deDE = {
   LEVEL = "Stufe",
   FRIENDS_LIST_ONLINE = "Online",
   FRIENDS_LIST_OFFLINE = "Offline",
-  UNKNOWN = "Unbekannt",
   SPELL_STAT3_NAME = "Ausdauer",
   SPELL_STAT5_NAME = "Willenskraft",
   YOU = "du",
@@ -77,7 +70,6 @@ ns.Locales.deDE = {
   PROF_TIP_TITLE = "Beruf",
   PROF_TIP = "Wähle, welche Herstellungen vorgeschlagen werden. Deine eigenen Berufe nutzen die Rezepte, die du kennst; \"stöbern\" zeigt alle Rezepte eines anderen Berufs als nicht erlernt (kein Anbieten-Knopf, zählt nicht in den Abzeichen oder im Minimap-Tooltip).",
   SPECIALISATION_NAME = "Braucht evtl. die Spezialisierung %s-Ingenieurskunst (laut Name)",
-  -- unsere Wortwahl ("Gnomen-"/"Goblin-Ingenieurskunst"), nicht der Blizzard-Name der Spezialisierung
   SPECIALISATION_GNOMISH = "Gnomen",
   SPECIALISATION_GOBLIN = "Goblin",
   SPECIALISATION_UNKNOWN = "Spezialisierung: unbekannt (nicht in den Daten) – manche Rezepte brauchen eine",
@@ -176,7 +168,6 @@ ns.Locales.deDE = {
   SLIDER_TIP_TITLE = "Levelbonus (%s/%s)",
   SLIDER_TIP = "Wie viel Zusatzgewicht %s und %s beim Leveln bekommen, zusätzlich zu den Schadens-/Heilungsgewichten (SimGears Leveling-Schicht: Überleben und weniger Trinkpausen zählen mehr als reiner Schaden). 0 %% = reine Schadens-/Heilungsgewichte. Läuft von Stufe 50 bis 58 aus; Krieger-Schutz und Heiler haben keine.",
 
-  OPTIONS = "Optionen",
   OPTIONS_TIP = "Filter und Einstellungen",
   FILTER_UNLEARNED = "Fehlende Rezepte zeigen",
   FILTER_UNLEARNED_TIP = "Auch Rezepte deines Berufs vorschlagen, die du noch nicht erlernt hast (markiert mit „Nicht erlernt“, mit Fundort). Beim Stöbern in einem anderen Beruf immer an.",
@@ -186,8 +177,6 @@ ns.Locales.deDE = {
   FILTER_SYNC_TIP = "Deine Ausrüstung und von dir betrachtete Ausrüstung mit Gildenmitgliedern teilen, die dieses Addon nutzen (nur Gildenkanal, langsames Tempo).",
   EDIT_WHISPER = "Flüstertext bearbeiten…",
   EDIT_WHISPER_TIP = "Den Text ändern, den der Anbieten-Knopf schreibt.",
-  HELP_TITLE = "Guild Craft Advisor – Hilfe",
-  HELP_ROWS = "Gildenbedarf: eine Zeile pro Herstellung; Klick zeigt, wer sie braucht, Klick auf einen Namen öffnet das Mitglied. Zeilen: Maus drüber für Details (Umschalt für die Werte-Aufschlüsselung), Umschalt-Klick verlinkt, Flüstersymbol / „Anbieten“ = Angebot flüstern (nur an Mitglieder, die online sind), Kästchen = „Hergestellt“, deine eigene Erinnerung.",
 
   WHISPER_EDIT_TITLE = "Angebots-Flüstertext",
   WHISPER_EDIT_HELP = "Platzhalter: {name} = Vorname, {item} = Gegenstand (Link) oder Verzauberung, {slot} = Platz, {crafter} = dein Beruf. Höchstens 255 Zeichen nach dem Einsetzen.",
@@ -206,17 +195,14 @@ ns.Locales.deDE = {
   SYNC_PAUSED = "Gilden-Sync langsam: Zustellung nicht bestätigt",
   SYNC_PEERS = "Gilden-Sync: %d mit Addon gesehen",
 
-
-  -- Ansichten, Gildenbedarf, Mitgliederliste (unsere Texte)
   VIEW_NEEDS = "Gildenbedarf",
   VIEW_MEMBER = "Nach Mitglied",
-  NEEDS_SEARCH = "Suchen", -- K8: the profession window's own placeholder (the tooltip says: item or name)
+  NEEDS_SEARCH = "Suchen",
   NEEDS_SEARCH_TIP = "Filtert die Liste nach Gegenstand oder Mitglied.",
   NEEDS_MEMBERS = "%d Mitglieder",
   NEEDS_MEMBERS_1 = "1 Mitglied",
   NEEDS_EMPTY = "Gerade braucht niemand in der Gilde etwas, das du herstellen kannst.\n\nAusrüstung wird automatisch von Gildenmitgliedern in deiner Gruppe, unter der Maus oder im Ziel gelesen; der Gilden-Sync trägt weitere ein.",
   NEEDS_NO_MATCH = "Keine Verbesserung passt zu „%s“.",
-  WEARABLE_SHORT = "ab Stufe %d",
   GROUP_TIP_OFFLINE = "Klick: ein- oder ausklappen. Mitglieder mit erfasster Ausrüstung, die offline sind (so lange kein Anbieten).",
   MEMBER_LINE_BROWSE = "%d Vorschläge zum Stöbern",
   MEMBER_LINE_NOSPEC = "Spezialisierung unbekannt",
@@ -225,7 +211,6 @@ ns.Locales.deDE = {
   MEMBER_LINE_NONE = "nichts Herstellbares",
   SLOT_RING_N = "Ring %d",
   SLOT_TRINKET_N = "Schmuckstück %d",
-  -- K4: Varianten der Mitgliederansicht ("Charakterbogen" / "Liste")
   MVIEW_SHEET = "Charakterbogen",
   MVIEW_LIST = "Liste",
   MVIEW_TIP = "Charakterbogen: die Ausrüstungsplätze links und rechts wie im Charakterfenster, der gewählte Platz wird in der Mitte verglichen. Liste: jeder Platz mit Verbesserung, seine Rezepte als Zeilen. Die Wahl wird gespeichert.",
@@ -246,7 +231,6 @@ ns.Locales.deDE = {
   STATS_PARTIAL = "manche Werte nicht lesbar",
   STATD_HIT = "Treffer",
   STATD_CRIT = "Krit",
-  -- W (Waffen): Werteunterschiede, Zeilen-Hinweise, Waffen-Abschnitte
   STATD_SPEED = "Tempo %s → %s",
   STATD_SPEED_ONE = "Tempo %s",
   STATD_SPEED_LABEL = "Tempo",
@@ -261,7 +245,6 @@ ns.Locales.deDE = {
   SECTION_RANGED = "Distanz",
   ENCHANT_TAG = "Verzauberung",
   LEVEL_TAG = "ab Stufe %d · noch %d",
-  CARDS_WORN = "Angelegt",
   CARDS_EMPTY = "Platz leer",
   SECTION_EMPTY_NAMED = "%s (leer)",
   CARDS_NONE = "Keine herstellbare Verbesserung: %s",
@@ -286,7 +269,6 @@ ns.Locales.deDE = {
   ERROR_IN = "Fehler in %s:",
   ERROR_SAVED = "(gespeichert; /reload, damit es gelesen werden kann)",
 
-  -- Spezialisierungen (Spec.lua; Schlüssel = englischer Name)
   ["SPEC:Balance"] = "Gleichgewicht", ["SPEC:Feral (Cat)"] = "Wildheit (Katze)", ["SPEC:Feral (Bear)"] = "Wildheit (Bär)",
   ["SPEC:Restoration"] = "Wiederherstellung", ["SPEC:Beast Mastery"] = "Tierherrschaft", ["SPEC:Marksmanship"] = "Treffsicherheit",
   ["SPEC:Survival (ranged)"] = "Überleben (Fernkampf)", ["SPEC:Survival (melee)"] = "Überleben (Nahkampf)",
@@ -298,7 +280,6 @@ ns.Locales.deDE = {
   ["SPEC:Affliction"] = "Gebrechen", ["SPEC:Demonology"] = "Dämonologie", ["SPEC:Destruction"] = "Zerstörung",
   ["SPEC:Arms"] = "Waffen", ["SPEC:Fury"] = "Furor",
 
-  -- K5: Gildenbedarf nach Herstellung, Mitgliederliste, Kopfleiste, automatisches Einlesen
   MSG_AUTO_QUEUED = "Lese die Ausrüstung von %d Gildenmitglied(ern) in deiner Gruppe.",
   FILTER_AUTOINSPECT = "Automatisch einlesen",
   FILTER_AUTOINSPECT_TIP = "Liest die Ausrüstung von Gildenmitgliedern in deiner Gruppe, unter der Maus oder im Ziel: außerhalb des Kampfes, nur in der Nähe, eins nach dem anderen, nicht während dein Betrachten-Fenster offen ist, höchstens alle 30 Min. pro Person.",
@@ -312,14 +293,13 @@ ns.Locales.deDE = {
   MEMBER_LINE_UPGRADES = "%d Upgrades · bestes: %s",
   MEMBER_LINE_UPGRADES_1 = "%d Upgrade · bestes: %s",
   GROUP_TIP_ONLINE = "Klick zum Ein- und Ausklappen. Mitglieder, die gerade online sind (und du).",
-  NEEDS_COUNT = "%d Herstellungen lohnen für %s", -- K8: one line under the 260 px list
+  NEEDS_COUNT = "%d Herstellungen lohnen für %s",
   NEEDS_COUNT_1 = "1 Herstellung lohnt sich für %s",
   NEEDS_COUNT_ENCH = "%d Verzauberungen lohnen für %s",
   NEEDS_COUNT_ENCH_1 = "1 Verzauberung lohnt sich für %s",
   NEEDS_OFFLINE = "Offline-Mitglieder einbeziehen (%d)",
   NEEDS_OFFLINE_TIP = "Zeigt auch Verbesserungen für Mitglieder, die offline sind (Anbieten erst, wenn sie online sind). Die Zahl = Offline-Mitglieder mit einer Verbesserung.",
   NEEDS_EMPTY_OFFLINE = "Gerade braucht niemand, der online ist, etwas, das du herstellen kannst.\n\n%d Offline-Mitglied(er) schon: „Offline-Mitglieder einbeziehen“ ankreuzen.",
-  -- K8
   DETAIL_FOR = "Wäre eine Verbesserung für:",
   DETAIL_FOR_N = "Wäre eine Verbesserung für %d Mitglieder:",
   NEEDS_CAT_TIP = "%d Herstellungen für diesen Platz",
@@ -328,10 +308,8 @@ ns.Locales.deDE = {
   NEEDS_STATE_ON = "online",
   NEEDS_STATE_OFF = "offline",
   NEEDS_WEARS = "trägt %s",
-  CARDS_WORN_CAPS = "ANGELEGT",
   CARDS_COUNT = "%d Verbesserungen",
   CARDS_COUNT_1 = "%d Verbesserung",
-  -- K7: Fundorte fehlender Rezepte (Data/Sources.lua, Data/ExtraSources.lua)
   SRC_LINE_TRAINER = "Lehrer (Fertigkeit %d)",
   SRC_LINE_TRAINER_HAVE = "Lehrer (Fertigkeit %d, du hast %d)",
   SRC_LINE_TRAINER_OK = "Lehrer (Fertigkeit %d, erreicht)",
@@ -386,7 +364,6 @@ ns.Locales.deDE = {
   SRC_WAYPOINT_FAIL = "Wegpunkt konnte nicht gesetzt werden: %s ist bei %s.",
   NEEDS_MISSING = "%d fehlende Rezepte wären Verbesserungen",
   NEEDS_MISSING_1 = "1 fehlendes Rezept wäre eine Verbesserung",
-  -- K15: Ravenquill-Expedition-Kern, Optionen im /rq-Fenster (mod.options)
   OPT_H_SUGGEST = "Vorschläge",
   OPT_SURVIVAL = "Levelbonus (%s/%s)",
   OPT_H_GEAR = "Ausrüstung lesen",
@@ -415,11 +392,8 @@ ns.Locales.deDE = {
   OPT_DIAG_MINIMAP = "Minimap",
   OPT_DIAG_ERROR = "Letzter Fehler",
   OPT_NO_ERROR = "Kein Fehler gespeichert.",
-  -- Texte mit Befehlen (/rq craft)
   EMPTY_NOGEAR = "Für dieses Mitglied ist noch keine Ausrüstung gespeichert.\n\nSie wird automatisch gelesen, wenn es in deiner Gruppe, unter der Maus oder dein Ziel ist (außerhalb des Kampfes, in der Nähe), oder mit „Ziel jetzt betrachten“ in /rq craft, während es dein Ziel ist.",
-  HELP_LINES = "/rq craft – Optionen (Fenster, Ausrüstung lesen, Sync, Minimap-Knopf, Diagnose)\n/rq craft stats <Gegenstandslink> – Werte und Wertung\n/rq craft enchant debug [Link] – Verzauberungs-Prüfung\nRechtsklick auf den Ravenquill-Minimap-Knopf oder „Öffnen“ in /rq – dieses Fenster",
   WHISPER_DRAFT_KEPT = "Angebots-Flüstertext nicht gespeichert – dein Entwurf bleibt erhalten. Filter → „Flüstertext bearbeiten…“ zum Weitermachen, Speichern zum Verwenden.",
-  CMD_HELP = "/rq craft – Optionen | /rq craft stats <Gegenstandslink> – Werte und Wertung | /rq craft enchant debug [Link] – enthalten die Werte eines verzauberten Links die Verzauberung | alles andere nach /rq craft öffnet das Fenster  (Debug-Ausgaben sind englisch)",
   MSG_RECORDED = "Ausrüstung von %s gespeichert. Zum Ansehen mit Rechtsklick auf den Ravenquill-Minimap-Knopf.",
   SYNC_STOPPED_MSG = "Gilden-Sync: unsere Nachrichten scheinen nicht anzukommen – es wird langsam weitergesendet (1 Nachricht pro 5 Min.). /rq craft → „Sync erneut versuchen“ sendet wieder im normalen Tempo.",
 }

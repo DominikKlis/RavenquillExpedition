@@ -1,4 +1,3 @@
--- Golden fixture. Recorded by the harness with --record; never edit by hand.
 return {
   ["map.encode"] = {
     "P;134;zzu;900;9;1;t5n7l1;;3",

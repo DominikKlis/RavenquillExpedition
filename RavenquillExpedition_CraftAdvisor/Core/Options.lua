@@ -2,14 +2,9 @@ local ADDON, ns = ...
 local GCA = ns.GCA
 local L = ns.L
 local RQ = RavenquillExpedition
-local priv = GCA.priv
-local Print, IsSecret = priv.Print, priv.IsSecret
+local IsSecret = GCA.IsSecret
+local function Print(...) GCA:Print(...) end
 
----------------------------------------------------------------------------
--- "/rq craft <args>" (the core's slash): only the commands that need an item link stay in chat
----------------------------------------------------------------------------
--- "/rq craft" alone shows our options in the core's window (mod.options); "/rq craft stats <link>" and
--- "/rq craft enchant debug [link]" run the debug dumps; anything else opens our window.
 function GCA:OnSlash(rest)
   local raw = (type(rest) == "string" and rest or ""):match("^%s*(.-)%s*$")
   local low = raw:lower()
@@ -18,14 +13,8 @@ function GCA:OnSlash(rest)
   else self:OpenWindow() end
 end
 
--- the AddOns compartment button (## AddonCompartmentFunc)
 function RavenquillExpedition_CraftAdvisor_OnCompartmentClick() RQ:Call(GCA.UI.Toggle, GCA.UI) end
 
----------------------------------------------------------------------------
--- K15: the read-only copy boxes in the core's options view. Lines(dump) runs a debug dump (it takes a sink P(line))
--- and returns its lines plain (colour codes stripped, one entry per line). It runs under RQ:Call: an error reaches
--- BugSack and becomes the last line.
----------------------------------------------------------------------------
 local function PlainLine(s)
   return (s:gsub("|c[nN][^:|]*:", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
 end
@@ -47,7 +36,6 @@ local function Lines(dump, ...)
 end
 GCA.DiagLines = Lines
 
--- open (never close) our window: the core's "Open" row button, the options' "Open window", "/rq craft <other>"
 function GCA:OpenWindow()
   local UI = self.UI
   if not UI then return end
@@ -55,18 +43,31 @@ function GCA:OpenWindow()
   UI:Toggle()
 end
 
--- every option in the core's /rq UI (contract: RavenquillExpedition Overview.lua).
--- get/disabled are re-read when the view shows and after each change; lines() runs when its box is opened.
-local function Settings() return GCA.db and GCA.db.settings end
+local SCORED = { inspectTalents = true }
+function GCA:SetSetting(key, value)
+  local s = self:Settings()
+  if not s or s[key] == value then return false end
+  s[key] = value
+  if key == "sync" and value and self.CheckOwn then self:CheckOwn(false) end
+  if SCORED[key] then self:InvalidateScores() end
+  return true
+end
+function GCA:SetSurvival(percent)
+  percent = tonumber(percent)
+  local s = self:Settings()
+  if not (percent and s) then return false end
+  percent = math.max(0, math.min(100, percent))
+  if math.abs(self:SurvivalShare() * 100 - percent) < 0.5 then return false end
+  s.survival = percent / 100
+  self:InvalidateScores()
+  return true
+end
+
 local function RefreshUI() if GCA.UI and GCA.UI.Refresh then GCA.UI:Refresh() end end
 local function SettingToggle(key, label, tip)
   return { type = "toggle", label = L[label], tooltip = tip and L[tip] or nil,
-    get = function() local s = Settings(); return s and s[key] and true or false end,
-    set = function(v)
-      local s = Settings()
-      if not s or (s[key] and true or false) == (v and true or false) then return end
-      if GCA.UI and GCA.UI.ToggleSetting then GCA.UI.ToggleSetting(key) else s[key] = v and true or false end
-    end }
+    get = function() local s = GCA:Settings(); return s and s[key] and true or false end,
+    set = function(v) if GCA:SetSetting(key, v and true or false) then RefreshUI() end end }
 end
 function GCA:BuildOptions()
   local a, b = ns.G("SPELL_STAT3_NAME"), ns.G("SPELL_STAT5_NAME")
@@ -77,26 +78,11 @@ function GCA:BuildOptions()
     { type = "range", label = string.format(L.OPT_SURVIVAL, a, b), tooltip = string.format(L.SLIDER_TIP, a, b),
       min = 0, max = 100, step = 5, format = "%d %%",
       get = function() return math.floor(GCA:SurvivalShare() * 100 + 0.5) end,
-      set = function(v)
-        v = tonumber(v)
-        local s = Settings()
-        if not (v and s) then return end
-        v = math.max(0, math.min(100, v))
-        if GCA.UI and GCA.UI.SetSurvival then GCA.UI.SetSurvival(v)
-        elseif math.abs(GCA:SurvivalShare() * 100 - v) >= 0.5 then s.survival = v / 100; GCA:InvalidateScores() end
-      end },
+      set = function(v) if GCA:SetSurvival(v) then RefreshUI() end end },
 
     { type = "header", label = L.OPT_H_GEAR },
     SettingToggle("autoInspect", "FILTER_AUTOINSPECT", "FILTER_AUTOINSPECT_TIP"),
-    { type = "toggle", label = L.OPT_INSPECT_TALENTS, tooltip = L.OPT_INSPECT_TALENTS_TIP,
-      get = function() local s = Settings(); return s and s.inspectTalents and true or false end,
-      set = function(v)
-        local s = Settings()
-        if not s then return end
-        s.inspectTalents = v and true or false
-        GCA:InvalidateScores()
-        RefreshUI()
-      end },
+    SettingToggle("inspectTalents", "OPT_INSPECT_TALENTS", "OPT_INSPECT_TALENTS_TIP"),
     { type = "button", label = L.OPT_INSPECT_NOW, tooltip = L.OPT_INSPECT_NOW_TIP,
       func = function() if GCA.db then GCA:InspectTarget() end end },
     { type = "button", label = L.OPT_SCAN_NOW, tooltip = L.OPT_SCAN_NOW_TIP,
@@ -123,7 +109,6 @@ function GCA:BuildOptions()
 
     { type = "header", label = L.OPT_H_WINDOW },
     { type = "button", label = L.OPT_OPEN, func = function() GCA:OpenWindow() end },
-    -- the suite's minimap button (the core's launcher, RavenquillExpedition/Launcher.lua)
     { type = "toggle", label = L.OPT_MINIMAP,
       get = function() return RQ.LauncherShown and RQ:LauncherShown() or false end,
       set = function(v) if RQ.SetLauncherShown then RQ:SetLauncherShown(v and true or false) end end },
@@ -154,7 +139,6 @@ function GCA:BuildOptions()
   }
 end
 
--- The core's overview row: "Open" opens our window, the status line is the sync state.
 function GCA:Open() self:OpenWindow() end
 function GCA:OverviewStatus()
   local v = self.SyncStatusLine and self:SyncStatusLine()

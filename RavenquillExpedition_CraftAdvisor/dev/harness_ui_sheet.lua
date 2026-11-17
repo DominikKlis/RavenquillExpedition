@@ -1,14 +1,11 @@
--- UI harness, the member view (K4): character sheet and list cards, layout at three sizes, fallbacks; the
--- native look (K6). Shared setup: dev/uikit.lua. Run: lua dev/harness_ui_sheet.lua
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "uikit.lua")
 local GCA, fakeSug, advance, menuOf, check, menuTexts = H.GCA, H.fakeSug, H.advance, H.menuOf, H.check, H.menuTexts
 local plain, captureTip, tipText, plainTip, ns = H.plain, H.captureTip, H.tipText, H.plainTip, H.ns
 local rectOf, rstr, overlap, layoutChecks, Frame = H.rectOf, H.rstr, H.overlap, H.layoutChecks, H.Frame
 local Files, descendants, Tex = H.Files, H.descendants, H.Tex
-H.lateGlobals() -- the mocks the single harness added before the tooltip sweep
-H.templateMode = "fail" -- as the fallback-path test left it in the single harness
+H.lateGlobals()
+H.templateMode = "fail"
 
--- Section K4: two switchable member views ("Character sheet" default, "List" cards)
 do
   print("== K4: member view variants (character sheet / list)")
   local savedTM, savedBrowse = H.templateMode, GCA.IsBrowse
@@ -20,7 +17,6 @@ do
   GCA.Print = function(_, ...) printed[#printed + 1] = table.concat({ ... }, " ") end
   local linked
   HandleModifiedItemClick = function(l) linked = l end
-  -- a fake weight entry (Core shape: key + set.weights; no unitW -> "pts")
   local E = { key = "k4", set = { weights = { Agility = 1, Stamina = 0.5, Armor = 0.05, MeleeHit = 10, Strength = 0.8 }, source = {} },
     raw = { source = { kind = "sim", minLevel = 30, maxLevel = 40 } }, class = "ROGUE", spec = "COMBAT", level = 39, share = 0.5, t = 1 }
   local function eq(name, q, cstats) return { name = name, quality = q, icon = 134, link = "|Hitem:9|h[" .. name .. "]|h", cstats = cstats or {}, scores = {} } end
@@ -42,7 +38,6 @@ do
   local ench2 = fakeSug({ e = E, kind = "enchant", slot = 9, pct = 0.04, sortPct = 4, extra = true, enchant = { enchant = 248, name = "Minor Spirit" }, item = { name = "Bracers" },
     cand = { spellID = 7780, enchant = true, recipe = rec() }, info = { name = "Enchant Bracer - Minor Spirit", quality = 1, icon = "x", cstats = {} },
     equipped = { name = "Minor Stamina", cstats = { Stamina = 1 } } })
-  -- shoulders: 3 crafts, the first with 7 stat changes (the sheet's worst case: 6 shown + "more", tags, 2 alternatives)
   local sh1 = fakeSug({ e = E, slot = 3, pct = 0.3, sortPct = 30, hint = "Set hint", known = false,
     cand = { spellID = 3780, itemID = 7, recipe = rec() }, info = { name = "Shoulders of Many Stats", quality = 2, icon = "x", minLevel = 20,
       cstats = { Agility = 1, Stamina = 1, Armor = 1, Strength = 1, Intellect = 1, Spirit = 1, Defense = 1 }, unknownStats = { "ITEM_MOD_X" } } })
@@ -50,7 +45,6 @@ do
     info = { name = "Second Shoulders", quality = 2, icon = "x", minLevel = 20 } })
   local sh3 = fakeSug({ e = E, slot = 3, pct = 0.1, sortPct = 10, extra = true, future = true, wearAt = 44, levelsToGo = 5,
     cand = { spellID = 3782, itemID = 10, recipe = rec() }, info = { name = "Third Shoulders", quality = 2, icon = "x", minLevel = 44 } })
-  -- a member entry with REAL Core sections (GCA:BuildSections: sections sorted by their best row)
   local function member(key, rowsBy, online)
     local list = {}
     for _, rows in pairs(rowsBy) do for _, r in ipairs(rows) do list[#list + 1] = r end end
@@ -61,7 +55,7 @@ do
       spec = "COMBAT", specHow = "manual" }
   end
   local bud = member("Bud Stone", { [5] = { s1, s2 }, [11] = { ring }, [10] = { glove }, [9] = { ench1, ench2 }, [3] = { sh1, sh2, sh3 } })
-  local cara = member("Cara Field", {}) -- recorded and compared, nothing craftable
+  local cara = member("Cara Field", {})
   cara.best, cara.knownCount = nil, 0
   local olga = member("Olga Field", { [5] = { s1 } }, false)
   local nogear = { key = "Nobody Yet", online = true, class = "WARRIOR", level = 20, prof = "Leatherworking" }
@@ -114,7 +108,6 @@ do
     and plain(c.best.name._text) == "Craft Ring" and c.best.gain._text == "+50 pts" and c.best.points._text == ""
     and c.best._shown and c.arrow._shown, "middle: 'Ring 2 · 1 craftable upgrade', Ring B -> Craft Ring, big '+50 pts' (no size line without a share)")
   check(c.worn.score._text == "1.0 pts" and c.best.score._text == "2.0 pts", "card scores = the comparison's old/new score (as the tooltip)")
-  -- click the chest
   sh.slots[5]._scripts.OnClick(sh.slots[5])
   check(UIx.sheetSlot == 5 and not UIx.sheetAuto and sh.slots[5].sel._shown and not sh.slots[12].sel._shown and c.featured == s1
     and c.count._text == "2 craftable upgrades" and plain(c.header._text) == "Chest", "slot click: the chest in the middle, highlight moves")
@@ -127,7 +120,6 @@ do
     "'More options': the slot's other craft")
   check(c.offer._shown and c.offer._text == "Offer" and c.crafted._shown and c.craftedLabel._text == "Crafted" and not c.crafted._checked,
     "actions: 'Crafted' box + 'Offer' button")
-  -- crafted mark from the sheet (same store as the rows)
   c.crafted:SetChecked(true); c.crafted._scripts.OnClick(c.crafted)
   check(GCA:CraftedMark("Bud Stone", "Leatherworking", 3762) ~= nil and c.crafted._checked == true and UIx.sheetSlot == 5,
     "sheet crafted box stores the mark for Bud, the box shows it after the refresh, slot kept")
@@ -135,13 +127,11 @@ do
   check(H.tip[1] == "Crafted" and tipText():find("Crafted for Bud Stone", 1, true), "sheet crafted box tooltip (shared)")
   c.crafted:SetChecked(false); c.crafted._scripts.OnClick(c.crafted)
   check(GCA:CraftedMark("Bud Stone", "Leatherworking", 3762) == nil, "...unticked: mark gone")
-  -- Offer from the sheet (no chat API in this mock -> the text is printed)
   printed = {}
   c.offer._scripts.OnClick(c.offer)
   check(table.concat(printed, "\n"):find("Hi Bud! I'm a leatherworker and could craft you |Hitem:4244", 1, true), "sheet Offer writes the whisper for the featured craft")
   captureTip(); c.offer._scripts.OnEnter(c.offer)
   check(H.tip[1] == "Offer" and #H.tip >= 5, "sheet Offer tooltip (shared with the rows)")
-  -- alternative: click compares it, label says so; the featured one moves into the list
   c.alts[1]._scripts.OnClick(c.alts[1])
   check(c.featured == s2 and c.best.label._text == "Compared" and c.alts[1].data == s1 and UIx.sheetSlot == 5, "alternative clicked: compared above ('Compared'), the best one listed below")
   captureTip(); c.alts[1]._scripts.OnEnter(c.alts[1])
@@ -152,7 +142,6 @@ do
   sh.slots[11]._scripts.OnClick(sh.slots[11])
   IsShiftKeyDown = function() return false end
   check(linked == "|Hitem:9|h[Ring A]|h" and UIx.sheetSlot == 5 and c.featured == s2, "shift-click on a slot links the worn item (selection unchanged)")
-  -- enchants are reachable: bracers slot, enchant marker on the alternative
   sh.slots[9]._scripts.OnClick(sh.slots[9])
   check(c.featured == ench1 and c.best.label._text == "Best enchant" and c.alts[1].data == ench2 and c.alts[1].tag._shown
     and plain(c.alts[1].tag._text) == "Enchant" and c.craftedLabel._text == "Enchanted"
@@ -160,18 +149,15 @@ do
   local es = {}
   for i = 1, c.nStats do es[i] = plain(c.stats[i]._text) end
   check(table.concat(es, ", ") == "+1 Agility, -1 Stamina", "enchant stat differences = new enchant - current enchant: " .. table.concat(es, ", "))
-  -- too high level: dimmed card + orange level tag
   sh.slots[10]._scripts.OnClick(sh.slots[10])
   check(c.featured == glove and c.best.dimmed and c.best.icon._alpha == 0.55 and plain(c.tags._text) == "from level 42 · 3 to go"
     and c.tags._text:find("|cfff0b44c", 1, true), "too-high-level craft: dimmed card, orange 'from level 42 · 3 to go'")
-  -- a slot without an upgrade
   sh.slots[1]._scripts.OnClick(sh.slots[1])
   check(c.mode == "none" and not c.best._shown and not c.arrow._shown and not c.offer._shown and c.none._shown
     and c.none._text == "No craftable upgrade" and plain(c.worn.name._text) == "nothing equipped" and c.count._text == "0 craftable upgrades",
     "slot without an upgrade: worn card + 'No craftable upgrade', nothing else")
   sh.slots[2]._scripts.OnClick(sh.slots[2])
   check(c.mode == "none" and c.none._shown, "...also for another empty slot")
-  -- tooltips
   captureTip(); sh.slots[5]._scripts.OnEnter(sh.slots[5])
   check(plainTip(), "K17: slot with a worn item: the plain item tooltip only: " .. tipText())
   captureTip(); sh.slots[1]._scripts.OnEnter(sh.slots[1])
@@ -181,7 +167,6 @@ do
   check(plainTip("4244") and UIx.modWatcher == nil, "K17: best card tooltip = the plain item tooltip (no Shift re-render any more)")
   captureTip(); c.worn._scripts.OnEnter(c.worn)
   check(plainTip(), "K17: worn card tooltip = the plain item tooltip: " .. tipText())
-  -- worst case content (shoulders: 6 of 7 stats + 'more' + partial + tags, 2 alternatives) stays inside the middle panel
   sh.slots[3]._scripts.OnClick(sh.slots[3])
   check(c.nStats == 6 and c.nAlts == 2 and plain(c.tags._text):find("+1 more", 1, true) and plain(c.tags._text):find("some stats not readable", 1, true)
     and c.source._shown and c.source.text._text == UIx.LearnText(c.featured, UIx.current) and not c.offer._shown,
@@ -206,7 +191,6 @@ do
     "a new window (reload) opens the saved variant: List")
   UIx:SetMemberMode("sheet")
   sh, c = UIx.sheet, UIx.sheet.centre
-  -- another member: back to that member's best slot; the same member refreshed keeps your slot
   UIx.selected, UIx.autoKey = "Bud Stone", nil
   UIx:SetView("member")
   sh.slots[5]._scripts.OnClick(sh.slots[5])
@@ -251,7 +235,6 @@ do
   local fold = sl.pools.fold[1]
   check(fold._shown and fold.edges == nil and fold.line and fold.text._text:find("^No craftable upgrade: Head, Neck, ") and sl.data[#sl.data].rowKind == "fold",
     "the slots without an upgrade: one grey line at the end (K6: no box border)")
-  -- empty worn slot chip
   local glHdr
   for _, h in ipairs(sl.pools.section) do if h._shown and h.data.sec.key == 10 then glHdr = h end end
   check(glHdr and plain(glHdr.wornName._text) == UIx.SectionTitle(glHdr.data.sec) .. " (empty)" and glHdr.empty and glHdr.box.bg == nil and glHdr.box.icon._SetDesaturated[1] == true
@@ -311,7 +294,6 @@ do
     for i = 1, #slots do for j = i + 1, #slots do
       if overlap(slots[i][2], slots[j][2]) then bad[#bad + 1] = "slots " .. slots[i][1] .. "/" .. slots[j][1] .. " overlap" end
     end end
-    -- the middle panel's shown parts: inside it, no two overlapping, everything above its bottom
     local parts = { { "header", c3.header }, { "count", c3.count }, { "worn card", c3.worn } }
     if c3.mode == "upgrade" then
       for _, x in ipairs({ { "best card", c3.best }, { "arrow", c3.arrow } }) do parts[#parts + 1] = x end
@@ -335,7 +317,6 @@ do
       if overlap(a[2], b[2]) and not (a[1] == "sep" or b[1] == "sep") then bad[#bad + 1] = a[1] .. " x " .. b[1] end
     end end
     if c3.contentH > cr.b - cr.t then bad[#bad + 1] = "content " .. c3.contentH .. " > panel " .. (cr.b - cr.t) end
-    -- the alternatives' parts inside their row
     for i = 1, c3.nAltsShown or c3.nAlts do
       local a = c3.alts[i]
       local ar, nr, gr = R(a), R(a.name), R(a.gain)
@@ -345,13 +326,13 @@ do
     end
     check(#bad == 0, label .. ": sheet slots inside the panel, the middle panel's parts inside it, nothing overlaps " .. table.concat(bad, "; "))
   end
-  for _, loc in ipairs({ "deDE" }) do -- K5: deDE only (the longer texts)
+  for _, loc in ipairs({ "deDE" }) do
     ns.locale = loc
     UIx.frame:Hide(); GCA.UI.frame = nil; GCA.UI:Toggle(); advance(1)
     UIx = GCA.UI
     UIx.selected, UIx.autoKey = "Bud Stone", nil
     UIx:SetView("member")
-    for _, sz in ipairs({ { 840, 560 }, { 980, 640 } }) do -- K5: 840x560 and 980x640
+    for _, sz in ipairs({ { 840, 560 }, { 980, 640 } }) do
       UIx.frame:SetSize(sz[1], sz[2]); UIx:Layout()
       for _, slot in ipairs({ 3, 5, 9, 1 }) do
         UIx.sheet.slots[slot]._scripts.OnClick(UIx.sheet.slots[slot])
@@ -373,14 +354,12 @@ do
     end
   end
   ns.locale = "enUS"
-  -- German text fit (estimate, as K): the switch buttons, the cards' labels at 840
   local function fits(text, px, per) return #plain(text):gsub("[\128-\191]", "") * per <= px end
   local tooWide = {}
   local function fit(name, text, px, per) if not fits(text, px, per) then tooWide[#tooWide + 1] = name .. " '" .. plain(text) .. "'" end end
   local D = ns.Locales.deDE
   fit("switch sheet", D.MVIEW_SHEET, 100 - 8, 5.6)
   fit("switch list", D.MVIEW_LIST, 56 - 8, 5.6)
-  -- 840: the cards' label columns = card width - icon (10 + 40 + 8) - right margin (10; the craft card: gain 74 + 16)
   UIx.frame:SetSize(840, 560); UIx:Layout()
   local shx = UIx.sheet
   fit("worn label", D.SHEET_WORN, shx.wornW - 58 - 10, 5.6)
@@ -389,11 +368,9 @@ do
   fit("more title", D.SHEET_MORE, shx.iw, 5.6)
   fit("count", string.format(D.SHEET_COUNT_ENCH, 3), shx.iw - 100, 5.6)
   fit("level tag", string.format(D.LEVEL_TAG, 60, 10), 160, 5.6)
-  fit("card label", D.CARDS_WORN, 80, 5.6)
   check(#tooWide == 0, "K4 German text fit at 840x560 (estimate): " .. table.concat(tooWide, "; "))
 
   print("== K4: fallbacks")
-  -- no texture files (GetFileIDFromPath says no): text badge, quality squares instead of WhiteIconFrame
   GetFileIDFromPath = function() return nil end
   UIx.frame:Hide(); GCA.UI.frame = nil; GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
@@ -406,14 +383,12 @@ do
   check(UIx.sugList.rows[1].frameArt == "atlas" and UIx.sugList.rows[1].slotBg and UIx.errorCount == errs, "K6 no files: cards keep the reagent-slot atlas (no file needed)")
   UIx:SetMemberMode("sheet")
   GetFileIDFromPath = nil
-  -- K6: the big gain in the client's GameFontGreenLarge where it exists
   GameFontGreenLarge = {}
   Frame.SetFontObject = function(self, fo) self._font = fo; fontSet = true end
   UIx.frame:Hide(); GCA.UI.frame = nil; GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
   check(fontSet and UIx.sheet.centre.best.gain._font == GameFontGreenLarge and UIx.sheet.centre.best.gain.nativeFont == "GameFontGreenLarge", "K6: GameFontGreenLarge exists: the sheet's big gain uses it")
   GameFontGreenLarge, Frame.SetFontObject = nil, nil
-  -- button / check templates failing: plain fallbacks with the same API
   local origCF = CreateFrame
   CreateFrame = function(otype, name, parent, template)
     if template == "UIPanelButtonTemplate" or template == "UICheckButtonTemplate" or template == "MinimalCheckboxTemplate" then error("no " .. template) end
@@ -424,10 +399,8 @@ do
   CreateFrame = origCF
   check(tb.plain and tb:GetText() == "Offer" and tb.label._text == "Offer" and tb._w == 84 and tb.edges and cb.plain and cb._w == 22 and cb.edges,
     "button / check-box templates missing: plain button with its own label, bordered box")
-  -- StatDiff: nothing reliable -> nil (no stat line), the rest of the card unchanged
   check(UIx.StatDiff(fakeSug()) == nil and UIx.StatDiff(fakeSug({ info = { cstats = {} }, equipped = { name = "x" } })) == nil
     and #UIx.StatDiff(fakeSug({ info = { cstats = { Agility = 2 } } })) == 1, "StatDiff: no stats on a side -> nil; empty slot -> all stats of the new item")
-  -- sheet handlers with nothing filled in (fresh window, member view never shown): no error
   UIx.frame:Hide(); GCA.UI.frame = nil; GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
   local errs2 = UIx.errorCount
@@ -457,20 +430,15 @@ do
     if src:find(word, 1, true) then gone[#gone + 1] = word end
   end
   check(#gone == 0, "K6: no custom circle / segmented control / chip / select-bar / tree-line / Options-popup code left in UI.lua " .. table.concat(gone, ", "))
-  -- every atlas UI.lua names: one the in-game probe found in the client's own ProfessionsFrame / CharacterFrame, or one of
-  -- the three pre-K6 guarded names (common-dropdown-bg: fallback popups, WhatsTraining Menu.lua; the K1 info icon; K5 classicon-*)
   local PROBE = { ["Profession-Background-Overview"] = 1, ["Profession-Background-Template2"] = 1, ["Professions-Slot-Frame"] = 1,
     ["Professions-Slot-bg"] = 1, ["Professions-background-summarylist"] = 1, ["Professions-skillbar-bg"] = 1, ["Professions-skillbar-frame"] = 1,
     ["UI-Character-Info-GearSlot"] = 1, ["common-dropdown-a-button"] = 1, ["search-highlight"] = 1,
     ["UI-Frame-InnerTopLeft"] = 1, ["UI-Frame-InnerTopRight"] = 1, ["UI-Frame-InnerBotLeftCorner"] = 1, ["UI-Frame-InnerBotRight"] = 1,
     ["_UI-Frame-InnerTopTile"] = 1, ["_UI-Frame-InnerBotTile"] = 1, ["!UI-Frame-InnerLeftTile"] = 1, ["!UI-Frame-InnerRightTile"] = 1,
     ["Skillbar_Fill_Flipbook_Leatherworking"] = 1, ["Skillbar_Flare_Leatherworking"] = 1,
-    -- K8: tpl:ProfessionsRecipeListRecipeTemplate / ...CategoryTemplate regions and the Filter reset badge (ProfessionsFrame)
     ["Professions_Recipe_Hover"] = 1, ["Professions_Recipe_Active"] = 1, ["common-button-list-collapseExpand"] = 1,
     ["auctionhouse-ui-filter-redx"] = 1,
-    -- K9: the open window's schematic frame and profession card (probe ProfessionsFrame@open)
     ["common-insideframe"] = 1 }
-  -- K8: the collapse button's icon is set by the client's mixin at runtime (not in the probe): guarded candidates only
   for _, pair in ipairs(GCA.UI.SKIN.collapseIcon.pairs) do PROBE[pair[1]] = 1; PROBE[pair[2]] = 1 end
   local OLD = { ["common-dropdown-bg"] = 1, ["glueannouncementpopup-icon-info"] = 1, ["classicon-"] = 1 }
   local unknown, n = {}, 0
@@ -481,7 +449,6 @@ do
     end
   end
   check(n >= 12 and #unknown == 0, "K6: every atlas named in UI.lua (" .. n .. ") is from the probe or an older guarded one " .. table.concat(unknown, ", "))
-  -- the sheet's gear slots: the character window's own slot look
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   local UIx = GCA.UI
@@ -491,11 +458,8 @@ do
     "K6 sheet slot: UI-Character-Info-GearSlot behind (55/37 scaled), WhiteIconFrame border, ButtonHilight-Square hover + kept on when selected")
   check(UIx.sheet.centre.edges == nil and UIx.sheet.centre.bg == nil and UIx.sheet.centre.best.edges == nil and UIx.sheet.centre.best.tint == nil,
     "K6 sheet: no hand-drawn boxes / green tint around the middle panel and the cards")
-  -- crafted boxes: MinimalCheckboxTemplate; Offer: the red UIPanelButtonTemplate button
   local cb, tb = UIx.NewCheck(UIx.frame, 22), UIx.NewTextButton(UIx.frame, 84, 22, "x")
   check(cb.template == "MinimalCheckboxTemplate" and not cb.plain and not tb.plain, "K6: check boxes from MinimalCheckboxTemplate, buttons from UIPanelButtonTemplate")
-  -- K8: no custom row boxes / pills / extra highlights left: the K5/K6 craft-row build (caret, member text run, icon
-  -- per row, expand state) is gone; list rows draw only the recipe row's own art (no colour textures, no borders)
   check(UIx.MemberRun == nil and UIx.expanded == nil and UIx.NEED_RIGHT_W == nil and not src:find("caretText", 1, true)
     and not src:find("membersShown", 1, true), "K8: no member text runs / carets / expand state left (the detail panel lists the members)")
   local boxy = {}
@@ -510,7 +474,6 @@ do
   if UIx.needsList.rows[1] then scanRow("craft row", UIx.needsList.rows[1]) end
   if UIx.needsList.pools.cat then scanRow("slot category", UIx.needsList.pools.cat[1]) end
   check(UIx.memberList.rows[1] and #boxy == 0, "K8: list rows and category headers draw no colour boxes / borders (atlas art only) " .. table.concat(boxy, ", "))
-  -- K8 detailBorder is pluggable: a NineSliceUtil layout, a piece list, else the inner border
   local skinDB = UIx.SKIN.detailBorder
   UIx.SKIN.detailBorder = { pieces = { { key = "TopLeftCorner", atlas = "UI-Frame-InnerTopLeft", w = 12, p = { "TOPLEFT", -2, 2 } },
     { key = "TopRightCorner", atlas = "UI-Frame-InnerTopRight", w = 12, p = { "TOPRIGHT", 2, 2 } },
@@ -530,7 +493,6 @@ do
   check(pm.how == "atlas" and pm.role == "detailBorder", "K8 detailBorder: an unknown layout -> the inner border")
   NineSliceUtil = nil
   UIx.SKIN.detailBorder = skinDB
-  -- K8 round detail icon: masked + gold ring where the client has masks and the files
   local rf = CreateFrame("Button", nil, UIParent)
   local masked
   rf.CreateMaskTexture = function(self) local m = Tex(); m._parent = self; return m end

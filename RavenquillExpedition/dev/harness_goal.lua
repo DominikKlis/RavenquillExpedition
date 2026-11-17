@@ -1,7 +1,3 @@
--- The goal of the rework, as a test: a new sync module built from templates/Module on the core API is small
--- (<= 40 code lines), loads, shows its options in both languages, and two simulated clients exchange its messages
--- within the suite's send budget.
--- Run: lua RavenquillExpedition/dev/harness_goal.lua
 local DEV = (arg[0]:gsub("[^/\\]*$", ""))
 local Kit = dofile(DEV .. "testkit.lua")
 local check, section = Kit.check, Kit.section
@@ -56,12 +52,9 @@ for _, e in ipairs(bus.log) do
     prevT = e.t
   end
 end
--- absolute, not derived from the constants under test: 30 per minute from one client all echoed in game
--- (Dev test comm.rate, 2026-11-15); the suite promises at most half of that
 check(bus:maxPer(60, "Anna Stone") <= cap60 and bus:maxPer(60, "Anna Stone") <= 15 and gap >= 1,
   ("paced by the core: %d per 60 s (<= %d and <= 15 measured-safe/2), closest two %s s apart"):format(
   bus:maxPer(60, "Anna Stone"), cap60, tostring(gap)))
--- a forged message about someone else is refused by the core's schema check (from = "self")
 b.fire("CHAT_MSG_ADDON", "RQE1", "EX;1;lvl;Cora Vale;60", "GUILD", "Anna Stone-Realm")
 check(got["Cora Vale"] == nil, "a message about someone else is rejected before the handler")
 

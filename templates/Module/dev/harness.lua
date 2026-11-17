@@ -1,5 +1,3 @@
--- Two simulated clients run the Example module on the shared test kit: a level-up on one arrives at the other.
--- Run: lua templates/Module/dev/harness.lua   (copy this with the module; adjust the paths if you move it)
 local HERE = (arg[0]:gsub("[^/\\]*$", ""))
 local Kit = dofile(HERE .. "../../../RavenquillExpedition/dev/testkit.lua")
 local check = Kit.check

@@ -1,7 +1,3 @@
--- Offline test of the suite's minimap button (Launcher.lua): placement in the largest free gap between other addons'
--- minimap buttons, the delayed auto-place, drag, re-place, hide / show, the one-time copy of the Craft Advisor's old
--- button settings, clicks (left: overview, right: Craft Advisor window) and the tooltip with every module's status.
--- Run: lua RavenquillExpedition/dev/harness_launcher.lua
 unpack = table.unpack
 local DEV = (arg[0]:gsub("[^/\\]*$", ""))
 local ADDONS = DEV .. "../../"
@@ -11,7 +7,6 @@ local function check(cond, what)
 end
 local function section(s) io.write("== ", s, "\n") end
 
--- clock --------------------------------------------------------------------
 local now = 100
 local timers = {}
 C_Timer = { After = function(d, fn) timers[#timers + 1] = { at = now + d, fn = fn } end }
@@ -34,7 +29,6 @@ function geterrorhandler() return function(msg) errors[#errors + 1] = msg end en
 function debugstack() return "" end
 print = function(...) local t = {} for i = 1, select("#", ...) do t[i] = tostring(select(i, ...)) end printed[#printed + 1] = table.concat(t, " ") end
 
--- frames with a position: _cx/_cy (centre), _w/_h, children; unknown methods are no-ops
 local frames = {}
 local Frame = {}
 local FrameMT = { __index = function(_, k)
@@ -88,7 +82,6 @@ Minimap = New("Frame", nil, "Minimap")
 Minimap._w, Minimap._h, Minimap._cx, Minimap._cy = 140, 140, 1000, 700
 local cursor = { 0, 0 }
 function GetCursorPosition() return cursor[1], cursor[2] end
--- a Minimap child at `angle` degrees on the rim
 local function Child(name, otype, angle, w, opts)
   local c = New(otype, Minimap, name)
   c._w, c._h = w, w
@@ -98,7 +91,6 @@ local function Child(name, otype, angle, w, opts)
   return c
 end
 
--- client facts --------------------------------------------------------------
 function GetBuildInfo() return "1.60.1", "70938", "", 16001 end
 function GetLocale() return "enUS" end
 Constants = { CharacterNameSeparatorConsts = { CHARACTERNAME_SURNAME_SEPARATOR = " " } }
@@ -112,14 +104,12 @@ function InCombatLockdown() return false end
 function GetNumGuildMembers() return 0 end
 C_GuildInfo = { GuildRoster = function() end }
 
--- a v0.1 Craft Advisor user: its button at the untouched old default angle, never dragged
 RavenquillExpeditionCraftDB = { settings = { minimapAngle = 200 } }
 local coreNS = {}
 for _, f in ipairs(dofile(DEV .. "toc.lua")(ADDONS .. "RavenquillExpedition")) do
   assert(loadfile(ADDONS .. "RavenquillExpedition/" .. f))("RavenquillExpedition", coreNS)
 end
 local RQ = RavenquillExpedition
--- a module with a status line and an Open (the Craft Advisor's place)
 local opened = 0
 local craft = RQ:NewModule("Craft", { addon = "CraftTest", title = "Guild Craft Advisor" })
 function craft:OverviewStatus() return "Guild sync: 2 guildies" end
@@ -128,40 +118,31 @@ local quiet = RQ:NewModule("Quiet", { addon = "QuietTest", title = "Quiet" })
 fire("ADDON_LOADED", "RavenquillExpedition")
 fire("ADDON_LOADED", "CraftTest")
 fire("ADDON_LOADED", "QuietTest")
--- neighbours that exist BEFORE we scan: Overlord 200, Spoken 204, GearQuest 129.5
 Child("OverlordMinimapButton", "Button", 200, 33)
 Child("SpokenMinimapButton", "Button", 204, 31)
 Child("GearQuestMinimapButton", "Button", 129.5, 31)
--- things that must NOT count
-Child("HBD_Pin1", "Button", 20, 12)                         -- map pin (small)
-Child("QuestiePin", "Frame", 40, 30)                        -- not a button
+Child("HBD_Pin1", "Button", 20, 12)
+Child("QuestiePin", "Frame", 40, 30)
 Child("ForbiddenThing", "Button", 60, 31, { _forbidden = true })
 Child("HiddenButton", "Button", 80, 31, { _shown = false })
-local inner = Child("InnerButton", "Button", 100, 31); inner._cx, inner._cy = Minimap._cx + 10, Minimap._cy -- not on rim
+local inner = Child("InnerButton", "Button", 100, 31); inner._cx, inner._cy = Minimap._cx + 10, Minimap._cy
 fire("PLAYER_LOGIN")
 
----------------------------------------------------------------------------
 section("Settings: one-time copy of the Craft Advisor's button")
----------------------------------------------------------------------------
 local s = RavenquillExpeditionDB.launcher
 check(type(s) == "table" and s.angle == 200 and not s.dragged and not s.hide, "launcher settings copied from the old Craft Advisor button (angle 200)")
 RavenquillExpeditionCraftDB.settings.minimapHide = true
 check(RQ:LauncherSettings() == s and not s.hide, "copied once: later changes to the old settings don't matter")
 RavenquillExpeditionCraftDB.settings.minimapHide = nil
 
----------------------------------------------------------------------------
 section("Placement")
----------------------------------------------------------------------------
 local btn = RQ:LauncherButton()
 check(btn ~= nil and btn == _G.RavenquillExpeditionLauncher and btn._shown, "button created at PLAYER_LOGIN")
 check(btn and btn._strata == "MEDIUM" and btn._level == 8, "strata MEDIUM, level 8")
 local a = RQ:LauncherFreeAngle()
--- counted: 129.5, 200, 204 -> largest gap 204..489.5 -> mid 346.75
 check(math.abs(a - 346.75) < 0.01, ("largest-gap angle = %.2f (expect 346.75)"):format(a))
--- a late button (made after login) is considered when the delayed placement runs
 Child("LateAddonButton", "Button", 300, 31)
 local a2 = RQ:LauncherFreeAngle()
--- counted: 129.5, 200, 204, 300 -> gaps 70.5, 4, 96, 189.5 (300 -> 489.5) -> mid 34.75
 check(math.abs(a2 - 34.75) < 0.01, ("with the late button: %.2f (expect 34.75)"):format(a2))
 
 section("Delayed auto-place, drag, re-place")
@@ -171,12 +152,10 @@ advance(5)
 check(math.abs(s.angle - 34.75) < 0.01, ("auto-placed after 5 s: %.2f"):format(s.angle))
 local p = btn._points[1]
 check(p and p[1] == "CENTER" and p[2] == Minimap, "button anchored to the Minimap centre")
--- drag to 90 degrees (cursor straight above the minimap centre)
 cursor[1], cursor[2] = 1000, 800
 btn._scripts.OnDragStart(btn); btn._scripts.OnUpdate(btn); btn._scripts.OnDragStop(btn)
 check(math.abs(s.angle - 90) < 0.01 and s.dragged, "drag sets 90° and marks it dragged")
--- a later login must not move a dragged button (the listener unregistered itself; a fresh one would ask again)
-s.angle = 200 -- even if it happens to be 200
+s.angle = 200
 fire("PLAYER_ENTERING_WORLD"); advance(6)
 check(s.angle == 200, "a dragged button is not auto-moved")
 local placed = RQ:LauncherReplace()
@@ -192,9 +171,7 @@ RQ:LauncherDebug(function(l) dbg[#dbg + 1] = l end)
 check(dbg[1] and dbg[1]:find("Launcher: shown=true", 1, true) and dbg[#dbg]:find("Largest free gap centre: 35", 1, true),
   "LauncherDebug lists the button and the gap (" .. #dbg .. " lines)")
 
----------------------------------------------------------------------------
 section("Hide / show, clicks, tooltip")
----------------------------------------------------------------------------
 RQ:SetLauncherShown(false)
 check(not btn._shown and s.hide and not RQ:LauncherShown(), "hidden by its setting")
 RQ:SetLauncherShown(true)

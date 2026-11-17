@@ -1,15 +1,10 @@
--- Score harness, weapons (W): proficiency, dual wield, speed parse, crafts end to end (the golden weapon
--- comparisons are in harness_score_golden.lua). SimGear Forever is needed (see dev/scorekit.lua). Run: lua dev/harness_score_weapons.lua [SimGear unzip dir]
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "scorekit.lua")
 local SGns, CLASSES, GCA, check, W, known, Scoring = H.SGns, H.CLASSES, H.GCA, H.check, H.W, H.known, H.Scoring
 local env, addItem, itemDB, link, setProfs, ns = H.env, H.addItem, H.itemDB, H.link, H.setProfs, H.ns
-H.professionMocks() -- the GetProfessions mocks the single harness added before the profession tests
+H.professionMocks()
 H.section("W: weapons - proficiency, dual wield, speed parse, crafts end to end")
-assert(loadfile(H.SG .. "SimGearForever/Classes.lua", "t", H.sgEnv()))("SimGearForever", H.SGns) -- SimGear Classes.lua,
--- which the CanWear test (harness_score_gen.lua) had loaded before these tests in the single harness
+assert(loadfile(H.SG .. "SimGearForever/Classes.lua", "t", H.sgEnv()))("SimGearForever", H.SGns)
 
--- W2 proficiency matrix: class x level 19/20/39/40 x weapon subclass 0..20 against SimGear's Classes.barredType + the
--- polearm gate (Hunter/Warrior from 20); unknown classes never bar
 do
   local SGC = SGns.Classes
   local bad, n = 0, 0
@@ -33,7 +28,6 @@ do
   check(GCA:WearFrom("WARRIOR", { classID = 2, subClassID = 6 }) == 20 and GCA:WearFrom("PALADIN", { classID = 2, subClassID = 6 }) == 0
     and GCA:WearFrom("PALADIN", { classID = 2, subClassID = 15 }) == nil and GCA:WearFrom("ROGUE", { classID = 2, subClassID = 20 }) == 0,
     "WearFrom: polearms Warrior 20 / Paladin any level; Paladin never daggers; fishing pole for anyone")
-  -- the generated classWeapons equal SimGear's Classes.lua (generator check)
   local same = true
   for _, class in ipairs(CLASSES) do
     local ours, sg = W.classWeapons[class], SGC[class]
@@ -48,7 +42,6 @@ do
   check(same, "Data/Weights.lua classWeapons = SimGear Classes.lua (weapons, dualWield, dualWieldFrom, noHoldable; NO_HOLDABLE agrees)")
 end
 
--- W4 / W8.1 dual-wield gates
 do
   local saved674 = known[674]
   local function dw(class, spec, level, isSelf) return GCA:DualWieldFrom(class, spec, level, isSelf) end
@@ -67,7 +60,6 @@ do
   known[674] = saved674
 end
 
--- W3 speed parse (SimGear Stats.weaponSpeedFromLines): "Speed 2.60" and deDE "Tempo 2,60"
 do
   local function L(t) return { { leftText = "x" }, { leftText = "45 - 85 Damage", rightText = t } } end
   check(Scoring.weaponSpeedFromLines(L("Speed 2.60"), "Speed") == 2.6 and Scoring.weaponSpeedFromLines(L("Tempo 2,60"), "Tempo") == 2.6
@@ -77,7 +69,6 @@ do
     and Scoring.weaponSpeedFromLines({ { leftText = "Tempo 2,60" } }, "Tempo") == nil and Scoring.weaponSpeedFromLines(nil, "Speed") == nil
     and Scoring.weaponSpeedFromLines(L("  Tempo 3  "), "Tempo") == 3,
     "speed parse: unknown label, >= 10 s, left text, nil lines -> nil; '3' without decimals and padding ok")
-  -- for each SimGear golden case SimGear's parser agrees
   local agree = true
   for _, t in ipairs({ "Speed 2.60", "Tempo 2,60", "Speed 1.8", "Tempo 3", "Speed 10.0", "Speed x" }) do
     for _, lab in ipairs({ "Speed", "Tempo" }) do
@@ -85,7 +76,6 @@ do
     end
   end
   check(agree, "speed parse = SimGear's weaponSpeedFromLines on the same lines")
-  -- WeaponSpeed through the client tooltip API (deDE), cached; GetInfo carries speed + dagger
   local savedTI, savedSPEED = env.C_TooltipInfo, env.SPEED
   local calls = 0
   env.SPEED = "Tempo"
@@ -98,10 +88,29 @@ do
   local info2 = GCA:GetInfo(link(993001))
   check(info.speed == 1.8 and info.dagger and info.cstats.MainHandDps == 20 and info2.speed == 1.8 and calls == 1,
     "GetInfo of a weapon: speed 1.80 read from the deDE tooltip (cached: 1 tooltip call), dagger, DPS as MainHandDps")
+  local byLink = 0
+  env.C_TooltipInfo = {
+    GetItemByID = function() return { lines = "broken" } end,
+    GetHyperlink = function(l) byLink = byLink + 1; if l == "item:993002" then return { lines = { "junk", { rightText = 7 }, { rightText = "  Tempo 2,60 " } } } end end,
+  }
+  GCA.speedCache = {}
+  check(GCA:WeaponSpeed(993002, "item:993002") == 2.6 and GCA.speedCache[993002] == 2.6 and GCA:WeaponSpeed(993002, "item:993002") == 2.6
+    and byLink == 1, "WeaponSpeed: falls back to the hyperlink tooltip, skips odd lines, caches by item ID")
+  check(GCA:WeaponSpeed(nil, "item:993002") == 2.6 and GCA:WeaponSpeed(nil, 993002) == nil and next(GCA.speedCache, next(GCA.speedCache)) == nil,
+    "WeaponSpeed: no item ID reads the link without caching; no string link, no tooltip")
+  env.issecretvalue = function(v) return v == "Tempo" or v == "  Tempo 2,60 " end
+  GCA.speedCache = {}
+  check(GCA:WeaponSpeed(993002, "item:993002") == nil, "WeaponSpeed: secret speed label and secret right texts are ignored")
+  env.issecretvalue = nil
+  env.SPEED = 42
+  check(GCA:WeaponSpeed(993002, "item:993002") == nil, "WeaponSpeed: a non-string SPEED label only matches the English one")
+  env.C_TooltipInfo = nil
+  GCA.speedCache = {}
+  check(GCA:WeaponSpeed(993002, "item:993002") == nil, "WeaponSpeed: no C_TooltipInfo, no speed")
+  GCA.speedCache = {}
   env.C_TooltipInfo, env.SPEED = savedTI, savedSPEED
 end
 
--- W1/W4/W8: fake Blacksmithing / Engineering / Enchanting weapon crafts reach the rows and sections
 do
   setProfs({ { "Schmiedekunst", 300, 300, 164 } })
   GCA:RefreshKnown()
@@ -119,7 +128,6 @@ do
   W(994006, "Craft Gun", "INVTYPE_RANGEDRIGHT", 30, { ITEM_MOD_AGILITY_SHORT = 5, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 30 }, 3)
   W(994007, "Craft Wand", "INVTYPE_RANGEDRIGHT", 30, { ITEM_MOD_INTELLECT_SHORT = 6, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 25 }, 19)
   addItem(994008, "Craft Shield", "INVTYPE_SHIELD", 30, { ITEM_MOD_STAMINA_SHORT = 8, RESISTANCE0_NAME = 900 }, 6)
-  -- worn
   W(994101, "Old 2H", "INVTYPE_2HWEAPON", 20, { ITEM_MOD_STRENGTH_SHORT = 5, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 20 }, 8)
   W(994102, "Old Sword", "INVTYPE_WEAPON", 20, { ITEM_MOD_STRENGTH_SHORT = 2, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 15 }, 7)
   W(994103, "Old Offhand Sword", "INVTYPE_WEAPON", 20, { ITEM_MOD_AGILITY_SHORT = 1, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 10 }, 7)
@@ -145,7 +153,6 @@ do
   local nCand = 0
   for _, c in ipairs(GCA:GetCandidates("Blacksmithing")) do if recipes[c.spellID] then nCand = nCand + 1 end end
   check(nCand == 8, "W1: all 8 weapon/shield crafts are candidates (sword, 2H, polearm, dagger, off-hand blade, gun, wand, shield): " .. nCand)
-  -- Arms Warrior Lv40 with a two-hander: a greatsword is a % upgrade replacing both hands; a sword "needs an off hand"
   local by, list = run("WARRIOR", "ARMS", 40, { [16] = link(994101) })
   local gs, sw = by[994002], by[994001]
   check(gs and gs.tier == 1 and gs.slot == 16 and gs.status == "upgrade" and gs.pct and gs.pct > 0, "Arms Lv40 with a 2H: Craft Greatsword is an upgrade (main hand)")
@@ -160,26 +167,20 @@ do
   local order = {}
   for i, s in ipairs(list) do order[s] = i end
   check(order[gs] < order[sw], "the % upgrade sorts before the needs-partner row")
-  -- sections: 16 main hand, 17 off hand, 18 ranged
   local secKeys = {}
   for _, sec in ipairs(list.sections) do if #sec.rows > 0 then secKeys[sec.key] = #sec.rows end end
   check(secKeys[16] and secKeys[17] and secKeys[18], "rows reach the main hand, off hand and ranged sections")
-  -- polearm: Lv19 Warrior -> future (wearable at 20); Lv20 -> normal
   by = run("WARRIOR", "ARMS", 19, { [16] = link(994101) })
   check(by[994003] and by[994003].future and by[994003].wearAt == 20, "W2: polearm for a Lv19 Warrior: look-ahead row, wearable at 20")
   by = run("WARRIOR", "ARMS", 20, { [16] = link(994101) })
   check(by[994003] and not by[994003].future, "polearm at 20: a normal row")
-  -- Prot Warrior: no two-handers (SimGear gearRules)
   by = run("WARRIOR", "PROTECTION", 40, { [16] = link(994102), [17] = link(994008) })
   check(by[994002] == nil and by[994003] == nil and by[994001] ~= nil, "Prot Warrior: no two-handers; a one-hander is compared")
-  -- Fury Lv40 with sword + sword: a two-hander replaces both hands (pair compared, tag), dual wield: a better
-  -- one-hander may go in the off hand
   by = run("WARRIOR", "FURY", 40, { [16] = link(994102), [17] = link(994103) })
   local g2 = by[994002]
   check(g2 and g2.bothHands and g2.equipped and g2.equipped.name == "Old Sword + Old Offhand Sword" and g2.equipped.pair,
     "Fury with two swords: a two-hander says 'replaces both hands', compared against both: " .. tostring(g2 and g2.equipped and g2.equipped.name))
   check(by[994005] and by[994005].slot == 17, "Fury Lv40 (dual wield): the off-hand blade is offered for the off hand")
-  -- Rogue Combat Lv30 dual wield, strong main hand + weak off hand: the Craft Dagger goes in the off hand
   W(994106, "Strong Dagger", "INVTYPE_WEAPON", 20, { ITEM_MOD_AGILITY_SHORT = 25, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 45 }, 15)
   by = run("ROGUE", "COMBAT", 30, { [16] = link(994106), [17] = link(994104) })
   check(by[994004] and by[994004].hand == "off" and by[994004].slot == 17 and by[994004].equipped.name == "Old Dagger",
@@ -199,18 +200,14 @@ do
     e.set, nil, nil, { dualWield = true })
   check(dg and dg.hand == direct.hand and dg.slot == (direct.hand == "off" and 17 or 16), "Rogue dual wield: the dagger's hand = the compare's better hand (" .. tostring(direct.hand) .. ")")
   check(by[994002] == nil and by[994003] == nil and by[994007] == nil, "Rogue: no two-handed swords, polearms or wands")
-  -- Mage: wand in the ranged section, no swords-only? (Mage has one-handed swords) no daggers? (has daggers); no 2H swords
   by = run("MAGE", "FIRE", 40, { [18] = link(994105) })
   check(by[994007] and by[994007].slot == 18 and by[994006] == nil and by[994002] == nil, "Mage: the wand (ranged section), no gun, no 2H sword")
-  -- Hunter: the gun with RangedDps counts; no shield
   by = run("HUNTER", "MARKSMANSHIP", 40, {})
   check(by[994006] and by[994006].slot == 18 and by[994006].status == "empty-slot" and by[994008] == nil, "Hunter: the gun fills an empty ranged slot; no shield")
-  -- an unknown (not loaded) off hand: nothing compared against the pair
   GCA.loadState[994999] = { first = 0, tries = 99, failed = true }
   by = run("WARRIOR", "FURY", 40, { [16] = link(994102), [17] = link(994999) })
   check(by[994001] == nil and by[994002] == nil and by[994008] == nil and by[994006] ~= nil, "unknown off hand: no hand crafts, ranged still")
   GCA.loadState[994999] = nil
-  -- restore
   ns.Recipes.Blacksmithing = savedBS
   GCA.itemToSpellOf = {}
   for k in pairs(known) do known[k] = nil end

@@ -1,13 +1,3 @@
--- The CraftAdvisor files its .toc loads, for the harnesses that load the addon (or parts of it) themselves. The
--- .toc is the only list: a file added there is picked up here. Groups: "UI" = UI.lua and UI/*.lua, "Core" =
--- Core.lua and Core/*.lua.
---   local Files = dofile(DEV .. "files.lua")
---   Files.list({ except = { "Sync.lua", "UI" }, from = "Data/Weights.lua" })  -- .toc order; names or groups
---   Files.group("UI")                  -- the files of one group, in .toc order
---   Files.load(list, ns[, env])        -- run each as the game does: chunk("RavenquillExpedition_CraftAdvisor", ns)
---   Files.loadUI(ns[, env])            -- the UI files; a bare ns ({ GCA = GCA }) gets ns.L from GCA.L
---   Files.source(list)                 -- the files' text, concatenated (for checks that read the code)
---   Files.ROOT                         -- the addon folder, with a trailing slash
 local DEV = (debug.getinfo(1, "S").source:gsub("^@", ""):gsub("[^/\\]*$", ""))
 if DEV == "" then DEV = "./" end
 local ROOT = DEV .. "../"

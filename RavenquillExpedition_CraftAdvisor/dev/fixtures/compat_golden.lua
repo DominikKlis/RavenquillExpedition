@@ -1,4 +1,3 @@
--- Golden fixture. Recorded by the harness with --record; never edit by hand.
 return {
   ["ca.items"] = {
     "6b4:::::::::::::::::~Player-1-00000001",

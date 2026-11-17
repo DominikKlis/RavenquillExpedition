@@ -1,6 +1,3 @@
--- Offline test of RavenquillExpedition_Dev: the log ring, Trace override, chat and wire capture, the test runner
--- (pass / fail / error / timeout) and the inbox's once-per-id rule.
--- Run: lua RavenquillExpedition_Dev/dev/harness.lua
 unpack = table.unpack
 local ADDONS = (arg[0]:gsub("[^/\\]*$", "")) .. "../../"
 local pass, fail = 0, 0
@@ -8,7 +5,6 @@ local function check(cond, what)
   if cond then pass = pass + 1; io.write("  ok   ", what, "\n") else fail = fail + 1; io.write("  FAIL ", what, "\n") end
 end
 
--- minimal client
 local now, BASE = 100, 1800000000
 local timers = {}
 C_Timer = { After = function(d, fn) timers[#timers + 1] = { at = now + d, fn = fn } end }
@@ -97,9 +93,9 @@ local function load(addon, file, ns) assert(loadfile(ADDONS .. addon .. "/" .. f
 local coreNS, devNS = {}, {}
 for _, f in ipairs(dofile(ADDONS .. "RavenquillExpedition/dev/toc.lua")(ADDONS .. "RavenquillExpedition")) do load("RavenquillExpedition", f, coreNS) end
 local RQ = RavenquillExpedition
-RQ:Trace("early", "before the Dev addon loaded") -- the core's no-op: nothing to check, must not fail
+RQ:Trace("early", "before the Dev addon loaded")
 for _, f in ipairs({ "Inbox.lua", "Log.lua", "Test.lua", "Tests.lua" }) do load("RavenquillExpedition_Dev", f, devNS) end
-RQDevInbox = nil -- whatever the developer queued in Inbox.lua must not run in this harness
+RQDevInbox = nil
 local Dev = devNS.Dev
 Dev.LOG_MAX = 50
 RQ:Trace("pre", "traced before ADDON_LOADED")

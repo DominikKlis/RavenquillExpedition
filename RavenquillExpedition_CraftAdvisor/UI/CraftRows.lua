@@ -4,16 +4,12 @@ local UI = GCA.UI
 local P = UI.P
 local SafeCall, SUG_ROW_H, C, SUB_TINT, HasAtlas = P.SafeCall, P.SUG_ROW_H, P.C, P.SUB_TINT, P.HasAtlas
 local SetAtlasSafe, TexOK, SingleLine, SetTip = P.SetAtlasSafe, P.TexOK, P.SingleLine, P.SetTip
-local SlotName, QualityColor, Hex, FirstName = P.SlotName, P.QualityColor, P.Hex, P.FirstName
+local SlotName, QualityColor, ColoredItemName, FirstName = P.SlotName, P.QualityColor, P.ColoredItemName, P.FirstName
 local PairSlotName, TagLine, Ago, ItemIcon = P.PairSlotName, P.TagLine, P.Ago, P.ItemIcon
 local OpenWhisper, SendWhisper, TextWidth = P.OpenWhisper, P.SendWhisper, P.TextWidth
 local NewTextButton, NewCheck, GainFont, LevelTag = P.NewTextButton, P.NewCheck, P.GainFont, P.LevelTag
 local CardGain, ShowSuggestionTooltip = P.CardGain, P.ShowSuggestionTooltip
 
----------------------------------------------------------------------------
--- Craft rows: the suggestion rows of the member view and the rows of the guild-needs view share one build
--- (icon, title, tinted sub-line, gain, Offer icon, crafted box). RowCtx tells a row's suggestion and member.
----------------------------------------------------------------------------
 local function ShiftDown()
   return IsShiftKeyDown and SafeCall(IsShiftKeyDown) and true or false
 end
@@ -27,8 +23,6 @@ UI.RowCtx = RowCtx
 
 local function HideTip() GameTooltip_Hide() end
 
--- L6: the gain text sits left of whatever is shown on the right (crafted box, Offer), never over a gap.
--- gainY (K4 cards): the gain sits that much above the middle (the points line goes under it)
 local function LayoutRight(b, showOffer, showCheck, gainY)
   b.offer:ClearAllPoints()
   b.offer:SetPoint("RIGHT", b, "RIGHT", -6, 0)
@@ -44,8 +38,6 @@ local function LayoutRight(b, showOffer, showCheck, gainY)
   b.gainAnchor = anchor
 end
 
--- K4: the Offer / crafted-mark actions and their tooltips, shared by the guild-needs rows, the list cards and
--- the character sheet (one implementation; the widgets only differ in look). d = suggestion, cur = member entry.
 function UI.DoOffer(d, cur)
   local who = cur and cur.key
   if not (d and who and UI.CanOffer(cur, d)) then return false end
@@ -87,8 +79,6 @@ local function CraftedTip(owner, d, cur)
   GameTooltip:Show()
 end
 
--- what the right side of a craft shows: Offer (online, known, not you, not browse), the crafted box (known
--- recipe or an existing mark) and the mark itself
 local function RightState(d, cur)
   local showOffer = UI.CanOffer(cur, d)
   local prof = cur and cur.prof or GCA:SelectedProfession()
@@ -98,15 +88,11 @@ local function RightState(d, cur)
 end
 UI.RightState = RightState
 
--- K6: Offer everywhere = the red UIPanelButtonTemplate button "Offer" (as the profession window's Create button;
--- K1's whisper icon is gone). Small rows (guild-needs members, the sheet's alternatives): 80 x 20.
 UI.OFFER_SMALL_W = 80
--- below
 local function CreateOfferButton(b)
   return P.CreateOfferTextButton(b, b, UI.OFFER_SMALL_W, 20)
 end
 
--- K4: the list cards' and the sheet's Offer = a text button "Offer"; same action and tooltip
 P.CreateOfferTextButton = function(parent, row, w, h)
   local o = NewTextButton(parent, w or 84, h or 22, L.OFFER)
   o.row = row
@@ -116,7 +102,6 @@ P.CreateOfferTextButton = function(parent, row, w, h)
   return o
 end
 
--- K4: crafted box for the list cards and the sheet (the same mark as the guild-needs rows)
 local function CreateCraftedBox(parent, row)
   local cb = NewCheck(parent, 22)
   cb.row = row
@@ -129,12 +114,6 @@ local function CreateCraftedBox(parent, row)
   return cb
 end
 
--- K4: an item icon with a quality-coloured frame. K6: the profession window's reagent slot (probe:
--- SlotBackground = Professions-Slot-bg, IconBorder = Professions-Slot-Frame; WhatsTraining Crafting\RecipeList.lua:109-113
--- anchors) with the frame tinted by quality, as the client tints an item button's IconBorder; without those atlases
--- GearQuestForever's WhiteIconFrame (= file 651080, the client's own item-slot IconBorder) tinted by quality; without
--- that a quality-coloured square behind the icon (2 px of it show). Fields: qual (slot background / square), icon,
--- iconBorder, frameArt ("atlas" / "file" / nil). SetIconQuality(f, quality) colours it.
 local function AddQualityIcon(f, size, point, rel, relPoint, x, y, itemButton)
   f.qual = f:CreateTexture(nil, "BACKGROUND", nil, 1)
   f.qual:SetSize(size + 4, size + 4)
@@ -144,7 +123,6 @@ local function AddQualityIcon(f, size, point, rel, relPoint, x, y, itemButton)
   f.icon:SetPoint("CENTER", f.qual)
   f.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
   f.iconBorder = f:CreateTexture(nil, "OVERLAY")
-  -- itemButton (the sheet's gear slots): the item-button frame first, as the client's own character slots
   if not itemButton and HasAtlas("Professions-Slot-Frame") and SetAtlasSafe(f.iconBorder, "Professions-Slot-Frame") then
     f.iconBorder:SetPoint("TOPLEFT", f.icon, "TOPLEFT", -2, 2)
     f.iconBorder:SetPoint("BOTTOMRIGHT", f.icon, "BOTTOMRIGHT", 2, -2)
@@ -169,47 +147,55 @@ local function SetIconQuality(f, quality, r, g, b)
   end
 end
 
--- Sub-line tags of a craft (K1 rules): what an enchant replaces / which ring or trinket a craft replaces, not
--- learned, set bonus, rough weights. withLevel: the "from level N · X to go" tag first (the sheet; the list
--- cards show it as a chip instead).
--- the disambiguator after a row's name: "Ring 2" / "Trinket 1", W4: "off hand" for a dual-wield one-hander scored in
--- the off hand
 function UI.RowPair(d)
   if d.kind == "enchant" then return nil end
   if d.hand == "off" then return L.HAND_OFF end
   return PairSlotName(d.slot)
 end
+local Tags = {}
+
+function Tags.Replaces(d)
+  if d.kind == "enchant" then
+    local item = d.item and d.item.name or "?"
+    return { d.equipped and string.format(L.REPLACES_ON, d.equipped.name or "?", item) or string.format(L.NO_ENCHANT_ON, item) }
+  end
+  if UI.RowPair(d) and d.equipped then return { string.format(L.REPLACES, d.equipped.name or "?") } end
+  return nil
+end
+
+function Tags.Hands(d)
+  if d.status == "needs-partner" then return { d.slot == 17 and L.NEEDS_MAIN_HAND or L.NEEDS_OFF_HAND, C.future } end
+  if d.bothHands then return { L.REPLACES_BOTH } end
+  return nil
+end
+
+function Tags.Set(d)
+  if d.sets and d.setDelta and d.setDelta ~= 0 then
+    return d.setDelta > 0 and { L.SET_PLUS, C.set } or { L.SET_BREAKS, C.setLoss }
+  end
+  if d.hint then return { d.hint, C.set } end
+  return nil
+end
+
+function Tags.Rough(d)
+  if d.e and GCA.Scoring.isPlaceholder(d.e.raw) then return { L.ROUGH } end
+  return nil
+end
+
+Tags.ORDER = { Tags.Replaces, Tags.Hands, Tags.Set, Tags.Rough }
+
 local function CraftTags(d, cur, withLevel, noLearned)
   local tags = {}
   if withLevel and d.future and d.wearAt then tags[#tags + 1] = { LevelTag(d), C.levelTag } end
-  local pair = UI.RowPair(d)
-  if d.kind == "enchant" then
-    local item = d.item and d.item.name or "?"
-    tags[#tags + 1] = { d.equipped and string.format(L.REPLACES_ON, d.equipped.name, item) or string.format(L.NO_ENCHANT_ON, item) }
-  elseif pair and d.equipped then
-    tags[#tags + 1] = { string.format(L.REPLACES, d.equipped.name or "?") }
+  for _, tagOf in ipairs(Tags.ORDER) do
+    local tag = tagOf(d)
+    if tag then tags[#tags + 1] = tag end
   end
-  -- weapons: next to a worn two-hander (scored alone) / a two-hander replacing both hands
-  if d.status == "needs-partner" then
-    tags[#tags + 1] = { d.slot == 17 and L.NEEDS_MAIN_HAND or L.NEEDS_OFF_HAND, C.future }
-  elseif d.bothHands then
-    tags[#tags + 1] = { L.REPLACES_BOTH }
-  end
-  -- (an unlearned recipe is shown by the shared source button, UI.CreateLearnButton, in every view - not as a tag)
-  if d.sets and d.setDelta and d.setDelta ~= 0 then
-    tags[#tags + 1] = d.setDelta > 0 and { L.SET_PLUS, C.set } or { L.SET_BREAKS, C.setLoss }
-  elseif d.hint then
-    tags[#tags + 1] = { d.hint, C.set }
-  end
-  if d.e and GCA.Scoring.isPlaceholder(d.e.raw) then tags[#tags + 1] = { L.ROUGH } end
   return tags
 end
+
 UI.CraftTags = CraftTags
 
--- User 2026-11-15 ("always update all the views so it looks everywhere exactly the same"): ONE component for a
--- recipe you haven't learned, used by the "Nach Mitglied" cards, the character sheet and Gildenbedarf's detail
--- panel: red text = source icon + best source + "1g beim Händler · 2g im AH" (UI.SourceBadge; "Not learned" without
--- source data; browse mode teal); hover = every source (UI.NotLearnedTip), click = map marker, right-click = menu.
 function UI.LearnText(d, cur)
   local colour = (cur and cur.browse) and C.browse or C.notLearnedTag
   return colour .. (UI.SourceBadge(d, cur) or L.NOT_LEARNED) .. "|r"
@@ -228,7 +214,6 @@ function UI.CreateLearnButton(parent)
   nl:Hide()
   return nl
 end
--- fills it for d (hidden for a known recipe); returns the width it takes (0 when hidden)
 function UI.UpdateLearnButton(nl, d, cur, maxW)
   nl.data, nl.cur = d, cur
   if not d or d.known then
@@ -245,11 +230,6 @@ function UI.UpdateLearnButton(nl, d, cur, maxW)
   return w
 end
 
--- K4 variant "List": one 50 px row per craft: 38 px icon in the reagent-slot frame, name in quality colour
--- (+ "(Ring 2)" on pair slots), second line = the stat differences (when both sides have stat data) + the K1 tags
--- (K6: the "from level N" tag is orange text in that line, no chip box); right: the gain in the client's green
--- font over the points, the crafted box, the red "Offer" button. Too-high-level rows are dimmed (Offer and the box
--- stay at full alpha). K6: indented a little under their slot's worn row, no tree lines, no row shading.
 local CARD_ICON = 38
 local CARD_GAIN_W = 84
 local CARD_OFFER_W = 84
@@ -270,9 +250,7 @@ local function CreateCardRow(parent)
   b.sub:SetJustifyH("LEFT")
   b.sub:SetTextColor(SUB_TINT[1], SUB_TINT[2], SUB_TINT[3])
   SingleLine(b.sub)
-  -- User 2026-11-15: a missing recipe = a red "Not learned" button at the start of the second line (replaces the K7
-  -- third "where to get it" line): hover = the sources, click = map marker (UI.NotLearnedTip / NotLearnedClick)
-  b.nl = UI.CreateLearnButton(b) -- the shared source button (same in every view)
+  b.nl = UI.CreateLearnButton(b)
   if b.RegisterForClicks then b:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
   b.offer = P.CreateOfferTextButton(b, b, CARD_OFFER_W)
   b.crafted = CreateCraftedBox(b, b)
@@ -299,16 +277,11 @@ local function CreateCardRow(parent)
       if self.data and self.data.info.link then HandleModifiedItemClick(self.data.info.link) end
       return
     end
-    UI.OpenRecipe(RowCtx(self)) -- user 2026-11-15: a click opens the recipe in Blizzard's profession window
+    UI.OpenRecipe(RowCtx(self))
   end)
   return b
 end
 
--- User 2026-11-15: clicking a craft opens Blizzard's profession window on that recipe (C_TradeSkillUI.OpenRecipe,
--- as CraftersJournal does on this client; only from a click, not in combat). Recipes you don't know / professions
--- you only browse can't be opened: a chat line says why. Only the "Nach Mitglied" cards and the sheet's featured
--- craft do this (not Gildenbedarf, user). Our window stays open (user); while the profession window is shown, ours
--- drops from HIGH to MEDIUM strata so the profession window can be on top (UI.StepBehindProfessions).
 function UI.StepBehindProfessions()
   local f = UI.frame
   if not f then return end
@@ -335,14 +308,49 @@ function UI.OpenRecipe(d, cur)
   return true
 end
 
+local Card = {}
+
+function Card.Title(d)
+  local pair = UI.RowPair(d)
+  local name = ColoredItemName(d.info)
+  if not pair then return name end
+  return name .. " " .. C.muted .. "(" .. pair .. ")|r"
+end
+
+function Card.TextWidth(showOffer, showCheck)
+  local textL = CARD_INDENT + 4 + CARD_ICON + 4 + 10
+  local rightW = 6 + (showOffer and (CARD_OFFER_W + 4) or 0) + (showCheck and (22 + 6) or 0) + CARD_GAIN_W + 10
+  return math.max(40, UI.listW - textL - rightW)
+end
+
+function Card.PlaceSub(b, learned, avail, nlW)
+  b.nl:ClearAllPoints()
+  b.nl:SetPoint("BOTTOMLEFT", b.qual, "BOTTOMRIGHT", 10, 3)
+  b.sub:ClearAllPoints()
+  if learned then
+    b.sub:SetPoint("BOTTOMLEFT", b.qual, "BOTTOMRIGHT", 10, 4)
+    b.sub:SetWidth(avail)
+  else
+    b.sub:SetPoint("LEFT", b.nl, "RIGHT", 6, 0)
+    b.sub:SetWidth(math.max(10, avail - nlW - 6))
+  end
+end
+
+function Card.PlaceTitle(b, avail)
+  b.title:ClearAllPoints()
+  if b.hasSub then
+    b.title:SetPoint("TOPLEFT", b.qual, "TOPRIGHT", 10, -3)
+  else
+    b.title:SetPoint("LEFT", b.qual, "RIGHT", 10, 0)
+  end
+  b.title:SetWidth(avail)
+end
+
 local function UpdateCardRow(b, d)
   local cur = UI.current
   b.icon:SetTexture(d.info.icon or ItemIcon(d.cand.itemID))
   SetIconQuality(b, d.info.quality)
-  local pair = UI.RowPair(d)
-  b.title:SetText(Hex(QualityColor(d.info.quality)) .. (d.info.name or "?") .. "|r" .. (pair and (" " .. C.muted .. "(" .. pair .. ")|r") or ""))
-  -- second line: the "Not learned" button (red), then the K1 tags (level tag first, orange). No stat differences
-  -- any more (user 2026-11-15; the character sheet keeps them).
+  b.title:SetText(Card.Title(d))
   local tags = CraftTags(d, cur, true, true)
   local learned = d.known
   b.sub:SetText(((not learned and #tags > 0) and "·  " or "") .. TagLine(tags))
@@ -355,43 +363,21 @@ local function UpdateCardRow(b, d)
   b.crafted:SetShown(showCheck)
   b.crafted:SetChecked(mark ~= nil)
   LayoutRight(b, showOffer, showCheck, 7)
-  -- texts: one anchor each + an explicit width (the room between the icon and the gain), so they never run
-  -- under the gain / box / Offer and need no second anchor with another vertical centre
-  local textL = CARD_INDENT + 4 + CARD_ICON + 4 + 10
-  local rightW = 6 + (showOffer and (CARD_OFFER_W + 4) or 0) + (showCheck and (22 + 6) or 0) + CARD_GAIN_W + 10
-  local avail = math.max(40, UI.listW - textL - rightW)
+  local avail = Card.TextWidth(showOffer, showCheck)
   b.textW = avail
-  -- second line: [Not learned]  ·  tags (the K7 third source line is gone: its content is the button's tooltip)
   b.hasSource = false
-  b.nl:ClearAllPoints()
-  b.nl:SetPoint("BOTTOMLEFT", b.qual, "BOTTOMRIGHT", 10, 3)
-  b.sub:ClearAllPoints()
-  if learned then
-    b.sub:SetPoint("BOTTOMLEFT", b.qual, "BOTTOMRIGHT", 10, 4)
-    b.sub:SetWidth(avail)
-  else
-    b.sub:SetPoint("LEFT", b.nl, "RIGHT", 6, 0)
-    b.sub:SetWidth(math.max(10, avail - nlW - 6))
-  end
+  Card.PlaceSub(b, learned, avail, nlW)
   b.hasSub = #tags > 0 or not learned
-  -- title on the top line when there is a second line, else centred on the row
-  b.title:ClearAllPoints()
-  if b.hasSub then
-    b.title:SetPoint("TOPLEFT", b.qual, "TOPRIGHT", 10, -3)
-  else
-    b.title:SetPoint("LEFT", b.qual, "RIGHT", 10, 0)
-  end
-  b.title:SetWidth(avail)
+  Card.PlaceTitle(b, avail)
   local a = d.future and 0.55 or 1
   for _, x in ipairs({ b.qual, b.iconBorder, b.icon, b.title, b.sub, b.nl, b.gain, b.points }) do x:SetAlpha(a) end
   b.dimmed = d.future and true or false
 end
+
 UI.UpdateCardRow = UpdateCardRow
--- K7: card height (scroll list height function): +10 px for the source line
 UI.SOURCE_EXTRA_H = 10
 function UI.CardHeight(b) return SUG_ROW_H + (b.hasSource and UI.SOURCE_EXTRA_H or 0) end
 
--- shared with the files loaded after this one (P)
 P.AddQualityIcon = AddQualityIcon
 P.CraftTags = CraftTags
 P.CreateCardRow = CreateCardRow

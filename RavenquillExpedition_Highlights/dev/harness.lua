@@ -1,6 +1,3 @@
--- Offline test of RavenquillExpedition (core) + RavenquillExpedition_Highlights against a mock of the Forever API.
--- Run from anywhere:  lua RavenquillExpedition_Highlights/dev/harness.lua
--- Exits 1 on any failure. Uses a virtual clock; German client strings (positional %1$s) on purpose.
 unpack = table.unpack
 local DIR = (arg[0]:gsub("[^/\\]*$", "")) .. "../.."
 local fails, passes = 0, 0
@@ -8,9 +5,6 @@ local function check(cond, label)
   if cond then passes = passes + 1 else fails = fails + 1; io.write("  FAIL ", label, "\n") end
 end
 
----------------------------------------------------------------------------
--- clock, timers, printing, errors, secrets
----------------------------------------------------------------------------
 local now = 1000
 local BASE = 1800000000
 local timers = {}
@@ -45,14 +39,10 @@ function debugstack() return "" end
 function wipe(t) for k in pairs(t) do t[k] = nil end return t end
 tinsert = table.insert
 math.random = function() return 0.5 end
--- a secret value: any use other than issecretvalue() raises, like on Forever
 local SECRET = setmetatable({}, { __eq = function() error("compared a secret") end,
   __tostring = function() error("used a secret") end, __index = function() error("indexed a secret") end })
 function issecretvalue(v) return rawequal(v, SECRET) end
 
----------------------------------------------------------------------------
--- frames
----------------------------------------------------------------------------
 local frames = {}
 local lines = {}
 local function obj()
@@ -78,7 +68,7 @@ local function obj()
   end })
 end
 function CreateFrame(_, name, _, template)
-  if template == "ButtonFrameTemplate" then error("no template in mock") end -- exercise the fallback
+  if template == "ButtonFrameTemplate" then error("no template in mock") end
   local o = obj()
   frames[#frames + 1] = o
   if name then _G[name] = o end
@@ -95,9 +85,6 @@ UISpecialFrames = {}
 SlashCmdList = {}
 RAID_CLASS_COLORS = { ROGUE = { colorStr = "fffff569" }, DRUID = { colorStr = "ffff7d0a" }, MAGE = { colorStr = "ff3fc7eb" } }
 
----------------------------------------------------------------------------
--- game state + API
----------------------------------------------------------------------------
 local G = {
   inInstance = false, itype = "none", instName = "Elwynn",
   level = 30, inCombat = false, guild = "Die Gilde",
@@ -166,7 +153,6 @@ NUM_BAG_SLOTS, NUM_TOTAL_EQUIPPED_BAG_SLOTS, NUM_BANKBAGSLOTS, BANK_CONTAINER = 
 C_AddOns = {
   IsAddOnLoaded = function(name) return name == "RavenquillExpedition" or name == "RavenquillExpedition_Highlights" end,
   GetAddOnInfo = function(name)
-    -- the craft advisor's folder since the rename (Overview.lua:55)
     if name == "RavenquillExpedition_CraftAdvisor" then return name, "Guild Craft Advisor", "", false, "DISABLED" end
     return name, nil, nil, false, "MISSING"
   end,
@@ -195,11 +181,8 @@ G.items = {
   [306] = { name = "Lila Bankding", q = 4, il = 40 }, [307] = { name = "Altes Lila", q = 4, il = 40 },
 }
 G.equipped = { [1] = 100, [11] = 200, [12] = 201, [16] = 106 }
-G.bags[0] = { [1] = 105, [2] = 307 } -- in the bags at install: an old sword and an old epic
+G.bags[0] = { [1] = 105, [2] = 307 }
 
----------------------------------------------------------------------------
--- load the addons
----------------------------------------------------------------------------
 local function load(addon, file, ns)
   local chunk, err = loadfile(DIR .. "/" .. addon .. "/" .. file)
   if not chunk then error(err) end
@@ -233,19 +216,13 @@ local function recv(sender, body) fire("CHAT_MSG_ADDON", "RQE1", "H;" .. body, "
 local function T() return BASE + math.floor(now) end
 local function outboxSize() local n = 0; for _ in pairs(H.cdb.outbox) do n = n + 1 end; return n end
 
----------------------------------------------------------------------------
--- core
----------------------------------------------------------------------------
 check(GS:PlayerKey() == "Me Smith", "player key is 'First Surname'")
 check(GS:GuildKey() == "Die Gilde@Forever", "guild key")
 check(GS:NormName("Bud Stone-Forever") == "Bud Stone", "realm suffix stripped")
 check(GS:NormName("Anna Muller-Lee") == "Anna Muller-Lee", "hyphenated surname kept")
 check(GS:IsGuildMember("Bud Stone") == true and GS:IsGuildMember("Stranger X") == false, "roster read (names with -Realm)")
 
----------------------------------------------------------------------------
--- gear
----------------------------------------------------------------------------
-equip(1, 101); advance(2) -- rare, +10
+equip(1, 101); advance(2)
 check(count() == 1 and last().k == "gear" and last().il == 30 and last().oil == 20, "big rare upgrade logged (+10)")
 check(not lastPrinted():find("Neuer Helm", 1, true), "gear upgrades stay out of chat by default")
 equip(1, 100); advance(2)
@@ -267,8 +244,6 @@ check(count() == 2, "unloaded item waits")
 G.items[301].unloaded = nil; advance(2)
 check(count() == 3 and last().item == 301, "logged after the item data arrives (empty slot + epic)")
 advance(3)
--- the core's bucket (BURST 3, a token every 5 s): three highlights logged within 16 s all go out as they come; the
--- third one 4 s after the second, closer than one refill, on a token left from the burst
 local CC = GS.CommConst
 local gTimes = {}
 for _, x in ipairs(G.sent) do if x.msg:find("H;1;g;", 1, true) then gTimes[#gTimes + 1] = x.t end end
@@ -280,17 +255,12 @@ check(sentKind("g") == 3, "nothing sent twice while waiting for the echo")
 check(G.sent[1].prefix == "RQE1" and G.sent[1].chan == "GUILD", "shared prefix on GUILD")
 echoAll(); advance(20)
 check(outboxSize() == 0, "echo clears the outbox")
--- one budget per client: another suite addon's GUILD message uses up our tokens
 advance(120)
 C_ChatInfo.SendAddonMessage("RQEMap1", "x", "GUILD")
 C_ChatInfo.SendAddonMessage("GCAdv1", "y", "WHISPER")
--- a full bucket (BURST) minus one
 check(GS.Comm.foreign == 1 and math.abs(GS.Comm.tokens - (CC.BURST - 1)) < 0.01,
   ("a foreign GUILD send costs a token, a whisper doesn't (%.2f of %d)"):format(GS.Comm.tokens, CC.BURST))
 
----------------------------------------------------------------------------
--- epics in the bags
----------------------------------------------------------------------------
 local n = count()
 G.bags[0][3] = 304; fire("BAG_UPDATE_DELAYED"); advance(2)
 check(count() == n + 1 and last().k == "loot" and last().src == "bag" and last().item == 304, "new epic in the bags logged")
@@ -300,7 +270,7 @@ fire("CHAT_MSG_LOOT", "Ihr erhaltet Beute: " .. link(305) .. ".", "Me Smith")
 G.bags[0][4] = 305; fire("BAG_UPDATE_DELAYED"); advance(2)
 check(count() == n + 2 and last().src == nil, "loot line + bag update = one entry")
 G.items[308] = { name = "Lila ohne Punkt", q = 4, il = 41 }
-fire("CHAT_MSG_LOOT", "Ihr erhaltet Beute: " .. link(308), "Me Smith") -- Forever: own loot line without the final "."
+fire("CHAT_MSG_LOOT", "Ihr erhaltet Beute: " .. link(308), "Me Smith")
 check(count() == n + 3 and last().item == 308 and last().src == nil, "own loot line without the final period matches")
 n = n + 1
 fire("BANKFRAME_OPENED"); G.bags[0][5] = 306; fire("BAG_UPDATE_DELAYED"); advance(2)
@@ -312,22 +282,19 @@ fire("CHAT_MSG_LOOT", SECRET, SECRET)
 check(H.db.diag.secretLoot == 1, "secret loot line counted, no error")
 advance(60); echoAll(); advance(60); echoAll()
 
----------------------------------------------------------------------------
--- bosses: dungeon (personal first kills), raid (one group report), long raid
----------------------------------------------------------------------------
 G.inInstance, G.itype, G.instName = true, "party", "Die Todesminen"
 fire("PLAYER_ENTERING_WORLD")
 local sentBefore = #G.sent
 n = count()
-fire("ENCOUNTER_END", 1144, "Edwin VanCleef", 1, 5, 0) -- Forever: a won dungeon fight reports success 0 ...
-fire("BOSS_KILL", 1144, "Edwin VanCleef")             -- ... and BOSS_KILL names the kill
+fire("ENCOUNTER_END", 1144, "Edwin VanCleef", 1, 5, 0)
+fire("BOSS_KILL", 1144, "Edwin VanCleef")
 fire("ENCOUNTER_END", 1144, "Edwin VanCleef", 1, 5, 1)
 check(count() == n + 1 and last().k == "boss" and last().first and last().inst == "Die Todesminen", "first dungeon kill logged once")
 advance(120)
 fire("BOSS_KILL", 1144, "Edwin VanCleef")
 check(count() == n + 1, "repeat dungeon kill not logged")
 check(#G.sent == sentBefore and next(GS.Comm.q) == nil, "nothing queued inside an instance")
-GS:NotePeer("Cara Moss") -- Cara runs the suite and sorts before me: she is the elected reporter
+GS:NotePeer("Cara Moss")
 G.itype, G.instName, G.raid = "raid", "Geschmolzener Kern", true
 G.group = { raid1 = { "Me", "Smith" }, raid2 = { "Cara", "Moss" }, raid3 = { "Bud", "Stone" }, raid4 = { "Rando", "Pug" } }
 fire("PLAYER_ENTERING_WORLD")
@@ -335,7 +302,7 @@ fire("ENCOUNTER_END", 663, "Lucifron", 9, 40, 1)
 local luci = last()
 check(luci.k == "boss" and luci.grp and luci.n == 3 and H.cdb.outbox[luci.id] and H.cdb.outbox[luci.id].rank == 1,
   "raid kill = group report, 3 guildies, my rank 1")
-advance(4 * 3600) -- a long raid
+advance(4 * 3600)
 fire("ENCOUNTER_END", 664, "Magmadar", 9, 40, 1)
 local mag = last()
 check(lastPrinted():find("2 Gildenmitglieder", 1, true), "group kill line names the guildie count")
@@ -357,9 +324,6 @@ G.level = 30
 G.inInstance, G.itype, G.instName = false, "none", "Westfall"
 fire("PLAYER_ENTERING_WORLD"); advance(5)
 
----------------------------------------------------------------------------
--- quests
----------------------------------------------------------------------------
 G.quests = {
   { title = "Westfall", header = true, id = 0 },
   { title = "Die Bruderschaft der Defias", level = 22, group = 5, id = 166 },
@@ -386,22 +350,15 @@ n = count()
 fire("QUEST_TURNED_IN", 78, 100, 10)
 check(count() == n, "quest 5 levels above: off by default")
 
----------------------------------------------------------------------------
--- levels
----------------------------------------------------------------------------
 n = count()
 G.level = 39; fire("PLAYER_LEVEL_UP", 39)
 check(count() == n, "level 39 not logged")
 G.level = 40; fire("PLAYER_LEVEL_UP", 40)
 check(last().k == "level" and last().lvl == 40, "level 40 logged")
 G.level = 30
--- echo as the guild does (within seconds): an echo after 300 s would count as lost and put the core in slow mode
 for _ = 1, 30 do advance(10); echoAll() end
 advance(5)
 
----------------------------------------------------------------------------
--- loot of guildies
----------------------------------------------------------------------------
 n = count()
 fire("CHAT_MSG_LOOT", "Ihr erhaltet Beute: " .. link(300) .. ".", "Me Smith")
 check(count() == n, "own green loot not logged")
@@ -409,14 +366,13 @@ G.group = { party1 = { "Bud", "Stone" }, party2 = { "Dora", "Dunn" } }
 local sentLoot = sentKind("l")
 fire("CHAT_MSG_LOOT", "Bud Stone bekommt Beute: " .. link(302) .. ".", "Bud Stone")
 check(last().who == "Bud Stone" and last().by == "Me Smith" and last().item == 302, "guildie's epic loot logged as seen by me")
-recv("Bud Stone", ("1;l;%d;5;Bud Stone;28;9;302;4;"):format(T())) -- Bud runs the suite after all
+recv("Bud Stone", ("1;l;%d;5;Bud Stone;28;9;302;4;"):format(T()))
 advance(200)
 check(sentKind("l") == sentLoot, "witness report suppressed by the looter's own report")
 n = count()
 fire("CHAT_MSG_LOOT", "Bud Stone bekommt Beute: " .. link(303) .. ".", "Bud Stone")
 check(count() == n, "loot of a known suite user is left to them")
 fire("CHAT_MSG_LOOT", "Dora Dunn bekommt Beute: " .. link(303) .. ".", "Dora Dunn")
--- the guild echoes what we send (otherwise the core counts it lost and slows down, Comm.lua's watchdog)
 for _ = 1, 20 do advance(10); echoAll() end
 check(sentKind("l") == sentLoot + 1 and sendsOf(";w;Dora Dunn;") == 1, "unreported guildie loot sent as a witness report")
 G.group = { party1 = { "Rando", "Pug" } }
@@ -426,9 +382,6 @@ check(count() == n, "non-guildie loot ignored")
 G.group = {}
 echoAll(); advance(5)
 
----------------------------------------------------------------------------
--- activity: everything else this character did (user: "show everything, not just highlights")
----------------------------------------------------------------------------
 local act = H.cdb.activity
 local function actOf(k, pred)
   local c = 0
@@ -458,9 +411,6 @@ merged = H:LogLines()
 check(#merged == count(), "'only highlights' hides the activity")
 H:Settings().logOnlyHighlights = false
 
----------------------------------------------------------------------------
--- receiving
----------------------------------------------------------------------------
 n = count()
 local t0 = T()
 local mark = #printed
@@ -491,9 +441,6 @@ local filed = H.db.guilds["Die Gilde@Forever"].events
 G.guild = "Die Gilde"
 check(count() == n + 1 and filed[#filed].lvl == 50, "entry filed under the cached guild key while GetGuildInfo is empty")
 
----------------------------------------------------------------------------
--- wire format
----------------------------------------------------------------------------
 local long = string.rep("ä", 80)
 local body = H.Encode({ k = "quest", t = t0, id = "Me Smith#" .. t0 .. "#3", who = "Me Smith", lvl = 30, cls = "ROGUE",
   qid = 5, ql = 30, tag = "elite", title = long })
@@ -512,12 +459,9 @@ for _, k in ipairs({ "gear", "loot", "boss", "quest", "level" }) do
   if k == "loot" then check(x and x.src == "bag", "loot source survives") end
 end
 
----------------------------------------------------------------------------
--- lost messages, outbox across a relog, hourly cap
----------------------------------------------------------------------------
 echoAll(); advance(130)
-wipe(H.cdb.outbox) -- leftovers the test never echoed would queue ahead of this one
-equip(2, 303); advance(2) -- epic neck, empty slot before
+wipe(H.cdb.outbox)
+equip(2, 303); advance(2)
 local id = last().id
 local mine = ";" .. id:match("#(%d+)$") .. ";Me Smith;"
 advance(40)
@@ -540,9 +484,6 @@ check(outboxSize() == 2, "only shareCap highlights per hour are shared, the rest
 H:Settings().shareCap = 8
 advance(200); echoAll(); advance(5)
 
----------------------------------------------------------------------------
--- review 2026-11-15: one guildmate sending forged highlights all the time (one every 30 s for 50 minutes)
----------------------------------------------------------------------------
 do
   local before, chatBefore = count(), #printed
   local fromCara = 0
@@ -559,9 +500,6 @@ do
   check((H.db.diag.recvCapped or 0) >= 70, "the rest is counted, not stored")
 end
 
----------------------------------------------------------------------------
--- options (all settings live in the /rq window: user decision 2026-11-14)
----------------------------------------------------------------------------
 check(H.db.diag.seen.ENCOUNTER_END and H.db.diag.last.QUEST_TURNED_IN, "event diagnostics recorded")
 check(GS:Peers()["Cara Moss"] and RavenquillExpeditionDB.diagSender == nil, "peers recorded; no guildmate name stored for diagnosis")
 local function opt(label)
@@ -618,9 +556,6 @@ check(table.concat(core, "\n"):find("sync: queue", 1, true) and table.concat(cor
 SlashCmdList.RAVENQUILL("hl share off")
 check(H:Settings().share and GS.optionsModule == "Highlights", "old chat subcommands do nothing but open the options")
 
----------------------------------------------------------------------------
--- overview home
----------------------------------------------------------------------------
 SlashCmdList.RAVENQUILL("")
 check(ov:IsShown() and GS.optionsModule == nil, "/rq from the options view goes to the overview")
 local rows = GS:OverviewRows()
@@ -638,7 +573,6 @@ GS:ShowHome()
 check(rawget(ov.home.rows[2].button, "_shown") == false and rawget(ov.home.rows[2].opt, "_shown") == false, "no buttons for a missing module")
 local recent = H:OverviewRecent(8)
 check(type(recent) == "table" and #recent == 8 and recent[8]:find("Stufe 50", 1, true), "recent highlights for the overview")
--- GuildCraftAdvisor as the registered "Craft" module (GCA session): one row, with its hooks
 local craft = GS:NewModule("Craft", { addon = "GuildCraftAdvisor", slash = "craft", title = "Guild Craft Advisor", icon = "Interface\\Icons\\Trade_LeatherWorking" })
 local crafted = false
 function craft:Open() crafted = true end
@@ -647,7 +581,6 @@ rows = GS:OverviewRows()
 check(#rows == 3 and rows[3].state == "loaded" and rows[3].status == "Gilden-Sync · 4 erfasst" and rows[3].open, "Craft module replaces the GCA row")
 SlashCmdList.RAVENQUILL("craft")
 check(crafted, "/rq craft without options opens its window")
--- a module the overview doesn't know yet, without options or Open: /rq <key> runs its OnSlash("")
 local extra = GS:NewModule("Extra", { addon = "RavenquillExpedition_Extra", slash = "ex", title = "Extra" })
 local helped = false
 function extra:OnSlash(rest) helped = (rest == "") end
@@ -655,14 +588,12 @@ rows = GS:OverviewRows()
 check(rows[4] and rows[4].title == "Extra" and not rows[4].open and not rows[4].options, "unknown module listed")
 SlashCmdList.RAVENQUILL("ex")
 check(helped, "/rq ex runs the module's OnSlash with no arguments")
--- the map module's hook shape (RavenquillExpedition_Map Map.lua:425-430): icon, Open, OverviewStatus
 local opened = false
 local map = GS:NewModule("Map", { addon = "RavenquillExpedition_Map", slash = "map", title = "Karte", icon = "Interface\\Icons\\INV_Misc_Map_01" })
 function map:Open() opened = true end
 function map:OverviewStatus() return "Auf der Karte: 2 · Teilen an" end
 local mapSize = 1
 map.options = { { type = "toggle", label = "Teilen", get = function() return true end, set = function() end },
-  -- like the map's real "size" option (Map.lua:405-407): a 0.1 step
   { type = "range", label = "Größe", min = 0.5, max = 2, step = 0.1, format = "%.1f",
     get = function() return mapSize end, set = function(v) mapSize = v end } }
 rows = GS:OverviewRows()
@@ -684,14 +615,13 @@ local errBefore = #errors
 rows = GS:OverviewRows()
 check(rows[2].status == GS.OverviewL.LOADED and rows[2].open, "a failing status hook falls back to 'loaded', the row still works")
 check(#errors == errBefore + 1, "the hook's error goes to BugSack")
-table.remove(errors) -- that one was on purpose
+table.remove(errors)
 function map:OverviewStatus() return "Auf der Karte: 2 · Teilen an" end
 SlashCmdList.RAVENQUILL("")
 SlashCmdList.RAVENQUILL("")
 check(not ov:IsShown(), "/rq on the overview closes it")
 check(#errors == 0, "no Lua errors (" .. #errors .. ")")
 
--- core API rules (rework Stage 0b)
 local probe = GS:NewModule("Probe", { addon = "Probe" })
 local okDup, errDup = pcall(probe.NewChannel, probe, { tag = "H" })
 check(not okDup and tostring(errDup):find("already taken", 1, true), "a channel on Highlights' tag raises")

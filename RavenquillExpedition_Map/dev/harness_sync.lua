@@ -1,5 +1,3 @@
--- Offline sync harness: many virtual clients (each with the real core) on one simulated GUILD channel and clock.
--- Run: lua "<addon>/dev/harness_sync.lua"   (exit code 1 on failure)
 local DIR = (arg and arg[0] or ""):gsub("[/\\]dev[/\\]harness_sync%.lua$", "")
 if DIR == "" or DIR == arg[0] then DIR = "." end
 package.path = DIR .. "/dev/?.lua;" .. package.path
@@ -26,7 +24,6 @@ local function Client(sched, bus, name, opts)
     pos = opts.pos, dir = DIR })
 end
 
--- random walk while w.moving is true
 local function Walk(sched, w, step)
   step = step or 0.002
   sched:at(sched.t + 2, function()
@@ -75,9 +72,6 @@ local function NoErrors(worlds, what)
   check(#all == 0, what .. " (" .. tostring(all[1]) .. ")")
 end
 
----------------------------------------------------------------------------
--- 1. Two clients: first send, notice, echo, positions, pacing
----------------------------------------------------------------------------
 do
   local sched, bus = Setup()
   local A = Client(sched, bus, "Anna Alpha", { pos = { 1429, 0.40, 0.40 }, class = "MAGE", level = 42 })
@@ -86,7 +80,7 @@ do
   A.moving = true; Walk(sched, A)
   sched:advance(25)
   check(bus:count(0, 25) == 0, "nothing sent before the 30-90 s jitter")
-  sched:advance(75) -- t = 100
+  sched:advance(75)
   local firstA = nil
   for _, e in ipairs(bus.log) do if e.sender == "Anna Alpha" and e.prefix == "RQEMap1" then firstA = e.t; break end end
   check(firstA and firstA >= 30 and firstA <= 92, "A's first send within 30-90 s with 2 online (" .. tostring(firstA) .. ")")
@@ -100,9 +94,8 @@ do
   check(A.M.sync.echoed >= 1 and not A.RQ:CommState().slow and A.RQ:CommState().delivered >= 1, "A's echo seen, not slow")
   check(count(B.hbdWorld) == 1, "B has one world pin")
 
-  sched:advance(600) -- t = 700, A moving all the time
+  sched:advance(600)
   local MC, CC = A.M.C, A.RQ.CommConst
-  -- two senders: the guild-wide interval is the floor, max(INTERVAL_MIN, 2 x 60 / GUILD_TARGET) = 5 s
   check(A.M:Interval(true) == MC.INTERVAL_MIN, ("2 active senders: interval = the %d s floor (%s)"):format(MC.INTERVAL_MIN, A.M:Interval(true)))
   local per60 = MaxPer60(bus, "Anna Alpha", 0, 700)
   check(per60 <= 60 / MC.INTERVAL_MIN and per60 <= CC.BURST + 60 * CC.RATE,
@@ -117,7 +110,6 @@ do
   check(minGap >= MC.INTERVAL_MIN, ("A's sends at least %d s apart (min gap %s)"):format(MC.INTERVAL_MIN, tostring(minGap)))
   local walked = MapSends(bus, "Anna Alpha", 100, 700)
   check(walked >= 600 / 30, ("moving A (random walk) keeps updating, far more often than the old 30 s (%d in 600 s)"):format(walked))
-  -- a lone walker going straight: about every 5 s (the 2 s tick rounds the gap up to 6 s)
   A.moving = false
   local tw = sched.t
   local straight = sched:at(sched.t + 2, function() A.pos = { A.pos[1], A.pos[2] + 0.002, A.pos[3] } end, 2)
@@ -136,7 +128,6 @@ do
   check(A.M.members["Bert Beta"].flags.s, "A sees B as stationary")
   check(A.M:ActiveSenders() == 2, "active senders = 2")
 
-  -- taxi: one message at take-off, none during, one at landing
   local t0 = sched.t
   A.taxi = true
   sched:advance(40)
@@ -151,7 +142,6 @@ do
   sched:advance(6)
   check(MapSends(bus, "Anna Alpha", t2, sched.t) == 1, "landing sent")
 
-  -- combat
   A.combat = true
   local t3 = sched.t
   sched:advance(120)
@@ -160,7 +150,6 @@ do
   sched:advance(4)
   check(MapSends(bus, "Anna Alpha", sched.t - 4, sched.t) == 1, "sent right after combat")
 
-  -- instance: no sending, no reading; echo wait cleared
   A.instance = true
   A.fire("PLAYER_ENTERING_WORLD")
   local recv = A.M.sync.received
@@ -174,7 +163,6 @@ do
   sched:advance(4)
   check(MapSends(bus, "Anna Alpha", sched.t - 4, sched.t) == 1, "sends again after the instance")
 
-  -- share off -> L, receiver drops the pin at once
   sched:advance(2)
   A.set("share", false)
   local leave = LastMsg(bus, "Anna Alpha", "L")
@@ -192,9 +180,6 @@ do
   NoErrors({ A, B }, "two clients: no Lua errors")
 end
 
----------------------------------------------------------------------------
--- 2. Lowest priority: yield to other addons' GUILD messages; starvation guard
----------------------------------------------------------------------------
 do
   local sched, bus = Setup()
   local A = Client(sched, bus, "Anna Alpha")
@@ -204,7 +189,6 @@ do
   sched:advance(120)
   check(A.RQ:CommState().hooked, "the core's hook on SendAddonMessage is installed (other addons' sends count)")
   local MC, CC = A.M.C, A.RQ.CommConst
-  -- from here A walks steadily back and forth (wants to send on every tick), so the guard's own pace is what we see
   A.moving = false
   local dir = 1
   sched:at(sched.t + 1, function()
@@ -212,7 +196,6 @@ do
     if x > 0.8 or x < 0.2 then dir = -dir; x = A.pos[2] + dir * 0.002 end
     A.pos = { A.pos[1], x, A.pos[3] }
   end, 2)
-  -- another addon on A sends more often than the core's quiet time (every 3 s < STATE_QUIET 4 s)
   local other = true
   local every = CC.STATE_QUIET - 1
   sched:at(sched.t + 1, function() if other then A.env.C_ChatInfo.SendAddonMessage("OtherX", "hi", "GUILD") end end, every)
@@ -220,7 +203,7 @@ do
   sched:advance(MC.STARVE - 2)
   check(MapSends(bus, "Anna Alpha", t0, sched.t) == 0, ("map yields while another addon sends every %d s"):format(every))
   check(A.M.sync.skip and A.M.sync.skip:find("another addon"), "skip reason names the other addon (" .. tostring(A.M.sync.skip) .. ")")
-  sched:advance(600 - (MC.STARVE - 2)) -- starvation guard: one message per >= STARVE s gets through anyway (code review #2)
+  sched:advance(600 - (MC.STARVE - 2))
   local starved = MapSends(bus, "Anna Alpha", t0, sched.t)
   local sgap, sprev = math.huge, nil
   for _, e in ipairs(bus.log) do
@@ -232,14 +215,12 @@ do
   check(starved >= 600 / (2 * MC.STARVE) and starved <= 600 / MC.STARVE + 1 and sgap >= MC.STARVE,
     ("starvation guard: 1 per >= %d s despite a %d s neighbour (%d in 600 s, closest %s s)"):format(MC.STARVE, every, starved, tostring(sgap)))
   other = false
-  -- a neighbour at 7 s: passes the 4 s rule, trips the 10-in-60 s rule sometimes; the guard lets map through
   local every2 = 60 / CC.STATE_MAX_60 + 1
   sched:at(sched.t + 1, function() A.env.C_ChatInfo.SendAddonMessage("OtherY", "hi", "GUILD") end, every2)
   local t1 = sched.t
   sched:advance(400)
   local n = MapSends(bus, "Anna Alpha", t1, sched.t)
   check(n >= 400 / (2 * MC.STARVE), ("map still gets through (at least one per 2 x STARVE) with a %d s neighbour (%d in 400 s)"):format(every2, n))
-  -- all GUILD messages of this client (map + other) in any 60 s window
   local times = {}
   for _, e in ipairs(bus.log) do if e.sender == "Anna Alpha" and e.t >= t1 then times[#times + 1] = e.t end end
   local worst = 0
@@ -254,9 +235,6 @@ do
   NoErrors({ A, B }, "priority: no Lua errors")
 end
 
----------------------------------------------------------------------------
--- 3. Echo loss -> slow mode -> recovery
----------------------------------------------------------------------------
 do
   local sched, bus = Setup()
   local A = Client(sched, bus, "Anna Alpha")
@@ -283,16 +261,13 @@ do
   check(MapSends(bus, "Anna Alpha", t1, sched.t) >= 6, "normal rate again after recovery")
 end
 
----------------------------------------------------------------------------
--- 4. Receiving: validation, roster gate, offline, order, intake, realm echo, guild change
----------------------------------------------------------------------------
 do
   local sched, bus = Setup()
   local A = Client(sched, bus, "Anna Alpha")
   bus:member("Bert Beta", "MAGE", 40)
   A.login()
   sched:advance(5)
-  A.fire("GUILD_ROSTER_UPDATE") -- roster known
+  A.fire("GUILD_ROSTER_UPDATE")
   local M = A.M
   local RQ = A.RQ
   local b36 = RQ.Wire.b36
@@ -313,7 +288,7 @@ do
     { P(1429, 100, 100, 40, 7, now, "", 0), "sender estimate" },
   }
   for _, b in ipairs(bad) do
-    sched:advance(11) -- stay under the intake limit
+    sched:advance(11)
     Inject(A, "Bert Beta", b[1])
     check(M.sync.rejected[b[2]] and M.members["Bert Beta"] == nil, "rejected: " .. b[2])
   end
@@ -326,7 +301,6 @@ do
   Inject(A, "Bert Beta", P(1429, 100, 100, 40, 7, RQ:Now() - 50, "", 3))
   check(M.sync.rejected["older than shown"] and M.members["Bert Beta"].x > 0.4, "older message ignored")
 
-  -- unknown sender: held, appears once the roster has them; another never does
   Inject(A, "Zed Zulu", P(1429, 300, 300, 20, 1, RQ:Now(), "", 2))
   Inject(A, "Yan Yeti", P(1429, 400, 400, 20, 1, RQ:Now(), "", 2))
   check(M.members["Zed Zulu"] == nil and M.sync.pending["Zed Zulu"], "unknown sender held, not shown")
@@ -337,29 +311,24 @@ do
   check(M.members["Yan Yeti"] == nil and M.sync.pending["Yan Yeti"] == nil and M.sync.rejected["not in guild roster"],
     "never-member dropped after 60 s")
 
-  -- offline in roster -> pin removed
   bus:setOnline("Zed Zulu", false)
   A.fire("GUILD_ROSTER_UPDATE")
   sched:advance(2)
   check(M.members["Zed Zulu"] == nil, "offline member's pin removed")
 
-  -- intake limit
   local lim = RQ.CommConst.INTAKE_STATE_PER_MIN
   local before = M.raw:Status().rejected.intake or 0
   for i = 1, lim + 4 do Inject(A, "Bert Beta", P(1429, 23000 + i, 23000, 40, 7, RQ:Now(), "", 3)) end
   local over = (M.raw:Status().rejected.intake or 0) - before
   check(over >= 4 and over <= lim, ("intake limit per sender (the core's state-lane limit of %d per minute): %d not read"):format(lim, over))
 
-  -- our own message with a realm suffix is an echo, not a member
   Inject(A, "Anna Alpha-Realm", P(1429, 100, 100, 33, 6, RQ:Now(), "", 2))
   check(M.members["Anna Alpha-Realm"] == nil and M.members["Anna Alpha"] == nil, "own '-Realm' echo not shown")
 
-  -- L from B
   sched:advance(61)
   Inject(A, "Bert Beta", "L;" .. b36(RQ:Now()))
   check(M.members["Bert Beta"] == nil, "L removes the pin")
 
-  -- guild change wipes
   sched:advance(61)
   Inject(A, "Bert Beta", P(1429, 500, 500, 40, 7, RQ:Now(), "", 2))
   A.set("fake", true)
@@ -378,12 +347,7 @@ do
   NoErrors({ A }, "receive: no Lua errors")
 end
 
----------------------------------------------------------------------------
--- 4b. Code review fixes: offline on a stale roster, n decay, hyphenated surnames, taxi zones, slow walker,
---     world-map pins not orphaned
----------------------------------------------------------------------------
 do
-  -- #3: B was offline at A's last roster read, then logs in and sends: A keeps B's pin
   local sched, bus = Setup()
   local A = Client(sched, bus, "Anna Alpha")
   bus:member("Bert Beta", "MAGE", 40, false)
@@ -403,7 +367,6 @@ do
   sched:advance(2)
   check(M.members["Bert Beta"] == nil, "a newer roster read showing offline drops the pin")
 
-  -- #6: hyphenated surname stays whole; own realm suffix is stripped
   Inject(A, "Cara Müller-Lee", table.concat({ "P", b36(1429), b36(9100), b36(9100), b36(30), b36(2), b36(RQ:Now()), "", b36(2) }, ";"))
   bus:member("Cara Müller-Lee", "PALADIN", 30)
   A.fire("GUILD_ROSTER_UPDATE")
@@ -416,7 +379,6 @@ do
 end
 
 do
-  -- #4: after most players leave, the estimate decays (no ratchet)
   local sched, bus = Setup()
   local ws = {}
   for i = 1, 12 do ws[i] = Client(sched, bus, ("Q%d Test"):format(i), { pos = { 1429, 0.2 + i * 0.05, 0.5 } }) end
@@ -432,7 +394,6 @@ do
 end
 
 do
-  -- taxi across zones: no zone message mid-flight; slow walker isn't 'stationary'; world pins not orphaned
   local sched, bus = Setup()
   local A = Client(sched, bus, "Anna Alpha", { pos = { 1429, 0.5, 0.5 } })
   local B = Client(sched, bus, "Bert Beta", { pos = { 1429, 0.6, 0.6 } })
@@ -442,13 +403,12 @@ do
   A.taxi = true
   sched:advance(40)
   local t0 = sched.t
-  A.pos = { 1436, 0.5, 0.5 } -- flew into another zone
+  A.pos = { 1436, 0.5, 0.5 }
   sched:advance(120)
   check(MapSends(bus, "Anna Alpha", t0, sched.t) == 0, "no zone message while on a taxi")
   A.taxi = false
   sched:advance(4)
   check(B.M.members["Anna Alpha"].mapID == 1436, "landing message has the new zone")
-  -- slow walker: 0.0004 per 2 s (below the old per-tick threshold)
   A.moving = false
   local t1 = sched.t
   sched:at(sched.t + 2, function() if A.slow then A.pos = { A.pos[1], A.pos[2] + 0.0004, A.pos[3] } end end, 2)
@@ -457,16 +417,11 @@ do
   local lm = LastMsg(bus, "Anna Alpha", "P")
   check(MapSends(bus, "Anna Alpha", t1, sched.t) >= 3 and not lm.msg:match(";s;"), "slow walker keeps updating, not flagged stationary")
   A.slow = false
-  -- world pins: many moves, still one canvas pin per icon (code review #1)
   check(B.maxCanvas() == 1, "world map: one canvas pin per guildmate after many moves (" .. B.maxCanvas() .. ")")
   NoErrors({ A, B }, "taxi/walker: no Lua errors")
 end
 
----------------------------------------------------------------------------
--- 5. The core's scheduler and Map side by side
----------------------------------------------------------------------------
 do
-  -- roster gate, routing, and the shared budget: the suite's other messages go first
   local sched, bus = Setup()
   local A = Client(sched, bus, "Anna Alpha")
   local B = Client(sched, bus, "Bert Beta")
@@ -487,7 +442,6 @@ do
   check(coreSent >= queued - 1 and st.queued <= 1, "core modules get through while the map runs")
   check(st.foreign == 0, "Map sends only through the core's scheduler (no foreign sends: " .. tostring(st.foreign) .. ")")
   check(st.sent >= coreSent + mapSent, "the core counts every map message it sent")
-  -- the state lane yields: no map message within STATE_QUIET after any other GUILD message of the same client
   local quiet = GS.CommConst.STATE_QUIET
   local lastAny, tooSoon = nil, 0
   for _, e in ipairs(bus.log) do
@@ -506,9 +460,6 @@ do
   NoErrors({ A, B }, "real core: no Lua errors")
 end
 
----------------------------------------------------------------------------
--- 6. 40 clients, mass login, 30 minutes
----------------------------------------------------------------------------
 do
   local sched, bus = Setup()
   local worlds = {}
@@ -530,10 +481,8 @@ do
   for _, w in ipairs(worlds) do steadyWorst = math.max(steadyWorst, MaxPer60(bus, w.name, 600, 1800)) end
   print(("  40 clients: peak %d msgs/60 s (mass login), steady %.1f msgs/min (min 10-30), worst client %d/60 s (steady %d)"):format(
     peak, steady, worstClient, steadyWorst))
-  -- 30 of 40 move: each sends every 40 x 60 / TARGET = 40 s, the 10 standing ones heartbeat -> about 3/4 of the target
   check(steady <= TARGET and steady >= TARGET * 30 / 40 * 0.9,
     ("guild-wide steady rate near the target: %.1f/min (%.1f..%d)"):format(steady, TARGET * 30 / 40 * 0.9, TARGET))
-  -- early senders still use the 5 s floor until they hear the others; accepted: brief, at most 2 x target
   check(peak <= 2 * TARGET, ("mass login spread out: peak <= 2 x target per 60 s (%d)"):format(peak))
   local interval = 40 * 60 / TARGET
   check(worlds[1].M:Interval(true) == interval, ("40 active senders: interval 40 x 60 / %d = %d s (%s)"):format(TARGET, interval,

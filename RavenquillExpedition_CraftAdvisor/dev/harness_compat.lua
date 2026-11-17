@@ -1,10 +1,3 @@
--- Golden wire test for CraftAdvisor (prefix GCAdv1): the bytes this addon sends must not change while the suite is
--- reworked, so guildmates on older versions keep understanding us.
---   encoder layer : EncodeRecord / EncodeItem for real gear sets (own and relay), byte-exact
---   decoder layer : every golden message, fed to a fresh client, stores the original gear
---   scenario layer: two clients log in; the messages they send, with time stamps masked
---   compat layer  : a 0.2.0 client stores the same gear from the golden messages
--- Run: lua RavenquillExpedition_CraftAdvisor/dev/harness_compat.lua [--record]
 local DEV = (arg[0]:gsub("[^/\\]*$", ""))
 local ROOT = DEV .. "../"
 local RECORD = arg[1] == "--record"
@@ -21,9 +14,6 @@ local function section(s) print("== " .. s) end
 local GEAR = dofile(DEV .. "fixtures/gear_sets.lua")
 local function copy(t) local o = {} for k, v in pairs(t) do o[k] = v end return o end
 
----------------------------------------------------------------------------
--- Clock, bus, clients (a reduced copy of harness_sync.lua's world)
----------------------------------------------------------------------------
 local now = 0
 local timers, tseq = {}, 0
 local function addTimer(d, fn) tseq = tseq + 1; timers[#timers + 1] = { at = now + d, seq = tseq, fn = fn } end
@@ -70,7 +60,7 @@ local function strsplit(sep, s)
 end
 
 local FILES = dofile(DEV .. "files.lua").list({ except = { "Data/Sources.lua", "Data/ExtraSources.lua", "Auction.lua",
-  "RecipeSources.lua", "UI" } }) -- the .toc without the UI and the recipe sources
+  "RecipeSources.lua", "UI" } })
 local LEGACY = { "Data/Leatherworking.lua", "dev/fixtures/compat_0.2.0/Core.lua", "dev/fixtures/compat_0.2.0/Sync.lua" }
 
 local function NewClient(name, gear, opts)
@@ -92,7 +82,6 @@ local function NewClient(name, gear, opts)
     return f
   end
   c.fire = function(ev, ...)
-    -- the suite core is a dependency: its ADDON_LOADED comes first
     if ev == "ADDON_LOADED" and ... == "RavenquillExpedition_CraftAdvisor" and c.core and not c.coreLoaded then
       c.coreLoaded = true
       c.fire("ADDON_LOADED", "RavenquillExpedition")
@@ -156,7 +145,6 @@ local function NewClient(name, gear, opts)
   c.setDB = function(db) env.RavenquillExpeditionCraftDB = db end
   c.getDB = function() return env.RavenquillExpeditionCraftDB end
   local ns = {}
-  -- the real suite core (not for the 0.2.0 client, which brings its own code)
   if not opts.files then c.core = dofile(ROOT .. "dev/corekit.lua")(env); c.core.done(); c.RQ = c.core.RQ end
   for _, f in ipairs(opts.files or FILES) do
     assert(loadfile(ROOT .. f, "t", env))("RavenquillExpedition_CraftAdvisor", ns)
@@ -175,9 +163,7 @@ local function Login(name, gear, opts)
   return c
 end
 
----------------------------------------------------------------------------
 section("Encoder layer: EncodeRecord / EncodeItem are byte-identical")
----------------------------------------------------------------------------
 local A = Login("Anna Stone", copy(GEAR[1]))
 local GCA = A.GCA
 local items, records = {}, {}
@@ -195,9 +181,7 @@ end
 gold:compare("ca.items", items, check)
 gold:compare("ca.records", records, check)
 
----------------------------------------------------------------------------
 section("Decoder layer: golden G messages give the original gear back")
----------------------------------------------------------------------------
 local goldRecords = RECORD and records or (gold.data["ca.records"] or {})
 local B = Login("Bert Hill", copy(GEAR[2]))
 local okSets = 0
@@ -208,7 +192,7 @@ for i, set in ipairs(GEAR) do
     local ts = msg:match("^G;[^;]*;[^;]*;[^;]*;([^;]*);")
     if ts == GCA.b36(1800000000 + i) then
       B.fire("CHAT_MSG_ADDON", "GCAdv1", msg, "GUILD", msg:match("^G;;") and "Cora Vale" or "Anna Stone")
-      B.RQ.Comm.intake = {} -- the core reads at most 12 per sender and minute
+      B.RQ.Comm.intake = {}
     end
   end
   local own, relay = B.GCA.db.members["Cora Vale"], B.GCA.db.members["Dora Field"]
@@ -217,9 +201,7 @@ for i, set in ipairs(GEAR) do
 end
 check(okSets == #GEAR, ("%d/%d sets decoded from the golden messages (own and relay)"):format(okSets, #GEAR))
 
----------------------------------------------------------------------------
 section("Compat layer: a 0.2.0 client understands the golden messages")
----------------------------------------------------------------------------
 local K = Login("Cora Vale", copy(GEAR[3]), { files = LEGACY })
 local okOld = 0
 for i, set in ipairs(GEAR) do
@@ -235,9 +217,7 @@ for i, set in ipairs(GEAR) do
 end
 check(okOld == #GEAR, ("0.2.0 client stored %d/%d relayed sets"):format(okOld, #GEAR))
 
----------------------------------------------------------------------------
 section("Scenario layer: two clients log in (time stamps masked)")
----------------------------------------------------------------------------
 for name, c in pairs(clients) do c.online = false; clients[name] = nil end
 timers, busLog = {}, {}
 local t0 = now
@@ -254,9 +234,7 @@ end
 check(#seen > 0, ("scenario sent %d messages in %d s"):format(#seen, now - t0))
 gold:compare("ca.scenario", seen, check)
 
----------------------------------------------------------------------------
 section("SavedVariables layer: old shapes load into the same tables as before")
----------------------------------------------------------------------------
 local function splitLines(s) local out = {} for l in (s .. "\n"):gmatch("(.-)\n") do out[#out + 1] = l end return out end
 local SV_CASES = {
   fresh = {},
@@ -276,8 +254,6 @@ for _, name in ipairs({ "fresh", "noFlags", "keysV1", "keysV2Done", "autoTargetO
   c.setDB(SV_CASES[name])
   c.fire("ADDON_LOADED", "RavenquillExpedition_CraftAdvisor")
   c.fire("PLAYER_LOGIN")
-  -- the only new keys are the core's migration counters (db.v, db.vLogin, core API 2): checked here, left out of
-  -- the golden comparison; every table the addon reads is compared byte for byte
   local db, shown = c.getDB(), {}
   for k, v in pairs(db) do if k ~= "v" and k ~= "vLogin" then shown[k] = v end end
   check(db.v == 3 and db.vLogin == 2, "sv." .. name .. ": core migration counters v = 3, vLogin = 2")

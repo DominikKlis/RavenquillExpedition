@@ -1,5 +1,3 @@
--- Smoke test: the whole addon (Core, Spec, UI, Minimap) against a loose WoW mock. Prints what it sees AND
--- asserts the key outputs; exits 1 on any failure. Run: lua dev/harness.lua
 unpack = table.unpack
 local fails, passes = 0, 0
 local function check(cond, label)
@@ -24,7 +22,6 @@ UISpecialFrames = {}
 local timers = {}
 C_Timer = { After = function(_, fn) timers[#timers+1] = fn end }
 local function runTimers() local n=0 while #timers>0 and n<200 do local t=table.remove(timers,1); t(); n=n+1 end end
--- generic object mock
 local function obj()
   local o = {}
   return setmetatable(o, { __index = function(t, k) if not k:match("^%u") then return nil end
@@ -74,7 +71,6 @@ function GetNumGuildMembers() return 2 end
 function GetGuildRosterInfo(i) if i==1 then return "Buddy Stone",nil,nil,28,nil,nil,nil,nil,true,nil,"DRUID" else return "Offy-Realm",nil,nil,50,nil,nil,nil,nil,false,nil,"ROGUE" end end
 function GetProfessions() return 1, nil end
 function GetProfessionInfo(i) return "Lederverarbeitung", nil, 120, 150, nil, nil, 165 end
--- items: derive from the recipe table after load
 local itemMeta = {}
 C_Item = {
   GetItemInfoInstant = function(item) local id = type(item)=="number" and item or tonumber(tostring(item):match("item:(%d+)")); local m = itemMeta[id]; if not m then return id, "Misc","Misc","",1,15,0 end return id,"Armor","x",m.loc,1,4,m.sub end,
@@ -88,12 +84,11 @@ C_SpellBook = { IsSpellKnown = function(id) return id == 2149 or id == 2160 or i
 local ns = {}
 local ROOT = (arg[0]:gsub("[^/\\]*$", "")) .. "../"
 local function load(f) local chunk = assert(loadfile(ROOT .. f)); chunk("RavenquillExpedition_CraftAdvisor", ns) end
-local K = dofile(ROOT .. "dev/corekit.lua")() -- the real suite core, in this (global) environment
-local Files = dofile(ROOT .. "dev/files.lua") -- the addon's files, from its .toc
+local K = dofile(ROOT .. "dev/corekit.lua")()
+local Files = dofile(ROOT .. "dev/files.lua")
 load("Locales/enUS.lua"); load("Locales/deDE.lua")
 load("Data/Leatherworking.lua"); load("Data/Blacksmithing.lua"); load("Data/Tailoring.lua"); load("Data/Engineering.lua")
 load("Data/Enchanting.lua"); load("Data/Enchants.lua")
--- 2302 boots (lvl 1), 2300 vest (lvl 8), 4244 hillman vest (lvl 20, better)
 itemMeta[2302] = { loc="INVTYPE_FEET", sub=2, lvl=1, stats={RESISTANCE0_NAME=30} }
 itemMeta[2300] = { loc="INVTYPE_CHEST", sub=2, lvl=8, stats={RESISTANCE0_NAME=60, ITEM_MOD_AGILITY_SHORT=1} }
 itemMeta[4244] = { loc="INVTYPE_CHEST", sub=2, lvl=20, stats={RESISTANCE0_NAME=90, ITEM_MOD_AGILITY_SHORT=4, ITEM_MOD_STAMINA_SHORT=3} }
@@ -136,8 +131,6 @@ for _, e in ipairs(GCA:GetMemberList()) do
   if e.weights then print("    source:", GCA:SourceLine(e.weights)) end
 end
 local me, b2 = byKey["Me"], byKey["Buddy Stone"]
--- section I: both known vests are listed for the chest (top 3), the better one first; the second is an extra row,
--- so the badge still counts 1 upgrade
 check(me and me.spec == "COMBAT" and me.specHow == "manual" and me.state == "ok" and #me.suggestions == 2
   and me.suggestions[1].status == "empty-slot" and me.suggestions[1].info.itemID == 4244 and me.suggestions[2].extra
   and me.knownCount == 1 and me.best == me.suggestions[1], "Me (Combat): Hillman's vest into the empty chest slot (2nd vest listed as extra, badge counts 1)")
@@ -149,13 +142,10 @@ local e = GCA:ComputeSuggestions({class="DRUID", level=28, items=units.target.it
 print("with unlearned:", #e)
 check(#e >= 1, "show unlearned: still computes")
 check(GCA.db.settings.memberView == "sheet", "K4: member view defaults to the character sheet")
-GCA.db.settings.memberView = "list" -- K4: the list checks below need the list variant
+GCA.db.settings.memberView = "list"
 GCA.UI:Toggle(); runTimers()
 print("UI shown", GCA.UI.frame:IsShown(), "selected", GCA.UI.selected, "auto", GCA.UI.autoKey, "first", GCA.UI.memberList.rows[1].data.key, GCA.UI.memberList.rows[1].data.best, "rows", #GCA.UI.sugList.rows)
 check(GCA.UI.frame:IsShown() and GCA.UI.selected == "Buddy Stone" and #GCA.UI.sugList.rows >= 1, "/gca opens the window with Buddy selected and a suggestion row")
--- plan I, end to end (real Core list -> Refresh): Buddy's chest section comes first (its header, then the vest row);
--- K1: the other 14 slots are ONE folded "No upgrade: …" line at the end (was 14 grey lines); nothing went to the
--- error reporter
 do
   local sl = GCA.UI.sugList
   local pools = rawget(sl, "pools")
@@ -168,22 +158,16 @@ do
     and (GCA.UI.errorCount or 0) == 0 and GCA:Diag().lastError == nil,
     "I/K1: real refresh -> chest section first with the vest row, the 14 others folded into one last line, no reported error ("
     .. shownSecs .. " sections, " .. (fold and #fold.data.secs or 0) .. " folded)")
-  -- K2: the default view is guild needs; Buddy's vest is its first row (real Core GuildNeeds)
   local nl = GCA.UI.needsList
-  -- K8: the list starts with the slot category (Chest), the vest under it, and the vest is shown in the detail panel
   check(GCA.UI.view == "needs" and nl.data[1] and nl.data[1].rowKind == "cat" and nl.data[1].cat == 5 and nl.data[2] and nl.data[2].group
     and nl.data[2].rows[1].member.key == "Buddy Stone"
     and nl.data[2].group.sug == first.data.sec.rows[1] and nl.data[2].group == GCA:GuildNeedsByCraft(GCA.UI.lastMembers)[1]
     and GCA.UI.needDetail.entry == nl.data[2] and GCA.UI.needDetail.members.rows[1].data.member.key == "Buddy Stone",
     "K5/K8: opens on guild needs; 'Chest' category, first craft = Buddy's vest, shown in the detail panel (real Core GuildNeedsByCraft)")
-  -- K5 member list on real data: Buddy's row says how many upgrades and the best slot
   local mrow
   for _, r in ipairs(rawget(GCA.UI.memberList, "rows")) do if r.data and r.data.key == "Buddy Stone" then mrow = r end end
   local line = mrow and GCA.UI.MemberLine(mrow.data) or ""
   check(line:find("^%d+ upgrades? · best: Chest$"), "K5: member row second line on real data: " .. line)
-  -- K4, end to end (real Core list -> the character sheet): switching keeps Buddy; the chest (his biggest upgrade)
-  -- is selected; the stat differences come from the real normalized stats (vest 2300: armor 60, agi 1 -> 4244:
-  -- armor 90, agi 4, sta 3); the list variant is the one saved
   local UIx = GCA.UI
   UIx:SetMemberMode("sheet")
   local c = UIx.sheet.centre
@@ -199,8 +183,6 @@ do
   check((UIx.errorCount or 0) == 0 and GCA:Diag().lastError == nil, "K4: no error reported by the sheet")
   UIx:SetMemberMode("list")
 end
--- U1 (Buddy above was selected by the inspect): with nothing selected, the best guildie with a known upgrade is picked,
--- although "Me" (you) is listed first and has one too
 GCA.UI.selected, GCA.UI.autoKey = nil, nil
 GCA.UI:Refresh()
 check(GCA.UI.selected == "Buddy Stone" and GCA.UI.autoKey == "Buddy Stone" and GCA.UI.memberList.rows[1].data.key == "Me" and GCA.UI.memberList.rows[1].data.best ~= nil,
@@ -216,8 +198,6 @@ do
   GCA.UI.frame:Hide(); GCA.UI.frame:Show()
   check(GCA.UI.selected == "Buddy Stone" and GCA.UI.autoKey == "Buddy Stone", "an automatic pick is redone on open")
 end
--- K17 (user 2026-11-14): an item row's tooltip is the plain Blizzard item tooltip, nothing added (also with Shift,
--- also in German); the member-row tooltip (not an item) keeps its lines
 local tipLines, hyper = {}, {}
 GameTooltip.AddLine = function(_, t) tipLines[#tipLines + 1] = t end
 GameTooltip.AddDoubleLine = function(_, a, b) tipLines[#tipLines + 1] = a .. " | " .. b end
@@ -229,13 +209,11 @@ IsShiftKeyDown = function() return true end
 ns.locale = "deDE"
 rawget(row, "_scripts").OnEnter(row)
 IsShiftKeyDown = nil; ns.locale = "enUS"
--- user 2026-11-15: the item tooltip + the stat changes (green gains / red losses) against the member's worn item
 local joined = table.concat(tipLines, " | ")
 check(#hyper == 2 and tostring(hyper[1]):find("item:4244", 1, true) and joined:find("Stat changes for", 1, true)
   and joined:find("+3 Agility", 1, true) and joined:find("Werteänderungen für", 1, true) and joined:find("+3 Beweglichkeit", 1, true),
   "suggestion row tooltip = the craft's item tooltip + 'Stat changes for <member>:' (English / German): " .. joined)
 GameTooltip.SetHyperlink = savedHyper
--- H4: stat words are still German where shown (the stat differences under a row)
 do
   ns.locale = "deDE"
   local d = { info = { cstats = { Agility = 4 } }, equipped = { cstats = {} }, e = nil }
@@ -251,9 +229,13 @@ tipLines = {}
 rawget(mrow, "_scripts").OnEnter(mrow)
 for _, l in ipairs(tipLines) do print("  member tip:", l) end
 check(table.concat(tipLines, "\n"):find("craftable upgrade", 1, true), "member tooltip shows the upgrade count")
-local counts, recorded = GCA:UpgradeCounts()
-print("upgrade counts", counts[1] and counts[1].prof, counts[1] and counts[1].upgrades, recorded)
-check(#counts == 1 and counts[1].prof == "Leatherworking" and counts[1].upgrades == 1 and recorded == 2, "minimap counts: Leatherworking, 1 known upgrade, 2 guildies recorded")
+do
+  local upgrades, recorded = 0, 0
+  for _, en in ipairs(GCA:GetMemberList()) do
+    if en.member and not en.isSelf then recorded = recorded + 1; upgrades = upgrades + (en.knownCount or 0) end
+  end
+  check(upgrades == 1 and recorded == 2, ("member list: 1 known Leatherworking upgrade, 2 guildies recorded (%d, %d)"):format(upgrades, recorded))
+end
 local mark = #printed
 GCA:KnownDebug()
 check(printedSince(mark):find("Leatherworking item recipes: 501 in data, IsSpellKnown 3", 1, true), "/gca known debug: 501 LW recipes, 3 known")
@@ -266,15 +248,13 @@ mark = #printed
 GCA:SpecDebug()
 out = printedSince(mark)
 check(out:find("announced over sync: COMBAT", 1, true) and out:find("ignored (off by default)", 1, true), "/gca spec debug: announced spec, inspect setting")
--- offer test: OpenChat path where the parse works
 local box = { t = "" }
 function box:GetText() return self.t end
 function box:SetText(t) self.t = t end
 ChatFrameUtil = { OpenChat = function(text) box.t = text:gsub("^/w %S+ ", "") end, GetActiveWindow = function() return box end }
 Files.loadUI(ns)
-local row = ns.GCA.UI -- reuse created UI? simpler: call through a fresh UI instance not needed
+local row = ns.GCA.UI
 
--- the minimap button is the suite's launcher (core Launcher.lua); our options show / hide it
 Minimap = CreateFrame()
 rawset(Minimap, "GetWidth", function() return 140 end)
 rawset(Minimap, "GetCenter", function() return 100, 100 end)
@@ -295,7 +275,6 @@ showOpt.set(false)
 check(showOpt.get() == false and RavenquillExpeditionDB.launcher.hide == true and not b:IsShown(), "option 'show minimap button' off hides the launcher")
 showOpt.set(true)
 check(showOpt.get() == true and not RavenquillExpeditionDB.launcher.hide and b:IsShown(), "and on shows it again")
--- deDE client: positional format specifiers ("%1$s") crashed FormatToPattern with "invalid capture index" (2026-11-13)
 do
   local F = GCA.FormatToPattern
   local p = F("Benötigt %1$s")
@@ -309,6 +288,46 @@ do
   local ok = pcall(GCA.ItemRestrictions, GCA, 4244)
   check(ok, "ItemRestrictions with a deDE template doesn't error")
   ITEM_REQ_SKILL = oldReq
+end
+do
+  local store = GCA:KnownStore()
+  local savedLW, savedAuth = store.Leatherworking, GCA.db.knownAuth
+  local spells = {}
+  for id in pairs(GCA:RecipeTable("Leatherworking")) do spells[#spells + 1] = id end
+  table.sort(spells)
+  local learned = { [spells[1]] = true, [spells[2]] = true }
+  local function recipeAPI(ids)
+    return { GetAllRecipeIDs = function() return ids end,
+      GetRecipeInfo = function(id) return { learned = learned[id] == true } end }
+  end
+  C_TradeSkillUI = recipeAPI({ spells[1], spells[3], 999999 })
+  store.Leatherworking, GCA.db.knownAuth = { [spells[5]] = true }, nil
+  GCA:ScanTradeSkill()
+  local lw = store.Leatherworking
+  check(lw[spells[1]] and lw[spells[5]] and not lw[spells[3]] and GCA.db.knownAuth == nil,
+    "trade skill scan with few answered recipes: learned ones added, saved ones kept, not authoritative")
+  local many = {}
+  for i = 1, 12 do many[i] = spells[i] end
+  C_TradeSkillUI = recipeAPI(many)
+  GCA:ScanTradeSkill()
+  lw = store.Leatherworking
+  local n = 0
+  for _ in pairs(lw) do n = n + 1 end
+  check(n == 2 and lw[spells[1]] and lw[spells[2]] and GCA.db.knownAuth[GCA.charKey].Leatherworking ~= nil,
+    "trade skill scan with 12 answered recipes: authoritative, only the 2 learned ones kept")
+  C_TradeSkillUI = nil
+  local item = GCA:RecipeTable("Leatherworking")[spells[7]].item
+  GetNumTradeSkills = function() return 1 end
+  GetTradeSkillLine = function() return "Lederverarbeitung" end
+  GetTradeSkillItemLink = function() return "item:" .. item .. "::::" end
+  GetTradeSkillRecipeLink = function() return "enchant:" .. spells[8] end
+  GCA:ScanTradeSkill()
+  lw = store.Leatherworking
+  check(lw[GCA:ItemToSpell("Leatherworking")[item]] and lw[spells[8]],
+    "legacy trade skill window: the item link and the recipe link both mark recipes")
+  GetNumTradeSkills, GetTradeSkillLine, GetTradeSkillItemLink, GetTradeSkillRecipeLink = nil, nil, nil, nil
+  store.Leatherworking, GCA.db.knownAuth = savedLW, savedAuth
+  GCA:RefreshKnown()
 end
 print = rawprint
 print(("\n%d passed, %d failed"):format(passes, fails))

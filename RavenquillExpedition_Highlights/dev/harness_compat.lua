@@ -1,8 +1,3 @@
--- Golden wire test for Highlights (prefix RQE1, tag "H"): the bytes must not change while the suite is reworked.
---   encoder layer: H.Encode for one fixed entry per kind (and the long-text and umlaut cases)
---   lane layer   : the full message the core puts on the wire ("H;<body>", prefix RQE1, GUILD)
---   decoder layer: H.Decode of every golden body gives the entry back
--- Run: lua RavenquillExpedition_Highlights/dev/harness_compat.lua [--record]
 unpack = table.unpack
 local DEV = (arg[0]:gsub("[^/\\]*$", ""))
 local ADDONS = DEV .. "../../"
@@ -16,7 +11,6 @@ local function check(cond, what)
   if cond then pass = pass + 1; print("  ok   " .. what) else fail = fail + 1; print("  FAIL " .. what) end
 end
 
--- minimal client: clock, timers, permissive frames, guild channel capture
 local now, BASE = 100, 1800000000
 local timers = {}
 C_Timer = { After = function(d, fn) timers[#timers + 1] = { at = now + d, fn = fn } end }
@@ -85,7 +79,7 @@ C_ChatInfo = {
   RegisterAddonMessagePrefix = function() return true end,
   SendAddonMessage = function(prefix, msg, chan)
     sent[#sent + 1] = prefix .. "|" .. chan .. "|" .. msg
-    C_Timer.After(1, function() fire("CHAT_MSG_ADDON", prefix, msg, chan, "Me Smith-Forever") end) -- the guild's echo
+    C_Timer.After(1, function() fire("CHAT_MSG_ADDON", prefix, msg, chan, "Me Smith-Forever") end)
     return 0
   end,
 }

@@ -1,9 +1,3 @@
--- Golden fixtures for the offline harnesses: lists of strings (wire messages, migrated tables) recorded once and
--- compared byte for byte afterwards. Record with `--record` on the harness command line, then read the diff.
---   local Golden = dofile(<path to this file>)
---   local gold = Golden.open(fixturePath, recordFlag)
---   gold:compare("name", { "msg1", "msg2" }, check)   -- check(cond, label)
---   gold:finish()                                     -- writes the file in record mode
 local Golden = {}
 
 local function load(path)
@@ -59,7 +53,6 @@ function Golden.open(path, record)
   return g
 end
 
--- A fixed random generator, so jitter is the same on every run (and with every Lua version).
 function Golden.Random(seed)
   local s = seed or 12345
   return function(a, b)
@@ -71,7 +64,6 @@ function Golden.Random(seed)
   end
 end
 
--- Stable text form of a Lua value (sorted keys), for comparing tables.
 function Golden.Serialize(v, indent)
   indent = indent or ""
   local t = type(v)

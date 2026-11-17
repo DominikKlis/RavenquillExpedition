@@ -1,4 +1,3 @@
-# Editor settings for the suite (existing files are not re-saved for line endings).
 root = true
 
 [*]

@@ -1,8 +1,3 @@
--- Offline harness for RavenquillExpedition_Map: mocks the WoW API and HereBeDragons, loads the real core and then
--- Locale/Map/Pins/Sync, and asserts settings, notice, test-pin lifecycle, minimap rule, self pin, tooltips, clicks,
--- the core module (options, overview), deDE.
--- Run from anywhere:  lua "<addon>/dev/harness.lua"      (exit code 1 on failure)
--- HereBeDragons itself is NOT exercised here (it's mocked); real placement can only be checked in game.
 local DIR = (arg and arg[0] or ""):gsub("[/\\]dev[/\\]harness%.lua$", "")
 if DIR == "" or DIR == arg[0] then DIR = "." end
 
@@ -78,7 +73,6 @@ local function NewWorld(opts)
     GetMapInfo = function(id) return { name = "Map" .. id } end,
   }
 
-  -- frames
   local frames = {}
   local function NewFrame(kind)
     local f = { shown = true, alpha = 1, scripts = {}, events = {} }
@@ -108,7 +102,6 @@ local function NewWorld(opts)
       end,
       IsShown = function(s) return s.shown end,
     }
-    -- unknown Methods are no-ops; unknown lowercase fields are nil, as on real frames
     return setmetatable(f, { __index = function(_, k) return methods[k] or (k:match("^%u") and function() end or nil) end })
   end
   env.CreateFrame = function(kind, _, parent)
@@ -125,10 +118,7 @@ local function NewWorld(opts)
   env.ChatFrameUtil = { SendTell = function(n) tells[#tells + 1] = n end }
   env.SlashCmdList = {}
 
-  -- HereBeDragons mock
   local hbdMini, hbdAdds, hbdWorldCalls = {}, 0, 0
-  -- Maps: zone 1429 and its sibling 1411 on continent 1415, under the Azeroth map 947. World coordinates are the
-  -- zone's x/y * 1000; zone 1429 covers x 0.4-0.6 / y 0.2-0.4 of the continent and x 0.5-0.6 / y 0.5-0.6 of Azeroth.
   local HBD = {
     GetPlayerZone = function() return ownPos and ownPos[1], 3 end,
     GetPlayerZonePosition = function() if ownPos then return ownPos[2] + 0.001, ownPos[3], ownPos[1], 3 end end,
@@ -161,7 +151,6 @@ local function NewWorld(opts)
   end
   local Pins = {
     AddMinimapIconMap = add(hbdMini),
-    -- HBD's world map API registers a data provider on WorldMapFrame (the taint, Pins.lua header): never used
     AddWorldMapIconMap = function() hbdWorldCalls = hbdWorldCalls + 1 end,
     AddWorldMapIconWorld = function() hbdWorldCalls = hbdWorldCalls + 1 end,
     RemoveWorldMapIcon = function() hbdWorldCalls = hbdWorldCalls + 1 end,
@@ -185,8 +174,6 @@ local function NewWorld(opts)
     }
     map = { canvas = canvas, mapID = 1429, scale = 1, shown = false, calls = calls, providers = {} }
     map.pinPools = setmetatable({}, { __newindex = function(t, k, v) calls[#calls + 1] = "pinPools." .. tostring(k); rawset(t, k, v) end })
-    -- Blizzard's show path (ToggleWorldMap -> ShowUIPanel): every data provider's RefreshAllData, then the canvas
-    -- children's OnShow scripts, all in one (secure) execution. Returns how often our code ran in it.
     function map.blizzardShow()
       map.shown, canvas.shown = true, true
       local ran = 0
@@ -198,7 +185,6 @@ local function NewWorld(opts)
       end
       return ran
     end
-    -- one rendered frame: OnUpdate of every visible frame on the canvas
     function map.renderFrame()
       if not map.shown then return end
       for _, f in ipairs(frames) do
@@ -217,7 +203,6 @@ local function NewWorld(opts)
     env.WorldMapFrame = map
   end
 
-  -- the real core first (the .toc requires it), as the game loads it
   local frames0 = #frames
   local coreDir = DIR .. "/../RavenquillExpedition"
   local coreNs = {}
@@ -236,7 +221,6 @@ local function NewWorld(opts)
     chunk("RavenquillExpedition_Map", ns)
   end
   local M = ns.Map
-  -- world pins: our own layer's (Pins.lua M.worldPlaced, [frame] = { mapID, x, y, ... })
   local hbdWorld = M.worldPlaced or {}
   local function fire(event, arg1)
     for _, f in ipairs(frames) do
@@ -249,12 +233,10 @@ local function NewWorld(opts)
     env = env, ns = ns, M = M, mod = M.mod, RQ = RQ, L = ns.L, fire = fire, advance = advance, printed = printed, errors = errors,
     tip = tip, tells = tells, hbdWorld = hbdWorld, hbdMini = hbdMini, count = count,
     setPos = function(p) ownPos = p end, setDead = function(v) dead = v end, setTaxi = function(v) taxi = v end,
-    -- the settings view in the /rq overview: set an option, read the diagnostics box
     set = function(id, v) local o = M.mod:Option(id); assert(o and o.set, "no option " .. id); o.set(v) end,
     diag = function() return table.concat(M.mod:Option("diag").lines(), "\n") end,
     adds = function() return hbdAdds end, hbdWorldCalls = function() return hbdWorldCalls end, map = map,
     frames = frames,
-    -- world pin frames per member (one, however often it moved)
     maxCanvas = function()
       local per, m = {}, 0
       for f in pairs(hbdWorld) do per[f.key] = (per[f.key] or 0) + 1; m = math.max(m, per[f.key]) end
@@ -272,9 +254,6 @@ local function pinFor(w, store, key)
   for icon in pairs(store) do if icon.key == key then return icon end end
 end
 
----------------------------------------------------------------------------
--- 1. Load, defaults, notice once
----------------------------------------------------------------------------
 local w = NewWorld()
 local M = w.M
 w.fire("ADDON_LOADED", "RavenquillExpedition_Map")
@@ -288,26 +267,20 @@ check(anyPrinted(w, "shares your position"), "privacy notice shown after login")
 check(M.db.noticeShown == true, "noticeShown saved")
 check(w.RQ:PlayerKey() == "Ängis Waldbach", "core PlayerKey = First Surname")
 
--- relog with the saved table: no second notice
 local saved = M.db
 local w1 = NewWorld()
 w1.env.RavenquillExpeditionMapDB = saved
 w1.fire("ADDON_LOADED", "RavenquillExpedition_Map"); w1.fire("PLAYER_LOGIN"); w1.advance(20)
 check(not anyPrinted(w1, "shares your position"), "notice only once across logins")
 
--- corrupt settings are repaired
 local w2 = NewWorld()
 w2.env.RavenquillExpeditionMapDB = { settings = { share = "yes", size = 9 } }
 w2.fire("ADDON_LOADED", "RavenquillExpedition_Map")
 check(w2.M.settings.share == true and w2.M.settings.size == 1, "bad saved values repaired")
 
----------------------------------------------------------------------------
--- 2. Test pins: lifecycle and minimap rule
----------------------------------------------------------------------------
 w.set("fake", true)
 check(w.count(M.members) == 7, "7 test pins")
 check(w.count(w.hbdWorld) == 7, "world: all 7 placed (stale one too)")
--- minimap: Fünf (age 200) excluded; Sechs (age 0) and stationary Zwei included
 check(w.count(w.hbdMini) == 6, "minimap: 6 (stale Fünf hidden), got " .. w.count(w.hbdMini))
 local fuenf = pinFor(w, w.hbdWorld, "~fake5")
 check(fuenf and fuenf.alpha == 0.45, "stale pin is dimmed")
@@ -325,17 +298,16 @@ check(w.maxCanvas() == 1, "moved world pins leave no orphan canvas pins (code re
 check(not pinFor(w, w.hbdMini, "~fake6"), "non-updating pin leaves the minimap after 45 s")
 check(pinFor(w, w.hbdMini, "~fake2"), "stationary pin stays on the minimap")
 check(pinFor(w, w.hbdMini, "~fake1"), "updating pin stays on the minimap")
-w.advance(120) -- t = 170 after fake: Fünf age 370 >= 360 -> gone
+w.advance(120)
 check(M.members["~fake5"] == nil and not pinFor(w, w.hbdWorld, "~fake5"), "stale pin removed at 2x fade")
-w.advance(20)  -- 190: Sechs (age 190) stale
+w.advance(20)
 check(M:State(M.members["~fake6"]) == "stale", "pin fades at 180 s")
-w.advance(180) -- 370: Sechs gone
+w.advance(180)
 check(M.members["~fake6"] == nil, "pin removed at 360 s")
 check(M.members["~fake2"] and M:State(M.members["~fake2"]) == "fresh", "stationary still fresh at 370 s (fades at 450)")
-w.advance(100) -- 470
+w.advance(100)
 check(M:State(M.members["~fake2"]) == "stale", "stationary fades at 1.5 x heartbeat")
 
--- toggles
 w.set("minimap", false)
 check(w.count(w.hbdMini) == 0, "minimap off removes minimap pins")
 w.set("minimap", true)
@@ -353,9 +325,6 @@ check(M.settings.size == 1.5 and any.w == 21, "size applied to existing pins")
 w.set("fake", false)
 check(w.count(M.members) == 0 and w.count(w.hbdWorld) == 0 and w.count(w.hbdMini) == 0, "fake off clears everything")
 
----------------------------------------------------------------------------
--- 3. Self pin, no position, tooltips, click, unknown map
----------------------------------------------------------------------------
 w.set("selfPin", true)
 local me = M.members["@self"]
 check(me and me.mapID == 1429 and me.x == 0.5 and me.class == "SHAMAN" and me.level == 33, "self pin from C_Map")
@@ -382,7 +351,6 @@ check(tipText:find("Test Eins", 1, true) and tipText:find("Test pin", 1, true) a
   "tooltip: name, level, test marker")
 f1.scripts.OnClick(f1)
 check(#w.tells == 0, "clicking a test pin doesn't whisper")
--- a "real" member (as step 2 will add)
 M.members["Hans Wurst"] = { key = "Hans Wurst", name = "Hans Wurst", mapID = 1429, x = 0.3, y = 0.3, level = 20,
   class = "MAGE", heard = w.env.GetTime(), flags = {} }
 M:Refresh()
@@ -400,7 +368,6 @@ local d = w.diag()
 check(d:find("WOW_PROJECT_ID=15", 1, true) and d:find("Forever branch", 1, true), "diagnostics: project IDs")
 check(d:find("HBD matches the client", 1, true) or d:find("differs", 1, true), "diagnostics: HBD vs client")
 check(not d:find("|c", 1, true) and not d:find("|r", 1, true), "diagnostics are plain text (copyable)")
--- options for the /rq overview (no chat commands any more)
 local mod1 = w.mod
 local okShape = #mod1.options >= 10
 for _, o in ipairs(mod1.options) do
@@ -417,9 +384,6 @@ check(mod1:Option("names").disabled() == false and mod1:Option("names").get() ==
 check(w.env.SLASH_RAVENQUILLMAP1 == nil and w.env.SlashCmdList.RAVENQUILLMAP == nil, "the map registers no chat command")
 check(#w.errors == 0 and not (w.env.RavenquillExpeditionDB or {}).lastError, "no Lua errors (" .. tostring(w.errors[1]) .. ")")
 
----------------------------------------------------------------------------
--- 4. The core module (overview row, options); German client
----------------------------------------------------------------------------
 local wc = NewWorld()
 local mod = wc.RQ:GetModule("Map")
 check(wc.env.SLASH_RAVENQUILLMAP1 == nil and wc.env.SlashCmdList.RAVENQUILLMAP == nil, "with the core: the map leaves /rq to it")
@@ -448,7 +412,7 @@ check(mod:OverviewStatus() == "On the map: 0 · sharing on", "overview: test pin
 wc.M.members["Hans Wurst"] = { key = "Hans Wurst", name = "Hans Wurst", mapID = 1429, x = 0.3, y = 0.3, level = 20,
   class = "MAGE", heard = wc.env.GetTime(), flags = {} }
 local commState = wc.RQ.CommState
-wc.RQ.CommState = function(self) local st = commState(self); st.slow = true; return st end -- the core's slow mode
+wc.RQ.CommState = function(self) local st = commState(self); st.slow = true; return st end
 local st = mod:OverviewStatus()
 check(st:find("^On the map: 1 ") and st:find("getting through"), "overview: status counts guildmates, warns when slow")
 wc.RQ.CommState = commState
@@ -456,7 +420,6 @@ wc.advance(10)
 check(anyPrinted(wc, "Ravenquill Expedition|r |cffbbbbbbGuild Map"), "printing goes through the core (module title)")
 check(#wc.errors == 0, "core run: no Lua errors")
 
--- the 2 s ticker runs only while there is something to do (sharing on, pins shown or held)
 local wt = NewWorld()
 wt.env.RavenquillExpeditionMapDB = { v = 1, settings = { share = false } }
 wt.fire("ADDON_LOADED", "RavenquillExpedition_Map"); wt.fire("PLAYER_LOGIN"); wt.advance(10)
@@ -477,11 +440,6 @@ check(wd.mod:Option("share").label == "Meine Position mit der Gilde teilen" and 
 check(anyPrinted(wd, "unter /rq", true) or anyPrinted(wd, "/rq|r", true), "German notice points to /rq")
 check(#wd.errors == 0, "German client: no Lua errors")
 
----------------------------------------------------------------------------
--- 5. World map without taint (BugGrabber: ADDON_ACTION_BLOCKED 'Button:SetPassThroughButtons()' when the map
---    opens). Our code must not run inside Blizzard's map-show path: no data provider, no pin pool, no AcquirePin,
---    no hooks, no OnShow; the pins are drawn from our layer's own OnUpdate afterwards.
----------------------------------------------------------------------------
 local wm = NewWorld({ worldMap = true })
 local map = wm.map
 wm.fire("ADDON_LOADED", "RavenquillExpedition_Map"); wm.fire("PLAYER_LOGIN")
@@ -524,7 +482,7 @@ check(p1.shown and p1.scale == 0.5 and math.abs(p1.point[4] - d1.x * 1000 * 2) <
   "world map: zoomed in, the pin keeps its size and its place")
 map.scale = 1
 local x0w = d1.x
-wm.advance(20) -- test pins move
+wm.advance(20)
 local d2 = wm.hbdWorld[p1]
 map.renderFrame()
 check(d2 and d2.x ~= x0w and math.abs(p1.point[4] - d2.x * 1000) < 1e-6, "world map: a moved pin is redrawn")
@@ -534,7 +492,6 @@ check(wm.count(wm.hbdWorld) == 0 and not p1.shown, "world map: option off hides 
 check(#map.calls == 0 and wm.hbdWorldCalls() == 0, "world map: still nothing written to WorldMapFrame")
 check(#wm.errors == 0, "world map: no Lua errors (" .. tostring(wm.errors[1]) .. ")")
 
--- in combat the overview doesn't open the map from addon code: that would run the whole show path tainted
 local toggles = 0
 wm.env.ToggleWorldMap = function() toggles = toggles + 1 end
 wm.env.InCombatLockdown = function() return true end
@@ -544,10 +501,6 @@ wm.env.InCombatLockdown = function() return false end
 wm.M:OpenMap()
 check(toggles == 1, "overview: opens the map out of combat")
 
----------------------------------------------------------------------------
--- 6. The embedded HereBeDragons-Pins (libs, modified: NOTICE.txt) registers nothing on WorldMapFrame until an
---    addon adds a world map icon; we only use its minimap part.
----------------------------------------------------------------------------
 do
   local env = setmetatable({}, { __index = _G })
   env._G = env
@@ -607,11 +560,6 @@ do
   end
 end
 
----------------------------------------------------------------------------
--- Private library names (in-game ADDON_ACTION_BLOCKED, 2026-11-15): RXPGuides and others share the LibStub copy named
--- "HereBeDragons-Pins-2.0"; when our code called into it, its world-map provider read state we had written and
--- Blizzard blamed Map. Our copies must only ever be reached under their private names.
----------------------------------------------------------------------------
 do
   local function src(f) local h = assert(io.open(DIR .. "/" .. f, "rb")); local s = h:read("*a"); h:close(); return s end
   local shared = 0
@@ -625,15 +573,11 @@ do
     "our embedded copies register under private names and use each other")
 end
 
----------------------------------------------------------------------------
--- Draw order on the world map (in game 2026-11-15: pins "visible" but drawn under the map art): our layer goes
--- above the highest frame on the canvas, also when Blizzard adds a higher one while the map is open.
----------------------------------------------------------------------------
 do
   local wo = NewWorld({ worldMap = true })
   wo.fire("ADDON_LOADED", "RavenquillExpedition_Map")
   wo.fire("PLAYER_LOGIN")
-  local art = wo.env.CreateFrame("Frame", nil, wo.map.canvas) -- Blizzard's map art / pins
+  local art = wo.env.CreateFrame("Frame", nil, wo.map.canvas)
   art.level = 800
   wo.M:Fake(true)
   wo.advance(3)
@@ -643,16 +587,12 @@ do
   local pinsAbove = true
   for f in pairs(wo.M.worldPlaced) do if (f.level or 0) <= 800 then pinsAbove = false end end
   check(layer and layer.level and layer.level > 800 and pinsAbove, "our layer and pins sit above the map's highest frame (level 800)")
-  local later = wo.env.CreateFrame("Frame", nil, wo.map.canvas) -- a pin Blizzard adds while the map is open
+  local later = wo.env.CreateFrame("Frame", nil, wo.map.canvas)
   later.level = 2000
-  for _ = 1, 40 do wo.map.renderFrame() end -- 40 frames x 0.016 s > the 0.5 s check
+  for _ = 1, 40 do wo.map.renderFrame() end
   check(layer.level > 2000, "a higher frame added while the map is open: the layer moves above it (" .. tostring(layer.level) .. ")")
 end
 
----------------------------------------------------------------------------
--- Option "hide guildmates in my group" (user 2026-11-15; on by default): no world or minimap dot for party/raid
--- members, the game draws them already. Test pins and the own pin are not affected.
----------------------------------------------------------------------------
 do
   local wg = NewWorld({ worldMap = true })
   wg.fire("ADDON_LOADED", "RavenquillExpedition_Map")

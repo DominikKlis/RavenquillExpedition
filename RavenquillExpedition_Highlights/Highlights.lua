@@ -1,6 +1,3 @@
--- Ravenquill Expedition: Highlights – the log store, formatting, settings and /rq hl.
--- Detectors.lua finds YOUR cool moments (and epic loot of guildies in your group),
--- Wire.lua shares them over the core's GUILD lane, LogWindow.lua shows the log.
 local ADDON, ns = ...
 local GS = RavenquillExpedition
 local L = ns.L
@@ -14,49 +11,44 @@ local H = GS:NewModule("Highlights", {
 })
 ns.H = H
 
-H.MAX_EVENTS = 1500           -- per guild
-H.MAX_AGE = 90 * 86400        -- older entries are pruned
-H.FUTURE_SLACK = 300          -- reject entries stamped further in the future (clock skew)
-H.LOOT_DEDUPE = 300           -- the same loot of the same person within 5 min is one entry
-H.BOSS_SAME = 1200            -- reports of the same encounter within 20 min are the same kill
-H.OUTBOX_MAX_AGE = 2 * 86400  -- own entries not delivered within 2 days are no longer sent
-H.RECV_PER_HOUR = 30          -- read at most this many entries per sender per hour (an honest client shares <= 20)
-H.MAX_PER_WHO = 300           -- at most this many entries about one person; their oldest go first
+H.MAX_EVENTS = 1500
+H.MAX_AGE = 90 * 86400
+H.FUTURE_SLACK = 300
+H.LOOT_DEDUPE = 300
+H.BOSS_SAME = 1200
+H.OUTBOX_MAX_AGE = 2 * 86400
+H.RECV_PER_HOUR = 30
+H.MAX_PER_WHO = 300
 
 H.DEFAULTS = {
-  share = true,         -- send own highlights to the guild
-  shareCap = 8,         -- at most this many shared per hour; more stay local
-  chat = true,          -- print highlights in the chat frame (only the big ones unless chatAll)
-  chatAll = false,      -- also gear upgrades and quests in chat (the window always has everything)
-  echoOwn = true,       -- print own highlights too (shows that detection works)
-  minGain = 8,          -- item levels for a "big upgrade" ...
-  minGearQuality = 3,   -- ... of a rare or better item (or any first epic in a slot)
-  minLootQuality = 4,   -- epic
-  levelStep = 10,       -- log level 10, 20, ... (and the max level)
-  questRedLevels = 0,   -- > 0: quests this many levels above you also count as hard (off: catches delivery quests)
-  logOnlyHighlights = false, -- the log window shows everything (user 2026-11-14); this hides the plain activity
+  share = true,
+  shareCap = 8,
+  chat = true,
+  chatAll = false,
+  echoOwn = true,
+  minGain = 8,
+  minGearQuality = 3,
+  minLootQuality = 4,
+  levelStep = 10,
+  questRedLevels = 0,
+  logOnlyHighlights = false,
 }
 H.KINDS = { gear = true, loot = true, boss = true, quest = true, level = true }
-H.defaults = H.DEFAULTS -- filled into db.settings by the core (missing or wrong-typed values)
+H.defaults = H.DEFAULTS
 
--- v2: "red" quests counted from 4 levels above by default; now off. Only an untouched old 4 is reset.
 H.migrations = {
   [2] = function(db)
     if type(db.settings) ~= "table" then db.settings = {} end
     if db.settings.questRedLevels == 4 and not db.settings.migratedV2 then db.settings.questRedLevels = 0 end
-    db.settings.migratedV2 = true -- kept: older versions read it
+    db.settings.migratedV2 = true
   end,
 }
 
 local function Print(...) GS.Print(L.TITLE, ...) end
 H.Print = Print
 
----------------------------------------------------------------------------
--- SavedVariables
----------------------------------------------------------------------------
 local function Table(t) return type(t) == "table" and t or {} end
 
--- The core has set up self.db / self.settings / self.cdb (sv, svChar, defaults, charDefaults, migrations above).
 function H:OnLoad()
   local db, cdb = self.db, self.cdb
   db.guilds = Table(db.guilds)
@@ -64,13 +56,11 @@ function H:OnLoad()
   cdb.seq = tonumber(cdb.seq) or 0
   cdb.installedAt = cdb.installedAt or time()
 
-  self.idIndex = {} -- [guildKey] = { [id] = event } (rebuilt, not saved)
+  self.idIndex = {}
 end
 
 function H:Settings() return self.db and self.db.settings or self.DEFAULTS end
 
--- The current guild's log key. The last known key is kept per character, so entries made while
--- GetGuildInfo is still empty after login don't land in the "-" (no guild) bucket.
 function H:GuildKey()
   local k = GS:GuildKey()
   if k then
@@ -96,9 +86,6 @@ function H:Log(gkey)
   return g.events, self.idIndex[gkey]
 end
 
----------------------------------------------------------------------------
--- Store
----------------------------------------------------------------------------
 function H:NextID(who, t)
   self.cdb.seq = (self.cdb.seq + 1) % 100000
   return ("%s#%d#%d"):format(who, t, self.cdb.seq)
@@ -123,47 +110,59 @@ function H:Remove(id, gkey)
   self.cdb.outbox[id] = nil
 end
 
--- Add an entry.
---   source "self": own entry, shared (opts.group + opts.rank: a group event that one elected member reports)
---   source "witness": a guildie's loot seen in my group, shared as a group event
---   source "wire": received; "test": local only. opts.localOnly: never shared.
--- Returns the stored entry, or nil if it was rejected or already known.
+local function IsRecentLootRepeat(self, events, e)
+  if e.k ~= "loot" then return false end
+  for i = #events, 1, -1 do
+    local o = events[i]
+    if o.t < e.t - self.LOOT_DEDUPE then return false end
+    if o.k == "loot" and o.who == e.who and o.item == e.item and math.abs(o.t - e.t) <= self.LOOT_DEDUPE then return true end
+  end
+  return false
+end
+
+local function InsertByTime(events, e)
+  local pos = #events + 1
+  while pos > 1 and events[pos - 1].t > e.t do pos = pos - 1 end
+  table.insert(events, pos, e)
+end
+
+local function OnHeardFromWire(self, e)
+  if e.k == "loot" then self.lootHeard[e.who .. "#" .. tostring(e.item)] = e.t end
+  if e.k == "boss" and e.grp then self:Supersede(e) end
+  self:Announce(e)
+end
+
+local function OnSeenHere(self, e, source, opts, gkey)
+  if source == "witness" or self:Settings().echoOwn then self:Announce(e) end
+  if not opts.localOnly and gkey ~= "-" then self:Share(e, opts) end
+end
+
+local function OutsideKeptWindow(self, t)
+  local now = GS:Now()
+  return t > now + self.FUTURE_SLACK or t < now - self.MAX_AGE
+end
+
 function H:Add(e, source, opts)
   if not self.db or not Valid(e) then return end
   opts = opts or {}
-  local now = GS:Now()
-  if e.t > now + self.FUTURE_SLACK or e.t < now - self.MAX_AGE then return end
+  if OutsideKeptWindow(self, e.t) then return end
   local gkey = self:GuildKey()
   local events, idx = self:Log(gkey)
-  if idx[e.id] then return end
-  if e.k == "loot" then
-    for i = #events, 1, -1 do
-      local o = events[i]
-      if o.t < e.t - self.LOOT_DEDUPE then break end
-      if o.k == "loot" and o.who == e.who and o.item == e.item and math.abs(o.t - e.t) <= self.LOOT_DEDUPE then return end
-    end
-  end
+  if idx[e.id] or IsRecentLootRepeat(self, events, e) then return end
   if source == "test" then e.test = true end
-  local pos = #events + 1 -- sorted by time (almost always at the end)
-  while pos > 1 and events[pos - 1].t > e.t do pos = pos - 1 end
-  table.insert(events, pos, e)
+  InsertByTime(events, e)
   idx[e.id] = e
   if source == "wire" then self:CapWho(events, idx, e.who) end
   self:Prune(gkey)
-
   if source == "wire" then
-    if e.k == "loot" then self.lootHeard[e.who .. "#" .. tostring(e.item)] = e.t end
-    if e.k == "boss" and e.grp then self:Supersede(e) end
-    self:Announce(e)
+    OnHeardFromWire(self, e)
   elseif source == "self" or source == "witness" then
-    if source == "witness" or self:Settings().echoOwn then self:Announce(e) end
-    if not opts.localOnly and gkey ~= "-" then self:Share(e, opts) end
+    OnSeenHere(self, e, source, opts, gkey)
   end
   if self.RefreshSoon then self:RefreshSoon() elseif self.Refresh then self:Refresh() end
   return e
 end
 
--- One person can't fill the log: past MAX_PER_WHO entries about them, their oldest is dropped (not everyone's).
 function H:CapWho(events, idx, who)
   local n, first = 0, nil
   for i, o in ipairs(events) do
@@ -175,7 +174,6 @@ function H:CapWho(events, idx, who)
   end
 end
 
--- true if this sender may still be heard this hour (review 2026-11-15: one guildmate filled the log and the chat)
 H.recv = {}
 function H:Admit(sender, now)
   local list = self.recv[sender]
@@ -198,7 +196,6 @@ function H:Prune(gkey)
   end
 end
 
--- Someone else reported the raid kill we were holding back: theirs replaces ours (if ours wasn't sent).
 function H:Supersede(r)
   local me = GS:PlayerKey()
   local events = self:Log()
@@ -211,9 +208,6 @@ function H:Supersede(r)
   end
 end
 
--- Everything else this character does (user 2026-11-14: "show everything, not just highlights"):
--- all loot, every quest, every kill, every level, every new item worn. Kept per character, never sent
--- (the guild lane can't carry it – Forever drops heavy senders). The log window merges it with the highlights.
 H.ACTIVITY_MAX = 3000
 H.ACTIVITY_AGE = 30 * 86400
 function H:Activity(e)
@@ -229,7 +223,6 @@ function H:Activity(e)
   return e
 end
 
--- Loot reports heard on the wire (also the ones the loot dedupe dropped): [who#item] = t
 H.lootHeard = {}
 function H:LootReportedByOthers(e)
   local t = self.lootHeard[e.who .. "#" .. tostring(e.item)]
@@ -248,9 +241,6 @@ function H:ClearTests()
   return n
 end
 
----------------------------------------------------------------------------
--- Formatting
----------------------------------------------------------------------------
 function H.ClassColorName(name, class)
   local colors = CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS
   local c = class and colors and colors[class]
@@ -266,7 +256,6 @@ function H:ItemCached(id)
   return name ~= nil
 end
 
--- A clickable item link: the stored one, the client's own (when cached), or a plain coloured [item:ID].
 function H:ItemText(e)
   if Plain(e.link, "string") then return e.link end
   local id = e.item
@@ -282,38 +271,47 @@ end
 
 local QUEST_TAGS = { elite = "TAG_ELITE", group = "TAG_GROUP", dungeon = "TAG_DUNGEON", raid = "TAG_RAID", red = "TAG_RED" }
 
+local function Gold(text) return "|cffffd100" .. text .. "|r" end
+local function NonEmpty(s, fallback) return (s and s ~= "") and s or fallback end
+
+local FormatKind = {
+  gear = function(self, e, who)
+    local item = self:ItemText(e)
+    local quality = e.q or 0
+    local gain = (e.il and e.oil) and (e.il - e.oil) or nil
+    if gain and gain > 0 and quality < 4 then return L.GEAR:format(who, item, gain) end
+    if quality >= 4 then return L.GEAR_EPIC:format(who, item) end
+    return L.GEAR_FILL:format(who, item)
+  end,
+  loot = function(self, e, who)
+    local count = (e.n or 1) > 1 and ("x" .. e.n) or ""
+    return (e.src == "bag" and L.LOOT_GOT or L.LOOT):format(who, self:ItemText(e) .. count)
+  end,
+  boss = function(_, e, who)
+    local boss, inst = Gold(NonEmpty(e.boss, L.A_BOSS)), NonEmpty(e.inst, L.AN_INSTANCE)
+    if e.grp and (e.n or 1) > 1 then return L.BOSS_GROUP:format(who, e.n - 1, boss, inst) end
+    return (e.first and L.BOSS_FIRST or L.BOSS):format(who, boss, inst)
+  end,
+  quest = function(_, e, who)
+    local title = Gold(e.title or ("#" .. tostring(e.qid)))
+    if e.act and not e.tag then return L.QUEST_PLAIN:format(who, title) end
+    return L.QUEST:format(who, L[QUEST_TAGS[e.tag] or "TAG_HARD"], title)
+  end,
+  level = function(_, e, who)
+    local max = Plain(SafeCall(GetMaxPlayerLevel), "number")
+    return ((max and e.lvl == max) and L.LEVEL_MAX or L.LEVEL):format(who, e.lvl or 0)
+  end,
+}
+
 function H:Format(e)
   local who = self.ClassColorName(e.who, e.cls)
-  local text
-  if e.k == "gear" then
-    local item = self:ItemText(e)
-    local gain = (e.il and e.oil) and (e.il - e.oil) or nil
-    if gain and gain > 0 and (e.q or 0) < 4 then text = L.GEAR:format(who, item, gain)
-    elseif (e.q or 0) >= 4 then text = L.GEAR_EPIC:format(who, item)
-    else text = L.GEAR_FILL:format(who, item) end
-  elseif e.k == "loot" then
-    text = (e.src == "bag" and L.LOOT_GOT or L.LOOT):format(who, self:ItemText(e) .. ((e.n or 1) > 1 and ("x" .. e.n) or ""))
-  elseif e.k == "boss" then
-    local boss = "|cffffd100" .. ((e.boss and e.boss ~= "") and e.boss or L.A_BOSS) .. "|r"
-    local inst = (e.inst and e.inst ~= "") and e.inst or L.AN_INSTANCE
-    if e.grp and (e.n or 1) > 1 then text = L.BOSS_GROUP:format(who, e.n - 1, boss, inst)
-    else text = (e.first and L.BOSS_FIRST or L.BOSS):format(who, boss, inst) end
-  elseif e.k == "quest" then
-    local title = "|cffffd100" .. (e.title or ("#" .. tostring(e.qid))) .. "|r"
-    if e.act and not e.tag then text = L.QUEST_PLAIN:format(who, title)
-    else text = L.QUEST:format(who, L[QUEST_TAGS[e.tag] or "TAG_HARD"], title) end
-  elseif e.k == "level" then
-    local max = Plain(SafeCall(GetMaxPlayerLevel), "number")
-    text = ((max and e.lvl == max) and L.LEVEL_MAX or L.LEVEL):format(who, e.lvl or 0)
-  else
-    text = tostring(e.k)
-  end
+  local format = FormatKind[e.k]
+  local text = format and format(self, e, who) or tostring(e.k)
   if e.by and e.by ~= e.who then text = text .. " |cff888888(" .. L.WITNESSED:format(e.by) .. ")|r" end
   if e.test then text = "|cff888888[" .. L.TEST .. "]|r " .. text end
   return text
 end
 
--- Chat shows the big moments; gear and quests only with chatAll (the window always shows everything).
 function H:ShouldPrint(e)
   local s = self:Settings()
   if not s.chat then return false end
@@ -322,7 +320,6 @@ function H:ShouldPrint(e)
   return e.k == "boss" or e.k == "loot" or e.k == "level"
 end
 
--- Print to chat; a received item line waits up to 2 s for the item's name (a chat line can't be updated later).
 function H:Announce(e)
   if not self:ShouldPrint(e) then return end
   if e.item and not Plain(e.link, "string") and not self:ItemCached(e.item) then
@@ -335,9 +332,6 @@ end
 
 function H.TimeText(t) return date(L.FMT_TIME, t) end
 
----------------------------------------------------------------------------
--- Test entries (/rq hl test): one of each kind, local only
----------------------------------------------------------------------------
 function H:AddTests()
   local me = GS:PlayerKey() or "Me"
   local _, cls = SafeCall(UnitClass, "player")
@@ -365,9 +359,6 @@ function H:AddTests()
   return n
 end
 
----------------------------------------------------------------------------
--- Options (drawn by the core's overview window; user decision 2026-11-14: options live in the UI)
----------------------------------------------------------------------------
 local function S() return H:Settings() end
 local function Setter(key, after)
   return function(v)
@@ -407,36 +398,43 @@ H.options = {
   { type = "text", label = L.OPT_DIAG, tooltip = L.OPT_DIAG_TIP, lines = function() return H:DiagLines() end },
 }
 
--- Everything needed to debug detection and sharing, for the copy box.
+local function SortedAssignments(t)
+  local list = {}
+  for k, v in pairs(t) do list[#list + 1] = k .. "=" .. tostring(v) end
+  table.sort(list)
+  return list
+end
+
+local function JoinedOr(list, sep, empty) return list[1] and table.concat(list, sep) or empty end
+
+local function OutboxLine(outbox)
+  local waiting = {}
+  for id, o in pairs(outbox) do
+    waiting[#waiting + 1] = ("%s (tries %s%s)"):format(id, tostring(o.tries or 0), o.hold and ", resting" or "")
+  end
+  return "outbox: " .. JoinedOr(waiting, "; ", "-")
+end
+
+local function AddLastEventLines(out, last)
+  local evs = {}
+  for ev in pairs(last or {}) do evs[#evs + 1] = ev end
+  table.sort(evs)
+  for _, ev in ipairs(evs) do out[#out + 1] = ("last %s: %s"):format(ev, (last[ev]:gsub("|", "||"))) end
+end
+
 function H:DiagLines()
   local out = { "Highlights  guild: " .. tostring(self:GuildKey()) }
   for gkey, g in pairs(self.db.guilds) do out[#out + 1] = ("  log %s: %d entries"):format(gkey, #g.events) end
-  local waiting = {}
-  for id, o in pairs(self.cdb.outbox) do
-    waiting[#waiting + 1] = ("%s (tries %s%s)"):format(id, tostring(o.tries or 0), o.hold and ", resting" or "")
-  end
-  out[#out + 1] = "outbox: " .. (waiting[1] and table.concat(waiting, "; ") or "-")
+  out[#out + 1] = OutboxLine(self.cdb.outbox)
   out[#out + 1] = "shared this hour: " .. #self.cdb.shareLog .. "  ·  activity entries (this character): " .. #self.cdb.activity
-  local keys = {}
-  for k, v in pairs(self:Settings()) do keys[#keys + 1] = k .. "=" .. tostring(v) end
-  table.sort(keys)
-  out[#out + 1] = "settings: " .. table.concat(keys, ", ")
+  out[#out + 1] = "settings: " .. table.concat(SortedAssignments(self:Settings()), ", ")
   local d = self.db.diag
   out[#out + 1] = ("secret loot lines: %d, bad messages: %d"):format(d.secretLoot or 0, d.badMsg or 0)
-  local seen = {}
-  for ev, n in pairs(d.seen or {}) do seen[#seen + 1] = ev .. "=" .. n end
-  table.sort(seen)
-  out[#out + 1] = "events seen: " .. (seen[1] and table.concat(seen, ", ") or "-")
-  local evs = {}
-  for ev in pairs(d.last or {}) do evs[#evs + 1] = ev end
-  table.sort(evs)
-  for _, ev in ipairs(evs) do out[#out + 1] = ("last %s: %s"):format(ev, (d.last[ev]:gsub("|", "||"))) end
+  out[#out + 1] = "events seen: " .. JoinedOr(SortedAssignments(d.seen or {}), ", ", "-")
+  AddLastEventLines(out, d.last)
   return out
 end
 
----------------------------------------------------------------------------
--- Overview window hooks (core Overview.lua)
----------------------------------------------------------------------------
 function H:Open()
   if self.ShowWindow then self:ShowWindow() elseif self.ToggleWindow then self:ToggleWindow() end
 end

@@ -1,9 +1,3 @@
--- Ravenquill Expedition: Dev - the log. Never released (scripts/package.ps1 refuses this folder).
--- Everything the suite traces (RavenquillExpedition:Trace), every suite addon message sent or heard, and the suite's
--- own chat lines ("Ravenquill Expedition ..."; every other chat line, whispers included, only with the "all chat
--- lines" switch, off by default), into a ring of LOG_MAX entries in RavenquillExpeditionDevDB. The game writes SavedVariables on /reload and
--- logout; scripts/devlog.sh reads the file from disk, so nothing has to be copied out of the game by hand.
--- Entry: { time(), GetTime(), category, message, data } (message and data cut to 120 bytes, secrets never stored).
 local ADDON, ns = ...
 local RQ = RavenquillExpedition
 local Dev = {}
@@ -14,8 +8,8 @@ Dev.CUT = 120
 Dev.SESSIONS_MAX = 10
 local SUITE_PREFIXES = { RQE1 = true, RQEMap1 = true, GCAdv1 = true }
 
-local db -- RavenquillExpeditionDevDB, set at our ADDON_LOADED
-local pending = {} -- entries traced before the SavedVariables were ready (the core loads first)
+local db
+local pending = {}
 
 local function Text(v)
   if v == nil then return nil end
@@ -37,10 +31,8 @@ function Dev.Add(cat, msg, data)
   if db then Store(e) elseif #pending < 300 then pending[#pending + 1] = e end
 end
 
--- The core's no-op becomes the logger. Never raises: a broken trace must not break the caller.
 function RQ:Trace(cat, msg, data) pcall(Dev.Add, cat, msg, data) end
 
--- Log entries in order, oldest first.
 function Dev.Entries()
   local out, log = {}, db and db.log
   if not log then return out end
@@ -53,14 +45,10 @@ function Dev.Clear()
   db.log = { head = 1, n = 0, max = Dev.LOG_MAX, e = {} }
 end
 
----------------------------------------------------------------------------
--- What the log listens to (all hooks are post-hooks and never raise)
----------------------------------------------------------------------------
 if DEFAULT_CHAT_FRAME and hooksecurefunc then
   hooksecurefunc(DEFAULT_CHAT_FRAME, "AddMessage", function(_, text)
     pcall(function()
       if type(text) ~= "string" or RQ.IsSecret(text) then return end
-      -- other people's words (whispers, guild chat) stay out of the file unless the developer asks for them
       if (db and db.chatAll) or text:find("Ravenquill Expedition", 1, true) then Dev.Add("chat", text) end
     end)
   end)
@@ -91,9 +79,6 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
   end)
 end)
 
----------------------------------------------------------------------------
--- Module: SavedVariables, session header, /rq dev
----------------------------------------------------------------------------
 local mod = RQ:NewModule("Dev", { addon = ADDON, slash = "dev", title = "Dev tools",
   icon = "Interface\\Icons\\INV_Misc_Gear_01" })
 Dev.mod = mod
@@ -102,7 +87,7 @@ function mod:OnLoad()
   db = type(RavenquillExpeditionDevDB) == "table" and RavenquillExpeditionDevDB or {}
   RavenquillExpeditionDevDB = db
   if db.on == nil then db.on = true end
-  db.chatAll = db.chatAll == true -- off unless switched on (review 2026-11-15: whispers ended up on disk)
+  db.chatAll = db.chatAll == true
   if type(db.log) ~= "table" or type(db.log.e) ~= "table" then Dev.Clear() end
   db.log.max = Dev.LOG_MAX
   db.runs = type(db.runs) == "table" and db.runs or {}
@@ -119,7 +104,7 @@ end
 function mod:OnLogin()
   local s = db.sessions[#db.sessions]
   s.char, s.guild = RQ:PlayerKey(), RQ:GuildKey()
-  s.modules = {} -- at login every addon has loaded (at our ADDON_LOADED only those before us had)
+  s.modules = {}
   for _, name in ipairs(RQ.moduleOrder) do
     local m = RQ.modules[name]
     s.modules[name] = m.addon and RQ:AddOnVersion(m.addon) or "?"
@@ -128,7 +113,6 @@ function mod:OnLogin()
   if Dev.OnLoginTests then RQ:Call(Dev.OnLoginTests, Dev) end
 end
 
--- /rq dev <test name> runs that in-game test now (e.g. "/rq dev map.state" with the world map open); /reload saves it
 function mod:OnSlash(rest)
   local name = rest and rest:match("^%s*(%S+)")
   if not (name and Dev.tests and Dev.tests[name]) then

@@ -1,12 +1,7 @@
--- Lua 5.1 syntax guard for every file the game loads (the suite's RavenquillExpedition*/ folders without dev/).
--- The game runs Lua 5.1; the tests run on 5.4 and luacheck parses 5.3 syntax under any std, so neither notices
--- `//`, bit operators (& | ~ << >>), `goto` or `::labels::`. This scanner skips strings and comments and reports
--- those tokens. run-tests.sh calls it; with luac5.1 installed (CI) it also runs `luac5.1 -p` on the same files.
--- Usage: lua scripts/check-lua51.lua [file ...]   (no files: every shipped .lua; prints the list for luac with --list)
 local function Scan(src)
   local probs, i, n, line = {}, 1, #src, 1
   local function prob(what) probs[#probs + 1] = ("%d: %s"):format(line, what) end
-  local function skipTo(j) -- move to j, counting lines on the way
+  local function skipTo(j)
     local _, nl = src:sub(i, j - 1):gsub("\n", "")
     line, i = line + nl, j
   end
@@ -57,7 +52,6 @@ local function Scan(src)
   return probs
 end
 
--- What the game loads: every .lua a suite .toc names, and every <Script file> of an .xml it names (libraries).
 local function ShippedFiles()
   local out, seen = {}, {}
   local function add(f) if not seen[f] then seen[f] = true; out[#out + 1] = f end end

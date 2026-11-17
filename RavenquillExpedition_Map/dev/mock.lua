@@ -1,13 +1,7 @@
--- WoW API mock for the RavenquillExpedition_Map harnesses: one shared clock and GUILD channel ("bus") for many
--- virtual clients ("worlds"), each loading the REAL core (through its .toc) and then the Map files into its own
--- environment. Kept next to RavenquillExpedition/dev/testkit.lua because of the HereBeDragons / C_Map specifics and
--- because the golden send times in harness_compat.lua were recorded on this scheduler.
--- HereBeDragons is mocked (records placements); real map math is only testable in game.
 local Mock = {}
 
 function Mock.Scheduler()
   local s = { t = 0, timers = {} }
-  -- returns a handle with :Cancel() (C_Timer.NewTicker's ticker)
   function s:at(t, fn, every)
     local tm = { at = t, fn = fn, every = every }
     self.timers[#self.timers + 1] = tm
@@ -33,7 +27,6 @@ function Mock.Scheduler()
   return s
 end
 
--- The guild channel: delivers each GUILD addon message to every world (sender included = echo) after latency.
 function Mock.Bus(sched)
   local b = { sched = sched, worlds = {}, log = {}, latency = 1, roster = {} }
   function b.drop(sender, prefix, msg) return false end
@@ -52,7 +45,6 @@ function Mock.Bus(sched)
   function b:setOnline(name, online)
     for _, r in ipairs(self.roster) do if r.name == name then r.online = online end end
   end
-  -- map messages (P/L) sent, optionally only from one sender, within [t0, t1)
   function b:count(t0, t1, sender, kind)
     local n = 0
     for _, e in ipairs(self.log) do
@@ -78,8 +70,6 @@ local function NewFrameFactory(world)
       CreateFontString = function() return NewFrame() end,
       GetZoom = function() return 2 end,
     }
-    -- real frame methods we call (or HBD calls) are no-ops; any other method name is a bug -> error.
-    -- Unknown lowercase fields are nil, as on real frames.
     local noop = { SetPoint = true, ClearAllPoints = true, SetParent = true, EnableMouse = true, RegisterForClicks = true,
       SetTexture = true, SetTextColor = true, SetFrameLevel = true, SetFrameStrata = true, UnregisterEvent = true }
     return setmetatable(f, { __index = function(_, k)
@@ -92,7 +82,6 @@ local function NewFrameFactory(world)
   return NewFrame
 end
 
--- opts: sched, bus, name ("First Surname"), class, level, locale, pos {mapID, x, y}, guild, dir, setup(env, world)
 function Mock.NewWorld(opts)
   local sched = opts.sched or Mock.Scheduler()
   local bus = opts.bus
@@ -194,11 +183,9 @@ function Mock.NewWorld(opts)
   env.ChatFrameUtil = { SendTell = function(n) world.tells[#world.tells + 1] = n end }
   env.SlashCmdList = {}
 
-  -- HereBeDragons mock
   local HBD = {
     GetPlayerZone = function() return world.pos and world.pos[1], 3 end,
     GetPlayerZonePosition = function() local p = world.pos; if p then return p[2] + 0.001, p[3], p[1], 3 end end,
-    -- world pins are drawn by Pins.lua's own layer from these (the map math itself is only testable in game)
     GetWorldCoordinatesFromZone = function(_, x, y, mapID)
       if mapID == 999999 then return nil, nil, nil end
       return x * 1000, y * 1000, 0
@@ -214,14 +201,11 @@ function Mock.NewWorld(opts)
       return true
     end
   end
-  -- world pin frames per member (Pins.lua moves one frame per member; more would be orphans, code review #1)
   function world.maxCanvas()
     local per, m = {}, 0
     for f in pairs(world.hbdWorld) do per[f.key] = (per[f.key] or 0) + 1; m = math.max(m, per[f.key]) end
     return m
   end
-  -- HBD's world map API registers a data provider on WorldMapFrame, which tainted Blizzard's map-show path
-  -- (ADDON_ACTION_BLOCKED SetPassThroughButtons, Pins.lua header): calling it is a bug
   local function noWorldMapApi() error("mock: HBD world map API used (taints the world map)", 2) end
   local Pins = {
     AddMinimapIconMap = add(world.hbdMini),
@@ -235,7 +219,6 @@ function Mock.NewWorld(opts)
 
   if opts.setup then opts.setup(env, world) end
 
-  -- the real core, as the .toc requires it (## Dependencies)
   env.Enum = env.Enum or {}
   world.coreName = "RavenquillExpedition"
   world.coreNs = {}
@@ -253,14 +236,12 @@ function Mock.NewWorld(opts)
   end
   world.M, world.L = world.ns.Map, world.ns.L
   world.mod = world.M.mod
-  -- world map pins: Pins.lua's own layer ([frame] = { mapID, x, y, ... }), not HBD
   world.hbdWorld = world.M.worldPlaced or {}
   function world.fire(event, ...)
     for _, f in ipairs(world.frames) do
       if f.events[event] and f.scripts.OnEvent then f.scripts.OnEvent(f, event, ...) end
     end
   end
-  -- the settings view in the /rq overview: set an option, read the diagnostics box
   function world.set(id, v)
     local o = world.mod:Option(id)
     assert(o and o.set, "no option " .. tostring(id))

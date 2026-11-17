@@ -1,28 +1,8 @@
--- Shared test kit for multi-client tests: one virtual clock, one GUILD channel ("bus") with echo and latency, and any
--- number of clients, each loading the REAL core plus the addons you name (through their .toc) into its own Lua
--- environment. Generalised from RavenquillExpedition_Map/dev/mock.lua.
---
---   local Kit = dofile(<AddOns>/RavenquillExpedition/dev/testkit.lua)
---   local sched, bus = Kit.Setup()
---   local a = Kit.Client(sched, bus, "Anna Stone", { addons = { "RavenquillExpedition_Highlights" } })
---   a.login(); sched:advance(60)
---   Kit.check(cond, "label"); Kit.section("name"); Kit.skip("name", "reason"); Kit.finish()
---
--- Client options: addons (folder names, loaded after the core), files ({ path, addonName } extra files),
---   class, level, locale, guild ("Testgilde"; false = no guild), realm, setup = fn(env, client) (extra API before
---   loading), noCore = true (old-version clients that bring their own code).
--- Client fields: env, name, fire(event, ...), login(), module(name), RQ, printed, errors, sent (its own sends),
---   instance / combat / dead / throttle flags the API reads.
--- Bus: bus.log = { { t, sender, prefix, msg, chat } }, bus.latency (s), bus.drop(sender, prefix, msg) -> true drops,
---   bus:member(name, class, level, online), bus:count(fn), bus:maxPer(seconds, sender, prefixes).
 local Kit = {}
 local ADDONS = (debug.getinfo(1, "S").source:gsub("^@", ""):gsub("[^/\\]*$", "")) .. "../../"
 local TocFiles = dofile(ADDONS .. "RavenquillExpedition/dev/toc.lua")
 Kit.ADDONS = ADDONS
 
----------------------------------------------------------------------------
--- Checks
----------------------------------------------------------------------------
 local pass, fail, skips = 0, 0, 0
 function Kit.check(cond, label)
   if cond then pass = pass + 1; io.write("  ok   ", label, "\n") else fail = fail + 1; io.write("  FAIL ", label, "\n") end
@@ -35,7 +15,6 @@ function Kit.finish()
   os.exit(fail == 0 and 0 or 1)
 end
 
--- loadfile with an environment, on Lua 5.1 (setfenv) and 5.2+
 function Kit.loadchunk(path, env)
   if setfenv then
     local f = assert(loadfile(path))
@@ -45,9 +24,6 @@ function Kit.loadchunk(path, env)
   return assert(loadfile(path, "t", env))
 end
 
----------------------------------------------------------------------------
--- Clock
----------------------------------------------------------------------------
 function Kit.Scheduler()
   local s = { t = 0, timers = {}, seq = 0 }
   function s:at(t, fn, every)
@@ -71,9 +47,6 @@ function Kit.Scheduler()
   return s
 end
 
----------------------------------------------------------------------------
--- Guild channel
----------------------------------------------------------------------------
 function Kit.Bus(sched)
   local b = { sched = sched, clients = {}, log = {}, latency = 1, roster = {} }
   function b.drop() return false end
@@ -97,7 +70,6 @@ function Kit.Bus(sched)
     for _, e in ipairs(self.log) do if pred(e) then n = n + 1 end end
     return n
   end
-  -- the most GUILD messages `sender` sent within any window of `seconds` (only `prefixes` when given)
   function b:maxPer(seconds, sender, prefixes)
     local times = {}
     for _, e in ipairs(self.log) do
@@ -119,9 +91,6 @@ function Kit.Setup()
   return sched, Kit.Bus(sched)
 end
 
----------------------------------------------------------------------------
--- Frames: methods we know are recorded; any other method is a no-op (permissive), like the game for our purposes.
----------------------------------------------------------------------------
 local function NewFrameFactory(client)
   local function obj()
     local f = { _shown = false, _scripts = {}, _events = {} }
@@ -152,9 +121,6 @@ local function NewFrameFactory(client)
   return obj
 end
 
----------------------------------------------------------------------------
--- A client
----------------------------------------------------------------------------
 function Kit.Client(sched, bus, name, opts)
   opts = opts or {}
   local c = { name = name, online = true, guild = opts.guild == nil and "Testgilde" or opts.guild or nil,
@@ -287,7 +253,6 @@ function Kit.Client(sched, bus, name, opts)
   return c
 end
 
--- A fixed random generator (same jitter on every run and every Lua version).
 function Kit.Random(seed)
   local s = seed or 12345
   return function(a, b)

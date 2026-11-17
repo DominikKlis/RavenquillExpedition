@@ -4,15 +4,6 @@ local UI = GCA.UI
 local P = UI.P
 local SafeCall = P.SafeCall
 
--- Simple pooled scroll list. Optional `kinds`: { [rowKind] = { create, update, height } } for data
--- entries with `d.rowKind` (own pool and height each); everything else uses createRow/updateRow/rowHeight.
--- Not virtualised: every entry gets a (pooled) row and the scroll frame clips; sf.rowY keeps each entry's
--- y offset and height so VisibleRows() can tell how many fit in the view (J2).
--- K6: the scroll bar is the client's MinimalScrollBar (the profession recipe list's own bar, 8 px, minimal-scrollbar-*
--- atlases, probe) on a plain ScrollFrame, linked by ScrollUtil.InitScrollFrameWithScrollBar and scrolled by the wheel
--- with ScrollStepInDirection - exactly as ForeverLFG ChatRulesUI.lua:54-60 / ForeverLFG_GroupQuest
--- QuestMatchesUI.lua:229-235 do on Forever. The pooled rows stay (a WowScrollBoxList rewrite would touch every row
--- kind and the layout code for no visible gain). Without ScrollUtil / the template: UIPanelScrollFrameTemplate.
 local function NewScrollFrame(parent)
   local link = ScrollUtil and ScrollUtil.InitScrollFrameWithScrollBar
   if type(link) == "function" then
@@ -26,7 +17,6 @@ local function NewScrollFrame(parent)
   end
   return CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate")
 end
--- after SetScrollChild (ForeverLFG's order): link the bar; if that fails, the wheel still scrolls by 30 px
 local function LinkScrollBar(sf)
   local bar = sf.pendingBar
   if not bar then return end
@@ -38,8 +28,6 @@ local function LinkScrollBar(sf)
     bar:SetPoint("BOTTOMLEFT", sf, "BOTTOMRIGHT", 8, 0)
     if bar.SetHideIfUnscrollable then pcall(bar.SetHideIfUnscrollable, bar, true) end
     sf:SetScript("OnMouseWheel", function(_, delta) pcall(bar.ScrollStepInDirection, bar, -delta) end)
-    -- K12 (user: "shows a scroll bar but there is nothing to scroll"): the bar is a sibling of the scroll frame, so
-    -- it must follow the frame's visibility itself, and only show when the content is taller than the view.
     sf:HookScript("OnShow", function(self) if self.UpdateBar then self:UpdateBar() end end)
     sf:HookScript("OnHide", function() bar:Hide() end)
   else
@@ -83,9 +71,7 @@ local function CreateScrollList(parent, width, height, rowHeight, createRow, upd
       row:SetPoint("TOPLEFT", 0, -y)
       row:SetPoint("RIGHT", content, "RIGHT")
       row.data = d
-      -- n: position among the rows of this kind (K1: alternating shading); K5: + the entry's index and the list
       update(row, d, n, #self.rowY + 1, data)
-      -- K1: a kind may measure its height after the update (the wrapped "no upgrade" line)
       if type(h) == "function" then
         h = h(row, d)
         row:SetHeight(h - 2)
@@ -102,8 +88,6 @@ local function CreateScrollList(parent, width, height, rowHeight, createRow, upd
     content:SetHeight(math.max(1, y))
     self:UpdateBar()
   end
-  -- K12: the scroll bar only while this list is shown and its content is taller than the view; else it is hidden
-  -- (and the list scrolled back to the top).
   function sf:UpdateBar()
     local bar = self.minimalBar
     if not bar then return end
@@ -112,8 +96,6 @@ local function CreateScrollList(parent, width, height, rowHeight, createRow, upd
     bar:SetShown(need and shown and true or false)
     if not need and (self.scrolledTo or 0) > 0 then self:ScrollTo(0) end
   end
-  -- Scrolls to offset y (clamped to the content). Through the template's scroll bar when it has one (keeps
-  -- the thumb in step), else SetVerticalScroll. Returns the offset.
   function sf:ScrollTo(y)
     y = math.max(0, math.min(y, (self.contentH or 0) - (self.viewH or 0)))
     local bar = self.ScrollBar
@@ -125,19 +107,16 @@ local function CreateScrollList(parent, width, height, rowHeight, createRow, upd
     self.scrolledTo = y
     return y
   end
-  -- K2: y offset of the first entry for which match(d) is true (nil when none)
   function sf:FindY(match)
     for i, d in ipairs(self.data or {}) do
       if match(d) and self.rowY[i] then return self.rowY[i][1] end
     end
   end
-  -- current scroll offset: the frame's own when it has one (mouse wheel / scroll bar), else our last ScrollTo
   function sf:Offset()
     local get = self.GetVerticalScroll; local v = get and SafeCall(get, self)
     if type(v) == "number" and not GCA.IsSecret(v) then return v end
     return self.scrolledTo or 0
   end
-  -- entries fully inside the view at the current offset
   function sf:VisibleRows()
     local top = self:Offset()
     local bottom, n = top + (self.viewH or 0), 0
@@ -146,9 +125,6 @@ local function CreateScrollList(parent, width, height, rowHeight, createRow, upd
     end
     return n
   end
-  -- J2: new view size. The content takes the new width (rows are anchored to its right edge); with relayout
-  -- the rows are rebuilt from the last data (section headers split their width by it); the offset is clamped
-  -- to the new scroll range.
   function sf:Resize(w, h, relayout)
     self:SetSize(w, h)
     content:SetWidth(w)
@@ -161,5 +137,4 @@ local function CreateScrollList(parent, width, height, rowHeight, createRow, upd
   return sf
 end
 
--- shared with the files loaded after this one (P)
 P.CreateScrollList = CreateScrollList

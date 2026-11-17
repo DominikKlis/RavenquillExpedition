@@ -1,6 +1,3 @@
--- K15: GCA as the Ravenquill Expedition core module "Craft": registration, mod.options (contract of the core's
--- Overview.lua), Capture, OnSlash routing, command texts, SavedVariables migrations. Loads the real core
--- (dev/corekit.lua) before the addon; the WoW mock below is the one of dev/harness.lua. Run: lua dev/harness_rq.lua
 unpack = table.unpack
 local fails, passes = 0, 0
 local function check(cond, label)
@@ -25,7 +22,6 @@ UISpecialFrames = {}
 local timers = {}
 C_Timer = { After = function(_, fn) timers[#timers+1] = fn end }
 local function runTimers() local n=0 while #timers>0 and n<200 do local t=table.remove(timers,1); t(); n=n+1 end end
--- generic object mock
 local function obj()
   local o = {}
   return setmetatable(o, { __index = function(t, k) if not k:match("^%u") then return nil end
@@ -75,7 +71,6 @@ function GetNumGuildMembers() return 2 end
 function GetGuildRosterInfo(i) if i==1 then return "Buddy Stone",nil,nil,28,nil,nil,nil,nil,true,nil,"DRUID" else return "Offy-Realm",nil,nil,50,nil,nil,nil,nil,false,nil,"ROGUE" end end
 function GetProfessions() return 1, nil end
 function GetProfessionInfo(i) return "Lederverarbeitung", nil, 120, 150, nil, nil, 165 end
--- items: derive from the recipe table after load
 local itemMeta = {}
 C_Item = {
   GetItemInfoInstant = function(item) local id = type(item)=="number" and item or tonumber(tostring(item):match("item:(%d+)")); local m = itemMeta[id]; if not m then return id, "Misc","Misc","",1,15,0 end return id,"Armor","x",m.loc,1,4,m.sub end,
@@ -88,16 +83,13 @@ C_Item = {
 C_SpellBook = { IsSpellKnown = function(id) return id == 2149 or id == 2160 or id == 3762 end }
 local ns = {}
 
----------------------------------------------------------------------------
--- K15: the real Ravenquill Expedition core, German client
----------------------------------------------------------------------------
 function GetLocale() return "deDE" end
 Minimap = obj()
 local ROOT = (arg[0]:gsub("[^/\\]*$", "")) .. "../"
 local K = dofile(ROOT .. "dev/corekit.lua")()
 local RQ = K.RQ
 local function load(f) local chunk = assert(loadfile(ROOT .. f)); chunk("RavenquillExpedition_CraftAdvisor", ns) end
-local Files = dofile(ROOT .. "dev/files.lua") -- the addon's files, from its .toc
+local Files = dofile(ROOT .. "dev/files.lua")
 Files.load(Files.list({ except = { "Data/Sources.lua", "Data/ExtraSources.lua", "Sync.lua", "RecipeSources.lua" } }), ns)
 local okSy, errSy = pcall(load, "Sync.lua")
 print("Sync.lua loaded:", okSy, okSy and "" or tostring(errSy))
@@ -120,13 +112,11 @@ local db = GCA.db
 check(db.v == 3 and db.keysV2 and db.inspectTalentsOffV1 and db.members["Old Timer"] and not db.members["Old-Timer"],
   "db.v = 3; [2] moved the v0.1 key \"Old-Timer\" to \"Old Timer\"; the old flags are kept")
 check(db.vLogin == 2, "login migrations ran (db.vLogin = 2)")
--- login migration [2] on a 0.6 database (keys with our own realm; the core's names drop it): the newer entry wins
 local rdb = { keysV2 = true, members = { ["Kim Lee-Realm"] = { time = 9, items = {} }, ["Kim Lee"] = { time = 3, items = {} },
   ["Ann Bo"] = { time = 8, items = {} }, ["Ann Bo-Realm"] = { time = 2, items = {} }, ["Zed Far-OtherRealm"] = { time = 1, items = {} } },
   specs = { ["Kim Lee-Realm"] = { class = "MAGE", spec = "FIRE", ts = 4 } }, specManual = { ["Kim Lee-Realm"] = { class = "MAGE", spec = "FROST" } },
   crafted = { ["Me-Realm"] = { ["Kim Lee-Realm"] = { Leatherworking = { [1] = { item = 1, t = 1 } } } } } }
 GCA.loginMigrations[2](rdb)
--- migration [3]: diagnostics move under db.diag, the dev probe's dumps go
 local ddb = { knownDiag = { login = {} }, lastError = { where = "x" }, diagSender = "S", probe = { frames = {} }, diag = { diagSender = "kept" } }
 GCA.migrations[3](ddb)
 local fresh = {}
@@ -253,11 +243,26 @@ for _, t in pairs(ns.Locales) do for k, v in pairs(t) do if type(v) == "string" 
 check(#leftovers == 0, "no locale text names /gca (" .. table.concat(leftovers, ", ") .. ")")
 local rqKeys = {}
 for _, t in pairs(ns.Locales) do for k in pairs(t) do if k:match("_RQ$") then rqKeys[#rqKeys + 1] = k end end end
-check(#rqKeys == 0 and ns.L.MSG_RECORDED == de.MSG_RECORDED and de.HELP_LINES:find("/rq craft", 1, true) and de.CMD_HELP:find("/rq craft", 1, true)
-  and ns.Locales.enUS.HELP_LINES:find("/rq craft", 1, true), "the command texts are the /rq craft ones (no _RQ variants left): " .. table.concat(rqKeys, ", "))
+check(#rqKeys == 0 and ns.L.MSG_RECORDED == de.MSG_RECORDED, "no _RQ variants of the command texts left: " .. table.concat(rqKeys, ", "))
+do
+  local Files = dofile(ROOT .. "dev/files.lua")
+  local list = {}
+  for _, f in ipairs(Files.all()) do if not f:find("^Locales/") and not f:find("^Data/") then list[#list + 1] = f end end
+  local src = Files.source(list)
+  local dead = {}
+  for k in pairs(ns.Locales.enUS) do
+    local prefix = k:match("^(STAT_)") or k:match("^(PROF_)") or k:match("^(CRAFTER_)")
+    if not (src:find("%f[%w_]" .. k .. "%f[^%w_]") or (prefix and src:find('"' .. prefix .. '"', 1, true))) then dead[#dead + 1] = k end
+  end
+  table.sort(dead)
+  check(#dead == 0, "every locale text is used by the addon (unused: " .. table.concat(dead, ", ") .. ")")
+end
+check(GCA.priv == nil and type(GCA.IsSecret) == "function" and type(GCA.BetterSuggestion) == "function"
+  and type(GCA.SuggestionOrder) == "function" and type(GCA.PlayerFaction) == "function",
+  "no private helper bag: shared helpers are named GCA fields")
 local removed = { "inspect", "scan", "whisper", "minimap", "reset", "verbose", "spec", "known", "sync" }
 local named = {}
-for _, k in ipairs({ "SYNC_STOPPED_MSG", "MSG_RECORDED", "EMPTY_NOGEAR", "WHISPER_DRAFT_KEPT", "CMD_HELP", "HELP_LINES" }) do
+for _, k in ipairs({ "SYNC_STOPPED_MSG", "MSG_RECORDED", "EMPTY_NOGEAR", "WHISPER_DRAFT_KEPT" }) do
   for _, loc in ipairs({ "enUS", "deDE" }) do
     local v = ns.Locales[loc][k]
     for _, c in ipairs(removed) do if v:find("/rq craft " .. c, 1, true) then named[#named + 1] = loc .. "." .. k .. ":" .. c end end

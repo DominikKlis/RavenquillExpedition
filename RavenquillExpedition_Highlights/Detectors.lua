@@ -1,7 +1,3 @@
--- Ravenquill Expedition: Highlights – detectors. Everything here watches YOUR character, except epic loot,
--- which the loot chat also shows for guildies in your group.
--- Every watched event is counted in RavenquillExpeditionHighlightsDB.diag (seen / last arguments) so the
--- Forever-specific behaviour can be checked after a /reload.
 local ADDON, ns = ...
 local GS = RavenquillExpedition
 local H = ns.H
@@ -9,9 +5,6 @@ local SafeCall, IsSecret, Plain = GS.SafeCall, GS.IsSecret, GS.Plain
 
 local GetInfo = (C_Item and C_Item.GetItemInfo) or GetItemInfo
 
----------------------------------------------------------------------------
--- Helpers
----------------------------------------------------------------------------
 local function MyLevel() return Plain(SafeCall(UnitLevel, "player"), "number") end
 local function MaxLevel() return Plain(SafeCall(GetMaxPlayerLevel), "number") end
 
@@ -25,7 +18,6 @@ local function Own(k, fields)
   return e
 end
 
--- plain activity (not a highlight): only this character's log, never sent
 local function Act(k, fields)
   local e = { k = k, lvl = MyLevel() }
   for key, v in pairs(fields) do e[key] = v end
@@ -36,13 +28,12 @@ local function ItemID(link) return type(link) == "string" and tonumber(link:matc
 
 local HEX_QUALITY = { ["9d9d9d"] = 0, ffffff = 1, ["1eff00"] = 2, ["0070dd"] = 3, a335ee = 4, ff8000 = 5, e6cc80 = 6 }
 local function LinkQuality(link)
-  local q = tonumber(link:match("|cnIQ(%d)")) -- Forever's link format "|cnIQ3:|Hitem:..." [V: saved diag]
+  local q = tonumber(link:match("|cnIQ(%d)"))
   if q then return q end
   local hex = link:match("|cff(%x%x%x%x%x%x)")
   return hex and HEX_QUALITY[hex:lower()]
 end
 
--- { id, name, q, il, ready } for an item link; asks the client to load it when needed
 local function ItemFacts(link)
   link = Plain(link, "string")
   if not link then return end
@@ -73,9 +64,6 @@ local function Diag(event, ...)
   d.last[event] = table.concat(parts, " | ")
 end
 
----------------------------------------------------------------------------
--- Bags and bank: (bag, slot) -> link, quality
----------------------------------------------------------------------------
 local CC = C_Container
 local function NumSlots(bag) return Plain(SafeCall((CC and CC.GetContainerNumSlots) or GetContainerNumSlots, bag), "number") or 0 end
 local function SlotItem(bag, slot)
@@ -103,7 +91,6 @@ local function BankList()
   return out
 end
 
--- calls fn(link, quality, itemID) for every item in the given containers
 local function EachItem(bags, fn)
   for _, bag in ipairs(bags) do
     for slot = 1, NumSlots(bag) do
@@ -113,11 +100,7 @@ local function EachItem(bags, fn)
   end
 end
 
----------------------------------------------------------------------------
--- Gear: a big upgrade (≥ minGain item levels on a rare+ item) or the first epic in a slot.
--- Items this character had before (worn, in the bags at install, in the bank) never count.
----------------------------------------------------------------------------
-local GEAR_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 } -- no ammo 0, shirt 4, tabard 19
+local GEAR_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 }
 local IS_GEAR = {}
 for _, s in ipairs(GEAR_SLOTS) do IS_GEAR[s] = true end
 local snap, snapReady = {}, false
@@ -139,7 +122,6 @@ local function TakeSnapshot()
       MarkEpic(f and f.q, id)
     end
   end
-  -- first run: whatever is already in the bags was "worn before", and owned epics aren't loot
   if not H.cdb.bagsSeeded then
     EachItem(BagList(), function(_, q, id) if id then H.cdb.everEquipped[id] = true; MarkEpic(q, id) end end)
     H.cdb.bagsSeeded = true
@@ -149,19 +131,28 @@ local function TakeSnapshot()
   snapReady = true
 end
 
-local function EvaluateGear(slot, old, new, tries)
-  local nf, of = ItemFacts(new), old and ItemFacts(old)
-  if not nf then return end
-  if not nf.ready or (of and not of.ready) then
-    if tries < 5 then C_Timer.After(1, function() GS:Call(EvaluateGear, slot, old, new, tries + 1) end) end
-    return
+local EvaluateGear
+do
+  local function StillLoading(nf, of) return not nf.ready or (of and not of.ready) end
+
+  local function GearWorthSharing(nf, of)
+    local s = H:Settings()
+    local gain = of and (nf.il - of.il)
+    local epicNew = (nf.q or 0) >= 4 and (not of or (of.q or 0) < 4)
+    local bigGain = gain and gain >= s.minGain and (nf.q or 0) >= (s.minGearQuality or 3)
+    return bigGain or epicNew
   end
-  local s = H:Settings()
-  local gain = of and (nf.il - of.il)
-  local epicNew = (nf.q or 0) >= 4 and (not of or (of.q or 0) < 4)
-  local bigGain = gain and gain >= s.minGain and (nf.q or 0) >= (s.minGearQuality or 3)
-  local fields = { item = nf.id, link = new, il = nf.il, q = nf.q, oil = of and of.il, slot = slot }
-  if bigGain or epicNew then H:Add(Own("gear", fields), "self") else H:Activity(Act("gear", fields)) end
+
+  EvaluateGear = function(slot, old, new, tries)
+    local nf, of = ItemFacts(new), old and ItemFacts(old)
+    if not nf then return end
+    if StillLoading(nf, of) then
+      if tries < 5 then C_Timer.After(1, function() GS:Call(EvaluateGear, slot, old, new, tries + 1) end) end
+      return
+    end
+    local fields = { item = nf.id, link = new, il = nf.il, q = nf.q, oil = of and of.il, slot = slot }
+    if GearWorthSharing(nf, of) then H:Add(Own("gear", fields), "self") else H:Activity(Act("gear", fields)) end
+  end
 end
 
 local function OnEquipmentChanged(slot)
@@ -175,11 +166,6 @@ local function OnEquipmentChanged(slot)
   EvaluateGear(slot, old, new, 0)
 end
 
----------------------------------------------------------------------------
--- Epics that show up in the bags: catches loot whose chat line is secret, quest rewards,
--- trades, mail. Not while the bank is open (taking out ≠ getting). The loot dedupe merges it with the
--- loot line when both are seen.
----------------------------------------------------------------------------
 local bankOpen = false
 local function ScanBagsForEpics()
   if not snapReady or not H.cdb.bagsSeeded then return end
@@ -197,134 +183,167 @@ local function OnBankOpened()
   EachItem(BankList(), function(_, q, id)
     if id then
       MarkEpic(q, id)
-      if not H.cdb.bankSeeded then H.cdb.everEquipped[id] = true end -- a second gear set in the bank
+      if not H.cdb.bankSeeded then H.cdb.everEquipped[id] = true end
     end
   end)
   H.cdb.bankSeeded = true
 end
 
----------------------------------------------------------------------------
--- Bosses.
--- Forever reports a won DUNGEON fight as ENCOUNTER_END with success 0, and BOSS_KILL names the kill
--- (Spoken_Bosses\Events.lua:25-30); both are handled, whichever names a kill first wins for 60 s.
--- Raid kill: a group report – one elected suite user sends "X and n guildies defeated Y".
--- Dungeon kill: only a levelling character's FIRST kill of that boss (a max-level char installing late
---   would otherwise announce farmed bosses as firsts). Every other kill goes to the activity log.
----------------------------------------------------------------------------
 local recentKill = {}
 
-local function OnKill(encID, name)
-  encID = Plain(encID, "number")
-  if encID and encID <= 0 then encID = nil end
-  name = Plain(name, "string")
-  if name == "" then name = nil end
-  local key = encID and ("e" .. encID) or (name and ("n" .. name))
-  if not key then return end
-  local now = GetTime()
-  if (encID and recentKill["e" .. encID] and now - recentKill["e" .. encID] < 60)
-    or (name and recentKill["n" .. name] and now - recentKill["n" .. name] < 60) then return end
-  if encID then recentKill["e" .. encID] = now end
-  if name then recentKill["n" .. name] = now end
+local OnKill
+do
+  local function KillIdentity(encID, name)
+    encID = Plain(encID, "number")
+    if encID and encID <= 0 then encID = nil end
+    name = Plain(name, "string")
+    if name == "" then name = nil end
+    return encID, name
+  end
 
-  local inst, itype = SafeCall(GetInstanceInfo)
-  inst, itype = Plain(inst, "string"), Plain(itype, "string")
-  if not inst or itype == "none" then inst = Plain(SafeCall(GetRealZoneText), "string") or inst end
-  local raid = itype == "raid"
-  local first = not H.cdb.kills[key]
-  H.cdb.kills[key] = GS:Now()
+  local function KilledWithinMinute(key, now) return key and recentKill[key] and now - recentKill[key] < 60 end
 
-  if raid then
+  local function KillPlace()
+    local inst, itype = SafeCall(GetInstanceInfo)
+    inst, itype = Plain(inst, "string"), Plain(itype, "string")
+    if not inst or itype == "none" then inst = Plain(SafeCall(GetRealZoneText), "string") or inst end
+    return inst, itype == "raid"
+  end
+
+  local function StillLevelling()
+    local lvl, max = MyLevel(), MaxLevel()
+    return not (lvl and max and lvl >= max)
+  end
+
+  local function ReportRaidKill(fields, first)
     local guildies = GS:GroupGuildies()
     local rank = GS:ElectionRank(guildies)
-    H:Add(Own("boss", { enc = encID, boss = name, inst = inst, raid = true, grp = true, n = #guildies + 1, first = first or nil }),
-      "self", { group = true, rank = rank })
-    return
+    fields.raid, fields.grp, fields.n, fields.first = true, true, #guildies + 1, first or nil
+    H:Add(Own("boss", fields), "self", { group = true, rank = rank })
   end
-  local lvl, max = MyLevel(), MaxLevel()
-  local levelling = not (lvl and max and lvl >= max)
-  if first and levelling then
-    H:Add(Own("boss", { enc = encID, boss = name, inst = inst, first = true }), "self")
-  else
-    H:Activity(Act("boss", { enc = encID, boss = name, inst = inst, first = first or nil }))
+
+  OnKill = function(encID, name)
+    encID, name = KillIdentity(encID, name)
+    local encKey, nameKey = encID and ("e" .. encID), name and ("n" .. name)
+    local key = encKey or nameKey
+    if not key then return end
+    local now = GetTime()
+    if KilledWithinMinute(encKey, now) or KilledWithinMinute(nameKey, now) then return end
+    if encKey then recentKill[encKey] = now end
+    if nameKey then recentKill[nameKey] = now end
+    local inst, raid = KillPlace()
+    local first = not H.cdb.kills[key]
+    H.cdb.kills[key] = GS:Now()
+    local fields = { enc = encID, boss = name, inst = inst }
+    if raid then return ReportRaidKill(fields, first) end
+    if first and StillLevelling() then
+      fields.first = true
+      H:Add(Own("boss", fields), "self")
+      return
+    end
+    fields.first = first or nil
+    H:Activity(Act("boss", fields))
   end
 end
 
----------------------------------------------------------------------------
--- Quests: elite / group / dungeon / raid, or a suggested group size; once per quest and character.
--- The quest is gone from the log at QUEST_TURNED_IN, so the log is cached while it changes.
----------------------------------------------------------------------------
 local qcache = {}
 
-local function ScanQuestLog()
-  local QL = C_QuestLog
-  if QL and QL.GetNumQuestLogEntries and QL.GetInfo then
-    -- [V] on Forever: ForeverLFG QuestFacts.lua:69-80
+local ScanQuestLog
+do
+  local function CacheQuest(qid, title, level, group)
+    if not qid or qid <= 0 then return end
+    qcache[qid] = { title = Plain(title, "string"), level = Plain(level, "number"), group = Plain(group, "number") }
+  end
+
+  local function ScanModernQuestLog(QL)
     local n = Plain(SafeCall(QL.GetNumQuestLogEntries), "number") or 0
     for i = 1, n do
       local info = SafeCall(QL.GetInfo, i)
       if type(info) == "table" and not IsSecret(info) and not Plain(info.isHeader) then
-        local qid = Plain(info.questID, "number")
-        if qid and qid > 0 then
-          qcache[qid] = { title = Plain(info.title, "string"), level = Plain(info.level, "number"), group = Plain(info.suggestedGroup, "number") }
-        end
+        CacheQuest(Plain(info.questID, "number"), info.title, info.level, info.suggestedGroup)
       end
     end
-    return
   end
-  local n = Plain(SafeCall(GetNumQuestLogEntries), "number") or 0 -- classic fallback [U]
-  for i = 1, n do
-    local r = { SafeCall(GetQuestLogTitle, i) }
-    local qid = Plain(r[8], "number")
-    if not Plain(r[4]) and qid and qid > 0 then
-      qcache[qid] = { title = Plain(r[1], "string"), level = Plain(r[2], "number"), group = Plain(r[3], "number") }
+
+  local function ScanLegacyQuestLog()
+    local n = Plain(SafeCall(GetNumQuestLogEntries), "number") or 0
+    for i = 1, n do
+      local r = { SafeCall(GetQuestLogTitle, i) }
+      if not Plain(r[4]) then CacheQuest(Plain(r[8], "number"), r[1], r[2], r[3]) end
     end
+  end
+
+  ScanQuestLog = function()
+    local QL = C_QuestLog
+    if QL and QL.GetNumQuestLogEntries and QL.GetInfo then return ScanModernQuestLog(QL) end
+    ScanLegacyQuestLog()
   end
 end
 
--- tag IDs: Enum.QuestTag where present (ForeverLFG QuestFacts.lua:88-90); 1 = Elite in vanilla data
--- (Questie\Database\QuestieDB.lua:74), 62/88/89 raid, 81/85 dungeon.
-local function QuestTag(qid)
-  local tagID, isElite
-  local QL = C_QuestLog
-  if QL and QL.GetQuestTagInfo then
-    local info = SafeCall(QL.GetQuestTagInfo, qid)
-    if type(info) == "table" and not IsSecret(info) then tagID, isElite = Plain(info.tagID, "number"), Plain(info.isElite) end
-  elseif GetQuestTagInfo then
-    tagID = Plain(SafeCall(GetQuestTagInfo, qid), "number")
+local QuestTag
+do
+  local function ReadQuestTagInfo(qid)
+    local QL = C_QuestLog
+    local tagID, isElite
+    if QL and QL.GetQuestTagInfo then
+      local info = SafeCall(QL.GetQuestTagInfo, qid)
+      if type(info) == "table" and not IsSecret(info) then tagID, isElite = Plain(info.tagID, "number"), Plain(info.isElite) end
+    elseif GetQuestTagInfo then
+      tagID = Plain(SafeCall(GetQuestTagInfo, qid), "number")
+    end
+    if isElite == nil and QL and QL.IsEliteQuest then isElite = Plain(SafeCall(QL.IsEliteQuest, qid)) end
+    return tagID, isElite
   end
-  if isElite == nil and QL and QL.IsEliteQuest then isElite = Plain(SafeCall(QL.IsEliteQuest, qid)) end
-  local T = Enum and Enum.QuestTag or {}
-  if tagID and (tagID == T.Raid or tagID == T.Raid10 or tagID == T.Raid25 or tagID == 62 or tagID == 88 or tagID == 89) then return "raid" end
-  if tagID and (tagID == T.Dungeon or tagID == T.Heroic or tagID == 81 or tagID == 85) then return "dungeon" end
-  if isElite == true or tagID == 1 then return "elite" end
-  if tagID and tagID == T.Group then return "group" end
+
+  local function IsOneOf(v, ...)
+    for i = 1, select("#", ...) do if v == select(i, ...) then return true end end
+    return false
+  end
+
+  QuestTag = function(qid)
+    local tagID, isElite = ReadQuestTagInfo(qid)
+    local T = Enum and Enum.QuestTag or {}
+    if tagID and IsOneOf(tagID, T.Raid, T.Raid10, T.Raid25, 62, 88, 89) then return "raid" end
+    if tagID and IsOneOf(tagID, T.Dungeon, T.Heroic, 81, 85) then return "dungeon" end
+    if isElite == true or tagID == 1 then return "elite" end
+    if tagID and tagID == T.Group then return "group" end
+  end
 end
 H.QuestTag = QuestTag
 
-local function OnQuestTurnedIn(qid)
-  qid = Plain(qid, "number")
-  if not qid then return end
-  local c = qcache[qid] or {}
-  local title = c.title
-  if not title and C_QuestLog and C_QuestLog.GetTitleForQuestID then
-    title = Plain(SafeCall(C_QuestLog.GetTitleForQuestID, qid), "string")
+local OnQuestTurnedIn
+do
+  local function QuestTitle(qid, c)
+    if c.title or not (C_QuestLog and C_QuestLog.GetTitleForQuestID) then return c.title end
+    return Plain(SafeCall(C_QuestLog.GetTitleForQuestID, qid), "string")
   end
-  local tag = QuestTag(qid)
-  if not tag and (c.group or 0) >= 2 then tag = "group" end
-  local red = H:Settings().questRedLevels or 0
-  local plevel = MyLevel()
-  if not tag and red > 0 and c.level and plevel and c.level - plevel >= red then tag = "red" end
-  if not tag or H.cdb.quests[qid] then -- a normal quest, or a hard one done before (repeatable): activity
-    H:Activity(Act("quest", { qid = qid, title = title, ql = c.level, tag = tag }))
-    return
+
+  local function FarAboveMe(questLevel)
+    local red = H:Settings().questRedLevels or 0
+    local plevel = MyLevel()
+    return red > 0 and questLevel and plevel and questLevel - plevel >= red
   end
-  H.cdb.quests[qid] = true
-  H:Add(Own("quest", { qid = qid, title = title, ql = c.level, tag = tag }), "self")
+
+  local function HardQuestTag(qid, c)
+    local tag = QuestTag(qid)
+    if tag then return tag end
+    if (c.group or 0) >= 2 then return "group" end
+    if FarAboveMe(c.level) then return "red" end
+  end
+
+  OnQuestTurnedIn = function(qid)
+    qid = Plain(qid, "number")
+    if not qid then return end
+    local c = qcache[qid] or {}
+    local title = QuestTitle(qid, c)
+    local tag = HardQuestTag(qid, c)
+    local fields = { qid = qid, title = title, ql = c.level, tag = tag }
+    if not tag or H.cdb.quests[qid] then H:Activity(Act("quest", fields)) return end
+    H.cdb.quests[qid] = true
+    H:Add(Own("quest", fields), "self")
+  end
 end
 
----------------------------------------------------------------------------
--- Level milestones: every levelStep levels and the max level
----------------------------------------------------------------------------
 local function OnLevelUp(level)
   level = Plain(level, "number")
   if not level then return end
@@ -338,13 +357,6 @@ local function OnLevelUp(level)
   end
 end
 
----------------------------------------------------------------------------
--- Loot: your epic+ loot, and epic+ loot of guildies in your group who don't run the suite
--- (they report their own). One elected suite user in the group reports it.
--- CHAT_MSG_LOOT arg2 = the looter as "First Surname" [V: saved diag, 2026-11-14].
----------------------------------------------------------------------------
--- The final "." is optional: on Forever the own-loot line arrived WITHOUT it ("Ihr erhaltet Beute: [x]") while other
--- players' lines had it [V: saved diag, 2026-11-14 12:43].
 local function Pattern(f)
   local p = GS.FormatToPattern(f)
   if p and p:sub(-3) == "%.$" then p = p:sub(1, -4) .. "%.?$" end
@@ -365,58 +377,66 @@ local function LootPatterns()
   return P
 end
 
-local function OnLoot(text, playerName)
-  text = Plain(text, "string")
-  if not text then
-    if H.db then H.db.diag.secretLoot = (H.db.diag.secretLoot or 0) + 1 end
-    return
-  end
-  local pats = LootPatterns()
-  local link, who, count
-  for _, p in ipairs(pats.self) do
-    local l, n = text:match(p)
-    if l then link, count, who = l, tonumber(n), GS:PlayerKey() break end
-  end
-  if not link then
-    for _, p in ipairs(pats.other) do
-      local name, l = text:match(p)
-      if name and l then
-        link = l
-        who = GS:NormName(Plain(playerName, "string") or name)
-        break
-      end
+local OnLoot
+do
+  local function MatchOwnLoot(text, pats)
+    for _, p in ipairs(pats.self) do
+      local l, n = text:match(p)
+      if l then return l, GS:PlayerKey(), tonumber(n) end
     end
   end
-  if not (link and who) then return end
-  link = link:match("(|c.-|r)") or link
-  local f = ItemFacts(link)
-  local me = GS:PlayerKey()
-  if not (f and f.id and f.q) or f.q < H:Settings().minLootQuality then
-    -- not epic: my own loot still goes to the activity log (others' ordinary loot doesn't)
-    if who == me and f and f.id then H:Activity(Act("loot", { item = f.id, link = link, q = f.q, n = count })) end
-    return
+
+  local function MatchOthersLoot(text, pats, playerName)
+    for _, p in ipairs(pats.other) do
+      local name, l = text:match(p)
+      if name and l then return l, GS:NormName(Plain(playerName, "string") or name) end
+    end
   end
-  if who == me then
+
+  local function NoteSecretLoot()
+    if H.db then H.db.diag.secretLoot = (H.db.diag.secretLoot or 0) + 1 end
+  end
+
+  local function Notable(f) return f and f.id and f.q and f.q >= H:Settings().minLootQuality end
+
+  local function GroupedWith(who)
+    local inGroup, others = false, {}
+    for _, k in ipairs(GS:GroupGuildies()) do
+      if k == who then inGroup = true else others[#others + 1] = k end
+    end
+    return inGroup, others
+  end
+
+  local function WitnessLoot(who, me, f, link)
+    if GS:IsGuildMember(who) ~= true or GS:IsPeer(who) then return end
+    local inGroup, others = GroupedWith(who)
+    if not inGroup then return end
+    local r = GS:RosterEntry(who) or {}
+    local t = GS:Now()
+    H:Add({ k = "loot", t = t, who = who, by = me, cls = r.class, lvl = r.level, item = f.id, link = link, q = f.q,
+      id = H.WitnessID(who, f.id, t) }, "witness", { group = true, rank = (GS:ElectionRank(others)) })
+  end
+
+  OnLoot = function(text, playerName)
+    text = Plain(text, "string")
+    if not text then return NoteSecretLoot() end
+    local pats = LootPatterns()
+    local link, who, count = MatchOwnLoot(text, pats)
+    if not link then link, who = MatchOthersLoot(text, pats, playerName) end
+    if not (link and who) then return end
+    link = link:match("(|c.-|r)") or link
+    local f = ItemFacts(link)
+    local me = GS:PlayerKey()
+    if not Notable(f) then
+      if who == me and f and f.id then H:Activity(Act("loot", { item = f.id, link = link, q = f.q, n = count })) end
+      return
+    end
+    if who ~= me then return WitnessLoot(who, me, f, link) end
     H.cdb.ownedEpics[f.id] = true
     H:Add(Own("loot", { item = f.id, link = link, q = f.q }), "self")
-    return
   end
-  if GS:IsGuildMember(who) ~= true or GS:IsPeer(who) then return end
-  local guildies, inGroup = GS:GroupGuildies(), false
-  local others = {}
-  for _, k in ipairs(guildies) do
-    if k == who then inGroup = true else others[#others + 1] = k end
-  end
-  if not inGroup then return end
-  local r = GS:RosterEntry(who) or {}
-  local t = GS:Now()
-  H:Add({ k = "loot", t = t, who = who, by = me, cls = r.class, lvl = r.level, item = f.id, link = link, q = f.q,
-    id = H.WitnessID(who, f.id, t) }, "witness", { group = true, rank = (GS:ElectionRank(others)) })
 end
 
----------------------------------------------------------------------------
--- Events
----------------------------------------------------------------------------
 local EVENTS = { "PLAYER_ENTERING_WORLD", "PLAYER_EQUIPMENT_CHANGED", "ENCOUNTER_END", "BOSS_KILL", "QUEST_LOG_UPDATE",
   "QUEST_ACCEPTED", "QUEST_COMPLETE", "QUEST_TURNED_IN", "PLAYER_LEVEL_UP", "CHAT_MSG_LOOT", "GET_ITEM_INFO_RECEIVED",
   "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED" }
@@ -430,48 +450,46 @@ local function Soon(key, delay, fn)
 end
 
 local wasInInstance = false
-local function OnEvent(event, ...)
-  if not H.db then return end
-  if not QUIET[event] then Diag(event, ...) end
-  if event == "PLAYER_ENTERING_WORLD" then
-    if not snapReady then Soon("snap", 3, TakeSnapshot) end
-    Soon("quests", 1, ScanQuestLog)
-    local inside = GS:InInstance()
-    if wasInInstance and not inside then GS:Call(H.OnLeftInstance, H) end
-    wasInInstance = inside
-  elseif event == "PLAYER_EQUIPMENT_CHANGED" then
-    GS:Call(OnEquipmentChanged, (...))
-  elseif event == "ENCOUNTER_END" then
-    local encID, name, _, _, success = ...
-    success = Plain(success)
-    if success == 1 or success == true then GS:Call(OnKill, encID, name) end
-  elseif event == "BOSS_KILL" then
-    local encID, name = ...
-    GS:Call(OnKill, encID, name)
-  elseif event == "QUEST_LOG_UPDATE" or event == "QUEST_ACCEPTED" then
-    Soon("quests", 1, ScanQuestLog)
-  elseif event == "QUEST_COMPLETE" then
-    GS:Call(ScanQuestLog)
-  elseif event == "QUEST_TURNED_IN" then
-    GS:Call(OnQuestTurnedIn, (...))
-  elseif event == "PLAYER_LEVEL_UP" then
-    GS:Call(OnLevelUp, (...))
-  elseif event == "CHAT_MSG_LOOT" then
-    local text, playerName = ...
-    GS:Call(OnLoot, text, playerName)
-  elseif event == "BAG_UPDATE_DELAYED" then
-    Soon("bags", 1, ScanBagsForEpics) -- after the loot line, so that one wins the dedupe
-  elseif event == "BANKFRAME_OPENED" then
-    GS:Call(OnBankOpened)
-  elseif event == "BANKFRAME_CLOSED" then
-    C_Timer.After(1, function() bankOpen = false end)
-  elseif event == "GET_ITEM_INFO_RECEIVED" then
-    if H.waitingItems and H.Refresh then
+local OnEvent
+do
+  local function QueueQuestScan() Soon("quests", 1, ScanQuestLog) end
+
+  local Handlers = {
+    PLAYER_ENTERING_WORLD = function()
+      if not snapReady then Soon("snap", 3, TakeSnapshot) end
+      QueueQuestScan()
+      local inside = GS:InInstance()
+      if wasInInstance and not inside then GS:Call(H.OnLeftInstance, H) end
+      wasInInstance = inside
+    end,
+    PLAYER_EQUIPMENT_CHANGED = function(slot) GS:Call(OnEquipmentChanged, slot) end,
+    ENCOUNTER_END = function(encID, name, _, _, success)
+      success = Plain(success)
+      if success == 1 or success == true then GS:Call(OnKill, encID, name) end
+    end,
+    BOSS_KILL = function(encID, name) GS:Call(OnKill, encID, name) end,
+    QUEST_LOG_UPDATE = QueueQuestScan,
+    QUEST_ACCEPTED = QueueQuestScan,
+    QUEST_COMPLETE = function() GS:Call(ScanQuestLog) end,
+    QUEST_TURNED_IN = function(qid) GS:Call(OnQuestTurnedIn, qid) end,
+    PLAYER_LEVEL_UP = function(level) GS:Call(OnLevelUp, level) end,
+    CHAT_MSG_LOOT = function(text, playerName) GS:Call(OnLoot, text, playerName) end,
+    BAG_UPDATE_DELAYED = function() Soon("bags", 1, ScanBagsForEpics) end,
+    BANKFRAME_OPENED = function() GS:Call(OnBankOpened) end,
+    BANKFRAME_CLOSED = function() C_Timer.After(1, function() bankOpen = false end) end,
+    GET_ITEM_INFO_RECEIVED = function()
+      if not (H.waitingItems and H.Refresh) then return end
       Soon("refresh", 0.5, function() H.waitingItems = false; H:Refresh() end)
-    end
+    end,
+  }
+
+  OnEvent = function(event, ...)
+    if not H.db then return end
+    if not QUIET[event] then Diag(event, ...) end
+    local handle = Handlers[event]
+    if handle then handle(...) end
   end
 end
--- the core's module events (an event this client lacks is skipped, as before)
 for _, e in ipairs(EVENTS) do H:RegisterEvent(e, function(_, ...) OnEvent(e, ...) end) end
 
 function H:OnLogin()
@@ -480,7 +498,6 @@ function H:OnLogin()
   self:OnLoginOutbox()
 end
 
--- for the offline harness
 H._test = { ItemFacts = ItemFacts, OnEquipmentChanged = OnEquipmentChanged, TakeSnapshot = TakeSnapshot, OnKill = OnKill,
   OnQuestTurnedIn = OnQuestTurnedIn, ScanQuestLog = ScanQuestLog, OnLevelUp = OnLevelUp, OnLoot = OnLoot,
   qcache = qcache, LootPatterns = LootPatterns }

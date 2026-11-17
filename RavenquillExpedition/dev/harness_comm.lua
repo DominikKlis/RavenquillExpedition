@@ -1,6 +1,3 @@
--- The core's sync scheduler (Comm.lua) on the shared test kit: lanes, echo, budget, holds, slow mode, intake,
--- schema channels, raw channels, the foreign-send hook, and a released 0.2.0 client talking to a new one.
--- Run: lua RavenquillExpedition/dev/harness_comm.lua
 local DEV = (arg[0]:gsub("[^/\\]*$", ""))
 local Kit = dofile(DEV .. "testkit.lua")
 local check, section = Kit.check, Kit.section
@@ -18,9 +15,7 @@ local function sentBy(bus, who, pred)
   for _, e in ipairs(bus.log) do if e.sender == who and (not pred or pred(e)) then out[#out + 1] = e end end
   return out
 end
--- a test module in a client: its own table on the client's core
 local function Mod(c, name) return c.RQ:NewModule(name, { addon = name }) end
--- an event-lane test channel per client (prefix "TstEvt"); Send returns queued, results "delivered" / "lost" / "dropped"
 local evt = setmetatable({}, { __mode = "k" })
 local function EvtChannel(c)
   if not evt[c] then
@@ -30,24 +25,22 @@ local function EvtChannel(c)
   return evt[c]
 end
 local function Send(c, text, cb)
-  for _, x in ipairs(c.bus.clients) do EvtChannel(x) end -- every client on the bus reads the test prefix
+  for _, x in ipairs(c.bus.clients) do EvtChannel(x) end
   return EvtChannel(c):Send(text, cb and { onResult = cb })
 end
 
----------------------------------------------------------------------------
 section("Event lane: budget, order, echo results")
----------------------------------------------------------------------------
 local sched, bus, a, b = Two()
-local C = a.RQ.CommConst -- the scheduler's numbers (Comm.lua); the checks below follow them
-local PACE = 1 / C.RATE -- seconds per token
-local CAP60 = C.BURST + 60 * C.RATE -- the most one client may send in any 60 s
+local C = a.RQ.CommConst
+local PACE = 1 / C.RATE
+local CAP60 = C.BURST + 60 * C.RATE
 local function minGapOf(list)
   local g = math.huge
   for i = 2, #list do g = math.min(g, list[i].t - list[i - 1].t) end
   return g
 end
 local results = {}
-local N = 20 -- more than a minute's worth
+local N = 20
 for i = 1, N do Send(a, "m" .. i, function(s) results[i] = s end) end
 sched:advance(2)
 check(#sentBy(bus, "Anna Stone") == 1, "the first goes out on the first pump tick (1 s)")
@@ -61,7 +54,6 @@ check(#sends == N and sends[1].msg == "m1" and sends[N].msg == "m" .. N, "all " 
 check(minGapOf(sends) >= PACE, ("queued at once: one per pump tick, never two within %d s (closest %s s)"):format(PACE, tostring(minGapOf(sends))))
 check(bus:maxPer(60, "Anna Stone") <= CAP60, ("never more than %d in 60 s (burst %d + refill)"):format(CAP60, C.BURST))
 check(results[1] == "delivered" and results[N] == "delivered", "every message reports its echo (delivered)")
--- the bucket: full after a pause; it absorbs other addons' bursts up to BURST, then our next send waits for a refill
 sched:advance(60)
 check(math.abs(a.RQ:CommState().tokens - C.BURST) < 1e-9, "idle: the bucket refills to the burst (" .. a.RQ:CommState().tokens .. ")")
 for _ = 1, C.BURST - 1 do a.env.C_ChatInfo.SendAddonMessage("OtherAddon", "x", "GUILD") end
@@ -82,8 +74,6 @@ sched:advance(PACE + 1)
 last = ownEvt()[N + 2]
 check(last and last.msg == "after-big-burst" and last.t - t0 >= PACE and last.t - t0 <= PACE + 5,
   ("and goes out once one refilled (%s s, token every %d s)"):format(last and tostring(last.t - t0) or "-", PACE))
--- burst, then paced: one message every second from a full bucket -> BURST go out about as fast as they come, then
--- one per token
 sched:advance(120)
 t0 = sched.t
 local K = C.BURST + 4
@@ -99,16 +89,13 @@ for i = C.BURST + 2, K do if bs[i].t - bs[i - 1].t < PACE - 1 then paced = false
 check(paced and bs[K].t - bs[1].t >= (K - C.BURST - 1) * PACE,
   ("then paced by the refill (last one %s s after the first)"):format(tostring(bs[K].t - bs[1].t)))
 check(bus:maxPer(60, "Anna Stone", { TstEvt = true }) <= CAP60, ("still within %d per 60 s"):format(CAP60))
--- two identical texts in flight both get a result (the echo table used to be keyed by text)
 local r1, r2
 Send(a, "same", function(s) r1 = s end)
 Send(a, "same", function(s) r2 = s end)
 sched:advance(120)
 check(r1 == "delivered" and r2 == "delivered", "two identical messages: both echoed (" .. tostring(r1) .. ", " .. tostring(r2) .. ")")
 
----------------------------------------------------------------------------
 section("Holds: instance, combat, throttled, busy guild")
----------------------------------------------------------------------------
 sched, bus, a, b = Two()
 a.instance = true
 local deferred
@@ -128,21 +115,18 @@ sched:advance(20)
 check(#sentBy(bus, "Anna Stone") == 0 and a.RQ:CommState().hold > 0, "a throttled result holds sending for 30 s")
 sched:advance(40)
 check(#sentBy(bus, "Anna Stone") == 1, "after the hold it goes out")
--- busy: BUSY_HEARD+ event messages heard from others in 60 s (at most HEARD_PER_SENDER per sender count)
 local sched2, bus2 = Kit.Setup()
 local cs = { Kit.Client(sched2, bus2, "Anna Stone") }
 local noisy = math.ceil(C.BUSY_HEARD / C.HEARD_PER_SENDER)
 for i = 1, noisy do cs[#cs + 1] = Kit.Client(sched2, bus2, "Noisy" .. i .. " Field") end
 for _, c in ipairs(cs) do c.login() end
 sched2:advance(5)
--- one sender alone can't make the guild busy (its count is capped) ...
 for _ = 1, C.HEARD_PER_SENDER + 4 do Send(cs[2], "noise") end
 sched2:advance(PACE * (C.HEARD_PER_SENDER + 4) + 5)
 Send(cs[1], "solo")
 sched2:advance(5)
 check(#sentBy(bus2, "Anna Stone") == 1, ("one chatty client (%d messages) doesn't hold Anna"):format(C.HEARD_PER_SENDER + 4))
 sched2:advance(90)
--- ... but enough senders do
 for i = 2, #cs do for _ = 1, C.HEARD_PER_SENDER do Send(cs[i], "noise") end end
 sched2:advance(PACE * C.HEARD_PER_SENDER + 5)
 check(#cs[1].RQ.Comm.heard >= C.BUSY_HEARD, ("%d senders x %d heard (counted %d)"):format(noisy, C.HEARD_PER_SENDER, #cs[1].RQ.Comm.heard))
@@ -152,11 +136,8 @@ check(#sentBy(bus2, "Anna Stone") == 1, ("busy guild (%d+ event messages heard i
 sched2:advance(90)
 check(#sentBy(bus2, "Anna Stone") == 2, "and sends once it quiets down")
 
----------------------------------------------------------------------------
 section("A chatty other addon can't silence the suite (in game: War Effort sends every 5-50 s)")
----------------------------------------------------------------------------
 sched, bus, a, b = Two()
--- a neighbour sending a bit faster than our refill (every 4 s against a token every 5 s) keeps the bucket empty
 local every = PACE - 1
 sched:at(sched.t + 1, function() a.env.C_ChatInfo.SendAddonMessage("WEFF1", "x", "GUILD") end, every)
 sched:advance(60)
@@ -174,9 +155,7 @@ check(own[1] and own[1].t - queuedAt >= C.STARVE and own[1].t - queuedAt <= C.ST
 check(minGap >= PACE, ("our own messages stay >= %d s apart (closest %s s)"):format(PACE, minGap == math.huge and "-" or tostring(minGap)))
 check(minTokens >= -1, ("the bucket never goes below -1 (lowest %.1f)"):format(minTokens))
 
----------------------------------------------------------------------------
 section("Slow mode: our messages never come back")
----------------------------------------------------------------------------
 sched, bus, a, b = Two()
 bus.drop = function(sender) return sender == "Anna Stone" end
 local lost = 0
@@ -184,7 +163,6 @@ for i = 1, 3 do Send(a, "lost" .. i, function(s) if s == "lost" then lost = lost
 sched:advance(300)
 check(lost >= 2 and a.RQ:CommState().slow, "no echo for 120 s: lost, then slow mode")
 check(a.printedMatch("sending slowly") ~= nil, "the player is told once")
--- review 2026-11-15: the starvation guard used to bypass slow mode (10 queued events went out in 10 minutes)
 do
   local before = #sentBy(bus, "Anna Stone")
   for i = 1, 10 do Send(a, "slow" .. i) end
@@ -195,7 +173,6 @@ end
 bus.drop = function() return false end
 a.RQ:CommResume()
 check(not a.RQ:CommState().slow, "CommResume leaves slow mode")
--- echoes worked for a while, then stop: slow mode too (not only when nothing ever came back)
 sched, bus, a, b = Two()
 Send(a, "fine")
 sched:advance(40)
@@ -209,18 +186,16 @@ Send(a, "back")
 sched:advance(700)
 check(not a.RQ:CommState().slow, "the next echo ends slow mode")
 
----------------------------------------------------------------------------
 section("Record lane: whole records, replace, drop")
----------------------------------------------------------------------------
 sched, bus, a, b = Two()
 local ra = Mod(a, "RecA"):NewRawChannel({ prefix = "TstRec", lane = "record" })
 local rb = Mod(b, "RecB"):NewRawChannel({ prefix = "TstRec", lane = "record" })
-a.fire("PLAYER_LOGIN"); b.fire("PLAYER_LOGIN") -- registers the new prefixes (the kit's clients already logged in)
+a.fire("PLAYER_LOGIN"); b.fire("PLAYER_LOGIN")
 local got = {}
 rb:OnMessage(function(sender, text) got[#got + 1] = sender .. ":" .. text end)
 local done
 ra:SendRecord("self", { "c1", "c2", "c3" }, { onDone = function() done = true end })
-ra:SendRecord("self", { "n1", "n2" }, { onDone = function() done = "new" end }) -- replaces the unstarted one
+ra:SendRecord("self", { "n1", "n2" }, { onDone = function() done = "new" end })
 sched:advance(100)
 check(table.concat(got, ",") == "Anna Stone:n1,Anna Stone:n2" and done == "new", "an unstarted record is replaced by a newer one with the same key")
 Send(a, "evt")
@@ -235,9 +210,7 @@ sched:advance(400)
 check(dropped == "timeout", "a record not started within 5 min is dropped whole (" .. tostring(dropped) .. ")")
 a.combat = false
 
----------------------------------------------------------------------------
 section("State lane: now or never, lowest priority")
----------------------------------------------------------------------------
 sched, bus, a, b = Two()
 local sa = Mod(a, "PosA"):NewRawChannel({ prefix = "TstPos", lane = "state" })
 local sb = Mod(b, "PosB"):NewRawChannel({ prefix = "TstPos", lane = "state" })
@@ -247,7 +220,6 @@ sb:OnMessage(function() heardPos = heardPos + 1 end)
 check(sa:TrySend("P;1") == true, "TrySend sends when nothing waits")
 sched:advance(C.STATE_QUIET - 1)
 local ok, why = sa:TrySend("P;2")
--- (the reason text still says "< 15 s" from the old rule; only its start is checked)
 check(not ok and why:find("another addon sent", 1, true), ("not again within %d s: %s"):format(C.STATE_QUIET, tostring(why)))
 sched:advance(2)
 ok = sa:TrySend("P;2b")
@@ -260,7 +232,6 @@ check(not ok and why:find("waiting", 1, true), "a queued event goes first: " .. 
 ok, why = sa:TrySend("P;4", { starving = true })
 check(not ok, "even starving, a waiting event wins")
 sched:advance(200)
--- another addon is chatty: STATE_MAX_60 sends in the last minute, the newest older than STATE_QUIET
 for _ = 1, C.STATE_MAX_60 do a.env.C_ChatInfo.SendAddonMessage("OtherAddon", "x", "GUILD") end
 sched:advance(C.STATE_QUIET + 1)
 ok, why = sa:TrySend("P;5")
@@ -271,9 +242,7 @@ sched:advance(5)
 check(heardPos == 3, "the receiver got the three state messages that were sent (" .. heardPos .. ")")
 check(sa:SendNow("L;1") == true, "SendNow: best effort now")
 
----------------------------------------------------------------------------
 section("Intake caps and busy counting by lane")
----------------------------------------------------------------------------
 sched, bus, a, b = Two()
 sb = Mod(b, "PosB2"):NewRawChannel({ prefix = "TstPos", lane = "state" })
 b.fire("PLAYER_LOGIN")
@@ -295,9 +264,7 @@ sched:advance(61)
 for i = 1, 3 do b.fire("CHAT_MSG_ADDON", "TstZZ", "y" .. i, "GUILD", "Dora Field-Realm") end
 check(m == C.INTAKE_PER_MIN + 3, "a minute later the same sender is read again")
 
----------------------------------------------------------------------------
 section("Registration rules and the foreign-send hook")
----------------------------------------------------------------------------
 local tm = Mod(a, "Tags")
 check(not pcall(tm.NewChannel, tm, { tag = "~T" }) == false, "a free tag works")
 check(not pcall(tm.NewChannel, tm, { tag = "~T" }), "the same tag twice: error")
@@ -311,9 +278,7 @@ check(after.foreign == before.foreign + 1, "another addon's GUILD send is counte
 a.env.C_ChatInfo.SendAddonMessage("OtherAddon", "hi", "WHISPER")
 check(a.RQ:CommState().foreign == after.foreign, "a whisper is not")
 
----------------------------------------------------------------------------
 section("Schema channels")
----------------------------------------------------------------------------
 sched, bus, a, b = Two()
 local function Fishing(c)
   local mod = Mod(c, "Fish")
@@ -354,12 +319,10 @@ local rej = chb:Status().rejected
 check(#caught == 1, "nothing invalid reached the handler")
 check(rej["version"] == 1 and rej["field w"] == 1 and rej["not the sender"] == 1 and rej["field item"] == 1
   and rej["field t"] == 1 and rej["field kind"] == 1 and rej["unknown type"] == 1, "each rejection counted by reason")
--- review 2026-11-15: reasons were keyed by wire text (200 bad messages, 200 keys)
 for i = 1, 200 do inject("F;" .. (100 + i) .. ";catch") inject("F;1;bogus" .. i .. ";1") end
 local keys = 0
 for _ in pairs(chb:Status().rejected) do keys = keys + 1 end
 check(keys <= 8 and chb:Status().rejected["version"] == 201, "400 malformed messages add no new keys (" .. keys .. " keys)")
--- encode checks the same rules as decode: out of range, infinity, NaN, unknown class never leave the sender
 for what, bad in pairs({ ["item 0"] = { item = 0 }, ["item inf"] = { item = math.huge }, ["item NaN"] = { item = 0 / 0 },
   ["w above hi"] = { w = 46656 }, ["w inf"] = { w = math.huge }, ["class unknown"] = { cls = "PIRATE" } }) do
   local m = { who = "Anna Stone", item = 1, note = "x", cls = "MAGE", t = now, big = false, kind = "fish", w = 1 }
@@ -379,9 +342,7 @@ longCh:Define("t", { fields = { { "a", "text", 200 }, { "b", "text", 200 } } })
 local enc = longCh:Encode("t", { a = string.rep("x", 200), b = string.rep("y", 200) })
 check(enc and #enc <= 250 and enc:find("x;y", 1, true), "too long: text fields are halved once")
 
----------------------------------------------------------------------------
 section("Mixed versions: a released 0.2.0 client and a new one exchange highlights")
----------------------------------------------------------------------------
 local OLD = DEV .. "fixtures/compat_0.2.0/"
 local sched3, bus3 = Kit.Setup()
 local function OldFiles()
@@ -416,11 +377,9 @@ check(has(old, "Neu Mann"), "the 0.2.0 client stores the new client's highlight"
 check(has(new, "Alt Frau"), "the new client stores the 0.2.0 client's highlight")
 check(#new.errors == 0 and #old.errors == 0, "no Lua errors on either (" .. tostring(new.errors[1] or old.errors[1]) .. ")")
 
----------------------------------------------------------------------------
 section("Review 2026-11-15: bounded lists, a module that never loads")
----------------------------------------------------------------------------
 sched, bus, a, b = Two()
-a.combat = true -- the suite is idle (nothing queued): only the hook sees these
+a.combat = true
 for _ = 1, 2000 do
   a.env.C_ChatInfo.SendAddonMessage("OtherAddon", "x", "GUILD")
   sched:advance(1)

@@ -1,4 +1,3 @@
--- Golden fixture. Recorded by the harness with --record; never edit by hand.
 return {
   ["hl.encode"] = {
     "1;g;1799995000;1;Me Smith;30;4;12345;33;3;20;1",

@@ -1,16 +1,9 @@
--- luacheck configuration for the suite (run by scripts/run-tests.sh when luacheck is installed).
--- The game runs Lua 5.1: std = "lua51" flags 5.2+ functions (table.unpack, ...) but NOT 5.3 syntax (//, &, goto):
--- luacheck parses those under any std. scripts/check-lua51.lua (and luac5.1 -p in CI) catch the syntax.
--- read_globals: the WoW API the suite uses. When luacheck reports a new "undefined variable", check it is a real
--- client global (not a typo) before adding it here.
 std = "lua51"
 max_line_length = false
 codes = true
 exclude_files = { "**/libs/**", "**/Data/**", "**/dev/fixtures/**", ".cache/**" }
--- 212 unused argument, 542 empty if branch; "ADDON"/"ns" from `local ADDON, ns = ...` may stay unused
 ignore = { "212", "542", "211/ADDON", "211/ns" }
 
--- globals the suite defines (SavedVariables, slash commands, compartment functions; old names until Stage 3)
 globals = {
   "GuildCraftAdvisor", "GuildCraftAdvisor_OnCompartmentClick", "RQDevInbox", "RavenquillExpedition",
   "RavenquillExpeditionCraftDB", "RavenquillExpeditionDB", "RavenquillExpeditionDevDB",
@@ -35,7 +28,7 @@ read_globals = {
   "GetItemStats", "GetLocale", "GetMaxPlayerLevel", "GetMoneyString", "GetNormalizedRealmName",
   "GetNumGroupMembers", "GetNumGuildMembers", "GetNumQuestLogEntries", "GetNumSubgroupMembers",
   "GetNumTradeSkills", "GetProfessionInfo", "GetProfessions", "GetQuestLogTitle", "GetQuestTagInfo",
-  "GetRealZoneText", "GetRealmName", "GetServerTime", "GetSpellInfo", "GetTime", "GetTradeSkillItemLink",
+  "GetRealZoneText", "GetRealmName", "GetServerTime", "GetSpellInfo", "GetTime", "debugprofilestop", "GetTradeSkillItemLink",
   "GetTradeSkillLine", "GetTradeSkillRecipeLink", "GuildRoster", "HANDSSLOT", "HBD_PINS_WORLDMAP_SHOW_WORLD",
   "HEADSLOT", "HandleModifiedItemClick", "ITEM_CLASSES_ALLOWED", "ITEM_QUALITY_COLORS", "ITEM_REQ_SKILL",
   "InCombatLockdown", "InspectFrame", "IsAddOnLoaded", "IsControlKeyDown", "IsInGuild", "IsInInstance", "IsInRaid",
@@ -54,7 +47,6 @@ read_globals = {
   "strsplit", "time", "tinsert", "wipe",
 }
 
--- offline harnesses and tools run on Lua 5.4 with their own mocks
 files["**/dev/**"] = { std = "max", globals = { "*" }, ignore = { "1", "2", "3", "4", "5" } }
 files["scripts/**"] = { std = "max" }
 files["templates/**"] = { std = "lua51" }

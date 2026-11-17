@@ -1,19 +1,9 @@
--- Ravenquill Expedition core: the namespace and the basic helpers every other file uses.
--- Files (load order in the .toc): Core (this) - Names - Roster - Locale - Module - Wire - Comm - Options - Overview -
--- Launcher.
--- The public API is RavenquillExpedition (RQ / GS in the code), version RQ.API; docs/module-api.md lists it.
--- Modules are separate addons (RavenquillExpedition_<Name>, "## Dependencies: RavenquillExpedition").
 local ADDON, ns = ...
 
 local GS = {}
 _G.RavenquillExpedition = GS
--- Integer, raised on breaking changes. A module asks for a minimum with NewModule(name, { api = n }).
 GS.API = 2
 
----------------------------------------------------------------------------
--- Secrets, plain values, calls
----------------------------------------------------------------------------
--- A secret / protected value: even comparing it can raise on Forever, so test before touching.
 local function IsSecret(v)
   if issecretvalue and issecretvalue(v) then return true end
   if canaccessvalue and v ~= nil and not canaccessvalue(v) then return true end
@@ -21,14 +11,12 @@ local function IsSecret(v)
 end
 GS.IsSecret = IsSecret
 
--- A plain (non-secret) value of the given Lua type, else nil.
 function GS.Plain(v, typ)
   if v == nil or IsSecret(v) then return nil end
   if typ and type(v) ~= typ then return nil end
   return v
 end
 
--- A plain boolean from an API result: secret or non-boolean-ish values count as false.
 function GS.Bool(v)
   if IsSecret(v) then return false end
   return v and true or false
@@ -36,8 +24,6 @@ end
 
 local function pack(...) return { n = select("#", ...), ... } end
 
--- Quiet call: returns the results, or nothing when fn is missing or fails. ONLY for probing client APIs that may
--- be missing or raise; our own code goes through GS:Call, so its bugs reach BugSack.
 local function SafeCall(fn, ...)
   if type(fn) ~= "function" then return end
   local r = pack(pcall(fn, ...))
@@ -46,19 +32,14 @@ local function SafeCall(fn, ...)
 end
 GS.SafeCall = SafeCall
 
--- An addon's "## Version" from its .toc (stamped by scripts/package.ps1 at release), or "dev".
 function GS:AddOnVersion(addon)
   local get = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
   return GS.Plain(SafeCall(get, addon, "Version"), "string") or "dev"
 end
 GS.version = GS:AddOnVersion(ADDON)
 
--- Developer trace: a no-op here. The RavenquillExpedition_Dev addon (never packaged) replaces it with a logger that
--- writes into its SavedVariables. Always call it as GS:Trace(...) at call time, never cache it in a local.
---   cat: "comm.tx", "comm.rx", "comm.echo", "comm.lost", "err", "event", "ui", "state", ...
 function GS:Trace(cat, msg, data) end
 
--- Loud call: like SafeCall, but our own bugs reach BugSack and RavenquillExpeditionDB.lastError.
 function GS:Call(fn, ...)
   if type(fn) ~= "function" then return end
   local args = pack(...)
@@ -80,9 +61,6 @@ function GS.Print(tag, ...)
   print(head .. ":", ...)
 end
 
----------------------------------------------------------------------------
--- Client facts
----------------------------------------------------------------------------
 local build = select(4, GetBuildInfo()) or 0
 GS.IS_FOREVER = build >= 16000 and build < 20000
 
@@ -96,16 +74,10 @@ function GS:InInstance()
   return (GS.Plain(inside) and true) or false
 end
 
--- The highest player level this client knows (never below 60).
 function GS:MaxLevel()
   return math.max(60, GS.Plain(SafeCall(GetMaxPlayerLevel), "number") or 60)
 end
 
----------------------------------------------------------------------------
--- Text
----------------------------------------------------------------------------
--- Client format string -> anchored Lua pattern. Handles deDE positional "%1$s".
--- Captures come back in the order they appear in the string (fine for the loot strings used here).
 function GS.FormatToPattern(fmt)
   fmt = GS.Plain(fmt, "string")
   if not fmt then return end
@@ -130,7 +102,6 @@ function GS.FormatToPattern(fmt)
   return p
 end
 
--- Cut a string to at most n bytes without splitting a UTF-8 character (German umlauts).
 function GS.Cut(s, n)
   if type(s) ~= "string" then return "" end
   if #s <= n then return s end

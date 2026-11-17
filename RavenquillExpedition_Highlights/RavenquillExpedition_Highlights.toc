@@ -4,7 +4,6 @@
 ## Notes-deDE: Protokolliert die coolen Momente deiner Gilde (große Verbesserungen, epische Beute, erste Bosskills, schwere Quests, Stufenmeilensteine) und teilt sie mit Gildenmitgliedern, die es nutzen.
 ## Author: domin
 ## Version: 0.2.0
-## X-License: GPL-3.0
 ## Dependencies: RavenquillExpedition
 ## SavedVariables: RavenquillExpeditionHighlightsDB
 ## SavedVariablesPerCharacter: RavenquillExpeditionHighlightsCharDB

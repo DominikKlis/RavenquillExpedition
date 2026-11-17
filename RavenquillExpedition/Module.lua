@@ -1,35 +1,15 @@
--- Ravenquill Expedition core: modules. A module is its own addon folder; it registers with
---   local mod = RavenquillExpedition:NewModule("Name", spec)
--- spec fields (all optional; docs/module-api.md):
---   addon         the module's folder name: its SavedVariables are set up and OnLoad runs at its ADDON_LOADED
---   api           minimum core API (RQ.API); a too-old core prints one line and doesn't load the module
---   title, icon, slash   its row in the /rq overview and "/rq <slash>"
---   sv, svChar    names of its SavedVariables (account / per character); ready as mod.db / mod.cdb in OnLoad
---   defaults      setting defaults, kept in db.settings (mod.settings); a missing or wrong-typed value is replaced
---   charDefaults  defaults for the per-character table (mod.cdb), same rule
---   dbVersion, migrations = { [n] = function(db, cdb, mod) end }   run in order from db.v + 1 up to dbVersion,
---                 each under RQ:Call; one that fails stops the chain (db.v stays at the last good step)
---   loginMigrations = { [n] = function(db, cdb, mod) end }   the same at PLAYER_LOGIN (realm / player known), db.vLogin
---   locale = { enUS = {...}, deDE = {...} }   becomes mod.L (client language, then English, then the key)
--- Callbacks: mod:OnLoad(), mod:OnLogin(), mod:OnGuildChanged(newKey, oldKey), mod:OnSlash(rest), mod:Open(),
---   mod:OverviewStatus(), mod:OverviewRecent(n), mod:OnOptionChanged(key, value). Every call goes through RQ:Call.
--- Methods: see Proto below (Print, RegisterEvent, After, Every, GuildStore, SetOptions, Option, ...).
 local ADDON, ns = ...
 local GS = ns.GS
 local L = GS.OverviewL
 
 GS.modules, GS.moduleOrder = {}, {}
 
----------------------------------------------------------------------------
--- Module methods
----------------------------------------------------------------------------
 local Proto = {}
 local ProtoMeta = { __index = Proto }
 GS.ModuleProto = Proto
 
 function Proto:Print(...) GS.Print(self.title or self.name, ...) end
 
--- handler(mod, ...) or, without handler, the method mod[event]; runs under RQ:Call
 function Proto:RegisterEvent(event, handler)
   local f = rawget(self, "eventFrame")
   if not f then
@@ -42,7 +22,6 @@ function Proto:RegisterEvent(event, handler)
     end)
   end
   self.eventHandlers[event] = handler or function(m, ...) if m[event] then return m[event](m, ...) end end
-  -- an event this client doesn't know raises in RegisterEvent: report false instead
   local ok = pcall(f.RegisterEvent, f, event)
   if not ok then self.eventHandlers[event] = nil; GS:Trace("event", self.name .. ": unknown event " .. tostring(event)) end
   return ok
@@ -55,12 +34,10 @@ function Proto:UnregisterEvent(event)
   f:UnregisterEvent(event)
 end
 
--- fn(mod) after `seconds`, under RQ:Call
 function Proto:After(seconds, fn)
   C_Timer.After(seconds, function() GS:Call(fn, self) end)
 end
 
--- fn(mod) every `seconds` until handle:Cancel()
 function Proto:Every(seconds, fn)
   local handle = { cancelled = false }
   function handle.Cancel(h) h.cancelled = true end
@@ -73,8 +50,6 @@ function Proto:Every(seconds, fn)
   return handle
 end
 
--- A table in the module's SavedVariables for the current guild: db.guilds[guildKey][name or "data"].
--- Data from one guild never shows in another. "-" while the guild is unknown.
 function Proto:GuildStore(name)
   local db = self.db
   if not db then return {} end
@@ -86,9 +61,6 @@ function Proto:GuildStore(name)
   return db.guilds[g][k]
 end
 
--- The options shown in /rq (entry types: header, toggle, range, button, text; see Options.lua).
--- Shorthand: { type = "toggle", key = "share", label = ... } reads and writes mod.settings.share and then calls
--- mod:OnOptionChanged("share", value).
 function Proto:SetOptions(list)
   for _, o in ipairs(list) do
     if o.key then
@@ -114,9 +86,6 @@ function Proto:Option(id)
   end
 end
 
----------------------------------------------------------------------------
--- SavedVariables: defaults and numbered migrations
----------------------------------------------------------------------------
 local function Copy(v)
   if type(v) ~= "table" then return v end
   local out = {}
@@ -172,17 +141,13 @@ local function SetupDB(mod)
     mod.cdb = cdb
   end
 end
--- (for the offline compat harnesses: what the core does at the module's ADDON_LOADED, before OnLoad)
 GS.SetupModuleDB = SetupDB
 
----------------------------------------------------------------------------
--- Registry
----------------------------------------------------------------------------
 function GS:NewModule(name, spec)
   local mod = spec or {}
   if type(mod.api) == "number" and mod.api > self.API then
     self.Print(nil, L.API_TOO_OLD:format(name, mod.api, self.API))
-    return setmetatable(mod, ProtoMeta) -- usable table, never loaded
+    return setmetatable(mod, ProtoMeta)
   end
   mod.name, mod.core = name, self
   if getmetatable(mod) == nil then setmetatable(mod, ProtoMeta) end
@@ -195,37 +160,36 @@ end
 
 function GS:GetModule(name) return self.modules[name] end
 
----------------------------------------------------------------------------
--- Slash: the only command is /rq (options live in the UI, not in chat commands).
---   /rq            the overview window
---   /rq <key>      that module's options (or its window when it has no options)
---   /rq <key> ...  passed to mod:OnSlash(rest) for modules that still take arguments
----------------------------------------------------------------------------
 SLASH_RAVENQUILL1 = "/rq"
 SLASH_RAVENQUILL2 = "/ravenquill"
-SlashCmdList.RAVENQUILL = function(msg)
-  msg = type(msg) == "string" and msg or ""
-  local key, rest = msg:match("^%s*(%S+)%s*(.-)%s*$")
-  if key then
-    key = key:lower()
-    for _, name in ipairs(GS.moduleOrder) do
-      local m = GS.modules[name]
-      if (m.slash or name:lower()) == key or name:lower() == key then
-        if rest ~= "" and m.OnSlash then GS:Call(m.OnSlash, m, rest)
-        elseif type(m.options) == "table" and m.options[1] and GS.OpenModule then GS:Call(GS.OpenModule, GS, name)
-        elseif m.Open then GS:Call(m.Open, m)
-        elseif m.OnSlash then GS:Call(m.OnSlash, m, "")
-        elseif GS.ToggleOverview then GS:Call(GS.ToggleOverview, GS) end
-        return
-      end
-    end
-  end
+local function SlashMatches(m, name, key)
+  return (m.slash or name:lower()) == key or name:lower() == key
+end
+
+local function OpenFromSlash(m, name, rest)
+  if rest ~= "" and m.OnSlash then return GS:Call(m.OnSlash, m, rest) end
+  if type(m.options) == "table" and m.options[1] and GS.OpenModule then return GS:Call(GS.OpenModule, GS, name) end
+  if m.Open then return GS:Call(m.Open, m) end
+  if m.OnSlash then return GS:Call(m.OnSlash, m, "") end
   if GS.ToggleOverview then GS:Call(GS.ToggleOverview, GS) end
 end
 
----------------------------------------------------------------------------
--- Events: the lifecycle of the core and every module
----------------------------------------------------------------------------
+local function SlashModule(key)
+  for _, name in ipairs(GS.moduleOrder) do
+    local m = GS.modules[name]
+    if SlashMatches(m, name, key) then return m, name end
+  end
+end
+
+SlashCmdList.RAVENQUILL = function(msg)
+  msg = type(msg) == "string" and msg or ""
+  local key, rest = msg:match("^%s*(%S+)%s*(.-)%s*$")
+  local m, name
+  if key then m, name = SlashModule(key:lower()) end
+  if m then OpenFromSlash(m, name, rest) return end
+  if GS.ToggleOverview then GS:Call(GS.ToggleOverview, GS) end
+end
+
 local function EachModule(fn)
   for _, name in ipairs(GS.moduleOrder) do fn(GS.modules[name]) end
 end
@@ -236,49 +200,65 @@ frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("GUILD_ROSTER_UPDATE")
 frame:RegisterEvent("PLAYER_GUILD_UPDATE")
-frame:SetScript("OnEvent", function(_, event, arg1)
-  if event == "GUILD_ROSTER_UPDATE" then
-    GS:Call(GS.ReadRoster, GS)
-  elseif event == "ADDON_LOADED" then
-    if arg1 == ADDON then
-      RavenquillExpeditionDB = type(RavenquillExpeditionDB) == "table" and RavenquillExpeditionDB or {}
-      GS.db = RavenquillExpeditionDB
-    end
-    EachModule(function(m)
-      if m.addon == arg1 and not m.loaded then
-        m.loaded = true
-        GS:Call(SetupDB, m)
-        if m.OnLoad then GS:Call(m.OnLoad, m) end
-      end
-    end)
-  elseif event == "PLAYER_LOGIN" then
-    GS.loggedIn = true
-    GS.playerKey, GS.realmSuffixes = nil, nil
-    GS.guildKey = GS:GuildKey()
-    GS:RequestRoster()
-    GS:Call(GS.PrunePeers, GS)
-    if GS.OnLoginComm then GS:Call(GS.OnLoginComm, GS) end
-    EachModule(function(m)
-      if m.db and m.loginMigrations then GS:Call(Migrate, m, m.db, m.cdb, m.loginMigrations, "vLogin") end
-    end)
-    EachModule(function(m) if m.OnLogin then GS:Call(m.OnLogin, m) end end)
-    -- a module whose addon never loaded (missing or misspelled `addon`) would otherwise fail silently
-    EachModule(function(m)
-      if not m.loaded and (m.sv or m.svChar or m.defaults or m.OnLoad) then
-        GS.Print(nil, ("module %s never loaded: its spec needs addon = <its folder name> (now %s)."):format(
-          tostring(m.name), tostring(m.addon)))
-      end
-    end)
-  elseif event == "PLAYER_GUILD_UPDATE" then
-    -- a real change only: unknown -> known right after login is not one
-    local new, old = GS:GuildKey(), GS.guildKey
-    local inGuild = GS.Plain(GS.SafeCall(IsInGuild))
-    if new and new ~= old then
-      GS.guildKey = new
-      if old then EachModule(function(m) if m.OnGuildChanged then GS:Call(m.OnGuildChanged, m, new, old) end end) end
-    elseif not new and old and not inGuild then
-      GS.guildKey = nil
-      EachModule(function(m) if m.OnGuildChanged then GS:Call(m.OnGuildChanged, m, nil, old) end end)
-    end
+
+local function OnAddonLoaded(addon)
+  if addon == ADDON then
+    RavenquillExpeditionDB = type(RavenquillExpeditionDB) == "table" and RavenquillExpeditionDB or {}
+    GS.db = RavenquillExpeditionDB
   end
+  EachModule(function(m)
+    if m.addon == addon and not m.loaded then
+      m.loaded = true
+      GS:Call(SetupDB, m)
+      if m.OnLoad then GS:Call(m.OnLoad, m) end
+    end
+  end)
+end
+
+local function WarnUnloadedModule(m)
+  if m.loaded or not (m.sv or m.svChar or m.defaults or m.OnLoad) then return end
+  GS.Print(nil, ("module %s never loaded: its spec needs addon = <its folder name> (now %s)."):format(
+    tostring(m.name), tostring(m.addon)))
+end
+
+local function OnPlayerLogin()
+  GS.loggedIn = true
+  GS.playerKey, GS.realmSuffixes = nil, nil
+  GS.guildKey = GS:GuildKey()
+  GS:RequestRoster()
+  GS:Call(GS.PrunePeers, GS)
+  if GS.OnLoginComm then GS:Call(GS.OnLoginComm, GS) end
+  EachModule(function(m)
+    if m.db and m.loginMigrations then GS:Call(Migrate, m, m.db, m.cdb, m.loginMigrations, "vLogin") end
+  end)
+  EachModule(function(m) if m.OnLogin then GS:Call(m.OnLogin, m) end end)
+  EachModule(WarnUnloadedModule)
+end
+
+local function TellGuildChanged(new, old)
+  EachModule(function(m) if m.OnGuildChanged then GS:Call(m.OnGuildChanged, m, new, old) end end)
+end
+
+local function OnGuildUpdate()
+  local new, old = GS:GuildKey(), GS.guildKey
+  local inGuild = GS.Plain(GS.SafeCall(IsInGuild))
+  if new and new ~= old then
+    GS.guildKey = new
+    if old then TellGuildChanged(new, old) end
+  elseif not new and old and not inGuild then
+    GS.guildKey = nil
+    TellGuildChanged(nil, old)
+  end
+end
+
+local CoreEvents = {
+  GUILD_ROSTER_UPDATE = function() GS:Call(GS.ReadRoster, GS) end,
+  ADDON_LOADED = OnAddonLoaded,
+  PLAYER_LOGIN = OnPlayerLogin,
+  PLAYER_GUILD_UPDATE = OnGuildUpdate,
+}
+
+frame:SetScript("OnEvent", function(_, event, arg1)
+  local handle = CoreEvents[event]
+  if handle then handle(arg1) end
 end)

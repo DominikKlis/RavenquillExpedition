@@ -1,8 +1,3 @@
--- Golden wire test for Map (prefix RQEMap1): the bytes and send times must not change while the suite is reworked.
---   encoder layer : EncodePosition for fixed inputs (every flag combination, every class, edge coordinates), "L;<ts>"
---   decoder layer : DecodePosition of every golden message gives the inputs back
---   scenario layer: one client walking for 10 minutes next to an idle one; messages and send times, field 7 (ts) masked
--- Run: lua RavenquillExpedition_Map/dev/harness_compat.lua [--record]
 local DIR = (arg and arg[0] or ""):gsub("[/\\]dev[/\\]harness_compat%.lua$", "")
 if DIR == "" or DIR == arg[0] then DIR = "." end
 package.path = DIR .. "/dev/?.lua;" .. package.path
@@ -99,7 +94,7 @@ local SV_CASES = {
 }
 for _, name in ipairs({ "fresh", "v1", "badSize", "wrongTypes" }) do
   W.env.RavenquillExpeditionMapDB = SV_CASES[name]
-  W.RQ.SetupModuleDB(W.mod) -- what the core does at the module's ADDON_LOADED, then the module's OnLoad
+  W.RQ.SetupModuleDB(W.mod)
   W.mod:OnLoad()
   gold:compare("sv." .. name, splitLines(Golden.Serialize(W.env.RavenquillExpeditionMapDB)), check)
 end

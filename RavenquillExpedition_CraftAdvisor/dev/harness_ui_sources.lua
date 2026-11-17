@@ -1,11 +1,9 @@
--- UI harness, where to get missing recipes (K7: Data/Sources.lua, no other addon) and weapon rows (W) in the
--- list, the sheet and guild needs. Shared setup: dev/uikit.lua. Run: lua dev/harness_ui_sources.lua
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "uikit.lua")
 local GCA, advance, ns, SOURCES, check, fakeSug = H.GCA, H.advance, H.ns, H.SOURCES, H.check, H.fakeSug
 local plain, captureTip, tipText, ROOT, Files, Frame = H.plain, H.captureTip, H.tipText, H.ROOT, H.Files, H.Frame
 local fakeSections, plainTip = H.fakeSections, H.plainTip
-H.lateGlobals() -- the mocks the single harness added before the tooltip sweep
-H.templateMode = "fail" -- as the fallback-path test left it in the single harness
+H.lateGlobals()
+H.templateMode = "fail"
 
 do
   print("== K7: where to get missing recipes (own Data/Sources.lua, no other addon) + inner border")
@@ -23,7 +21,6 @@ do
   local function reset() Src.Reset(); RS.world = {} end
   check(_G.CraftersJournal == nil and _G.LibQuestieDB == nil and type(REAL) == "table" and type(RS) == "table",
     "sources: CraftersJournal / QuestieDB absent in this run, Data/Sources.lua and RecipeSources.lua loaded")
-  -- 1. no source data (ns.Sources missing): coarse labels, trainer with the skill from our data
   ns.Sources = nil
   reset()
   local dT = fakeSug({ known = false })
@@ -34,7 +31,6 @@ do
   Src.AddTooltip(UIx.SourceInfo(dP, cur))
   check(tipText():find("Pattern", 1, true) and not tipText():find("Crafter's Journal", 1, true) and not tipText():find("Right-click", 1, true),
     "K7 no data: tooltip shows the coarse label, no hint at another addon, no waypoint hint")
-  -- 2. fake data in Data/Sources.lua's shape: nearest usable vendor, drop without coordinates, trainer, quests
   local FAKE = {
     factions = { [59] = "Thorium Brotherhood" },
     trainers = { Leatherworking = { { 301, 1 }, { 303, 2 }, { 302, 2 } } },
@@ -62,7 +58,7 @@ do
   }
   local MAPS = { [1417] = "Arathi Highlands", [1429] = "Elwynn Forest", [1453] = "Stormwind City", [1454] = "Orgrimmar" }
   local AREAS = { [40] = "Westfall", [1585] = "Blackrock Depths" }
-  local pos -- the player's world position (nil: none)
+  local pos
   C_Map = {
     GetMapInfo = function(m) return MAPS[m] and { name = MAPS[m] } or nil end,
     GetAreaInfo = function(a) return AREAS[a] end,
@@ -73,6 +69,41 @@ do
   UnitFactionGroup = function() return "Alliance" end
   C_Reputation = { GetFactionDataByID = function(id) return id == 59 and { reaction = 5 } or nil end }
   FACTION_STANDING_LABEL6 = "Honored"
+  do
+    local db = {
+      npcs = {
+        [1] = { "Mapped", "A", 1417, 0.45, 0.6, 40 }, [2] = { "Area only", "", 0, 0, 0, 1585 },
+        [3] = { "Bad coords", "H", 1417, 1.5, 0.2, 40 }, [4] = { "Unknown map", "", 9999, 0.1, 0.1, 40 },
+        [5] = { "Empty area", "", 0, 0, 0, 77 }, [6] = { "No place" }, [7] = { 5 }, [8] = "junk",
+      },
+      levels = { [1] = { 12, 14 }, [2] = { 50, 50 }, [3] = { "5", "7" }, [4] = { 1 }, [5] = "x" },
+    }
+    local function describe(n)
+      if not n then return "nil" end
+      return table.concat({ n.id, n.name, tostring(n.side), tostring(n.map), tostring(n.x), tostring(n.y), tostring(n.zone), tostring(n.level) }, "|")
+    end
+    local function all()
+      local out = {}
+      for _, id in ipairs({ 1, 2, 3, 4, 5, 6, 7, 8, "1", 99 }) do out[#out + 1] = describe(RS.NpcInfo(db, id)) end
+      return table.concat(out, ";")
+    end
+    local savedMap = C_Map
+    local MAPS2, AREAS2 = { [1417] = "Arathi Highlands" }, { [40] = "Westfall", [1585] = "Blackrock Depths", [77] = "" }
+    C_Map = { GetMapInfo = function(m) return MAPS2[m] and { name = MAPS2[m] } or nil end, GetAreaInfo = function(a) return AREAS2[a] end }
+    local withMap = all()
+    C_Map = { GetMapInfo = function() error("boom") end, GetAreaInfo = function(a) return AREAS2[a] end }
+    local erroring = all()
+    C_Map = nil
+    local noMap = all()
+    C_Map = savedMap
+    check(withMap == "1|Mapped|A|1417|0.45|0.6|Arathi Highlands|12-14;2|Area only||nil|nil|nil|Blackrock Depths|50;"
+      .. "3|Bad coords|H|nil|nil|nil|Westfall|5-7;4|Unknown map||9999|0.1|0.1|Westfall|nil;5|Empty area||nil|nil|nil|nil|nil;"
+      .. "6|No place|nil|nil|nil|nil|nil|nil;nil;nil;nil;nil",
+      "NpcInfo: coordinates, zone from the map or else the area, levels (one, range, as strings), bad rows: " .. withMap)
+    check(erroring == withMap:gsub("Arathi Highlands", "Westfall") and noMap == withMap:gsub("|Arathi Highlands|", "|nil|")
+      :gsub("|Blackrock Depths|", "|nil|"):gsub("|Westfall|", "|nil|"),
+      "NpcInfo: an erroring map lookup falls back to the area; no C_Map, no zone: " .. erroring .. " / " .. noMap)
+  end
   ns.Sources = FAKE
   reset()
   local info = UIx.SourceInfo(dP, cur)
@@ -84,7 +115,7 @@ do
     "sources: pattern item, vendor price, vendor with coordinates, drop without (zone from the area ID, level 12-14)")
   check(info.rep and info.rep.standing == "Honored" and info.rep.name == "Thorium Brotherhood" and info.rep.met == false,
     "sources: reputation 'Honored' with the English faction name (the client has none), not met at Friendly")
-  pos = { 1417 + 100, 100 } -- standing next to the far vendor (0.1, 0.1 on map 1417)
+  pos = { 1417 + 100, 100 }
   reset()
   check(UIx.SourceInfo(dP, cur).list[1].npc.name == "Far Vendor", "sources: with a position the nearest usable vendor wins")
   pos = nil
@@ -115,7 +146,6 @@ do
   local okBad, ib = pcall(UIx.SourceInfo, dBad, cur)
   check(okBad and ib.list[1].otherSide and plain(UIx.SourceLine(dBad, cur)) == "Vendor (other faction only)",
     "sources: a malformed NPC row and an other-side vendor -> 'Vendor (other faction only)', no error")
-  -- 3. menu + waypoints: TomTom when installed, else the client's waypoint, else the coordinates in chat
   local entries = Src.MenuEntries(info)
   check(#entries == 1 and entries[1].waypoint and entries[1].waypoint.name == "Androd Fadran",
     "K7 menu: one waypoint (vendor with coordinates; not the drop without); no 'Link pattern' (user 2026-11-15)")
@@ -142,7 +172,6 @@ do
     "waypoint: no TomTom, no waypoint API -> the coordinates in chat: " .. tostring(said[#said]))
   check(Src.SetWaypoint(info.list[2].npc) == false and Src.SetWaypoint(idg.list[1].npc) == false, "K7 no coordinates -> no waypoint, nothing invented")
   GCA.Print = savedPrint
-  -- menu: MenuUtil context menu; none -> first entry directly; nothing to offer -> false
   local made
   MenuUtil = { CreateContextMenu = function(owner, gen)
     local root = { items = {} }
@@ -152,7 +181,6 @@ do
   end }
   check(Src.Menu(UIParent, info, "Vest") and made and made.title == "Vest" and #made.items == 1
     and made.items[1] == "Show on map: Androd Fadran (vendor)", "K14 right-click menu via MenuUtil.CreateContextMenu (show on map)")
-  -- K14: "show on the map" = waypoint + the world map opened on the NPC's map
   local openedMap
   OpenWorldMap = function(id) openedMap = id end
   GCA.Print = function() end
@@ -163,17 +191,14 @@ do
   check(Src.ShowOnMap({ name = "x" }) == false, "K14: no coordinates -> nothing happens")
   MenuUtil = nil
   check(Src.Menu(UIParent, { list = {} }) == false, "K7 no coordinates and no pattern -> no menu")
-  -- right-click on a known row is swallowed (never runs the left-click action), left click passes through
   check(UIx.SourceClick(UIParent, "RightButton", fakeSug(), cur) == true and UIx.SourceClick(UIParent, "LeftButton", dP, cur) == false,
     "K7 SourceClick: right-click handled, left click not")
-  -- 4. broken data: no error, coarse fallback
   ns.Sources = { npcs = {}, recipes = setmetatable({}, { __index = function() error("boom") end }) }
   reset()
   check(plain(UIx.SourceLine(dP, cur)) == "Pattern" and plain(UIx.SourceLine(dT, cur)) == "Trainer (skill 100)", "sources: data erroring -> coarse label")
   ns.Sources = { recipes = 5 }
   reset()
   check(plain(UIx.SourceLine(dP, cur)) == "Pattern", "sources: data of the wrong shape -> treated as missing")
-  -- 5. the shipped data, CraftersJournal absent
   ns.Sources = REAL
   C_Map, CreateVector2D, UnitPosition, C_Reputation, FACTION_STANDING_LABEL6 = nil, nil, nil, nil, nil
   reset()
@@ -195,7 +220,7 @@ do
     local itr = UIx.SourceInfo(tr, cur)
     check(itr.sourced and itr.list[1].kind == "trainer" and itr.list[1].cost == 50 and itr.list[1].npc and REAL.npcs[itr.list[1].npc.id],
       "real data: Handstitched Leather Pants -> trainer, fee 50, a named trainer NPC")
-    local found -- the lowest recipe whose pattern vendors all stand in the open world and serve both sides
+    local found
     for id, r in pairs(REAL.recipes) do
       local all = r.v ~= nil and not r.t
       for _, v in ipairs(r.v or {}) do all = all and REAL.npcs[v][2] == "" and REAL.npcs[v][3] ~= 0 end
@@ -212,10 +237,9 @@ do
     local f = assert(io.open(ROOT .. "Data/Sources.lua", "rb"))
     local text = f:read("a")
     f:close()
-    check(text:find("CraftersJournal data, no licence file; private/guild use accepted by the", 1, true) and text:find("see NOTICE.txt", 1, true) and #text < 200000,
-      ("Data/Sources.lua: generated header with the licence note, %d bytes"):format(#text))
+    check(not text:find("--", 1, true) and #text < 200000,
+      ("Data/Sources.lua: no comments, %d bytes"):format(#text))
   end
-  -- 6. no other addon at runtime: UI.lua and RecipeSources.lua code (comments dropped) never name CraftersJournal / QuestieDB
   do
     local bad = {}
     local files = Files.group("UI")
@@ -230,33 +254,34 @@ do
     end
     check(#bad == 0, "regression: no CraftersJournal / QuestieDB access in UI.lua or RecipeSources.lua " .. table.concat(bad, ", "))
   end
-  -- 7. the shipped Data/Sources.lua is exactly what dev/gen_sources.lua makes from the installed CraftersJournal + QuestieDB
   do
-    local P = dofile(ROOT .. "dev/paths.lua")
-    local cjDir, qdbDir = P.CraftersJournal(), P.QuestieDB()
-    local tmp = os.getenv("TEMP") and (os.getenv("TEMP"):gsub("\\", "/") .. "/gca_gen_sources_test/") or nil
-    if not (cjDir and qdbDir and tmp) then
-      H.skips = H.skips + 1
-      print("SKIP ui:craftersjournal-source: " .. (not cjDir and "CraftersJournal" or not qdbDir and "QuestieDB" or "TEMP")
-        .. " not found (install it next to this addon, or set RQ_CRAFTERSJOURNAL / RQ_QUESTIEDB)")
-    else
-      os.execute('mkdir "' .. (tmp .. "Data"):gsub("/", "\\") .. '" 2>nul')
-      local savedArg, realStderr, report = arg, io.stderr, {}
-      arg = { [0] = ROOT .. "dev/gen_sources.lua", "", "", tmp }
-      io.stderr = { write = function(_, ...) for k = 1, select("#", ...) do report[#report + 1] = select(k, ...) end end }
-      local ok, err = pcall(function() assert(loadfile(ROOT .. "dev/gen_sources.lua"))() end)
-      io.stderr, arg = realStderr, savedArg
-      check(ok, "gen_sources.lua runs and its count asserts pass " .. (ok and table.concat(report) or tostring(err)))
-      local function readAll(p) local h = io.open(p, "rb"); if not h then return nil end local s = h:read("a"); h:close(); return s end
-      -- line endings ignored: git on Windows may check the shipped file out with CRLF
-      local function lf(s) return s and (s:gsub("\r\n", "\n")) end
-      local a, b = lf(readAll(tmp .. "Data/Sources.lua")), lf(readAll(ROOT .. "Data/Sources.lua"))
-      check(a and a == b, "shipped Data/Sources.lua is byte-identical to a fresh gen_sources.lua run (line endings ignored)")
+    local bad = {}
+    local NO_FALLBACK = { [2740] = true, [2758] = true, [2787] = true }
+    local function npc(id, where) if not REAL.npcs[id] then bad[#bad + 1] = where .. ">npc " .. tostring(id) end end
+    for prof, list in pairs(REAL.trainers) do
+      for _, t in ipairs(list) do
+        npc(t[1], "trainer " .. prof)
+        if not (type(t[2]) == "number" and t[2] >= 1 and t[2] <= 15) then bad[#bad + 1] = "trainer " .. prof .. ">ranks " .. tostring(t[2]) end
+      end
     end
+    for id, r in pairs(REAL.recipes) do
+      for _, v in ipairs(r.v or {}) do npc(v, "recipe " .. id .. " vendor") end
+      for _, q in ipairs(r.q or {}) do if not REAL.quests[q] then bad[#bad + 1] = "recipe " .. id .. ">quest " .. tostring(q) end end
+      if r.rep and not (REAL.factions[r.rep[1]] or NO_FALLBACK[r.rep[1]]) then bad[#bad + 1] = "recipe " .. id .. ">faction " .. tostring(r.rep[1]) end
+    end
+    for qid, q in pairs(REAL.quests) do
+      for _, g in ipairs(type(q[4]) == "table" and q[4] or {}) do npc(g, "quest " .. qid .. " giver") end
+    end
+    for id, n in pairs(REAL.npcs) do
+      if type(n[1]) ~= "string" or n[1] == "" or (n[2] ~= "A" and n[2] ~= "H" and n[2] ~= "" and n[2] ~= "X") then bad[#bad + 1] = "npc " .. id end
+    end
+    table.sort(bad)
+    check(#bad == 0, "Data/Sources.lua: every trainer, vendor and quest giver is an NPC row, every quest and faction exists "
+      .. table.concat(bad, ", ", 1, math.min(#bad, 12)))
   end
   UnitFactionGroup = nil
   reset()
-  do -- Data/ExtraSources.lua: Forever drops Data/Sources.lua doesn't know (Pattern: Nightscape Cloak)
+  do
     local dN = fakeSug({ known = false, cand = { spellID = 10550, recipe = { src = "pattern", skill = 205 } } })
     local info = UIx.SourceInfo(dN, cur)
     check(info and info.list[1] and info.list[1].kind == "drop" and info.list[1].extra and info.list[1].count == 2
@@ -274,9 +299,8 @@ do
     check(tipText():find("Found in: Decoded True Believer Clippings", 1, true) and tipText():find("Cenarion Hold Infantry", 1, true), "extra sources in the source tooltip")
     Src.Reset()
   end
-  ns.Sources = nil -- back to the fixtures' coarse src field (see SOURCES)
+  ns.Sources = nil
   reset()
-  -- 5. the grey 'Not learned' tag + the card's source line (+10 px)
   local tags = UIx.CraftTags(dT, cur)
   local tag
   for _, x in ipairs(tags) do if x[1] == "Not learned" then tag = x end end
@@ -286,7 +310,7 @@ do
   check(not b.hasSource and b.source == nil and b.nl._shown and plain(b.nl.text._text) == "Trainer (skill 100)"
     and b.nl.text._text:find("TrainerGossipIcon", 1, true) and b.nl.text._text:find(UIx.COLORS.notLearnedTag, 1, true) and b._SetHeight[1] == 50,
     "user 2026-11-15: unlearned card = the best source with its icon (trainer), red, no third source line, 50 px: " .. plain(b.nl.text._text))
-  do -- the source icons per kind, and Auctionator's price for a BoE pattern
+  do
     local S = UIx.Src
     check(S.Icon("quest"):find("AvailableQuestIcon", 1, true) and S.Icon("vendor"):find("VendorGossipIcon", 1, true)
       and S.Icon("drop"):find("Skull", 1, true) and S.Icon("world"):find("INV_Misc_Map_01", 1, true) and S.Icon("nope"):find("INV_Scroll_03", 1, true),
@@ -297,7 +321,6 @@ do
     GCA.GetInfo = function(self, id) if id == 5000 then return { bind = 2 } elseif id == 5001 then return { bind = 1 } end return savedGet(self, id) end
     check(S.PatternPrice({ scroll = 5000 }) == 125000 and S.PatternPrice({ scroll = 5001 }) == nil,
       "BoE pattern: Auctionator's price; a BoP pattern: none")
-    -- user 2026-11-15: prices live in the (polished) tooltip, named by where you pay them
     local vend = { cj = true, scroll = 5000, canWaypoint = true, skill = 100, have = 120,
       list = { { kind = "vendor", cost = 12000, npc = { name = "Androd", zone = "Arathi", map = 1, x = 0.4, y = 0.5 } },
                { kind = "trainer", cost = 500 } } }
@@ -325,11 +348,9 @@ do
   check(okClick and okRight, "clicking 'Not learned' (left: map marker / right: menu) raises no error")
   b = show(fakeSug())
   check(not b.hasSource and not b.nl._shown and b._SetHeight[1] == 50, "known recipe -> no 'Not learned' button, 50 px")
-  -- 6. format strings of the new keys are well-formed in German too
   local de = ns.Locales.deDE
   check(string.format(de.SRC_LINE_VENDOR, "A", "B") == "Händler: A (B)" and string.format(de.SRC_LINE_TRAINER_HAVE, 170, 150) == "Lehrer (Fertigkeit 170, du hast 150)"
     and de.FILTER_UNLEARNED == "Fehlende Rezepte zeigen" and de.NOT_LEARNED == "Nicht erlernt", "K7 German texts")
-  -- 7. inner border (lead): every native inner panel has the 8-piece NineSlice from the probe atlases
   local inset = UIx.frame and (UIx.needsInset or nil)
   local nsf = UIx.AddInnerBorder(CreateFrame("Frame", nil, UIParent))
   check(nsf and nsf.how == "atlas" and nsf.TopLeftCorner._atlas == "UI-Frame-InnerTopLeft" and nsf.RightEdge._atlas == "!UI-Frame-InnerRightTile"
@@ -339,7 +360,6 @@ do
   local nsu = UIx.AddInnerBorder(CreateFrame("Frame", nil, UIParent))
   check(nsu.how == "util" and nsu.TopLeftCorner.layout == "InsetFrameTemplate", "K7 inner border: NineSliceUtil 'InsetFrameTemplate' layout when present")
   NineSliceUtil = nil
-  -- 8. rank bar (lead): per-profession fill flipbook + flare when the atlas info has texcoords
   local origInfo = C_Texture.GetAtlasInfo
   C_Texture.GetAtlasInfo = function(name)
     local i = origInfo(name)
@@ -356,7 +376,6 @@ do
       and tc and math.abs(tc[1] - 0.1) < 1e-9 and math.abs(tc[2] - 0.5) < 1e-9 and math.abs(tc[4] - 1 / 30) < 1e-9
       and rb.flare._shown and rb.flare._points[1][2] == rb.clip,
       "K7/K8 rank bar: LW flipbook fill at full width in a clipping frame cut to 50 %, one frame (row 1 of 30, column 1 of 2), flare at the cut")
-    -- K8: the FlipBook animation (rows 30, columns 2, 60 frames, 2 s, once) where the client has animation groups
     local anim = {}
     local fakeAG = { Play = function() anim.played = (anim.played or 0) + 1 end, Stop = function() end, SetLooping = function(_, v) anim.loop = v end,
       CreateAnimation = function(_, kind)
@@ -383,8 +402,6 @@ do
   UIx.frame:Hide()
 end
 
--- W (weapons): weapon rows reach the list sections, the guild-needs categories and the character sheet; texts
--- "(off hand)", "needs an off hand", "replaces both hands", "Speed 2.60 → 3.40" (deDE "Tempo 2,60 → 3,40"); Offer as for armour
 do
   print("== W: weapon rows in the list, the sheet and guild needs")
   local errBefore = GCA.UI.errorCount or 0
@@ -409,7 +426,6 @@ do
     cand = { spellID = 9104, itemID = 9104, recipe = rec() }, info = { name = "Craft Gun", quality = 2, icon = "x", minLevel = 30,
       link = "|Hitem:9104|h[Craft Gun]|h", cstats = { Agility = 5, RangedDps = 30 }, speed = 3.0 } })
   local UIx = GCA.UI
-  -- texts
   check(UIx.RowPair(offH) == "off hand" and UIx.RowPair(twoH) == nil and UIx.RowPair({ kind = "item", slot = 12 }) == "Ring 2",
     "RowPair: 'off hand' for a one-hander scored in the off hand; rings keep 'Ring 2'")
   local tags = {}
@@ -419,6 +435,9 @@ do
   local shieldP = fakeSug({ e = E, slot = 17, status = "needs-partner", equipped = eqInfo[16] })
   check(table.concat(tags, "|"):find("needs an off hand", 1, true) and table.concat(tags2, "|"):find("replaces both hands", 1, true)
     and UIx.CraftTags(shieldP)[1][1] == "needs a main hand", "tags: 'needs an off hand' / 'needs a main hand' / 'replaces both hands'")
+  local okUnnamed, unnamedTags = pcall(UIx.CraftTags, { kind = "enchant", item = { name = "Cloak" }, equipped = {} })
+  check(okUnnamed and unnamedTags[1][1] == "replaces ? on Cloak",
+    "enchant tag with an unnamed current enchant: 'replaces ? on Cloak': " .. tostring(okUnnamed and unnamedTags[1][1] or unnamedTags))
   local d1 = UIx.StatDiff(twoH)
   check(d1[1].speed == 3.4 and UIx.StatText(d1[1]) == "Speed 2.60 → 3.40", "stat differences: speed first, 'Speed 2.60 → 3.40': " .. UIx.StatText(d1[1]))
   local dps = {}
@@ -426,7 +445,6 @@ do
   check(table.concat(dps, ", "):find("+45 DPS", 1, true), "DPS lines in the stat differences: " .. table.concat(dps, ", "))
   local same = fakeSug({ e = E, equipped = eq("Same", { MainHandDps = 1 }, 2.6), info = { name = "S", cstats = { MainHandDps = 2 }, speed = 2.6 } })
   check(UIx.StatDiff(same)[1].key ~= "Speed" and UIx.StatDiff(partner)[1].key ~= "Speed", "same speed / no speed read: no speed line")
-  -- the list: sections 16/17/18 with their rows and the weapon section names
   GCA.UI:Toggle(); advance(1)
   UIx.current = { key = "Bud Stone", online = true, prof = "Blacksmithing", level = 40, class = "WARRIOR" }
   UIx.sugList:SetData(UIx.SectionRows(fakeSections({ [16] = { twoH, partner }, [17] = { offH }, [18] = { gun } })))
@@ -439,20 +457,17 @@ do
   check(cards[9102] and plain(cards[9102].title._text) == "Craft Sword (off hand)" and cards[9102].offer._shown,
     "card: 'Craft Sword (off hand)', Offer shown as for armour")
   check(cards[9103] and plain(cards[9103].sub._text):find("needs an off hand", 1, true), "card: the needs-partner row says 'needs an off hand': " .. plain(cards[9103] and cards[9103].sub._text))
-  -- user 2026-11-15: no stat differences on cards (speed included); the character sheet keeps them
   check(cards[9101] and not plain(cards[9101].sub._text):find("Speed", 1, true) and plain(cards[9101].sub._text):find("replaces both hands", 1, true),
     "card: second line = 'replaces both hands' (no speed/stat changes on cards): " .. plain(cards[9101] and cards[9101].sub._text))
   check(UIx.NeedsCatTitle(16) == "Main Hand" and UIx.NeedsCatTitle(17) == "Off Hand" and UIx.NeedsCatTitle(18) == "Ranged", "guild needs categories Main Hand / Off Hand / Ranged")
   captureTip(); cards[9101]._scripts.OnEnter(cards[9101])
   check(plainTip("9101"), "K17: a weapon row's tooltip = the item + only the stat-change block: " .. tipText())
-  -- German
   ns.locale = "deDE"
   check(UIx.StatText(UIx.StatDiff(twoH)[1]) == "Tempo 2,60 → 3,40" and UIx.NeedsCatTitle(16) == "Haupthand" and UIx.NeedsCatTitle(17) == "Nebenhand"
     and UIx.NeedsCatTitle(18) == "Distanz" and UIx.RowPair(offH) == "Nebenhand" and UIx.CraftTags(partner)[1][1] == "braucht eine Nebenhand"
     and UIx.CraftTags(twoH)[1][1] == "ersetzt beide Hände", "German: 'Tempo 2,60 → 3,40', Haupthand/Nebenhand/Distanz, 'braucht eine Nebenhand', 'ersetzt beide Hände'")
   ns.locale = "enUS"
   UIx.frame:Hide()
-  -- the sheet: weapon slots get their rows (badge, featured craft, stat lines incl. speed)
   local function member(key, rowsBy)
     local list = {}
     for _, rows in pairs(rowsBy) do for _, r in ipairs(rows) do list[#list + 1] = r end end

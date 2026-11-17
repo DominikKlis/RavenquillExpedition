@@ -4,10 +4,6 @@ local UI = GCA.UI
 local P = UI.P
 local ClassColor, Hex = P.ClassColor, P.Hex
 
--- K17 (user, 2026-11-14: "it says way too much ... nothing extra"): hovering an item anywhere in the window shows ONLY
--- the plain Blizzard tooltip (SetHyperlink / SetItemByID; an enchant = its spell's tooltip). Gain, stat breakdown, set
--- hints, sources, "replaces", level notes and Offer explanations are in the rows / detail panel / sheet, not here.
--- Non-item tooltips (buttons, filter, spec, search, Offer, crafted box, source buttons) keep their texts.
 function UI.PlainItemTip(owner, link, itemID, name, spellID)
   GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
   local shown = false
@@ -20,11 +16,6 @@ function UI.PlainItemTip(owner, link, itemID, name, spellID)
   GameTooltip:Show()
 end
 
--- User 2026-11-15: hovering a craft compares it with what THAT member wears (not your own gear). The member's worn
--- item(s) go into the client's compare tooltips (ShoppingTooltip1/2) with "Equipped by <name>" on top; an empty
--- slot = one compare tooltip saying so. Blizzard's own comparison (Shift / "always compare") would put your gear
--- there: GameTooltip_ShowCompareItem and the compare tooltips' OnShow are hooked to put the member's back while
--- one of our item tooltips is up. UI.compare = { owner, list = { worn infos }, who, empty } of the open tooltip.
 function UI.CompareTips()
   return { ShoppingTooltip1, ShoppingTooltip2 }
 end
@@ -56,7 +47,6 @@ function UI.FillCompare()
       for i, x in ipairs(c.list) do if tips[i] then fill(tips[i], x) end end
     end
     for i = #used + 1, #tips do if tips[i] then tips[i]:Hide() end end
-    -- right of the item tooltip, or left when there is no room (as GearQuestForever)
     local total = 0
     for _, t in ipairs(used) do total = total + (t:GetWidth() or 0) end
     local right = GameTooltip:GetRight() or 0
@@ -94,8 +84,6 @@ function UI.HookCompare()
   if GameTooltip.HookScript then pcall(GameTooltip.HookScript, GameTooltip, "OnHide", function() if UI.compare then UI.HideCompare() end end) end
 end
 
--- a suggestion (craft or enchant) row/card: the crafted item's (or the enchant spell's) plain tooltip; for an item
--- the member's worn item(s) beside it (UI.ShowWornCompare)
 local function ShowSuggestionTooltip(owner, d, cur)
   if not (d and d.info) then return end
   UI.HookCompare()
@@ -108,8 +96,6 @@ local function ShowSuggestionTooltip(owner, d, cur)
   UI.ShowWornCompare(owner, d, cur)
 end
 
--- User 2026-11-15: under the item tooltip, the stats the member gains (green) and loses (red) against what they
--- wear now (UI.StatDiff: the same canonical stats the score uses). Nothing when a side has no stat data.
 function UI.AddStatChanges(d, cur)
   local rows = UI.StatDiff(d)
   if not rows or #rows == 0 then return end
@@ -132,5 +118,4 @@ function UI.AddStatChanges(d, cur)
 end
 UI.ShowSuggestionTooltip = ShowSuggestionTooltip
 
--- shared with the files loaded after this one (P)
 P.ShowSuggestionTooltip = ShowSuggestionTooltip

@@ -1,17 +1,3 @@
--- Ravenquill Expedition core: ONE scheduler for every GUILD addon message the suite sends (docs/sync.md).
--- Forever rules this follows: only GUILD works; 255 bytes per message; heavy senders are dropped SILENTLY (per player,
--- all prefixes); our own GUILD messages echo back in about a second - the only proof of delivery.
--- One token bucket per client (3 tokens, refilled at 1 per 5 s; 1 per 5 min while nothing echoes). The pump sends
--- at most one message per 5 s tick, so queued events go out 5 s apart; the 3 tokens let TrySend and sends queued
--- some seconds apart go out at once. Three lanes:
---   event   queued, sent in order, confirmed by the echo: onResult "delivered" | "lost" | "dropped"
---   record  a list of chunks sent whole (one per token); an unstarted record with the same key is replaced
---   state   "now or not at all" (a position): TrySend sends right away or says why not; never queued, lowest priority
--- When a token is free: event first, then record chunks (a started record finishes first), state only via TrySend
--- when nothing else waits. Nothing is sent inside an instance or in combat.
--- Channels (what modules use):
---   mod:NewChannel{ tag, version }        schema messages under the core prefix RQE1: "<tag>;<version>;<type>;..."
---   mod:NewRawChannel{ prefix, lane }     a module's own prefix and its own bytes (Map's RQEMap1, CraftAdvisor's GCAdv1)
 local ADDON, ns = ...
 local GS = ns.GS
 local SafeCall, Plain = GS.SafeCall, GS.Plain
@@ -22,39 +8,35 @@ GS.COMM_PREFIX = PREFIX
 
 local C = {
   MAX_MSG = W.MAX_MSG,
-  -- Measured in game (Dev test comm.rate, 2026-11-15): 30 messages per minute from one client for a full minute all
-  -- echoed. We use 40% of that: 3 at once, then 1 per 5 s (12 per minute) for every module together.
   BURST = 3, RATE = 1 / 5,
-  SLOW_RATE = 1 / 300,    -- while our messages don't echo back: 1 per 5 min until one does
-  BUSY_HEARD = 20,        -- hold events/records while this many event/record messages were heard in 60 s ...
-  HEARD_PER_SENDER = 4,   -- ... counting at most this many per sender (one chatty client can't stall everyone)
-  INTAKE_PER_MIN = 15,    -- per sender on event/record prefixes; more is not read (a client sends at most 12 + burst)
-  INTAKE_STATE_PER_MIN = 15, -- per sender on state prefixes
-  ECHO_TIMEOUT = 120,     -- a sent message that never echoes counts as lost
+  SLOW_RATE = 1 / 300,
+  BUSY_HEARD = 20,
+  HEARD_PER_SENDER = 4,
+  INTAKE_PER_MIN = 15,
+  INTAKE_STATE_PER_MIN = 15,
+  ECHO_TIMEOUT = 120,
   QUEUE_MAX = 40,
-  QUEUE_MAX_WAIT = 1800,  -- an event not sent within 30 min -> "dropped" (the module keeps its copy)
-  RECORD_MAX_WAIT = 300,  -- a record not started within 5 min is dropped whole
-  RECORD_MAX_AGE = 600,   -- a started record still unfinished after 10 min is dropped
+  QUEUE_MAX_WAIT = 1800,
+  RECORD_MAX_WAIT = 300,
+  RECORD_MAX_AGE = 600,
   HOLD_THROTTLED = 30,
-  STATE_QUIET = 4,        -- state lane: skip if this client sent any GUILD addon message within 4 s ...
-  STATE_MAX_60 = 10,      -- ... or 10 or more within 60 s (waived once when the caller is starving)
-  STARVE = 30,            -- an event / record waiting this long goes out without a token (other addons' sends drain
-                          -- the bucket; a chatty one would otherwise silence the suite). Still at most 1 own send per 5 s.
+  STATE_QUIET = 4,
+  STATE_MAX_60 = 10,
+  STARVE = 30,
 }
-GS.CommConst = C -- internal numbers (read by tests); modules use GS.Wire.MAX_MSG
+GS.CommConst = C
 
--- Internal state. GS.Comm is readable for tests and the Dev addon's diagnostics only; modules use the channels.
 local S = {
-  q = {},            -- event lane: { prefix, msg, t, onResult, channel }
-  records = {},      -- record lane: { prefix, key, chunks, i, t, started, onDone, onDrop, channel }
+  q = {},
+  records = {},
   tokens = C.BURST, tokenAt = nil,
   hold = 0,
-  heard = {},        -- GetTime() of counted event/record messages from others
-  intake = {},       -- [senderKey] = { t, n, ns, h }
-  inflight = {},     -- [prefix .. "\0" .. text] = { { t, onResult }, ... } oldest first
-  sends = {},        -- GetTime() of every GUILD addon message this client sent (any addon, via the hook)
-  prefixes = {},     -- prefix -> raw channel (own prefixes)
-  tags = {},         -- RQE1 tag -> schema channel
+  heard = {},
+  intake = {},
+  inflight = {},
+  sends = {},
+  prefixes = {},
+  tags = {},
   sent = 0, received = 0, echoed = 0, lost = 0, foreign = 0, dropped = 0,
 }
 GS.Comm = S
@@ -67,7 +49,6 @@ local function Refill(now)
   S.tokenAt = now
 end
 
--- ok, reason
 local function CanSend()
   if not GS.loggedIn then return false, "not logged in" end
   if GS:InInstance() then return false, "instance" end
@@ -77,8 +58,8 @@ local function CanSend()
 end
 function GS:CanSend() return CanSend() end
 
-local Note -- (below) append a time to a 60 s window list
-local sending = false -- true while the scheduler itself calls SendAddonMessage (the hook ignores those)
+local Note
+local sending = false
 local function SendRaw(prefix, msg)
   if not (C_ChatInfo and C_ChatInfo.SendAddonMessage) then return "error" end
   sending = true
@@ -87,7 +68,7 @@ local function SendRaw(prefix, msg)
   Note(S.sends, GetTime())
   if not ok then return "error" end
   if res == nil or res == true or res == 0 then return "ok" end
-  if res == 3 or res == 8 then return "throttled" end -- [U] live values (ChatThrottleLib's fallback enum)
+  if res == 3 or res == 8 then return "throttled" end
   return "error"
 end
 
@@ -100,7 +81,6 @@ local function Prune(list, window, now)
   for j = n - i + 2, n do list[j] = nil end
 end
 
--- append a time to a 60 s window list, pruned right here (the pump may not run for a long time: instance, combat)
 Note = function(list, now)
   Prune(list, 60, now)
   list[#list + 1] = now
@@ -116,12 +96,8 @@ local function Inflight(prefix, msg, onResult, now)
   S.lastSent = now
 end
 
-local Pump -- forward
+local Pump
 
----------------------------------------------------------------------------
--- Lanes
----------------------------------------------------------------------------
--- Event lane. false, reason when it can't be queued (too long, can't send now, queue full).
 local function QueueEvent(prefix, msg, onResult, channel)
   if #msg > C.MAX_MSG or msg:find("\0", 1, true) then return false, "too long" end
   local ok, why = CanSend()
@@ -132,7 +108,6 @@ local function QueueEvent(prefix, msg, onResult, channel)
   return true
 end
 
--- Record lane: chunks go out one per token, whole or not at all.
 local function QueueRecord(prefix, key, chunks, opts, channel)
   if type(chunks) ~= "table" or not chunks[1] then return false, "empty" end
   for _, c in ipairs(chunks) do
@@ -140,7 +115,7 @@ local function QueueRecord(prefix, key, chunks, opts, channel)
   end
   for i = #S.records, 1, -1 do
     local r = S.records[i]
-    if r.prefix == prefix and r.key == key and not r.started then table.remove(S.records, i) end -- newest replaces
+    if r.prefix == prefix and r.key == key and not r.started then table.remove(S.records, i) end
   end
   S.records[#S.records + 1] = { prefix = prefix, key = key, chunks = chunks, i = 1, t = GetTime(),
     onDone = opts and opts.onDone, onDrop = opts and opts.onDrop, channel = channel }
@@ -155,7 +130,18 @@ local function CancelRecords(prefix, key)
   end
 end
 
--- State lane: send now or say why not. opts.starving waives the STATE_QUIET / STATE_MAX_60 rules once (bucket may go to -1).
+local function SpendToken() S.tokens = math.max(-1, S.tokens - 1) end
+local function HoldAfterThrottle(now) S.tokens, S.hold = 0, now + C.HOLD_THROTTLED end
+local function CountSent(channel) if channel then channel.stats.sent = channel.stats.sent + 1 end end
+local function WireLabel(prefix, text) return prefix == PREFIX and text or (prefix .. " " .. text) end
+
+local function StateLaneRefusal(now)
+  local last = S.sends[#S.sends]
+  if last and now - last < C.STATE_QUIET then return ("another addon sent < %d s ago"):format(C.STATE_QUIET) end
+  if #S.sends >= C.STATE_MAX_60 then return ("%d+ guild addon messages in 60 s"):format(C.STATE_MAX_60) end
+  if S.tokens < 1 then return "no send token" end
+end
+
 local function TrySend(prefix, msg, opts, channel)
   local now = GetTime()
   if #msg > C.MAX_MSG then return false, "too long" end
@@ -165,38 +151,28 @@ local function TrySend(prefix, msg, opts, channel)
   if S.q[1] or S.records[1] then return false, "Ravenquill Expedition modules are waiting to send" end
   Prune(S.sends, 60, now)
   Refill(now)
-  local starving = opts and opts.starving
-  if not starving then
-    local last = S.sends[#S.sends]
-    if last and now - last < C.STATE_QUIET then return false, ("another addon sent < %d s ago"):format(C.STATE_QUIET) end
-    if #S.sends >= C.STATE_MAX_60 then return false, ("%d+ guild addon messages in 60 s"):format(C.STATE_MAX_60) end
-    if S.tokens < 1 then return false, "no send token" end
-  end
+  local refusal = not (opts and opts.starving) and StateLaneRefusal(now)
+  if refusal then return false, refusal end
   local r = SendRaw(prefix, msg)
   GS:Trace("comm.tx", r, prefix .. " " .. msg)
-  if r == "throttled" then S.tokens, S.hold = 0, now + C.HOLD_THROTTLED; return false, "throttled" end
+  if r == "throttled" then HoldAfterThrottle(now); return false, "throttled" end
   if r ~= "ok" then S.hold = now + C.HOLD_THROTTLED; return false, "send error" end
-  S.tokens = math.max(-1, S.tokens - 1)
+  SpendToken()
   Inflight(prefix, msg, nil, now)
-  if channel then channel.stats.sent = channel.stats.sent + 1 end
-  Pump() -- keeps the echo watchdog ticking
+  CountSent(channel)
+  Pump()
   return true
 end
 
--- Best effort, now (a "leaving" message at logout): charges the bucket, no checks but the instance rule.
 local function SendNow(prefix, msg)
   if GS:InInstance() or #msg > C.MAX_MSG then return false end
   local r = SendRaw(prefix, msg)
   GS:Trace("comm.tx", r, prefix .. " " .. msg)
   Refill(GetTime())
-  S.tokens = math.max(-1, S.tokens - 1)
+  SpendToken()
   return r == "ok"
 end
 
----------------------------------------------------------------------------
--- The pump
----------------------------------------------------------------------------
--- Everything waiting goes back to its module (entering an instance).
 local function DropAll()
   local q, recs = {}, {}
   for i, it in ipairs(S.q) do q[i] = it end
@@ -207,91 +183,124 @@ local function DropAll()
   for _, r in ipairs(recs) do if r.onDrop then GS:Call(r.onDrop, "instance") end end
 end
 
-local function PumpOnce()
-  local now = GetTime()
-  Prune(S.heard, 60, now)
-  Prune(S.sends, 60, now)
-  for k, list in pairs(S.inflight) do
-    while list[1] and now - list[1].t > C.ECHO_TIMEOUT do
-      local e = table.remove(list, 1)
-      S.lost = S.lost + 1
-      S.lostSinceEcho = (S.lostSinceEcho or 0) + 1
-      GS:Trace("comm.lost", (k:gsub("%z", " ")))
-      Result(e.onResult, "lost")
+local PumpOnce
+do
+  local function ExpireInflight(now)
+    for k, list in pairs(S.inflight) do
+      while list[1] and now - list[1].t > C.ECHO_TIMEOUT do
+        local e = table.remove(list, 1)
+        S.lost = S.lost + 1
+        S.lostSinceEcho = (S.lostSinceEcho or 0) + 1
+        GS:Trace("comm.lost", (k:gsub("%z", " ")))
+        Result(e.onResult, "lost")
+      end
+      if not list[1] then S.inflight[k] = nil end
     end
-    if not list[1] then S.inflight[k] = nil end
   end
-  -- echo watchdog: something was lost and nothing has come back for ECHO_TIMEOUT (since login or since the last
-  -- echo) -> slow down until an echo returns. Said once per session.
-  local since = S.lastEcho or S.firstSent
-  if not S.slow and (S.lostSinceEcho or 0) > 0 and since and now - since > C.ECHO_TIMEOUT then
+
+  local function SlowDownWithoutEcho(now)
+    if S.slow or (S.lostSinceEcho or 0) <= 0 then return end
+    local since = S.lastEcho or S.firstSent
+    if not since or now - since <= C.ECHO_TIMEOUT then return end
     S.slow = true
     Refill(now)
-    S.tokens = math.min(S.tokens, 0) -- tokens saved up before don't go out at once: 1 per 5 min from now
+    S.tokens = math.min(S.tokens, 0)
     GS:Trace("comm.slow", "no echo for " .. C.ECHO_TIMEOUT .. " s")
-    if not S.slowSaid then
-      S.slowSaid = true
-      GS.Print(nil, "guild sync: our messages don't come back – sending slowly now (1 per 5 min).")
+    if S.slowSaid then return end
+    S.slowSaid = true
+    GS.Print(nil, "guild sync: our messages don't come back – sending slowly now (1 per 5 min).")
+  end
+
+  local function ExpireQueue(now)
+    for i = #S.q, 1, -1 do
+      local it = S.q[i]
+      if now - it.t > C.QUEUE_MAX_WAIT then table.remove(S.q, i); S.dropped = S.dropped + 1; Result(it.onResult, "deferred") end
     end
   end
-  if (S.q[1] or S.records[1]) and GS:InInstance() then DropAll() end
-  for i = #S.q, 1, -1 do
-    local it = S.q[i]
-    if now - it.t > C.QUEUE_MAX_WAIT then table.remove(S.q, i); S.dropped = S.dropped + 1; Result(it.onResult, "deferred") end
+
+  local function RecordExpired(r, now)
+    return now - r.t > (r.started and C.RECORD_MAX_AGE or C.RECORD_MAX_WAIT)
   end
-  for i = #S.records, 1, -1 do
-    local r = S.records[i]
-    if (not r.started and now - r.t > C.RECORD_MAX_WAIT) or (r.started and now - r.t > C.RECORD_MAX_AGE) then
-      table.remove(S.records, i)
-      S.dropped = S.dropped + 1
-      if r.onDrop then GS:Call(r.onDrop, "timeout") end
+
+  local function ExpireRecords(now)
+    for i = #S.records, 1, -1 do
+      local r = S.records[i]
+      if RecordExpired(r, now) then
+        table.remove(S.records, i)
+        S.dropped = S.dropped + 1
+        if r.onDrop then GS:Call(r.onDrop, "timeout") end
+      end
     end
   end
-  Refill(now)
-  local item = S.q[1]
-  local rec
-  if not item then
-    for _, r in ipairs(S.records) do if r.started then rec = r break end end
-    rec = rec or S.records[1]
+
+  local function RemoveRecord(rec)
+    for i, x in ipairs(S.records) do if x == rec then table.remove(S.records, i) break end end
   end
-  if not item and not rec then return next(S.inflight) ~= nil end
-  if not CanSend() or now < S.hold or #S.heard >= C.BUSY_HEARD then return true end
-  if S.tokens < 1 then
-    -- starving: waited STARVE and our own last send is at least one refill period ago -> one goes out anyway.
-    -- Never in slow mode: then the bucket's 1 per 5 min is the only way out.
-    local waited = now - (item and item.t or rec.t)
+
+  local function NextRecord()
+    for _, r in ipairs(S.records) do if r.started then return r end end
+    return S.records[1]
+  end
+
+  local function MustWait(now, queuedAt)
+    if not CanSend() or now < S.hold or #S.heard >= C.BUSY_HEARD then return true end
+    if S.tokens >= 1 then return false end
+    local waited = now - queuedAt
     if S.slow or waited < C.STARVE or (S.lastSent and now - S.lastSent < 1 / C.RATE) then return true end
     GS:Trace("comm.starve", ("sending after %d s without a token"):format(waited))
+    return false
   end
-  local prefix, msg = item and item.prefix or rec.prefix, item and item.msg or rec.chunks[rec.i]
-  local r = SendRaw(prefix, msg)
-  GS:Trace("comm.tx", r, prefix == PREFIX and msg or (prefix .. " " .. msg))
-  if r == "throttled" then
-    S.tokens, S.hold = 0, now + C.HOLD_THROTTLED
-    return true
-  end
-  S.tokens = math.max(-1, S.tokens - 1)
-  if item then
+
+  local function SettleQueuedEvent(item, r, now)
     table.remove(S.q, 1)
-    if r == "error" then Result(item.onResult, "deferred"); return true end
-    Inflight(prefix, msg, item.onResult, now)
-    if item.channel then item.channel.stats.sent = item.channel.stats.sent + 1 end
-    return true
+    if r == "error" then return Result(item.onResult, "deferred") end
+    Inflight(item.prefix, item.msg, item.onResult, now)
+    CountSent(item.channel)
   end
-  if r == "error" then
-    for i, x in ipairs(S.records) do if x == rec then table.remove(S.records, i) break end end
-    if rec.onDrop then GS:Call(rec.onDrop, "error") end
-    return true
-  end
-  Inflight(prefix, msg, nil, now)
-  if rec.channel then rec.channel.stats.sent = rec.channel.stats.sent + 1 end
-  rec.started = true
-  rec.i = rec.i + 1
-  if rec.i > #rec.chunks then
-    for i, x in ipairs(S.records) do if x == rec then table.remove(S.records, i) break end end
+
+  local function SettleRecordChunk(rec, msg, r, now)
+    if r == "error" then
+      RemoveRecord(rec)
+      if rec.onDrop then GS:Call(rec.onDrop, "error") end
+      return
+    end
+    Inflight(rec.prefix, msg, nil, now)
+    CountSent(rec.channel)
+    rec.started = true
+    rec.i = rec.i + 1
+    if rec.i <= #rec.chunks then return end
+    RemoveRecord(rec)
     if rec.onDone then GS:Call(rec.onDone) end
   end
-  return true
+
+  local function SendNext(now, item, rec)
+    local prefix, msg
+    if item then prefix, msg = item.prefix, item.msg else prefix, msg = rec.prefix, rec.chunks[rec.i] end
+    local r = SendRaw(prefix, msg)
+    GS:Trace("comm.tx", r, WireLabel(prefix, msg))
+    if r == "throttled" then return HoldAfterThrottle(now) end
+    SpendToken()
+    if item then return SettleQueuedEvent(item, r, now) end
+    SettleRecordChunk(rec, msg, r, now)
+  end
+
+  PumpOnce = function()
+    local now = GetTime()
+    Prune(S.heard, 60, now)
+    Prune(S.sends, 60, now)
+    ExpireInflight(now)
+    SlowDownWithoutEcho(now)
+    if (S.q[1] or S.records[1]) and GS:InInstance() then DropAll() end
+    ExpireQueue(now)
+    ExpireRecords(now)
+    Refill(now)
+    local item = S.q[1]
+    local rec = not item and NextRecord() or nil
+    if not item and not rec then return next(S.inflight) ~= nil end
+    if MustWait(now, (item or rec).t) then return true end
+    SendNext(now, item, rec)
+    return true
+  end
 end
 
 Pump = function()
@@ -299,128 +308,114 @@ Pump = function()
   S.armed = true
   C_Timer.After(1, function()
     S.armed = false
-    -- RQ:Call: an error reaches BugSack, lastError and the Dev log; the pump keeps ticking after one
     local done, more = GS:Call(function() return true, PumpOnce() end)
     if not done then more = true end
-    if more then C_Timer.After(4, Pump) end -- keep ticking while anything waits; refill is time based
+    if more then C_Timer.After(4, Pump) end
   end)
 end
 GS.CommPump = Pump
 
----------------------------------------------------------------------------
--- Schema channels: mod:NewChannel{ tag, version } (wire "<tag>;<version>;<type>;<field>;...", prefix RQE1)
--- ch:Define(type, { lane = "event" | "state", from = "self" | "guild", fields = { { name, kind, ... }, ... } })
---   kinds: { name, "int", lo, hi }  { name, "b36", lo, hi }  { name, "text", maxBytes }  { name, "class" }
---          { name, "time" }  { name, "flag" }  { name, "enum", { "a", "b" } }  { name, "key" }
---          { name, "word", maxLen }  (letters and digits only, never shortened)
---   a field with opt = true may be empty (nil in the message table). from = "self": every "key" field must be the
---   sender (or there is none). A message that fails any check never reaches a handler (counted in ch:Status()).
--- ch:On(type, function(senderKey, msg) end)
--- ch:Send(type, msg, { onResult = fn(status) })   event lane: "delivered" | "lost" | "dropped"
--- ch:TrySend(type, msg, { starving })             state lane: ok, reason
----------------------------------------------------------------------------
 local STATUS = { echo = "delivered", lost = "lost", deferred = "dropped" }
 local Channel = {}
 Channel.__index = Channel
 
--- why is a fixed reason (a bounded set of keys); detail (wire text) only goes to the trace
 local function Reject(ch, why, detail)
   ch.stats.rejected[why] = (ch.stats.rejected[why] or 0) + 1
   GS:Trace("comm.reject", ch.name .. ": " .. why .. (detail and (" " .. tostring(detail)) or ""))
 end
 
-local function Finite(v) return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge end
+local EncodeField, DecodeField
+do
+  local function Finite(v) return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge end
 
-local function EncodeField(f, v)
-  local kind = f[2]
-  if v == nil then return f.opt and "" or nil end
-  if kind == "int" then
-    if not Finite(v) then return nil end
-    v = math.floor(v)
-    if (f[3] and v < f[3]) or (f[4] and v > f[4]) then return nil end
-    return ("%d"):format(v)
-  elseif kind == "time" then
-    if not Finite(v) or v < 1 then return nil end
-    return ("%d"):format(math.floor(v))
-  elseif kind == "b36" then
-    if not Finite(v) then return nil end
-    v = math.floor(v)
-    if (f[3] and v < f[3]) or (f[4] and v > f[4]) then return nil end
-    return W.b36(v)
-  elseif kind == "text" then
-    return W.Clean(v, f[3] or C.MAX_MSG)
-  elseif kind == "class" then
-    local i = W.CLASS_IDX[v]
-    return i and tostring(i) or nil
-  elseif kind == "flag" then
-    return v and "1" or "0"
-  elseif kind == "enum" then
-    for _, e in ipairs(f[3] or {}) do if e == v then return v end end
-    return nil
-  elseif kind == "key" then
-    v = Plain(v, "string")
-    if not v or v == "" or v:find("[;|%c]") then return nil end
-    return v
-  elseif kind == "word" then
-    v = tostring(v)
-    if not v:match("^%w*$") or #v > (f[3] or 16) then return nil end
-    return v
-  end
-end
-
-local function DecodeField(f, s, now)
-  local kind = f[2]
-  if s == "" then
-    if f.opt then return true, nil end
-    if kind ~= "text" and kind ~= "word" then return false end
-  end
-  if kind == "int" then
-    local n = tonumber(s)
-    if not n or n ~= math.floor(n) or n < (f[3] or -math.huge) or n > (f[4] or math.huge) or not s:match("^%-?%d+$") then return false end
-    return true, n
-  elseif kind == "time" then
-    local n = tonumber(s)
-    if not n or not s:match("^%d+$") or n < 1 or n > now + 300 then return false end
-    return true, n
-  elseif kind == "b36" then
-    local n = W.n36(s)
-    if not n or n < (f[3] or 0) or n > (f[4] or math.huge) then return false end
-    return true, n
-  elseif kind == "text" then
-    return true, W.Clean(s, f[3] or C.MAX_MSG)
-  elseif kind == "class" then
-    local n = tonumber(s)
-    local c = n and W.CLASSES[n]
-    if not c then return false end
-    return true, c
-  elseif kind == "flag" then
-    if s ~= "0" and s ~= "1" then return false end
-    return true, s == "1"
-  elseif kind == "enum" then
-    for _, e in ipairs(f[3] or {}) do if e == s then return true, s end end
+  local function Listed(list, v)
+    for _, e in ipairs(list or {}) do if e == v then return true end end
     return false
-  elseif kind == "key" then
-    if s:find("[|%c]") or #s > 64 then return false end
-    return true, s
-  elseif kind == "word" then
-    if not s:match("^%w*$") or #s > (f[3] or 16) then return false end
-    return true, s
   end
-  return false
+
+  local function BoundedInt(f, v)
+    if not Finite(v) then return nil end
+    v = math.floor(v)
+    if (f[3] and v < f[3]) or (f[4] and v > f[4]) then return nil end
+    return v
+  end
+
+  local function ValidWord(f, s) return s:match("^%w*$") and #s <= (f[3] or 16) end
+
+  local FieldEncoders = {
+    int = function(f, v) local n = BoundedInt(f, v) return n and ("%d"):format(n) end,
+    time = function(_, v)
+      if not Finite(v) or v < 1 then return nil end
+      return ("%d"):format(math.floor(v))
+    end,
+    b36 = function(f, v) local n = BoundedInt(f, v) return n and W.b36(n) end,
+    text = function(f, v) return W.Clean(v, f[3] or C.MAX_MSG) end,
+    class = function(_, v) local i = W.CLASS_IDX[v] return i and tostring(i) or nil end,
+    flag = function(_, v) return v and "1" or "0" end,
+    enum = function(f, v) return Listed(f[3], v) and v or nil end,
+    key = function(_, v)
+      v = Plain(v, "string")
+      if not v or v == "" or v:find("[;|%c]") then return nil end
+      return v
+    end,
+    word = function(f, v) v = tostring(v) return ValidWord(f, v) and v or nil end,
+  }
+
+  EncodeField = function(f, v)
+    if v == nil then return f.opt and "" or nil end
+    local encode = FieldEncoders[f[2]]
+    if encode then return encode(f, v) end
+  end
+
+  local function DecodedOrFail(ok, v) if ok then return true, v end return false end
+
+  local FieldDecoders = {
+    int = function(f, s)
+      local n = tonumber(s)
+      if not n or n ~= math.floor(n) or n < (f[3] or -math.huge) or n > (f[4] or math.huge) then return false end
+      return DecodedOrFail(s:match("^%-?%d+$"), n)
+    end,
+    time = function(_, s, now)
+      local n = tonumber(s)
+      return DecodedOrFail(n and s:match("^%d+$") and n >= 1 and n <= now + 300, n)
+    end,
+    b36 = function(f, s)
+      local n = W.n36(s)
+      return DecodedOrFail(n and n >= (f[3] or 0) and n <= (f[4] or math.huge), n)
+    end,
+    text = function(f, s) return true, W.Clean(s, f[3] or C.MAX_MSG) end,
+    class = function(_, s)
+      local n = tonumber(s)
+      local c = n and W.CLASSES[n]
+      return DecodedOrFail(c, c)
+    end,
+    flag = function(_, s) return DecodedOrFail(s == "0" or s == "1", s == "1") end,
+    enum = function(f, s) return DecodedOrFail(Listed(f[3], s), s) end,
+    key = function(_, s) return DecodedOrFail(not s:find("[|%c]") and #s <= 64, s) end,
+    word = function(f, s) return DecodedOrFail(ValidWord(f, s), s) end,
+  }
+
+  local EMPTY_ALLOWED = { text = true, word = true }
+
+  DecodeField = function(f, s, now)
+    local kind = f[2]
+    if s == "" and f.opt then return true, nil end
+    if s == "" and not EMPTY_ALLOWED[kind] then return false end
+    local decode = FieldDecoders[kind]
+    if not decode then return false end
+    return decode(f, s, now)
+  end
 end
 
 function Channel:Define(typ, def)
   assert(type(typ) == "string" and typ ~= "" and not typ:find("[;|]"), "Define: bad type")
   assert(type(def) == "table" and type(def.fields) == "table", "Define: fields missing")
-  -- schema messages are always event traffic (queued, echo-confirmed, counted by receivers as such); state traffic
-  -- (positions) uses a raw channel with lane = "state"
   assert(def.lane == nil or def.lane == "event", "Define: schema types are always lane event; use NewRawChannel for state")
   self.types[typ] = def
 end
 
 function Channel:On(typ, fn) self.handlers[typ] = fn end
 
--- the wire text for a message, or nil, why
 function Channel:Encode(typ, msg)
   local def = self.types[typ]
   if not def then return nil, "unknown type" end
@@ -456,15 +451,12 @@ function Channel:TrySend(typ, msg, opts)
   return TrySend(PREFIX, text, opts, self)
 end
 
--- body = everything after "<tag>;" -> type, msg; or nil, why (not counted; Receive counts)
 function Channel:Decode(sender, body)
   if type(body) ~= "string" then return nil, "no body" end
   local f = W.Split(body)
   if f[1] ~= tostring(self.version) then return nil, "version", f[1] end
   local def = self.types[f[2] or ""]
   if not def then return nil, "unknown type", f[2] end
-  -- missing trailing fields count as empty (rejected unless empty is allowed); extra trailing fields are ignored
-  -- (a later version may append fields without breaking this one)
   local msg, now = {}, GS:Now()
   for i, fd in ipairs(def.fields) do
     local ok, v = DecodeField(fd, f[i + 2] or "", now)
@@ -495,21 +487,11 @@ function GS.ModuleProto:NewChannel(spec)
   return ch
 end
 
----------------------------------------------------------------------------
--- Raw channels: mod:NewRawChannel{ prefix, lane } - the module's own prefix and bytes, the core's scheduler.
--- raw:OnMessage(function(senderKey, text, rawSender) end)   raw:OnEcho(function(text) end)
--- raw:Send(text, { onResult })            event lane ("delivered" | "lost" | "dropped")
--- raw:TrySend(text, { starving }) -> ok, reason              state lane
--- raw:SendNow(text) -> ok                  best effort now (a "leaving" message)
--- raw:SendRecord(key, chunks, { onDone, onDrop }) -> ok      record lane
--- raw:Cancel(key)   raw:Status()
----------------------------------------------------------------------------
 local Raw = {}
 Raw.__index = Raw
 
 local function RegisterPrefix(prefix)
   if not (C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix) then return end
-  -- old API: true/false; modern: Enum.RegisterAddonMessagePrefixResult (0 success, 1 duplicate) [U on Forever]
   local ok, res = pcall(C_ChatInfo.RegisterAddonMessagePrefix, prefix)
   GS:Trace("comm.prefix", prefix .. " " .. tostring(ok) .. " " .. tostring(res))
   return ok and (res == nil or res == true or res == 0 or res == 1) or false
@@ -541,59 +523,79 @@ function GS.ModuleProto:NewRawChannel(spec)
   return raw
 end
 
----------------------------------------------------------------------------
--- Receiving
----------------------------------------------------------------------------
-local function OnAddonMessage(prefix, text, chan, sender)
-  local raw = S.prefixes[prefix]
-  if prefix ~= PREFIX and not raw then return end
-  text, chan, sender = Plain(text, "string"), Plain(chan, "string"), Plain(sender, "string")
-  if not (text and sender) or chan ~= "GUILD" then return end
-  local key = GS:NormName(sender)
-  if not key then return end
-  if GS:IsMe(key) then
+local OnAddonMessage
+do
+  local function SettleEcho(prefix, text)
     local k = prefix .. "\0" .. text
     local list = S.inflight[k]
-    if list and list[1] then
-      local e = table.remove(list, 1)
-      if not list[1] then S.inflight[k] = nil end
-      S.echoed, S.lastEcho, S.lostSinceEcho = S.echoed + 1, GetTime(), 0
-      if S.slow then S.slow = false end
-      GS:Trace("comm.echo", prefix == PREFIX and text or (prefix .. " " .. text))
-      Result(e.onResult, "echo")
-    end
-    if raw and raw.onEcho then GS:Call(raw.onEcho, text) end
-    return
+    if not (list and list[1]) then return end
+    local e = table.remove(list, 1)
+    if not list[1] then S.inflight[k] = nil end
+    S.echoed, S.lastEcho, S.lostSinceEcho = S.echoed + 1, GetTime(), 0
+    if S.slow then S.slow = false end
+    GS:Trace("comm.echo", WireLabel(prefix, text))
+    Result(e.onResult, "echo")
   end
-  local state = raw and raw.lane == "state"
-  local now = GetTime()
-  local it = S.intake[key]
-  if not it or now - it.t > 60 then it = { t = now, n = 0, ns = 0, h = 0 }; S.intake[key] = it end
-  if state then
+
+  local function IntakeOf(key, now)
+    local it = S.intake[key]
+    if not it or now - it.t > 60 then it = { t = now, n = 0, ns = 0, h = 0 }; S.intake[key] = it end
+    return it
+  end
+
+  local function AdmitState(it, raw)
     it.ns = it.ns + 1
-    if it.ns > C.INTAKE_STATE_PER_MIN then raw.stats.rejected.intake = (raw.stats.rejected.intake or 0) + 1 return end
-  else
+    if it.ns <= C.INTAKE_STATE_PER_MIN then return true end
+    raw.stats.rejected.intake = (raw.stats.rejected.intake or 0) + 1
+    return false
+  end
+
+  local function AdmitEvent(it, key, now)
     it.n = it.n + 1
-    if it.n > C.INTAKE_PER_MIN then GS:Trace("comm.drop", "intake limit " .. key) return end
+    if it.n > C.INTAKE_PER_MIN then GS:Trace("comm.drop", "intake limit " .. key) return false end
     it.h = it.h + 1
     if it.h <= C.HEARD_PER_SENDER then Note(S.heard, now) end
+    return true
   end
-  S.received = S.received + 1
-  GS:NotePeer(key)
-  GS:Trace("comm.rx", key, prefix == PREFIX and text or (prefix .. " " .. text))
-  if raw then
-    raw.stats.received = raw.stats.received + 1
-    if raw.onMessage then GS:Call(raw.onMessage, key, text, sender) end
-    return
+
+  local function Admit(key, raw)
+    local now = GetTime()
+    local it = IntakeOf(key, now)
+    if raw and raw.lane == "state" then return AdmitState(it, raw) end
+    return AdmitEvent(it, key, now)
   end
-  local tag, body = text:match("^([^;]+);(.*)$")
-  local ch = tag and S.tags[tag]
-  if ch then return ch:Receive(key, body) end
+
+  local function Deliver(key, prefix, text, sender, raw)
+    S.received = S.received + 1
+    GS:NotePeer(key)
+    GS:Trace("comm.rx", key, WireLabel(prefix, text))
+    if raw then
+      raw.stats.received = raw.stats.received + 1
+      if raw.onMessage then GS:Call(raw.onMessage, key, text, sender) end
+      return
+    end
+    local tag, body = text:match("^([^;]+);(.*)$")
+    local ch = tag and S.tags[tag]
+    if ch then return ch:Receive(key, body) end
+  end
+
+  OnAddonMessage = function(prefix, text, chan, sender)
+    local raw = S.prefixes[prefix]
+    if prefix ~= PREFIX and not raw then return end
+    text, chan, sender = Plain(text, "string"), Plain(chan, "string"), Plain(sender, "string")
+    if not (text and sender) or chan ~= "GUILD" then return end
+    local key = GS:NormName(sender)
+    if not key then return end
+    if GS:IsMe(key) then
+      SettleEcho(prefix, text)
+      if raw and raw.onEcho then GS:Call(raw.onEcho, text) end
+      return
+    end
+    if not Admit(key, raw) then return end
+    return Deliver(key, prefix, text, sender, raw)
+  end
 end
 
----------------------------------------------------------------------------
--- State for diagnostics and modules
----------------------------------------------------------------------------
 function GS:CommState()
   local inflight = 0
   for _, list in pairs(S.inflight) do inflight = inflight + #list end
@@ -604,7 +606,6 @@ function GS:CommState()
     received = S.received, foreign = S.foreign, hooked = S.hooked and true or false, lastSent = S.lastSent }
 end
 
--- leave slow mode (a "retry" button): the next messages go out at the normal pace
 function GS:CommResume()
   S.slow, S.firstSent, S.lastEcho, S.lostSinceEcho = false, nil, nil, 0
   Pump()
@@ -623,16 +624,12 @@ function GS:OnLoginComm()
   for _, raw in pairs(S.prefixes) do raw.prefixOk = RegisterPrefix(raw.prefix) end
 end
 
--- One budget per client: GUILD addon messages this client sends without the scheduler (other addons, and suite
--- modules not yet on it) use up our tokens too, so the suite as a whole stays within one client's pace.
--- [U] hooksecurefunc on a C_ChatInfo function on Forever; CommStatus shows "foreign n" when it works.
 if hooksecurefunc and C_ChatInfo and C_ChatInfo.SendAddonMessage then
   pcall(hooksecurefunc, C_ChatInfo, "SendAddonMessage", function(prefix, _, chan)
     if sending or Plain(chan, "string") ~= "GUILD" then return end
     local now = GetTime()
     Note(S.sends, now)
     Refill(now)
-    -- other addons' sends empty the bucket but never put us in debt (and never cancel debt we already have)
     S.tokens = math.min(S.tokens, math.max(0, S.tokens - 1))
     S.foreign = S.foreign + 1
     GS:Trace("comm.foreign", Plain(prefix, "string") or "?")

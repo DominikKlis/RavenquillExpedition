@@ -1,10 +1,3 @@
-# Builds the release zip and uploads it to CurseForge when a version tag is pushed.
-#
-#   git tag -a v0.2.1-alpha -m "What changed (Markdown, becomes the CurseForge changelog)"
-#   git push origin v0.2.1-alpha
-#
-# Release type from the tag: "-alpha" -> alpha, "-beta" -> beta, otherwise release.
-# Needs the repository secret CF_API_KEY (CurseForge -> account settings -> API tokens).
 name: Release
 
 on:
@@ -13,11 +6,11 @@ on:
 
 env:
   CF_PROJECT_ID: '1806854'
-  CF_GAME_VERSION: '1.60.1'      # WoW Forever; matches "## Interface: 16001"
+  CF_GAME_VERSION: '1.60.1'
   CF_VERSION_TYPE_MATCH: 'Forever'
 
 permissions:
-  contents: write                # for the GitHub release
+  contents: write
 
 jobs:
   release:

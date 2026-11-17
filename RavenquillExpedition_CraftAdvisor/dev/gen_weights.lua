@@ -1,24 +1,8 @@
--- Generates Data/Weights.lua from SimGear Forever's class data (plan F2 / F8.13).
--- Run from the addon folder:  lua dev/gen_weights.lua <SimGear unzip dir> > Data/Weights.lua
---   <SimGear unzip dir> holds SimGearForever\ and SimGearForever_<Class>\ (CurseForge zip, v0.14.0).
--- The SimGear files are loaded in a sandbox (loadfile with a private env, mode "t"); they are data.
---
--- Kept per weight set: source.kind, source.label (placeholder detection), source.minLevel/maxLevel,
--- weights, survival, speedCurves (weapon speed, needed when weapons are scored later), and `unit`
--- (SimGear Plan.unitKey computed here, because `derivation` is stripped).
--- Stripped: stdev, derivation, hitParts, pooled, blend, effects, effectNotes, speedNotes, notes,
--- placeholders, defensePastCap, hitPastCap and every other field. *_DUNGEON sets are skipped (F8.8).
--- Item sets: union of the nine <CLASS>_extras.lua `sets`, only sets with at least one item crafted
--- by a recipe in RECIPE_FILES (add more profession files there later).
--- Class weapons (plan W2): SimGear's SimGearForever/Classes.lua per class: equip.weapons (weapon subclass IDs),
--- equip.noHoldable, dualWield, dualWieldFrom, dualWieldSets -> `classWeapons`, written after `itemSets` so every
--- line before it stays byte-identical.
 local P = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "paths.lua")
 local ROOT = P.ROOT
 local SG = assert(P.SimGear(arg[1]), "SimGear Forever not found: pass it as argument 1, set RQ_SIMGEAR or unzip it into <repo>/.cache/simgear/")
 local SG_VERSION = "0.14.0"
 
--- Recipe data files whose crafted items decide which item sets are kept: { file, table name }.
 local RECIPE_FILES = {
   { "Data/Leatherworking.lua", "Leatherworking" },
   { "Data/Blacksmithing.lua", "Blacksmithing" },
@@ -38,14 +22,11 @@ local function sandboxLoad(path, ns)
   return env
 end
 
----------------------------------------------------------------------------
--- Plan.unitKey from SimGear Plan.lua:151-162 (with derivation still present)
----------------------------------------------------------------------------
 local UNITS = { "RangedAttackPower", "AttackPower", "SpellPower", "HealingPower" }
 local function unitKey(set)
   local keys = {}
   for k in pairs(set.derivation or {}) do keys[#keys + 1] = k end
-  table.sort(keys) -- deterministic (SimGear iterates with pairs; at most one "reference unit" per set)
+  table.sort(keys)
   local found
   for _, k in ipairs(keys) do
     local why = set.derivation[k]
@@ -60,20 +41,13 @@ local function unitKey(set)
   end
 end
 
----------------------------------------------------------------------------
--- Craftable items
----------------------------------------------------------------------------
-local craftable, recipeNames = {}, {}
+local craftable = {}
 for _, rf in ipairs(RECIPE_FILES) do
   local ns = {}
   assert(loadfile(ROOT .. rf[1], "t", {}))("RavenquillExpedition_CraftAdvisor", ns)
   for _, r in pairs(ns.Recipes[rf[2]]) do craftable[r.item] = true end
-  recipeNames[#recipeNames + 1] = rf[2]
 end
 
----------------------------------------------------------------------------
--- Read SimGear
----------------------------------------------------------------------------
 local out = { classes = {}, meta = {} }
 local allSets, setOrigin, warnings = {}, {}, {}
 local stats = { sets = 0, dropped = 0 }
@@ -99,7 +73,6 @@ for _, class in ipairs(CLASSES) do
       stats.dropped = stats.dropped + #W.sets[spec]
     else
       local list, specUnit = {}, nil
-      -- the spec's unit: the unit of its curated/measured sets (they must agree)
       for _, set in ipairs(W.sets[spec]) do
         local u = unitKey(set)
         if u and set.source.kind ~= "sim" then
@@ -114,7 +87,6 @@ for _, class in ipairs(CLASSES) do
         end
         local unit = own or specUnit
         if not unit then
-          -- sim set of a spec without curated sets: the first of UNITS it weighs above 0
           for _, k in ipairs(UNITS) do if (set.weights[k] or 0) > 0 then unit = k break end end
         end
         list[#list + 1] = {
@@ -129,7 +101,6 @@ for _, class in ipairs(CLASSES) do
   end
   out.classes[class] = specs
 
-  -- item sets
   local ens = {}
   sandboxLoad(dir .. "items/" .. class .. "_extras.lua", ens)
   local E = ens.Extras[class]
@@ -138,7 +109,6 @@ for _, class in ipairs(CLASSES) do
     for _, item in ipairs(set.items or {}) do if craftable[item] then keep = true end end
     if keep then
       if allSets[id] then
-        -- the same set in two classes' files must say the same
         local a, b = allSets[id], set
         local function sig(s)
           local parts = { s.name, table.concat(s.items, ",") }
@@ -158,9 +128,6 @@ for _, class in ipairs(CLASSES) do
   end
 end
 
----------------------------------------------------------------------------
--- Class weapons (SimGearForever/Classes.lua, data; plan W2)
----------------------------------------------------------------------------
 local classWeapons = {}
 do
   local cns = { N = function(s) return s end, L = function(s) return s end }
@@ -176,9 +143,6 @@ do
   end
 end
 
----------------------------------------------------------------------------
--- Write
----------------------------------------------------------------------------
 local w = {}
 local function p(s) w[#w + 1] = s end
 local function sortedKeys(t)
@@ -193,7 +157,6 @@ end
 local function statTable(t)
   if not t then return "nil" end
   local parts = {}
-  -- exact zeros are left out: SimGear reads every weight as `weights[k] or 0`, so nil and 0 score the same
   for _, k in ipairs(sortedKeys(t)) do if t[k] ~= 0 then parts[#parts + 1] = k .. " = " .. num(t[k]) end end
   return "{ " .. table.concat(parts, ", ") .. (#parts > 0 and " }" or "}")
 end
@@ -213,22 +176,9 @@ local function curves(t)
 end
 local function q(s) return string.format("%q", s) end
 
-p("-- GENERATED by dev/gen_weights.lua from SimGear Forever " .. SG_VERSION .. ". Do not edit; regenerate.")
-p("-- SPDX-License-Identifier: GPL-3.0-only")
-p("-- Stat weights and item-set bonuses from SimGear Forever's class data addons (SimGearForever_<Class>,")
-p("-- data/weights/<CLASS>.lua and data/items/<CLASS>_extras.lua; Copyright (c) 2026 Flavius and SimGear")
-p("-- Forever contributors; cMaNGOS classic-db derived data). Their .toc files and LICENSE say GPL-3.0; the")
-p("-- weights files carry no SPDX tag (no \"or later\"), the items files say GPL-3.0-or-later.")
-p("-- This file is a derived work, licensed GPL-3.0; see LICENSE-GPL-3.0.txt and NOTICE.txt.")
-p("-- Changes: fields not used by GuildCraftAdvisor stripped (stdev, derivation, hitParts, pooled, blend,")
-p("-- effects, notes, placeholders, past-cap fields), *_DUNGEON sets left out, `unit` added (SimGear")
-p("-- Plan.unitKey evaluated on the original data); item sets limited to sets with a craftable piece")
-p("-- (recipes: " .. table.concat(recipeNames, ", ") .. ").")
-p("-- Units: sim sets = metric change per +1 stat; curated/measured sets = equivalents of `unit` (weight 1).")
-p("-- Hit/crit/dodge/parry/block weights are per percentage point. Weights of exactly 0 are left out (same score).")
 p("local _, ns = ...")
 p("ns.Weights = {")
-p("  meta = { source = \"SimGear Forever\", version = " .. q(SG_VERSION) .. ", license = \"GPL-3.0\", engines = {")
+p("  meta = { source = \"SimGear Forever\", version = " .. q(SG_VERSION) .. ", engines = {")
 for _, class in ipairs(CLASSES) do
   local m = out.meta[class]
   p(("    %s = { engine = %s, engineDate = %s, generated = %s },"):format(class, q(m.engine), q(m.engineDate or ""), q(m.generated or "")))
@@ -257,7 +207,6 @@ for _, class in ipairs(CLASSES) do
   p("    },")
 end
 p("  },")
-p("  -- item sets: [setID] = { name, items = {itemIDs}, bonuses = { { n = pieces, stats = {...}, unscored = true? } } }")
 p("  itemSets = {")
 local nsets = 0
 for _, id in ipairs(sortedKeys(allSets)) do
@@ -270,8 +219,6 @@ for _, id in ipairs(sortedKeys(allSets)) do
   nsets = nsets + 1
 end
 p("  },")
-p("  -- class weapons (SimGear Classes.lua): weapon subclass IDs the class can wield, noHoldable, dualWield specs,")
-p("  -- dualWieldFrom (trainer level), dualWieldSets (spec -> its dual-wield weight sets)")
 p("  classWeapons = {")
 for _, class in ipairs(CLASSES) do
   local c = classWeapons[class]

@@ -1,13 +1,9 @@
--- Score harness, the member's list: look-ahead order, crafted marks, locale + whisper, offline Offer (H), slot
--- sections (I), future mail/plate rows (K0). SimGear Forever is needed (see dev/scorekit.lua). Run: lua dev/harness_score_sections.lua [SimGear unzip dir]
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "scorekit.lua")
 local section, setProfs, GCA, Files, env, check, ns = H.section, H.setProfs, H.GCA, H.Files, H.env, H.check, H.ns
 local itemDB, addItem, known, link, reloadDB, Scoring = H.itemDB, H.addItem, H.known, H.link, H.reloadDB, H.Scoring
-H.professionMocks() -- the GetProfessions mocks the single harness added before the profession tests
+H.professionMocks()
 
----------------------------------------------------------------------------
 section("H: look-ahead order (H5.2), crafted marks (H5.1), locale + whisper (H4/U2), offline Offer (U3)")
----------------------------------------------------------------------------
 do
   setProfs({ { "Lederverarbeitung", 300, 300, 165 } })
   GCA:RefreshKnown()
@@ -18,7 +14,6 @@ do
   local UIx = GCA.UI
   GCA.UI = savedUI
 
-  -- unit: inside each tier the wearable ones first, look-ahead after; Better (per-slot pick) unchanged
   local O, B = GCA.SuggestionOrder, GCA.BetterSuggestion
   local list = {
     { tier = 1, points = 9, known = true, slot = 1, future = true, name = "future9" },
@@ -35,7 +30,6 @@ do
     "H5.2 order: look-ahead after the wearable ones in each tier: " .. table.concat(order, ","))
   check(B(list[4], list[1]), "per-slot pick (Better) still takes the bigger look-ahead gain")
 
-  -- end to end: a Lv40 cat, legs craft wearable now (+small), gloves craft at Lv43 (+big)
   local spells = {}
   for spellID, r in pairs(ns.Recipes.Leatherworking) do
     if not GCA:ItemSets().ofItem[r.item] then spells[#spells + 1] = spellID end
@@ -70,8 +64,6 @@ do
   check(not anyFuture and #l >= 1, "look-ahead off: no too-high-level items")
   GCA.db.settings.lookahead = true
 
-  -- review M-2: a wearable gloves craft (small gain) and the Lv43 gloves (big gain) for the same slot: both listed,
-  -- the wearable one first; a look-ahead craft no better than the wearable one is not listed; best = wearable
   local sNowHands, sWorseLater = spells[3], spells[4]
   local iNowHands, iWorseLater = ns.Recipes.Leatherworking[sNowHands].item, ns.Recipes.Leatherworking[sWorseLater].item
   saved[iNowHands], saved[iWorseLater] = itemDB[iNowHands], itemDB[iWorseLater]
@@ -91,7 +83,6 @@ do
     "M-2: wearable gloves AND the bigger Lv43 gloves both listed, wearable first (" .. tostring(nowI) .. ", " .. tostring(laterI) .. ")")
   local _, bestNow = GCA.KnownOnly(l)
   check(bestNow and not bestNow.future, "M-2: the member's best is a wearable craft")
-  -- only a worse look-ahead craft for the slot (the big one not known): it is not listed
   known[sHands] = nil
   known[sWorseLater] = true
   GCA:RefreshKnown()
@@ -105,13 +96,11 @@ do
   known[sHands], known[sWorseLater], known[sNowHands] = true, nil, nil
   GCA:RefreshKnown()
   GCA.sugCache = {}
-  -- KnownOnly prefers wearable even across tiers (a tier-2 wearable over a tier-1 look-ahead)
   local syn = { { known = true, future = true, tier = 1, name = "f1" }, { known = false, tier = 1, name = "u1" }, { known = true, tier = 2, name = "w2" } }
   local nk, bk = GCA.KnownOnly(syn)
   check(nk == 2 and bk == syn[3], "M-2: KnownOnly counts known rows and picks the first wearable as best")
   check(select(2, GCA.KnownOnly({ syn[1] })) == syn[1], "M-2: only look-ahead known -> that one is the best")
 
-  -- H5.1 crafted marks: craft mark cleared when the item is worn (any slot), kept otherwise; enchant by enchant ID
   local who = "Kit Paw"
   GCA.db.members[who] = { class = "DRUID", level = 40, items = items, ts = 1, source = "inspect" }
   GCA:SetCrafted(who, "Leatherworking", handRow, true)
@@ -125,13 +114,11 @@ do
   GCA.db.members["Other Guy"] = nil
   GCA:StoreRecord(who, "DRUID", 43, { [7] = link(990001), [10] = link(iHands) }, "inspect")
   check(GCA:CraftedMark(who, "Leatherworking", sHands) == nil and GCA.db.crafted[GCA.charKey][who] == nil, "a record showing it worn clears the mark")
-  -- persistence: survives a reload (ADDON_LOADED keeps db.crafted)
   GCA:SetCrafted(who, "Leatherworking", handRow, true)
   reloadDB()
   check(GCA:CraftedMark(who, "Leatherworking", sHands) ~= nil, "mark survives ADDON_LOADED (SavedVariables)")
   GCA:SetCrafted(who, "Leatherworking", handRow, false)
   check(GCA:CraftedMark(who, "Leatherworking", sHands) == nil, "untick removes it")
-  -- review M-3: the member already wears one copy when you tick (a ring of a pair you made earlier)
   addItem(990020, "Crafted Ring", "INVTYPE_FINGER", 30, { ITEM_MOD_AGILITY_SHORT = 5 })
   local ring = { kind = "item", cand = { spellID = 990021, itemID = 990020 }, slot = 12 }
   GCA.db.members[who] = { class = "DRUID", level = 40, items = { [11] = link(990020), [10] = link(990002) }, ts = 1, source = "inspect" }
@@ -147,7 +134,6 @@ do
   GCA:StoreRecord(who, "DRUID", 41, { [12] = link(990020) }, "inspect")
   check(GCA:CraftedMark(who, "Leatherworking", 990021) == nil, "M-3: the item showing up in a slot that didn't hold it clears it")
   GCA.db.members[who] = { class = "DRUID", level = 40, items = items, ts = 1, source = "inspect" }
-  -- enchant: wrist mark for enchant ID 247; another enchant on the slot keeps it, 247 clears it
   local ench = { kind = "enchant", cand = { spellID = 7779, enchant = true }, enchant = { enchant = 247 }, slot = 9 }
   GCA:SetCrafted(who, "Enchanting", ench, true)
   local em = GCA:CraftedMark(who, "Enchanting", 7779)
@@ -156,47 +142,41 @@ do
   check(GCA:CraftedMark(who, "Enchanting", 7779) ~= nil, "a different enchant on the slot (or 247 on another slot) keeps it")
   GCA:StoreRecord(who, "DRUID", 43, { [9] = "item:990003:247::::::::40:1488" }, "inspect")
   check(GCA:CraftedMark(who, "Enchanting", 7779) == nil, "enchant 247 on the wrist clears it")
-  -- marks of another character of yours are cleared too
   GCA.db.crafted["Alt Char-Realm"] = { [who] = { Leatherworking = { [sHands] = { item = iHands, slot = 10, t = 1 } } } }
   GCA:StoreRecord(who, "DRUID", 43, { [10] = link(iHands) }, "inspect")
   check(GCA.db.crafted["Alt Char-Realm"][who] == nil, "an alt's mark for the same member is cleared as well")
   GCA.db.members[who] = nil
 
-  -- U3: no Offer for offline members (craft and enchant)
   check(UIx.CanOffer({ key = who, online = true }, handRow) and not UIx.CanOffer({ key = who, online = false }, handRow)
     and not UIx.CanOffer({ key = who, online = false }, { kind = "enchant", known = true }), "Offer only for online members (craft + enchant)")
 
-  -- H4 locale: deDE key -> German, missing deDE key -> English, missing everywhere -> the key
   local L = ns.L
   ns.Locales.enUS.__TEST_ONLY_EN = "English only"
   ns.locale = "deDE"
-  check(L.OPTIONS == "Optionen" and L.__TEST_ONLY_EN == "English only" and ns.LGet("__NOPE__") == nil and L.__NOPE__ == "__NOPE__"
+  check(L.OPT_OPEN == "Fenster öffnen" and L.__TEST_ONLY_EN == "English only" and ns.LGet("__NOPE__") == nil and L.__NOPE__ == "__NOPE__"
     and ns.missingL.__NOPE__, "deDE: German; key missing in deDE -> English; missing everywhere -> key (noted)")
   check(GCA:SpecName("ROGUE", "COMBAT") == "Kampf" and GCA:SpecName("PRIEST", "SMITE") == "Göttliche Pein (Schaden)", "spec names in German")
-  -- German whisper with all placeholders
   local d = { kind = "item", info = { link = "|cff1eff00|Hitem:4244::::|h[Hillmans Lederweste]|h|r", name = "Hillmans Lederweste" }, slot = 5 }
   local txt = UIx.OfferText("Leatherworking", d, "Bud Stone")
   check(txt:find("^Hallo Bud! Ich bin Lederverarbeiter und könnte dir |cff1eff00|Hitem:4244::::|h%[Hillmans Lederweste%]|h|r herstellen") and txt:find("Interesse%?$"),
     "German craft whisper: " .. txt)
   local et = UIx.OfferText("Enchanting", { kind = "enchant", info = { name = "Armschiene - Beweglichkeit" }, slot = 9 }, "Bud Stone")
   check(et:find("Ich bin Verzauberer", 1, true) and et:find("Armschiene - Beweglichkeit", 1, true) and et:find("wenn wir uns treffen", 1, true), "German enchant whisper: " .. et)
-  -- user template: placeholders filled literally ("%" in values can't break gsub); no member name -> no dangling space
   GCA.db.settings.whisperCraft = "Moin {name}: {item} ({slot}) – 100%? {crafter}"
   local d2 = { kind = "item", info = { link = "[50% off]", name = "x" }, slot = 5 }
   check(UIx.OfferText("Tailoring", d2, "Bud Stone") == "Moin Bud: [50% off] (Chest) – 100%? Schneider", "template with %: " .. UIx.OfferText("Tailoring", d2, "Bud Stone"))
   check(UIx.OfferText("Tailoring", d2, nil) == "Moin: [50% off] (Chest) – 100%? Schneider", "no name: " .. UIx.OfferText("Tailoring", d2, nil))
   GCA.db.settings.whisperCraft = "   "
   check(UIx.Template("craft") == ns.Locales.deDE.WHISPER_CRAFT, "blank saved template -> default of the client language")
-  -- review L-2: over 255 bytes -> item name instead of the link; still too long -> cut on a UTF-8 boundary, told once
   local longLink = "|cff1eff00|Hitem:4244" .. string.rep(":", 100) .. "|h[Hillmans Lederweste]|h|r"
   local dl = { kind = "item", info = { link = longLink, name = "Hillmans Lederweste" }, slot = 5 }
-  GCA.db.settings.whisperCraft = string.rep("\195\164", 60) .. " {item}" -- 60 x "ä" = 120 bytes, then the item
+  GCA.db.settings.whisperCraft = string.rep("\195\164", 60) .. " {item}"
   local t1 = UIx.OfferText("Leatherworking", dl, "Bud Stone")
   check(#(string.rep("\195\164", 60) .. " " .. longLink) > 255 and t1 == string.rep("\195\164", 60) .. " Hillmans Lederweste",
     "L-2: too long with the link -> item name (" .. #t1 .. " bytes)")
   H.printed = {}
   UIx.warnedLong = nil
-  GCA.db.settings.whisperCraft = "xy" .. string.rep("\195\164", 200) .. " {item}" -- byte 255 = first half of an umlaut
+  GCA.db.settings.whisperCraft = "xy" .. string.rep("\195\164", 200) .. " {item}"
   local t2 = UIx.OfferText("Leatherworking", dl, "Bud Stone")
   local t3 = UIx.OfferText("Leatherworking", dl, "Bud Stone")
   local warned = 0
@@ -214,8 +194,6 @@ do
   ns.Locales.enUS.__TEST_ONLY_EN = nil
   ns.missingL.__NOPE__ = nil
 
-  -- static checks on the tables: every L.KEY / L["KEY"] used in the code exists in English; every German key exists in
-  -- English (except "SPEC:" names); format specifiers match key by key; nothing printed a missing key so far
   local en, de = ns.Locales.enUS, ns.Locales.deDE
   local used, missingUse = {}, {}
   for _, f in ipairs({ "Core", "UI", "Sync.lua", "Spec.lua", "Auction.lua" }) do
@@ -240,11 +218,7 @@ do
   check(#extra == 0, "every German key exists in English: " .. table.concat(extra, ","))
   check(#badFmt == 0, "format specifiers match enUS for every German text: " .. table.concat(badFmt, ","))
   check(#untranslated == 0, "every English key has a German text (else it falls back to English): " .. table.concat(untranslated, ","))
-  -- review H-1: every locale value used as a format string must survive string.format with matching dummy
-  -- arguments, in both languages. Used = `format(L.KEY` / `format(L["KEY"]` in the code, plus the keys reached
-  -- through a variable (INDIRECT). A format call whose first argument is neither a literal nor L.KEY must be one
-  -- of the known indirect sites (FMT_SITES), so a new one can't slip past this check.
-  local INDIRECT = { "HEAD_ENCHANTS", "HEAD_CRAFTS" } -- K17: TIP_CURRENT / TIP_EQUIPPED went with the tooltip lines
+  local INDIRECT = { "HEAD_ENCHANTS", "HEAD_CRAFTS" }
   local FMT_SITES = { ["d.kind"] = true, ["what,"] = true }
   local fmtKeys, oddSites = {}, {}
   for _, k in ipairs(INDIRECT) do fmtKeys[k] = true end
@@ -284,7 +258,6 @@ do
   for _, e in ipairs(GCA.SPEC_LIST) do if not de["SPEC:" .. e[3]] then specMissing[#specMissing + 1] = e[3] end end
   check(#specMissing == 0, "all 31 spec names have a German text: " .. table.concat(specMissing, ","))
 
-  -- restore
   known[sLegs], known[sHands] = nil, nil
   itemDB[iLegs], itemDB[iHands] = saved[iLegs], saved[iHands]
   GCA.infoCache[iLegs], GCA.infoCache[iHands] = nil, nil
@@ -292,9 +265,6 @@ do
   GCA:RefreshKnown()
 end
 
----------------------------------------------------------------------------
--- Section I: suggestions grouped per gear slot
----------------------------------------------------------------------------
 section("I: slot sections (grouping, top 3, order, grey lines, rings/trinkets, enchants, browse, badge meaning)")
 do
   local savedKnown, savedStore = {}, GCA.db.known[GCA.charKey]
@@ -321,7 +291,6 @@ do
     return sp, id
   end
   local function agi(n) return { ITEM_MOD_AGILITY_SHORT = n } end
-  -- five known gloves (wearable), legs, a ring, a trinket; worn: gloves, legs, robe, two rings, one trinket
   for _, a in ipairs({ 9, 10, 11, 12, 13 }) do craft("Gloves " .. a, "INVTYPE_HAND", 30, agi(a)) end
   local _, iLegs = craft("Big Legs", "INVTYPE_LEGS", 30, agi(40))
   local _, iRing = craft("Craft Ring", "INVTYPE_FINGER", 30, agi(5), 0)
@@ -346,7 +315,6 @@ do
 
   local l = run()
   check(l.sections and #l.sections == 15, "15 sections (rings and trinkets one each): " .. tostring(l.sections and #l.sections))
-  -- grouping: every listed row sits in the section of its slot, and nowhere else
   local inSec, total, bad = {}, 0, 0
   for _, s in ipairs(l.sections) do
     for _, r in ipairs(s.rows) do
@@ -357,15 +325,12 @@ do
   end
   for _, r in ipairs(l) do if not inSec[r] then bad = bad + 1 end end
   check(bad == 0 and total == #l, "grouping: every row in its slot's section exactly once (" .. total .. " rows, " .. bad .. " misplaced)")
-  -- top 3
   local hands = sec(l, 10)
   check(hands and #hands.rows == 3 and hands.total == 5 and names(hands.rows) == "Gloves 13,Gloves 12,Gloves 11",
     "top 3 of 5 gloves, best first: " .. (hands and names(hands.rows) or "-") .. " (total " .. tostring(hands and hands.total) .. ")")
   check(hands and not hands.rows[1].extra and hands.rows[2].extra and hands.rows[3].extra, "only the slot's best is a primary row; #2/#3 are extra")
-  -- badge / minimap meaning: one per slot (hands, legs, ring, trinket) although 6 rows are listed
   local n, best = GCA.KnownOnly(l)
   check(#l == 6 and n == 4 and best == l[1], "KnownOnly counts 4 (one per slot) of " .. #l .. " rows; best = first row")
-  -- section order: biggest upgrade first (by the first row, SuggestionOrder), then no-upgrade slots in character order
   local keys, orderOK, seenNone = {}, true, false
   for i, s in ipairs(l.sections) do
     keys[i] = s.key
@@ -376,13 +341,11 @@ do
   check(orderOK and keys[1] == 7, "sections with an upgrade first, by their best row's points (legs first; the empty-trinket fill by its points too): "
     .. table.concat(keys, ","))
   check(table.concat(keys, ",", 5) == "1,2,3,15,5,9,6,8,16,17,18", "no-upgrade sections after, in character order: " .. table.concat(keys, ",", 5))
-  -- grey line: robe slot
   local chest = sec(l, 5)
   check(chest and #chest.rows == 0 and chest.worn[1].info and chest.worn[1].info.name == "Robe" and type(chest.worn[1].score) == "number"
     and chest.worn[1].score > 0, "no-upgrade chest: no rows, worn Robe with its score")
   local head = sec(l, 1)
   check(head and #head.rows == 0 and head.worn[1].link == nil and head.worn[1].info == nil, "empty head slot: grey line with nothing worn")
-  -- rings: one section, both worn items, the craft replaces the weaker ring (12)
   local rings = sec(l, 11)
   check(rings and #rings.worn == 2 and rings.worn[1].slot == 11 and rings.worn[2].slot == 12 and rings.worn[1].info.name == "Ring A"
     and rings.worn[2].info.name == "Ring B" and #rings.rows == 1 and rings.rows[1].slot == 12 and rings.rows[1].cand.itemID == iRing,
@@ -393,10 +356,8 @@ do
     and tr.rows[1].status == "empty-slot" and tr.rows[1].cand.itemID == iTrink, "trinkets: one section, worn + empty slot, the craft fills the empty one")
   check(sec(l, 7).rows[1].cand.itemID == iLegs, "legs section: the legs craft")
 
-  -- show unlearned: a worse unlearned glove is not listed (a known one beats it); better unlearned ones are, and the
-  -- known best is never cut (it counts for the badge)
   local _, iWorse = craft("Gloves 9.5 unlearned", "INVTYPE_HAND", 30, agi(9), nil, false)
-  craft("Gloves 50 unlearned", "INVTYPE_HAND", 30, agi(50), nil, false) -- stronger than any real LW glove in the data
+  craft("Gloves 50 unlearned", "INVTYPE_HAND", 30, agi(50), nil, false)
   GCA.infoCache = {}; GCA.candidates = nil
   GCA.db.settings.showUnlearned = true
   l = run()
@@ -418,9 +379,8 @@ do
   check(select(1, GCA.KnownOnly(l)) == 4, "badge count unchanged with show unlearned (4)")
   GCA.db.settings.showUnlearned = false
 
-  -- look-ahead: the bigger Lv43 gloves (primary, M-2) stays visible next to the wearable ones, listed after them
   craft("Later Gloves 30", "INVTYPE_HAND", 43, agi(30))
-  craft("Later Gloves 29", "INVTYPE_HAND", 44, agi(29)) -- a 2nd, extra look-ahead row: the cut must still take wearable first
+  craft("Later Gloves 29", "INVTYPE_HAND", 44, agi(29))
   GCA.infoCache = {}; GCA.candidates = nil
   GCA:RefreshKnown()
   GCA.db.settings.lookahead = true
@@ -432,7 +392,6 @@ do
   check(n == 5 and best and not best.future, "badge: 5 (hands now + hands look-ahead, legs, ring, trinket), best wearable (" .. n .. ")")
   GCA.db.settings.lookahead = false
 
-  -- SectionCut on synthetic rows: duplicates (same item twice, same enchant ID twice) appear once
   local function syn(o) o.tier = o.tier or 1; o.points = o.points or 10; o.slot = o.slot or 9; o.kind = o.kind or "item"; return o end
   local a1 = syn({ known = false, cand = { itemID = 5 }, points = 20 })
   local a2 = syn({ known = true, cand = { itemID = 5 }, points = 20 })
@@ -444,7 +403,6 @@ do
   shown = GCA:SectionCut({ e1, e2 }, {})
   check(#shown == 1, "two enchant rows with the same enchant ID: listed once")
 
-  -- enchants go to their slot's section (wrist, cloak, chest); top 3 there; badge counts one per slot
   setProfs({ { "Lederverarbeitung", 300, 300, 165 }, { "Verzauberkunst", 300, 300, 333 } })
   for id in pairs(known) do known[id] = nil end
   GCA.db.known[GCA.charKey] = {}
@@ -483,7 +441,6 @@ do
   for _, s in ipairs(l.sections) do if #s.rows > 0 then withRows = withRows + 1 end end
   check(select(1, GCA.KnownOnly(l)) == withRows and withRows == 3, "enchant badge: one per slot (" .. withRows .. " slots)")
 
-  -- browse: everything unlearned, top 3 per section, nothing counts
   setProfs({ { "Verzauberkunst", 300, 300, 333 } })
   GCA:RefreshKnown()
   view = { key = "Sec Paw", class = "DRUID", level = 40, items = items, spec = "FERAL_CAT" }
@@ -495,7 +452,6 @@ do
   check(GCA:IsBrowse("Leatherworking") and #l > 0 and maxRows <= 3 and not anyKnown and select(1, GCA.KnownOnly(l)) == 0
     and hands and #hands.rows == 3, ("browse: %d rows, at most %d per section, none known, badge 0"):format(#l, maxRows))
 
-  -- restore
   for id, v in pairs(saved) do itemDB[id] = v or nil end
   for i = 991001, 991008 do itemDB[i] = nil end
   for k in pairs(known) do known[k] = nil end
@@ -552,7 +508,6 @@ do
   GCA.db.settings.lookahead = false
   mail, boots = run(37)
   check(mail == nil and boots ~= nil, "look-ahead off: no mail before 40")
-  -- restore
   GCA.db.settings.lookahead, GCA.db.settings.showUnlearned = savedLA, savedUn
   for id, v in pairs(saved) do itemDB[id] = v or nil end
   itemDB[992001], itemDB[992002] = nil, nil

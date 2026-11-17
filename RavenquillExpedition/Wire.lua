@@ -1,10 +1,3 @@
--- Ravenquill Expedition core: wire helpers shared by every module's message format.
--- RQ.Wire.MAX_MSG                    bytes per addon message we use (the client's limit is 255)
--- RQ.Wire.b36(n) / b36s(n)           base 36, lower case; b36 clamps negatives to 0, b36s writes "-<digits>"
--- RQ.Wire.n36(s, loose)              base 36 -> number (<= 8 digits); loose also accepts upper case
--- RQ.Wire.Split(s, sep)              split keeping empty fields (same result on Lua 5.1 and 5.4)
--- RQ.Wire.Clean(s, n)                game/wire text without colour codes, ';', '|' or control chars, cut to n bytes
--- RQ.Wire.CLASSES / CLASS_IDX        class tokens by index; 1-9 are the wire contract of Map and CraftAdvisor
 local ADDON, ns = ...
 local GS = ns.GS
 local W = {}
@@ -25,7 +18,6 @@ end
 
 function W.b36(n)
   n = tonumber(n) or 0
-  -- NaN, infinity and numbers beyond exact integers would never reach 0 in digits() on Lua 5.1 (a frozen client)
   if n ~= n or n < 0 or n >= 2 ^ 53 then n = 0 end
   n = math.floor(n)
   return digits(n)

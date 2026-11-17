@@ -1,17 +1,6 @@
--- Shared setup for the score harnesses (dev/harness_score_*.lua): SimGear Forever's own pure Score.lua / Plan.lua /
--- Stats.lua (loaded sandboxed from the downloaded zip) as the golden reference, and our Scoring.lua + Core in a
--- stubbed WoW environment (the real suite core), plus the helpers the tests share. Every test file starts from
--- this fresh state:
---   local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "scorekit.lua")
--- SimGear Forever is found by dev/paths.lua (the first argument, $RQ_SIMGEAR, <repo>/.cache/simgear/, or installed
--- next to the addon). Without it every score harness SKIPs (named skip "score:simgear-source"): the item data
--- the tests use (CRAFT, the mock item database) comes from it.
--- State the tests change lives in H: H.now (the virtual clock), H.printed (captured print lines), H.refreshes,
--- the counters. H.finish() prints the summary and exits.
 local P = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "paths.lua")
 local ROOT = P.ROOT
 local SG = P.SimGear(arg[1])
-local CJ_DATA = P.CraftersJournal()
 if not SG then
   print("SKIP score:simgear-source: SimGear Forever not found (pass its folder, set RQ_SIMGEAR or unzip it into <repo>/.cache/simgear/)")
   print("0 passed, 0 failed, 1 skipped")
@@ -26,16 +15,12 @@ end
 local function section(s) print("== " .. s) end
 local function near(a, b, eps) return math.abs((a or 0) - (b or 0)) <= (eps or 1e-9) * math.max(1, math.abs(a or 0), math.abs(b or 0)) end
 
--- deterministic RNG (same on every Lua)
 local seed = 12345
 local function rnd(n) seed = (seed * 1103515245 + 12345) % 2147483648; return (seed % n) + 1 end
 
 local CLASSES = { "DRUID", "HUNTER", "MAGE", "PALADIN", "PRIEST", "ROGUE", "SHAMAN", "WARLOCK", "WARRIOR" }
 local function cap(s) return s:sub(1, 1) .. s:sub(2):lower() end
 
----------------------------------------------------------------------------
--- SimGear, sandboxed
----------------------------------------------------------------------------
 local function sgEnv()
   return { pairs = pairs, ipairs = ipairs, type = type, tostring = tostring, tonumber = tonumber, next = next,
     string = string, table = table, math = math, setmetatable = setmetatable, select = select, assert = assert,
@@ -62,9 +47,6 @@ for _, class in ipairs(CLASSES) do
 end
 print("SimGear loaded")
 
----------------------------------------------------------------------------
--- Our addon in a stubbed WoW environment
----------------------------------------------------------------------------
 H.now = 1000
 local timers = {}
 local function advance(sec)
@@ -77,10 +59,10 @@ local function advance(sec)
   end
   H.now = target
 end
-local itemDB = {}      -- itemID -> { name, equipLoc, minLevel, classID, subClassID, bind, raw (GetItemStats) }
-local known = {}       -- spellID -> true
-local talent = { config = nil, nodes = {}, inspect = nil } -- fake C_Traits
-local requests = {}    -- itemID -> RequestLoadItemDataByID calls
+local itemDB = {}
+local known = {}
+local talent = { config = nil, nodes = {}, inspect = nil }
+local requests = {}
 local env = setmetatable({}, { __index = _G })
 env.unpack = table.unpack
 env.wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
@@ -143,21 +125,19 @@ env.C_Traits = {
 }
 env.RavenquillExpeditionCraftDB = {}
 local ns = {}
-local K = dofile(ROOT .. "dev/corekit.lua")(env) -- the real suite core in this environment
+local K = dofile(ROOT .. "dev/corekit.lua")(env)
 local RQ = K.RQ
-local Files = dofile(ROOT .. "dev/files.lua") -- the addon's files, from its .toc
+local Files = dofile(ROOT .. "dev/files.lua")
 Files.load(Files.list({ except = { "Data/Sources.lua", "Data/ExtraSources.lua", "Auction.lua", "Sync.lua", "RecipeSources.lua", "UI" } }), ns, env)
 K.done()
 local GCA, Scoring, W = ns.GCA, ns.Scoring, ns.Weights
 H.refreshes = 0
-GCA.UI = { Refresh = function() H.refreshes = H.refreshes + 1; if GCA.UI.onRefresh then GCA.UI.onRefresh() end end } -- no window here
+GCA.UI = { Refresh = function() H.refreshes = H.refreshes + 1; if GCA.UI.onRefresh then GCA.UI.onRefresh() end end }
 local fire = function(_, ev, ...) K.fire(ev, ...) end
--- a /reload: the core loads the SavedVariables again (migrations not yet done run, defaults), then our OnLoad
 local function reloadDB() RQ.SetupModuleDB(GCA); GCA:OnLoad() end
 fire(GCA, "ADDON_LOADED", "RavenquillExpedition_CraftAdvisor")
 fire(GCA, "PLAYER_LOGIN")
 
--- raw GetItemStats keys from SimGear's canonical stats (inverse of Stats.KEY_MAP / RATING_PER_POINT)
 local INV = { Strength = "ITEM_MOD_STRENGTH_SHORT", Agility = "ITEM_MOD_AGILITY_SHORT", Stamina = "ITEM_MOD_STAMINA_SHORT",
   Intellect = "ITEM_MOD_INTELLECT_SHORT", Spirit = "ITEM_MOD_SPIRIT_SHORT", Defense = "ITEM_MOD_DEFENSE_SKILL_RATING_SHORT",
   AttackPower = "ITEM_MOD_ATTACK_POWER_SHORT", RangedAttackPower = "ITEM_MOD_RANGED_ATTACK_POWER_SHORT",
@@ -177,9 +157,8 @@ local function rawOf(stats)
   return raw
 end
 
--- Leatherworking crafts that SimGear's item data has, per class, as SimGear-shaped items
 local SUBCLASS = { cloth = 1, leather = 2, mail = 3 }
-local CRAFT = {} -- class -> list of { itemID, equipLoc, stats }
+local CRAFT = {}
 local recipeOf = {}
 for spellID, r in pairs(ns.Recipes.Leatherworking) do recipeOf[r.item] = spellID end
 local SLOTTED = { INVTYPE_HEAD = 1, INVTYPE_NECK = 1, INVTYPE_SHOULDER = 1, INVTYPE_CHEST = 1, INVTYPE_ROBE = 1, INVTYPE_WAIST = 1,
@@ -210,22 +189,17 @@ local function sgCompose(class, spec, level, share)
 end
 local OURSETS = Scoring.buildSets(W.itemSets)
 
----------------------------------------------------------------------------
--- end-to-end through Core: a guildie with gear, known recipes, ComputeSuggestions
----------------------------------------------------------------------------
 local function link(id) return "item:" .. id .. "::::::::40:1488" end
 local function addItem(id, name, loc, minLevel, raw, sub)
   itemDB[id] = { name = name, equipLoc = loc, minLevel = minLevel or 1, classID = 4, subClassID = sub or 2, raw = raw }
 end
--- synthetic crafts (spell IDs from the real recipe table so CanWear/known logic is used as is)
 local function recipeFor(itemID) return recipeOf[itemID] end
 local profState = { list = { 1 }, lines = { [1] = { "Lederverarbeitung", 225, 300, 165 } } }
-local function setProfs(spec) -- spec: { {name, rank, max, line}, ... } or {} (nothing listed)
+local function setProfs(spec)
   profState.list, profState.lines = {}, {}
   for i, p in ipairs(spec) do profState.list[i] = i; profState.lines[i] = p end
 end
 
--- GetProfessions / GetProfessionInfo from profState (setProfs), for the profession tests on
 function H.professionMocks()
   env.GetProfessions = function() return table.unpack(profState.list) end
   env.GetProfessionInfo = function(i) local p = profState.lines[i]; if p then return p[1], nil, p[2], p[3], nil, nil, p[4] end end
@@ -236,8 +210,6 @@ function H.finish()
   os.exit(H.fails == 0 and 0 or 1)
 end
 
--- for the test files
-H.CJ_DATA = CJ_DATA
 H.CLASSES = CLASSES
 H.CRAFT = CRAFT
 H.Files = Files

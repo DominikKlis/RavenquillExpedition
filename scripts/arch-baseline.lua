@@ -1,10 +1,9 @@
--- Ratchet baseline for scripts/check-architecture.lua. Values only ever tighten (--update).
--- allow: globals the suite may write; legacy: allowed for now, counted by legacy_globals until removed.
 return {
   metrics = {
     cached_trace = 0,
-    checks_passed = 1808,
+    checks_passed = 1840,
     checks_skipped = 0,
+    comments = 67,
     core_internals = 0,
     dev_abs_paths = 0,
     dup_primitives = 0,
@@ -12,10 +11,13 @@ return {
     foreign_prefixes = 0,
     global_writes = 0,
     goal_module_lines = 37,
+    health_clean_pct = 92.9,
+    health_debt = 388.0,
     legacy_globals = 0,
     luacheck_warnings = 0,
-    main_slots = 78,
-    max_file_lines = 919,
+    main_slots = 62,
+    max_file_lines = 658,
+    max_fn_complexity = 24,
     no_core_dep = 0,
     own_mechanisms = 0,
     plan_refs = 0,

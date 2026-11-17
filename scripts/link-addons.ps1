@@ -1,12 +1,3 @@
-# Links the suite's addon folders from a clone of this repository into your WoW AddOns folder,
-# so you can edit the code in the clone and /reload in game.
-#
-#   pwsh -File scripts\link-addons.ps1 -AddOns "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns"
-#
-# Uses directory junctions (no admin rights needed). Skips folders that already point here; refuses to touch a
-# real folder of the same name (move or delete your old copy first).
-# Not needed if you cloned the repository directly into the AddOns folder.
-#   add -Dev to also link RavenquillExpedition_Dev (developer tools: log, in-game tests; never released)
 param(
     [Parameter(Mandatory)][string]$AddOns,
     [switch]$Dev

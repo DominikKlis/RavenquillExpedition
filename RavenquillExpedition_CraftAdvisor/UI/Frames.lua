@@ -5,10 +5,6 @@ local P = UI.P
 local SafeCall, C, HasAtlas, SetAtlasSafe, TexOK = P.SafeCall, P.C, P.HasAtlas, P.SetAtlasSafe, P.TexOK
 local StatLabel, Backdrop = P.StatLabel, P.Backdrop
 
----------------------------------------------------------------------------
--- K4 helpers (member view variants): thin borders, measured text, guarded templates, gain texts, stat differences
----------------------------------------------------------------------------
--- A 1 px border from four colour textures (no art needed). f:SetBorderColor(r, g, b, a) recolours it.
 local function AddBorder(f, r, g, b, a)
   local e = {}
   for i = 1, 4 do e[i] = f:CreateTexture(nil, "BORDER") end
@@ -24,7 +20,6 @@ local function AddBorder(f, r, g, b, a)
 end
 UI.AddBorder = AddBorder
 
--- Width of a font string's text: the client's measure, else an estimate (~6 px per character; offline harness).
 local function TextWidth(fs)
   for _, m in ipairs({ "GetUnboundedStringWidth", "GetStringWidth" }) do
     local fn = fs[m]
@@ -38,7 +33,6 @@ local function TextWidth(fs)
 end
 UI.TextWidth = TextWidth
 
--- Text button: UIPanelButtonTemplate in pcall; a plain button with its own label and border where it fails.
 local function NewTextButton(parent, w, h, text)
   local ok, b = pcall(CreateFrame, "Button", nil, parent, "UIPanelButtonTemplate")
   if not (ok and b) then
@@ -59,9 +53,6 @@ local function NewTextButton(parent, w, h, text)
 end
 UI.NewTextButton = NewTextButton
 
--- Check box (K6): MinimalCheckboxTemplate (the profession window's own check boxes: checkbox-minimal /
--- checkmark-minimal, probe), else UICheckButtonTemplate, each in pcall; a bordered box with the 0.5.0 check texture
--- where both fail. c.template tells which one was made.
 local function NewCheck(parent, size)
   local ok, c
   for _, tpl in ipairs({ "MinimalCheckboxTemplate", "UICheckButtonTemplate" }) do
@@ -82,9 +73,6 @@ local function NewCheck(parent, size)
 end
 UI.NewCheck = NewCheck
 
--- K6: a font object the client's own windows use (probe: GameFontGreen / GameFontGreenLarge in CharacterFrame,
--- Number12FontOutline on the profession rank bar), only where the client has it; else the given colour on the
--- font string's own font. Returns true when the font object was set.
 local function NativeFont(fs, name, r, g, b)
   local obj = rawget(_G, name)
   if obj and fs.SetFontObject and pcall(fs.SetFontObject, fs, obj) then fs.nativeFont = name; return true end
@@ -92,70 +80,94 @@ local function NativeFont(fs, name, r, g, b)
   return false
 end
 UI.NativeFont = NativeFont
--- the green gain numbers (K6: the client's green font objects instead of a hand-picked green)
 local GAIN_RGB = { 0.31, 0.88, 0.35 }
 local function GainFont(fs, large) return NativeFont(fs, large and "GameFontGreenLarge" or "GameFontGreen", GAIN_RGB[1], GAIN_RGB[2], GAIN_RGB[3]) end
 
--- "from level 42 · 3 to go" (the mockups' orange tag on too-high-level crafts)
 local function LevelTag(d) return string.format(L.LEVEL_TAG, d.wearAt or 0, d.levelsToGo or 0) end
 UI.LevelTag = LevelTag
 
--- Big line + small line under it (user 2026-11-15: number only): "+8.4 AP" / "(empty slot)" or "".
 local function CardGain(d)
   return UI.GainUnit(d), d.status == "empty-slot" and L.GAIN_EMPTY or ""
 end
 UI.CardGain = CardGain
 
--- Stat differences new - worn, from the same canonical stats (GetItemStats -> Scoring.normalize, or the enchant
--- table's stats) the score is computed from; the set bonus part of a score is not per stat (a tag says it).
--- Hit/crit are stored as melee + spell twins: shown once when both changed alike. Order: biggest weighted
--- change first. Returns nil when a side has no stat table (nothing reliable to show), plus `partial` when a
--- side had client stat keys we don't map (those can't be listed).
 local PCT_STATS = { MeleeHit = true, SpellHit = true, MeleeCrit = true, SpellCrit = true, Dodge = true, Parry = true, Block = true }
 local STAT_TWINS = { { "MeleeHit", "SpellHit", "STATD_HIT" }, { "MeleeCrit", "SpellCrit", "STATD_CRIT" } }
-function UI.StatDiff(d)
-  local new = d and d.info and d.info.cstats
-  if type(new) ~= "table" then return nil end
-  local old = {}
-  if d.equipped then
-    if type(d.equipped.cstats) ~= "table" then return nil end
-    old = d.equipped.cstats
-  end
-  local weights = d.e and d.e.set and d.e.set.weights or {}
+local Stat = { MIN_SHOWN = 0.005, EPS = 1e-9 }
+
+function Stat.Old(d)
+  if not d.equipped then return {} end
+  if type(d.equipped.cstats) ~= "table" then return nil end
+  return d.equipped.cstats
+end
+
+function Stat.Diff(new, old)
   local diff = {}
   for k, v in pairs(new) do if type(v) == "number" then diff[k] = v end end
   for k, v in pairs(old) do if type(v) == "number" then diff[k] = (diff[k] or 0) - v end end
-  local rows, done = {}, {}
-  local function add(key, amount, label, pct, w)
-    rows[#rows + 1] = { key = key, amount = amount, label = label, pct = pct and true or false, value = amount * (w or 0) }
-  end
+  return diff
+end
+
+function Stat.Row(key, amount, label, pct, w)
+  return { key = key, amount = amount, label = label, pct = pct and true or false, value = amount * (w or 0) }
+end
+
+function Stat.AddTwins(rows, done, diff, weights)
   for _, tw in ipairs(STAT_TWINS) do
     local a, b = diff[tw[1]], diff[tw[2]]
-    if a and b and math.abs(a - b) < 1e-9 then
-      if math.abs(a) >= 0.005 then add(tw[1], a, L[tw[3]], true, (weights[tw[1]] or 0) + (weights[tw[2]] or 0)) end
+    if a and b and math.abs(a - b) < Stat.EPS then
+      if math.abs(a) >= Stat.MIN_SHOWN then
+        rows[#rows + 1] = Stat.Row(tw[1], a, L[tw[3]], true, (weights[tw[1]] or 0) + (weights[tw[2]] or 0))
+      end
       done[tw[1]], done[tw[2]] = true, true
     end
   end
-  for k, v in pairs(diff) do
-    if not done[k] and math.abs(v) >= 0.005 then add(k, v, (StatLabel(k):gsub("%s*%%$", "")), PCT_STATS[k], weights[k]) end
-  end
-  table.sort(rows, function(a, b)
-    if math.abs(math.abs(a.value) - math.abs(b.value)) > 1e-9 then return math.abs(a.value) > math.abs(b.value) end
-    if math.abs(math.abs(a.amount) - math.abs(b.amount)) > 1e-9 then return math.abs(a.amount) > math.abs(b.amount) end
-    return a.key < b.key
-  end)
-  -- W6: a weapon's speed first ("Speed 2.60 → 3.40", deDE "Tempo 2,60 → 3,40"); only when the new one was read
-  local newSpeed, oldSpeed = d.info.speed, d.equipped and d.equipped.speed
-  if type(newSpeed) == "number" and (type(oldSpeed) ~= "number" or math.abs(newSpeed - oldSpeed) >= 0.005) then
-    table.insert(rows, 1, { key = "Speed", speed = newSpeed, oldSpeed = type(oldSpeed) == "number" and oldSpeed or nil, amount = 0, value = 0, label = L.STATD_SPEED_LABEL })
-  end
-  local function unmapped(info) return type(info) == "table" and type(info.unknownStats) == "table" and #info.unknownStats > 0 end
-  return rows, unmapped(d.info) or unmapped(d.equipped)
 end
 
--- "+6 Agility", "-2 Strength", "+1% Hit"; coloured = green/red number
+function Stat.AddSingles(rows, done, diff, weights)
+  for k, v in pairs(diff) do
+    if not done[k] and math.abs(v) >= Stat.MIN_SHOWN then
+      rows[#rows + 1] = Stat.Row(k, v, (StatLabel(k):gsub("%s*%%$", "")), PCT_STATS[k], weights[k])
+    end
+  end
+end
+
+function Stat.Before(a, b)
+  if math.abs(math.abs(a.value) - math.abs(b.value)) > Stat.EPS then return math.abs(a.value) > math.abs(b.value) end
+  if math.abs(math.abs(a.amount) - math.abs(b.amount)) > Stat.EPS then return math.abs(a.amount) > math.abs(b.amount) end
+  return a.key < b.key
+end
+
+function Stat.SpeedRow(d)
+  local newSpeed, oldSpeed = d.info.speed, d.equipped and d.equipped.speed
+  if type(newSpeed) ~= "number" then return nil end
+  local hasOld = type(oldSpeed) == "number"
+  if hasOld and math.abs(newSpeed - oldSpeed) < Stat.MIN_SHOWN then return nil end
+  return { key = "Speed", speed = newSpeed, oldSpeed = hasOld and oldSpeed or nil, amount = 0, value = 0, label = L.STATD_SPEED_LABEL }
+end
+
+function Stat.Unmapped(info)
+  return type(info) == "table" and type(info.unknownStats) == "table" and #info.unknownStats > 0
+end
+
+function UI.StatDiff(d)
+  local new = d and d.info and d.info.cstats
+  if type(new) ~= "table" then return nil end
+  local old = Stat.Old(d)
+  if not old then return nil end
+  local weights = d.e and d.e.set and d.e.set.weights or {}
+  local diff = Stat.Diff(new, old)
+  local rows, done = {}, {}
+  Stat.AddTwins(rows, done, diff, weights)
+  Stat.AddSingles(rows, done, diff, weights)
+  table.sort(rows, Stat.Before)
+  local speed = Stat.SpeedRow(d)
+  if speed then table.insert(rows, 1, speed) end
+  return rows, Stat.Unmapped(d.info) or Stat.Unmapped(d.equipped)
+end
+
 function UI.StatText(row, coloured)
-  if row.speed then -- W6: "Speed 2.60 → 3.40" / "Tempo 2,60 → 3,40" (decimal mark per locale)
+  if row.speed then
     local function n(v) return (string.format("%.2f", v):gsub("%.", L.DECIMAL_MARK)) end
     if row.oldSpeed then return string.format(L.STATD_SPEED, n(row.oldSpeed), n(row.speed)) end
     return string.format(L.STATD_SPEED_ONE, n(row.speed))
@@ -166,23 +178,9 @@ function UI.StatText(row, coloured)
   return t .. " " .. tostring(row.label)
 end
 
--- K6: a tag is coloured text, as Blizzard's tooltips colour theirs (the K4 boxed "chip" frames are gone).
 local function Tag(text, colour) return (colour or "") .. tostring(text) .. (colour and "|r" or "") end
 UI.Tag = Tag
 
----------------------------------------------------------------------------
--- Frames
----------------------------------------------------------------------------
--- K6: list panel = the profession window's recipe-list panel: Professions-background-summarylist filling the
--- panel (ProfessionsFrame.CraftingPage.RecipeList.Background, BACKGROUND, probe), no inner border (the client's
--- RecipeList.BackgroundNineSlice is hidden). Where the atlas is missing: the K1 inset below.
--- K7 (lead, user feedback on K6 in game): the thin inner border Blizzard draws around each inner segment. Probe:
--- ProfessionsFrame.CraftingPage.RecipeList.BackgroundNineSlice, .SchematicForm.NineSlice and ProfessionsFrameInset.NineSlice
--- = 6x6 corners UI-Frame-InnerTopLeft/-TopRight/-BotLeftCorner/-BotRight (bottom ones at y -1), 3 px tiles
--- _UI-Frame-InnerTopTile/_UI-Frame-InnerBotTile (horizontal) and !UI-Frame-InnerLeftTile/!UI-Frame-InnerRightTile
--- (vertical) between the corners, layer BORDER, on a child frame named NineSlice. That is the "InsetFrameTemplate"
--- NineSlice layout, so: NineSliceUtil.ApplyLayoutByName(ns, "InsetFrameTemplate") (pcall, checked that it really
--- drew the corner), else the same eight pieces by hand. nil when the atlases are missing.
 UI.INNER_BORDER = {
   { key = "TopLeftCorner", atlas = "UI-Frame-InnerTopLeft", p = { "TOPLEFT", 0, 0 } },
   { key = "TopRightCorner", atlas = "UI-Frame-InnerTopRight", p = { "TOPRIGHT", 0, 0 } },
@@ -193,8 +191,6 @@ UI.INNER_BORDER = {
   { key = "LeftEdge", atlas = "!UI-Frame-InnerLeftTile", a = { "TOPLEFT", "TopLeftCorner", "BOTTOMLEFT" }, b = { "BOTTOMLEFT", "BottomLeftCorner", "TOPLEFT" } },
   { key = "RightEdge", atlas = "!UI-Frame-InnerRightTile", a = { "TOPRIGHT", "TopRightCorner", "BOTTOMRIGHT" }, b = { "BOTTOMRIGHT", "BottomRightCorner", "TOPRIGHT" } },
 }
--- K8: draws a list of border pieces (UI.INNER_BORDER's shape; optional per piece w/h: corner size / tile thickness,
--- default 6 / 3) on a child frame `ns`; false (nothing drawn) when one atlas is missing.
 function UI.DrawBorderPieces(nine, pieces)
   for _, def in ipairs(pieces) do
     if not HasAtlas(def.atlas) then return false end
@@ -235,11 +231,7 @@ function UI.AddInnerBorder(p)
   return nine
 end
 
--- K8: the detail panel's frame (the profession window's schematic-form border) from the skin role detailBorder:
--- its NineSliceUtil layout, else its own piece list, else (default, and whenever those fail) the inner border.
--- ns.how = "layout" / "pieces" / the inner border's "util" / "atlas"; nil = nothing drawn. ns.role = "detailBorder".
 UI.detailPanels = UI.detailPanels or {}
--- K9: the profession's background card behind each detail panel (follows the selected profession).
 function UI.UpdateDetailCards()
   local def = UI.SKIN.detailBorder or {}
   if not def.card then return end
@@ -306,9 +298,6 @@ local function NewInset(parent, overArt)
   end
   return UI.NewPlainInset(parent, overArt)
 end
--- Inset panel (modern InsetFrameTemplate, as Spoken uses on Forever); plain backdrop if missing.
--- Review L-3: over the painted profession art the inset background is translucent so the art shows; without the
--- art (fallback look) it stays as it was. K1: 0.4 -> 0.75 (the art showed through too much: text was hard to read).
 UI.INSET_ART_ALPHA = 0.75
 function UI.NewPlainInset(parent, overArt)
   local ok, inset = pcall(CreateFrame, "Frame", nil, parent, "InsetFrameTemplate")
@@ -322,7 +311,6 @@ function UI.NewPlainInset(parent, overArt)
   return inset
 end
 
--- Keep the inset's border drawn over the scroll content (Spoken Compendium.lua:1872-1873).
 local function RaiseInsetBorder(inset, content)
   if type(inset.NineSlice) == "table" and inset.NineSlice.SetFrameLevel and content.GetFrameLevel then
     local lvl = content:GetFrameLevel()
@@ -330,7 +318,6 @@ local function RaiseInsetBorder(inset, content)
   end
 end
 
--- Popup list on the native dropdown art (WhatsTraining Forever\Menu.lua:477); tooltip backdrop if missing.
 local function NewPopup(parent)
   local pop = CreateFrame("Frame", nil, parent, "BackdropTemplate")
   pop:SetFrameStrata("DIALOG")
@@ -350,13 +337,6 @@ local function NewPopup(parent)
 end
 UI.NewPopup = NewPopup
 
--- Profession-window art. K6: exactly as the client's ProfessionsFrame draws it (probe): ProfessionsFrameBg =
--- Profession-Background-Overview from TOPLEFT 2,-21 over the whole frame, and the crafting page's
--- Profession-Background-Template2 (665x570 = the whole 673x594 frame inside its border, TOPLEFT 3,-21) on top.
--- Our window is larger and resizable, so both fill the inner area (the K5 54 px clipped header strip is gone).
--- Frame levels: canvas at the window's own level, page +1, our content +2 (its children above), portrait +2,
--- border (NineSlice) +3 (GearQuestForever Log.lua:1025-1028), close button +4. Missing atlases: dark fill only,
--- native Bg kept.
 local function PaintArt(f)
   local base = f:GetFrameLevel() or 0
   local art = {}
@@ -393,7 +373,6 @@ local function PaintArt(f)
     art.fill:SetColorTexture(0.06, 0.05, 0.04, 1)
     if type(f.Bg) == "table" and f.Bg.Hide then f.Bg:Hide() end
   else
-    -- no profession art on this client: a dark wash over the template's own background
     art.fill:SetColorTexture(0.06, 0.05, 0.04, 0.85)
   end
   return art
@@ -413,7 +392,6 @@ local function ApplyLevels(f)
   lift(f.CloseButton, 4)
 end
 
--- Native portrait window where the client has it; the old dialog look where not (Spoken Compendium.lua:399-421).
 local function NewWindow(name, title)
   local ok, f = pcall(CreateFrame, "Frame", name, UIParent, "PortraitFrameTemplate")
   if ok and f and type(f.SetTitle) == "function" then
@@ -439,7 +417,6 @@ local function NewWindow(name, title)
   return f
 end
 
--- shared with the files loaded after this one (P)
 P.AddBorder = AddBorder
 P.ApplyLevels = ApplyLevels
 P.CardGain = CardGain

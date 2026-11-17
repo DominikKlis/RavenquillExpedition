@@ -1,12 +1,7 @@
--- Ravenquill Expedition core: the guild roster and the peers (guildies heard running a suite module).
--- Read the roster through these functions; GS.roster itself is internal (still readable during the rework).
 local ADDON, ns = ...
 local GS = ns.GS
 local SafeCall, Plain = GS.SafeCall, GS.Plain
 
----------------------------------------------------------------------------
--- Roster cache: roster[key] = { class, level, online }
----------------------------------------------------------------------------
 GS.roster = {}
 
 function GS:RequestRoster()
@@ -36,7 +31,6 @@ function GS:ReadRoster()
   self.rosterRead = GetTime()
 end
 
--- true / false, or nil while the roster is still unknown
 function GS:IsGuildMember(key)
   if not key then return false end
   if self:IsMe(key) then return (SafeCall(IsInGuild)) and true or false end
@@ -44,7 +38,6 @@ function GS:IsGuildMember(key)
   return self:RosterEntry(key) and true or false
 end
 
--- { class, level, online } for a key (also "Name-<our realm>" spellings), or nil
 function GS:RosterEntry(key)
   if not key then return end
   local e = self.roster[key]
@@ -53,15 +46,12 @@ function GS:RosterEntry(key)
   return first and self.roster[first] or nil
 end
 
--- GetTime() of the last roster read, or nil
 function GS:RosterReadAt() return self.rosterRead end
 
--- loaded (a non-empty roster was read), number of members, number offline
 function GS:RosterComplete()
   return next(self.roster) ~= nil, self.rosterCount or 0, self.rosterOffline or 0
 end
 
--- Online members in the roster (0 while unknown); cached 30 s because it's read often.
 function GS:OnlineCount()
   local now = GetTime()
   if self.onlineAt and now - self.onlineAt < 30 then return self.online end
@@ -71,10 +61,8 @@ function GS:OnlineCount()
   return n
 end
 
--- for key, entry in GS:EachMember() do ... end
 function GS:EachMember() return pairs(self.roster) end
 
--- Keys of the guild members in my party/raid (without me).
 function GS:GroupGuildies()
   local out = {}
   local n = Plain(SafeCall(GetNumGroupMembers), "number") or 0
@@ -88,15 +76,8 @@ function GS:GroupGuildies()
   return out
 end
 
----------------------------------------------------------------------------
--- Peers: guildies heard on the suite's lanes (= they run a Ravenquill Expedition module).
----------------------------------------------------------------------------
--- Saved per guild: RavenquillExpeditionDB.peersByGuild["<guild>@<realm>"][key] = last heard (server time), so
--- another guild's members never count. Versions before the rework kept one account-wide table (db.peers); it moves
--- into the first guild known after the update (the guild is often still unknown right at login).
 GS.PEER_MAX_AGE = 14 * 86400
 
--- the current guild's peer table, or nil while the guild is unknown
 function GS:Peers()
   local db = RavenquillExpeditionDB
   if not db then return end
@@ -105,7 +86,7 @@ function GS:Peers()
   db.peersByGuild = type(db.peersByGuild) == "table" and db.peersByGuild or {}
   local t = db.peersByGuild[g]
   if type(t) ~= "table" then t = {}; db.peersByGuild[g] = t end
-  if type(db.peers) == "table" then -- the old account-wide table
+  if type(db.peers) == "table" then
     for k, v in pairs(db.peers) do if type(v) == "number" and (t[k] or 0) < v then t[k] = v end end
     db.peers = nil
   end
@@ -117,7 +98,6 @@ function GS:NotePeer(key)
   if peers then peers[key] = self:Now() end
 end
 
--- Forget peers not heard for PEER_MAX_AGE, in every guild (called at login, so the saved tables can't grow forever).
 function GS:PrunePeers()
   local db = RavenquillExpeditionDB
   if not db then return end
@@ -144,7 +124,6 @@ function GS:IsPeer(key)
   return t and self:Now() - t <= self.PEER_MAX_AGE or false
 end
 
--- Peers of the current guild heard within the last `window` seconds (default PEER_MAX_AGE).
 function GS:PeerCount(window)
   local n, now = 0, self:Now()
   for _, t in pairs(self:Peers() or {}) do
@@ -153,8 +132,6 @@ function GS:PeerCount(window)
   return n
 end
 
--- My place (0 = first) among the candidates that run the suite, sorted by name. Everyone in the group
--- computes the same order, so the first one reports and the others only step in when it doesn't.
 function GS:ElectionRank(candidates)
   local list, me = {}, self:PlayerKey()
   list[1] = me

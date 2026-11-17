@@ -1,12 +1,4 @@
 #!/usr/bin/env bash
-# Reads what the game saved for the suite: the RavenquillExpedition_Dev log and test runs, BugGrabber's errors and
-# FrameXML.log, for the account whose Dev SavedVariables changed last. No account name is stored anywhere.
-#   bash scripts/devlog.sh                 sessions, last 80 log entries, last test run, errors
-#   bash scripts/devlog.sh --runs          every saved test run
-#   bash scripts/devlog.sh --cat comm      only log entries whose category starts with "comm"
-#   bash scripts/devlog.sh --wait <id>     wait (up to 6 min) until the run <id> is in the file, then print it
-# WOW_DIR: the game's _forever_ folder (default: two levels above the AddOns folder this repository lives in or is
-# linked into).
 set -u
 cd "$(dirname "$0")/.."
 WOW="${WOW_DIR:-../..}"

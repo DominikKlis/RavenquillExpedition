@@ -1,10 +1,3 @@
--- Suite-wide send budget, as a test: three clients run every module at once on the shared kit (the real core in each):
--- Anna walks (Map positions, state lane), Bert changes gear every 3 min (CraftAdvisor records, record lane), Cora
--- logs a highlight every 2 min (Highlights events, event lane), for 40 virtual minutes plus 10 quiet ones.
--- Each client must stay within the core's caps (BURST + 60 x RATE = 15 GUILD messages per 60 s, BURST + 600 x RATE per
--- 600 s, all prefixes), the walker within Map's 5 s floor, the others at their event rate (<= 22 per 600 s); every
--- highlight must be delivered and every gear record must arrive whole.
--- Run: lua RavenquillExpedition/dev/harness_budget.lua
 local DEV = (arg[0]:gsub("[^/\\]*$", ""))
 local Kit = dofile(DEV .. "testkit.lua")
 local check, section = Kit.check, Kit.section
@@ -15,15 +8,13 @@ local function copy(t) local o = {} for k, v in pairs(t) do o[k] = v end return 
 
 local FILES = {}
 for _, f in ipairs({ "Locale.lua", "Map.lua", "Pins.lua", "Sync.lua" }) do FILES[#FILES + 1] = { MAP .. f, "RavenquillExpedition_Map" } end
-for _, f in ipairs(dofile(DEV .. "toc.lua")(CA)) do -- CraftAdvisor's .toc without its UI files
+for _, f in ipairs(dofile(DEV .. "toc.lua")(CA)) do
   if not f:find("^UI/") then FILES[#FILES + 1] = { CA .. f, "RavenquillExpedition_CraftAdvisor" } end
 end
 
--- the client API the three modules need beyond the kit's
 local function Setup(gear)
   return function(env, c)
     c.pos, c.gear = { 1429, 0.5, 0.5 }, gear
-    -- Highlights (as in harness_comm.lua)
     env.C_Item = { GetItemInfo = function() end, GetDetailedItemLevelInfo = function() end, RequestLoadItemDataByID = function() end,
       GetItemInfoInstant = function() end, GetItemStats = function() return {} end }
     env.C_Container = { GetContainerNumSlots = function() return 0 end, GetContainerItemInfo = function() end }
@@ -33,7 +24,6 @@ local function Setup(gear)
     env.LOOT_ITEM, env.LOOT_ITEM_MULTIPLE = "%s receives loot: %s.", "%s receives loot: %sx%d."
     env.RAID_CLASS_COLORS = {}
     env.LOCALIZED_CLASS_NAMES_MALE = setmetatable({}, { __index = function(_, k) return k:lower() end })
-    -- Map (as in RavenquillExpedition_Map/dev/mock.lua)
     env.C_Map = {
       GetBestMapForUnit = function() return c.pos[1] end,
       GetPlayerMapPosition = function() local p = c.pos; return { GetXY = function() return p[2], p[3] end } end,
@@ -49,7 +39,6 @@ local function Setup(gear)
     env.LibStub = setmetatable({ minors = { ["HereBeDragons-2.0-RQE"] = 35, ["HereBeDragons-Pins-2.0-RQE"] = 17 } }, {
       __call = function(_, name) return name == "HereBeDragons-2.0-RQE" and HBD or Pins end })
     env.Enum = {}
-    -- CraftAdvisor: own gear
     env.GetInventoryItemLink = function(u, slot) if u == "player" then return c.gear[slot] end end
     env.UnitGUID = function(u) if u == "player" then return "G-" .. c.name end end
     env.UnitIsPlayer = function(u) return u == "player" end
@@ -80,14 +69,12 @@ local mapOnCore = A.ns["RavenquillExpedition_Map"] and A.RQ.Comm.prefixes["RQEMa
 local caOnCore = A.RQ.Comm.prefixes["GCAdv1"] ~= nil
 check(mapOnCore and caOnCore, "Map (RQEMap1, state lane) and CraftAdvisor (GCAdv1, record lane) send through the core")
 
--- Anna walks (a step every 2 s)
 local walkRand = Kit.Random(99)
 sched:at(sched.t + 2, function()
   local p = A.pos
   local nx, ny = p[2] + (walkRand() - 0.5) * 0.004, p[3] + (walkRand() - 0.5) * 0.004
   A.pos = { p[1], math.min(0.9, math.max(0.1, nx)), math.min(0.9, math.max(0.1, ny)) }
 end, 2)
--- Bert changes gear every 3 min (two real sets in turn)
 local gearTurn = 0
 sched:at(sched.t + 180, function()
   if sched.t > 40 * 60 + 60 then return end
@@ -95,7 +82,6 @@ sched:at(sched.t + 180, function()
   B.gear = copy(GEAR[(gearTurn % 2 == 1) and 4 or 2])
   B.fire("PLAYER_EQUIPMENT_CHANGED")
 end, 180)
--- Cora logs a highlight every 2 min (share cap raised: every one of them must go out)
 local H = Cc.module("Highlights")
 H.db.settings.shareCap = 100
 local ids = {}
@@ -109,10 +95,9 @@ sched:at(sched.t + 120, function()
 end, 120)
 
 sched:advance(40 * 60)
-sched:advance(10 * 60) -- quiet: whatever waits drains
+sched:advance(10 * 60)
 
 section("Budget per client (all prefixes)")
--- the core's hard caps (one bucket per client): BURST + 60 x RATE in any 60 s, BURST + 600 x RATE in any 600 s
 local CC = A.RQ.CommConst
 local CAP60, CAP600 = CC.BURST + 60 * CC.RATE, CC.BURST + 600 * CC.RATE
 local MC = A.ns["RavenquillExpedition_Map"].Map.C
@@ -121,8 +106,6 @@ for _, c in ipairs(clients) do
   check(m60 <= CAP60 and m600 <= CAP600, ("%s: at most %d GUILD messages in any 60 s (<= %d), %d in any 600 s (<= %d)"):format(
     c.name, m60, CAP60, m600, CAP600))
 end
--- in practice far lower: the walker's positions keep Map's floor (one per INTERVAL_MIN); the two who don't walk send
--- only their events/records plus heartbeats, as before
 local mapPer600 = bus:maxPer(600, "Anna Stone", { RQEMap1 = true })
 check(mapPer600 <= 600 / MC.INTERVAL_MIN + 1, ("Anna's positions keep Map's %d s floor: %d in any 600 s (<= %d)"):format(
   MC.INTERVAL_MIN, mapPer600, 600 / MC.INTERVAL_MIN + 1))
@@ -142,7 +125,6 @@ local function hasAll(c)
 end
 check(#ids == 20 and hasAll(A) and hasAll(B) and next(H.cdb.outbox) == nil,
   ("every highlight delivered: %d logged, at Anna and Bert, Cora's outbox empty"):format(#ids))
--- gear records: every record on the wire (sender, subject, time stamp) complete, chunk 1..n
 local recs, partial, total = {}, 0, 0
 for _, e in ipairs(bus.log) do
   if e.prefix == "GCAdv1" then

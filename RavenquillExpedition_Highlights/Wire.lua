@@ -1,18 +1,3 @@
--- Ravenquill Expedition: Highlights – sharing over a core schema channel (tag "H", version 1, prefix RQE1).
--- One highlight = one message (≤ 250 bytes incl. "H;"). Fields are ";"-separated:
---   1;<kind>;<t>;<seq>;<who>;<lvl>;<class#>;<a>;<b>;<c>;<d>;<e>;<f>
---   gear : a=itemID b=ilvl c=quality d=old ilvl e=slot
---   loot : a=itemID b=quality c=src ("bag" when seen in the bags, else empty)
---   boss : a=encounterID b=first(0/1) c=raid(0/1) d=boss name e=instance name f=guildies present (group report)
---   quest: a=questID b=quest level c=tag d=title
---   level: (none)
--- <who> is the subject. It must be the sender, except for "loot", where a guildie in your group may
--- report what another guildie (who doesn't run the suite) looted (seq = "w").
---
--- The outbox (per character, saved) holds own entries until the guild's echo proves delivery. It is worked
--- off every 15 s outside instances. Group events (raid kills, witnessed loot) wait 10 s + rank × 45 s after
--- leaving the instance; the first-ranked suite user in the group reports, the others drop theirs once a
--- report is heard (StillWanted).
 local ADDON, ns = ...
 local GS = RavenquillExpedition
 local H = ns.H
@@ -28,12 +13,9 @@ H.PUMP_EVERY = 15
 H.RETRY_AFTER = 600
 H.MAX_TRIES = 3
 
--- Texts from the game or from the wire: no colour codes, separators, escapes or control characters.
 local function Clean(s, n) return GS.Wire.Clean(Plain(s, "string"), n) end
 H.Clean = Clean
 
--- The wire format, declared once; the core checks every field of every message before a handler sees it.
--- (from = "guild": the "who must be the sender, except witnessed loot" rule is checked in the handler below.)
 local ch = H:NewChannel({ tag = "H", version = 1 })
 H.channel = ch
 local HEAD = { { "t", "int", 1, 4102444800 }, { "seq", "word", 5 }, { "who", "key" }, { "lvl", "int", 1, 200, opt = true },
@@ -56,29 +38,36 @@ ch:Define("v", { from = "guild", fields = Fields({}) })
 
 local function Num(v) return (type(v) == "number" and v == v) and math.floor(v) or nil end
 
--- entry -> type code, message table (nil when it can't go on the wire)
+local function Flag(v) return v and true or false end
+local function WireQuestTag(tag) return QUEST_TAGS[tag or ""] and tag or "hard" end
+
+local MessageFields = {
+  gear = function(m, e) m.item, m.il, m.q, m.oil, m.slot = Num(e.item), Num(e.il), Num(e.q), Num(e.oil), Num(e.slot) end,
+  loot = function(m, e) m.item, m.q, m.src = Num(e.item), Num(e.q), e.src == "bag" and "bag" or "" end,
+  boss = function(m, e)
+    m.enc, m.first, m.raid, m.boss, m.inst = Num(e.enc), Flag(e.first), Flag(e.raid), e.boss or "", e.inst or ""
+    m.n = e.grp and Num(e.n or 1) or nil
+  end,
+  quest = function(m, e) m.qid, m.ql, m.tag, m.title = Num(e.qid), Num(e.ql), WireQuestTag(e.tag), e.title or "" end,
+}
+
+local function WireSeq(e)
+  local seq = e.id and e.id:match("#(%d+)$")
+  if e.k == "loot" and e.by and e.by ~= e.who then return "w" end
+  return seq or "0"
+end
+
 local function ToMessage(e)
   local code = KIND_CODE[e.k]
   if not code or type(e.who) ~= "string" or e.who:find("[;|%c]") then return end
-  local seq = e.id and e.id:match("#(%d+)$")
-  if e.k == "loot" and e.by and e.by ~= e.who then seq = "w" end
-  local m = { t = Num(e.t), seq = seq or "0", who = e.who, lvl = Num(e.lvl), cls = CLASS_IDX[e.cls or ""] or 0 }
-  if e.k == "gear" then
-    m.item, m.il, m.q, m.oil, m.slot = Num(e.item), Num(e.il), Num(e.q), Num(e.oil), Num(e.slot)
-  elseif e.k == "loot" then
-    m.item, m.q, m.src = Num(e.item), Num(e.q), e.src == "bag" and "bag" or ""
-  elseif e.k == "boss" then
-    m.enc, m.first, m.raid, m.boss, m.inst = Num(e.enc), e.first and true or false, e.raid and true or false, e.boss or "", e.inst or ""
-    m.n = e.grp and Num(e.n or 1) or nil
-  elseif e.k == "quest" then
-    m.qid, m.ql, m.tag, m.title = Num(e.qid), Num(e.ql), QUEST_TAGS[e.tag or ""] and e.tag or "hard", e.title or ""
-  end
+  local m = { t = Num(e.t), seq = WireSeq(e), who = e.who, lvl = Num(e.lvl), cls = CLASS_IDX[e.cls or ""] or 0 }
+  local fill = MessageFields[e.k]
+  if fill then fill(m, e) end
   return code, m
 end
 
-H.ToMessage = ToMessage -- (tests)
+H.ToMessage = ToMessage
 
--- entry -> wire body without "H;" (the golden wire test reads this), or nil
 function H.Encode(e)
   local code, m = ToMessage(e)
   if not code then return end
@@ -88,7 +77,22 @@ end
 
 local function Str(v) return (v ~= nil and v ~= "") and v or nil end
 
--- decoded message -> entry, or nil when not allowed from this sender
+local EntryFields = {
+  gear = function(e, m) e.item, e.il, e.q, e.oil, e.slot = m.item, m.il, m.q, m.oil, m.slot end,
+  loot = function(e, m) e.item, e.q, e.src = m.item, m.q, m.src == "bag" and "bag" or nil end,
+  boss = function(e, m)
+    e.enc, e.first, e.raid, e.boss, e.inst = m.enc, m.first or nil, m.raid or nil, Str(m.boss), Str(m.inst)
+    if m.n then e.grp, e.n = true, m.n end
+  end,
+  quest = function(e, m) e.qid, e.ql, e.tag, e.title = m.qid, m.ql, WireQuestTag(m.tag), Str(m.title) end,
+}
+
+local function OwnEntryId(m)
+  local seq = tonumber(m.seq)
+  if not seq or not m.seq:match("^%d+$") or seq > 99999 then return nil end
+  return ("%s#%d#%d"):format(m.who, m.t, seq)
+end
+
 local function ToEntry(sender, code, m)
   local k = CODE_KIND[code]
   local witnessed = m.seq == "w"
@@ -97,39 +101,25 @@ local function ToEntry(sender, code, m)
   if witnessed then
     e.by = sender
   else
-    local seq = tonumber(m.seq)
-    if not seq or not m.seq:match("^%d+$") or seq > 99999 then return end
-    e.id = ("%s#%d#%d"):format(m.who, m.t, seq)
+    e.id = OwnEntryId(m)
+    if not e.id then return end
   end
-  if k == "gear" then
-    e.item, e.il, e.q, e.oil, e.slot = m.item, m.il, m.q, m.oil, m.slot
-  elseif k == "loot" then
-    e.item, e.q, e.src = m.item, m.q, m.src == "bag" and "bag" or nil
-  elseif k == "boss" then
-    e.enc, e.first, e.raid, e.boss, e.inst = m.enc, m.first or nil, m.raid or nil, Str(m.boss), Str(m.inst)
-    if m.n then e.grp, e.n = true, m.n end
-  elseif k == "quest" then
-    e.qid, e.ql, e.tag, e.title = m.qid, m.ql, QUEST_TAGS[m.tag] and m.tag or "hard", Str(m.title)
-  end
+  local fill = EntryFields[k]
+  if fill then fill(e, m) end
   if witnessed then e.id = H.WitnessID(m.who, e.item, m.t) end
   return e
 end
 
--- body (after "H;") -> entry, or nil when malformed or not allowed from this sender
 function H.Decode(sender, body)
   local code, m = ch:Decode(sender, body)
   if not code then return end
   return ToEntry(sender, code, m)
 end
 
----------------------------------------------------------------------------
--- Outbox
----------------------------------------------------------------------------
-H.inflight = {} -- [id] = true while queued in the lane or waiting for the echo (session only)
+H.inflight = {}
 
 local function Delay(rank) return 10 + (rank or 0) * 45 + math.random() * 20 end
 
--- Hourly cap: past it, an entry stays local (no guild spam from a busy session).
 function H:CapOk()
   local now, log = GS:Now(), self.cdb.shareLog
   for i = #log, 1, -1 do if now - log[i] > 3600 then table.remove(log, i) end end
@@ -148,7 +138,6 @@ function H:Share(e, opts)
   self:SchedulePump(1)
 end
 
--- Still worth a message? (re-checked right before sending)
 function H:StillWanted(e)
   if e.k == "loot" and e.by then
     return not (self:LootReportedByOthers(e) or GS:IsPeer(e.who))
@@ -177,49 +166,64 @@ function H:Send(e, o)
     elseif status == "lost" then
       box.tries = (box.tries or 0) + 1
       box.nb = GS:Now() + self.RETRY_AFTER
-      if box.tries >= self.MAX_TRIES then box.hold = true end -- rest until the next login
-    else -- "dropped": never sent (instance, combat, queue full …) – not a try
+      if box.tries >= self.MAX_TRIES then box.hold = true end
+    else
       box.nb = GS:Now() + 60
     end
     self:SchedulePump(5)
   end })
 end
 
+local function CollectDue(self, now, gkey)
+  local due, pending = {}, false
+  for id, o in pairs(self.cdb.outbox) do
+    if type(o) ~= "table" or now - (o.t or 0) > self.OUTBOX_MAX_AGE then
+      self.cdb.outbox[id] = nil
+    elseif o.g == gkey and self.inflight[id] then
+      pending = true
+    elseif o.g == gkey and not o.hold then
+      if now >= (o.nb or 0) then due[#due + 1] = id else pending = true end
+    end
+  end
+  return due, pending
+end
+
+local function SendDue(self, due, idx)
+  local outbox = self.cdb.outbox
+  table.sort(due, function(a, b) return (outbox[a].t or 0) < (outbox[b].t or 0) end)
+  local sent = false
+  for _, id in ipairs(due) do
+    local e = idx[id]
+    if e and self:StillWanted(e) then
+      self:Send(e, outbox[id])
+      sent = true
+    else
+      outbox[id] = nil
+    end
+  end
+  return sent
+end
+
+local function PumpDue(self)
+  local now, gkey = GS:Now(), self:GuildKey()
+  local _, idx = self:Log(gkey)
+  local due, pending = CollectDue(self, now, gkey)
+  local sent = SendDue(self, due, idx)
+  return pending or sent
+end
+
+local function HasUnheldOutbox(self)
+  for _, o in pairs(self.cdb.outbox) do if type(o) == "table" and not o.hold then return true end end
+  return false
+end
+
 function H:OutboxPump()
   if not (self.db and self:Settings().share) then return end
-  local any = false
-  if GS:CanSend() then
-    local now, gkey = GS:Now(), self:GuildKey()
-    local _, idx = self:Log(gkey)
-    local due = {}
-    for id, o in pairs(self.cdb.outbox) do
-      if type(o) ~= "table" or now - (o.t or 0) > self.OUTBOX_MAX_AGE then
-        self.cdb.outbox[id] = nil
-      elseif o.g == gkey and not o.hold and not self.inflight[id] then
-        if now >= (o.nb or 0) then due[#due + 1] = id else any = true end
-      elseif o.g == gkey and self.inflight[id] then
-        any = true
-      end
-    end
-    table.sort(due, function(a, b) return (self.cdb.outbox[a].t or 0) < (self.cdb.outbox[b].t or 0) end)
-    for _, id in ipairs(due) do
-      local e = idx[id]
-      if not e then
-        self.cdb.outbox[id] = nil
-      elseif not self:StillWanted(e) then
-        self.cdb.outbox[id] = nil
-      else
-        self:Send(e, self.cdb.outbox[id])
-        any = true
-      end
-    end
-  else
-    for _, o in pairs(self.cdb.outbox) do if type(o) == "table" and not o.hold then any = true break end end
-  end
+  local any
+  if GS:CanSend() then any = PumpDue(self) else any = HasUnheldOutbox(self) end
   if any then self:SchedulePump(self.PUMP_EVERY) end
 end
 
--- One pending pump; an earlier request replaces a later one (stale timers see a different pumpAt and skip).
 function H:SchedulePump(delay)
   delay = delay or self.PUMP_EVERY
   local at = GetTime() + delay
@@ -232,7 +236,6 @@ function H:SchedulePump(delay)
   end)
 end
 
--- Left an instance: group events wait their election delay from now; the rest go out after a short pause.
 function H:OnLeftInstance()
   local now = GS:Now()
   for _, o in pairs(self.cdb.outbox) do
@@ -243,7 +246,6 @@ function H:OnLeftInstance()
   self:SchedulePump(5)
 end
 
--- A new session: every waiting entry gets fresh tries.
 function H:OnLoginOutbox()
   for _, o in pairs(self.cdb.outbox) do
     if type(o) == "table" then o.tries, o.hold = nil, nil end
@@ -260,7 +262,7 @@ for code in pairs(CODE_KIND) do
       H.db.diag.badMsg = (H.db.diag.badMsg or 0) + 1
       return
     end
-    if e.by and GS:IsGuildMember(e.who) ~= true then return end -- witnessed loot only about known guildies
+    if e.by and GS:IsGuildMember(e.who) ~= true then return end
     if not H:Admit(sender, GetTime()) then return end
     H:Add(e, "wire")
   end)

@@ -2,12 +2,9 @@ local ADDON, ns = ...
 local GCA = ns.GCA
 local L = ns.L
 local RQ = RavenquillExpedition
-local priv = GCA.priv
-local Print, IsSecret, SafeCall = priv.Print, priv.IsSecret, priv.SafeCall
+local IsSecret, SafeCall = GCA.IsSecret, GCA.SafeCall
+local function Print(...) GCA:Print(...) end
 
----------------------------------------------------------------------------
--- Gear capture
----------------------------------------------------------------------------
 function GCA:ReadUnitItems(unit, into)
   local got = 0
   for slot = 1, 19 do
@@ -22,12 +19,10 @@ end
 
 function GCA:Now() return RQ:Now() end
 
--- The 17 slots that are compared and synced (no shirt 4, no tabard 19).
 GCA.SYNC_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 }
 GCA.IS_SYNC_SLOT = {}
 for _, s in ipairs(GCA.SYNC_SLOTS) do GCA.IS_SYNC_SLOT[s] = true end
 
--- Split on ":" keeping empty fields (string.gmatch with empty matches differs between Lua 5.1 and 5.4).
 local function SplitColon(s)
   local out, pos = {}, 1
   while true do
@@ -39,7 +34,6 @@ local function SplitColon(s)
 end
 GCA.SplitColon = SplitColon
 
--- Fields of the item string after "item:" (works for full hyperlinks and bare "item:..." strings).
 function GCA:ParseLink(link)
   if type(link) ~= "string" then return end
   local s = link:match("item:([^|%[%]]+)")
@@ -47,8 +41,6 @@ function GCA:ParseLink(link)
   return SplitColon(s)
 end
 
--- Item string with the VIEWER's fields blanked (9 = link level, 10 = spec; they hold the level of
--- whoever looked, not the wearer: plan rev 4 B1b) and trailing empty fields trimmed.
 function GCA:NormItem(link)
   local f = self:ParseLink(link)
   if not f then return end
@@ -59,7 +51,6 @@ function GCA:NormItem(link)
   return table.concat(f, ":")
 end
 
--- Fingerprint of a gear set over the 17 synced slots.
 function GCA:GearSignature(items)
   local parts = {}
   for _, slot in ipairs(self.SYNC_SLOTS) do
@@ -75,8 +66,6 @@ local function CountSync(self, items)
   return n
 end
 
--- True when `fresh` read fewer slots than `old` and every slot it did read is identical:
--- an incomplete read, not a gear change.
 function GCA:IsPartialRead(old, fresh)
   if not old then return false end
   if CountSync(self, fresh) >= CountSync(self, old) then return false end
@@ -87,8 +76,6 @@ function GCA:IsPartialRead(old, fresh)
   return true
 end
 
--- Stores a gear record for `key`. Returns changed (true only for a real gear change).
--- Unchanged gear only refreshes time/level/class; ts, source and from stay.
 function GCA:StoreRecord(key, class, level, items, source)
   if not key then return false end
   local m = self.db.members[key]
@@ -105,7 +92,6 @@ function GCA:StoreRecord(key, class, level, items, source)
     m.source = source
     m.from = nil
   else
-    -- same gear: keep the record, but take fresh real hyperlinks for slots we read
     if m.items then
       for slot, link in pairs(items) do
         if self:NormItem(link) == self:NormItem(m.items[slot]) then m.items[slot] = link end
@@ -115,7 +101,7 @@ function GCA:StoreRecord(key, class, level, items, source)
     if not m.source then m.source = source end
   end
   self.db.members[key] = m
-  self:ClearWornCrafted(key, m.items) -- a "crafted" mark ends once a record shows it worn
+  self:ClearWornCrafted(key, m.items)
   return changed
 end
 
@@ -127,7 +113,6 @@ local function UnitClassLevel(unit)
   return class, level
 end
 
--- Returns key, changed
 function GCA:StoreMember(unit, items, source)
   local key = RQ:UnitKey(unit)
   if not key then return end
@@ -165,10 +150,6 @@ function GCA:UnitFromGUID(guid)
   end
 end
 
--- INSPECT_READY fires both for our own requests and when you inspect someone
--- with the normal UI. Item links can arrive in pieces, so read a few times.
--- Inspect generation: bumped on every INSPECT_READY and every NotifyInspect (ours or the default UI's), so
--- delayed talent reads of an older inspect can tell that the client's inspect data may be someone else's now.
 GCA.inspectGen = 0
 function GCA:OnNotifyInspect(unit)
   self.inspectGen = self.inspectGen + 1
@@ -181,13 +162,10 @@ function GCA:OnInspectReady(guid)
   self.inspectGen = self.inspectGen + 1
   self.inspectGUID = (guid and not IsSecret(guid)) and guid or nil
   local gen = self.inspectGen
-  -- our queued inspect got its answer; the queue now waits for the final read below (InspectDone)
   if self.inspecting and self.inspecting == guid then self.inspectAnswered = guid end
   local unit = self:UnitFromGUID(guid)
   if unit and SafeCall(UnitIsPlayer, unit) and not SafeCall(UnitIsUnit, unit, "player")
      and (not self.db.settings.guildOnly or self:IsGuildmate(unit)) then
-    -- Who it is is fixed on the first pass; later passes only add items. Only the final pass
-    -- stores, and it stores what was collected even if the unit token is gone by then.
     local fresh = {}
     local key = RQ:UnitKey(unit)
     local class, level = UnitClassLevel(unit)
@@ -200,7 +178,6 @@ function GCA:OnInspectReady(guid)
     read()
     C_Timer.After(0.5, read)
     C_Timer.After(GCA.INSPECT_FINAL_READ, function()
-      -- under RQ:Call: an error here reaches BugSack, and the queue still moves on below
       RQ:Call(function()
         read()
         if not next(fresh) then return end
@@ -213,7 +190,6 @@ function GCA:OnInspectReady(guid)
         end
         self:Invalidate()
       end)
-      -- only now may the next NotifyInspect go out (it would replace this unit's inspect data)
       self:InspectDone(guid)
     end)
     return
@@ -221,12 +197,7 @@ function GCA:OnInspectReady(guid)
   self:InspectDone(guid)
 end
 
----------------------------------------------------------------------------
--- Inspect queue (for "Inspect target", "Scan group" and auto-inspect)
----------------------------------------------------------------------------
 GCA.queue, GCA.lastInspect = {}, {}
--- timings: final storing read after INSPECT_READY; no answer within NO_ANSWER s -> next; HARD_LIMIT s
--- after NotifyInspect the queue moves on whatever happened (a lost timer or an error can't hang it).
 GCA.INSPECT_FINAL_READ, GCA.INSPECT_NO_ANSWER, GCA.INSPECT_HARD_LIMIT, GCA.INSPECT_GAP = 1.5, 3, 8, 1
 GCA.inspectToken = 0
 
@@ -256,14 +227,12 @@ function GCA:ProcessQueue()
       local token = self.inspectToken
       self.lastInspect[guid] = GetTime()
       SafeCall(NotifyInspect, unit)
-      -- no answer (out of range?): move on; an answered inspect waits for its final read instead
       C_Timer.After(self.INSPECT_NO_ANSWER, function()
         if self.inspectToken == token and self.inspecting == guid and self.inspectAnswered ~= guid then
           self.inspecting = nil
           self:ProcessQueue()
         end
       end)
-      -- safety net: never stuck on one inspect
       C_Timer.After(self.INSPECT_HARD_LIMIT, function()
         if self.inspectToken == token and self.inspecting == guid then
           self.inspecting = nil
@@ -310,46 +279,56 @@ function GCA:ScanGroup()
   Print(n > 0 and string.format(L.MSG_QUEUED, n) or L.MSG_NONE_IN_GROUP)
 end
 
----------------------------------------------------------------------------
--- K5: automatic gear reading (replaces the "Inspect target" / "Scan group" buttons; the slash commands stay).
--- Group members (GROUP_ROSTER_UPDATE, debounced) and guildies under the mouse (UPDATE_MOUSEOVER_UNIT, low
--- priority: only while the queue is idle, at most one per AUTO_MOUSEOVER_GAP s) go through the same inspect
--- queue (one at a time). Rules for every automatic read (AutoInspectCheck):
---   setting "autoInspect" on; not in combat (a group scan asked for in combat runs at PLAYER_REGEN_ENABLED);
---   the default inspect window is not open (never take the user's inspect data away); a player, not you, a
---   guildmate; CanInspect true; not out of range (CheckInteractDistance(unit, 1), pcall'd as Overlord
---   RankProof.lua:1442-1444 does on Forever: only a plain `false` counts, an error / secret / nil doesn't);
---   no gear record younger than AUTO_FRESH s (db.members[key].time = when we last stored or received it);
---   not tried within AUTO_RETRY s (lastInspect, also set for attempts that got no answer); not queued already.
----------------------------------------------------------------------------
 GCA.AUTO_FRESH, GCA.AUTO_RETRY, GCA.AUTO_GROUP_DELAY, GCA.AUTO_MOUSEOVER_GAP = 1800, 600, 2, 10
 
-function GCA:AutoInspectCheck(unit)
+local function AutoInspectOff(self)
   local s = self.db and self.db.settings
-  if not (s and s.autoInspect) then return false, "off" end
-  if InCombatLockdown() then return false, "combat" end
-  if InspectFrame and SafeCall(InspectFrame.IsShown, InspectFrame) then return false, "inspectframe" end
-  if not SafeCall(UnitIsPlayer, unit) or SafeCall(UnitIsUnit, unit, "player") then return false, "unit" end
-  if not self:IsGuildmate(unit) then return false, "guild" end
+  if not (s and s.autoInspect) then return "off" end
+  if InCombatLockdown() then return "combat" end
+  if InspectFrame and SafeCall(InspectFrame.IsShown, InspectFrame) then return "inspectframe" end
+end
+
+local function OutOfInspectRange(unit)
+  if type(CheckInteractDistance) ~= "function" then return false end
+  local ok, near = pcall(CheckInteractDistance, unit, 1)
+  return ok and not IsSecret(near) and near == false
+end
+
+local function UnitNotInspectable(self, unit)
+  if not SafeCall(UnitIsPlayer, unit) or SafeCall(UnitIsUnit, unit, "player") then return "unit" end
+  if not self:IsGuildmate(unit) then return "guild" end
   local can = SafeCall(CanInspect, unit)
-  if not can or IsSecret(can) then return false, "caninspect" end
-  if type(CheckInteractDistance) == "function" then
-    local ok, near = pcall(CheckInteractDistance, unit, 1)
-    if ok and not IsSecret(near) and near == false then return false, "range" end
+  if not can or IsSecret(can) then return "caninspect" end
+  if OutOfInspectRange(unit) then return "range" end
+end
+
+local function InspectPending(self, guid)
+  if self.inspecting == guid then return true end
+  for _, g in ipairs(self.queue) do
+    if g == guid then return true end
   end
-  local guid = SafeCall(UnitGUID, unit)
-  if not guid or IsSecret(guid) then return false, "unit" end
+  return false
+end
+
+local function ReadRecently(self, unit, guid)
   local key = RQ:UnitKey(unit)
   local m = key and self.db.members[key]
-  if m and type(m.time) == "number" and time() - m.time < self.AUTO_FRESH then return false, "fresh" end
+  if m and type(m.time) == "number" and time() - m.time < self.AUTO_FRESH then return "fresh" end
   local last = self.lastInspect[guid]
-  if last and GetTime() - last < self.AUTO_RETRY then return false, "recent" end
-  if self.inspecting == guid then return false, "queued" end
-  for _, g in ipairs(self.queue) do if g == guid then return false, "queued" end end
+  if last and GetTime() - last < self.AUTO_RETRY then return "recent" end
+  if InspectPending(self, guid) then return "queued" end
+end
+
+function GCA:AutoInspectCheck(unit)
+  local why = AutoInspectOff(self) or UnitNotInspectable(self, unit)
+  if why then return false, why end
+  local guid = SafeCall(UnitGUID, unit)
+  if not guid or IsSecret(guid) then return false, "unit" end
+  why = ReadRecently(self, unit, guid)
+  if why then return false, why end
   return true, guid
 end
 
--- Party/raid members that pass the rules go into the queue. In combat: remembered and run after combat.
 function GCA:AutoScanGroup()
   local s = self.db and self.db.settings
   if not (s and s.autoInspect) then return 0 end
@@ -370,7 +349,7 @@ end
 function GCA:AutoMouseover()
   local s = self.db and self.db.settings
   if not (s and s.autoInspect) then return false end
-  if self.inspecting or #self.queue > 0 then return false end -- low priority: only while idle
+  if self.inspecting or #self.queue > 0 then return false end
   local t = GetTime()
   if self.lastAutoMouseover and t - self.lastAutoMouseover < self.AUTO_MOUSEOVER_GAP then return false end
   if not self:AutoInspectCheck("mouseover") then return false end

@@ -1,5 +1,3 @@
--- Ravenquill Expedition: Highlights – a simple log window (/rq hl). Newest at the bottom, item links clickable.
--- Native template in pcall with a plain fallback (the pattern GuildCraftAdvisor uses on Forever).
 local ADDON, ns = ...
 local GS = RavenquillExpedition
 local H = ns.H
@@ -32,7 +30,7 @@ local function CreateWindow()
   if native then
     if ButtonFrameTemplate_HidePortrait then pcall(ButtonFrameTemplate_HidePortrait, f) end
     if ButtonFrameTemplate_HideButtonBar then pcall(ButtonFrameTemplate_HideButtonBar, f) end
-    if f.CloseButton then f.CloseButton:SetScript("OnClick", function() f:Hide() end) end -- also works in combat
+    if f.CloseButton then f.CloseButton:SetScript("OnClick", function() f:Hide() end) end
   end
   if f.SetTitle then
     pcall(f.SetTitle, f, L.TITLE)
@@ -79,7 +77,6 @@ local function CreateWindow()
   footer:SetJustifyH("LEFT")
   f.footer = footer
 
-  -- "Nur Highlights": hide the plain activity (same setting as in the options)
   local cb = CreateFrame("CheckButton", nil, f)
   cb:SetSize(22, 22)
   cb:SetPoint("BOTTOMRIGHT", -130, 6)
@@ -101,11 +98,10 @@ local function CreateWindow()
   return f
 end
 
-local SHOW_MAX = 1500 -- lines handed to the frame (the newest)
-local HL_MARK = "|cffffd100»|r "  -- a highlight (shared ones and guildies')
-local ACT_MARK = "|cff555555·|r "  -- plain activity (only mine, never sent)
+local SHOW_MAX = 1500
+local HL_MARK = "|cffffd100»|r "
+local ACT_MARK = "|cff555555·|r "
 
--- highlights + (unless "only highlights") this character's activity, merged by time
 function H:LogLines()
   local events = self:Log()
   local act = (not self:Settings().logOnlyHighlights and self.cdb and self.cdb.activity) or {}
@@ -118,6 +114,24 @@ function H:LogLines()
   return out, #events, #act
 end
 
+local function AddDayHeader(m, e, lastDay)
+  local day = date("%Y-%m-%d", e.t)
+  if day == lastDay then return lastDay end
+  m:AddMessage(" ")
+  m:AddMessage(date(L.FMT_DAY, e.t), 1, 0.82, 0)
+  return day
+end
+
+local function AddEventLine(self, m, e)
+  local line = "|cff888888" .. date("%H:%M", e.t) .. "|r  " .. (e.act and ACT_MARK or HL_MARK) .. self:Format(e)
+  if e.act then m:AddMessage(line, 0.75, 0.75, 0.75) else m:AddMessage(line) end
+end
+
+local function FooterText(self, nHL, nAct)
+  return L.FOOTER:format(nHL, self:Settings().share and L.ON or L.OFF)
+    .. (nAct > 0 and ("  ·  " .. L.FOOTER_ACT:format(nAct)) or "") .. "  ·  " .. (GS:GuildKey() or L.NO_GUILD)
+end
+
 function H:Refresh()
   if not (win and win:IsShown() and self.db) then return end
   local list, nHL, nAct = self:LogLines()
@@ -128,21 +142,13 @@ function H:Refresh()
   local lastDay
   for k = math.max(1, #list - SHOW_MAX + 1), #list do
     local e = list[k]
-    local day = date("%Y-%m-%d", e.t)
-    if day ~= lastDay then
-      m:AddMessage(" ")
-      m:AddMessage(date(L.FMT_DAY, e.t), 1, 0.82, 0)
-      lastDay = day
-    end
-    local line = "|cff888888" .. date("%H:%M", e.t) .. "|r  " .. (e.act and ACT_MARK or HL_MARK) .. self:Format(e)
-    if e.act then m:AddMessage(line, 0.75, 0.75, 0.75) else m:AddMessage(line) end
+    lastDay = AddDayHeader(m, e, lastDay)
+    AddEventLine(self, m, e)
   end
   m:ScrollToBottom()
-  win.footer:SetText(L.FOOTER:format(nHL, self:Settings().share and L.ON or L.OFF)
-    .. (nAct > 0 and ("  ·  " .. L.FOOTER_ACT:format(nAct)) or "") .. "  ·  " .. (GS:GuildKey() or L.NO_GUILD))
+  win.footer:SetText(FooterText(self, nHL, nAct))
 end
 
--- many loot lines in a row: redraw once
 function H:RefreshSoon()
   if self.refreshArmed or not (win and win:IsShown()) then return end
   self.refreshArmed = true
