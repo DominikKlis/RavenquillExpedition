@@ -1,7 +1,6 @@
 local ADDON, ns = ...
 local GS = RavenquillExpedition
 local H = ns.H
-local Plain = GS.Plain
 
 local KIND_CODE = { gear = "g", loot = "l", boss = "b", quest = "q", level = "v" }
 local CODE_KIND = {}
@@ -12,9 +11,6 @@ local QUEST_TAGS = { elite = true, group = true, dungeon = true, raid = true, re
 H.PUMP_EVERY = 15
 H.RETRY_AFTER = 600
 H.MAX_TRIES = 3
-
-local function Clean(s, n) return GS.Wire.Clean(Plain(s, "string"), n) end
-H.Clean = Clean
 
 local ch = H:NewChannel({ tag = "H", version = 1 })
 H.channel = ch
@@ -152,7 +148,7 @@ function H:StillWanted(e)
   return true
 end
 
-function H:Send(e, o)
+function H:Send(e)
   local code, m = ToMessage(e)
   if not code or not ch:Encode(code, m) then self.cdb.outbox[e.id] = nil return end
   local id = e.id
@@ -195,7 +191,7 @@ local function SendDue(self, due, idx)
   for _, id in ipairs(due) do
     local e = idx[id]
     if e and self:StillWanted(e) then
-      self:Send(e, outbox[id])
+      self:Send(e)
       sent = true
     else
       outbox[id] = nil

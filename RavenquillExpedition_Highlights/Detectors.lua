@@ -48,7 +48,6 @@ local function ItemFacts(link)
   if not f.ready and f.id and C_Item and C_Item.RequestLoadItemDataByID then SafeCall(C_Item.RequestLoadItemDataByID, f.id) end
   return f
 end
-H.ItemFacts = ItemFacts
 
 local function Diag(event, ...)
   local d = H.db and H.db.diag
@@ -309,7 +308,6 @@ do
     if tagID and tagID == T.Group then return "group" end
   end
 end
-H.QuestTag = QuestTag
 
 local OnQuestTurnedIn
 do
@@ -497,7 +495,3 @@ function H:OnLogin()
   wasInInstance = GS:InInstance()
   self:OnLoginOutbox()
 end
-
-H._test = { ItemFacts = ItemFacts, OnEquipmentChanged = OnEquipmentChanged, TakeSnapshot = TakeSnapshot, OnKill = OnKill,
-  OnQuestTurnedIn = OnQuestTurnedIn, ScanQuestLog = ScanQuestLog, OnLevelUp = OnLevelUp, OnLoot = OnLoot,
-  qcache = qcache, LootPatterns = LootPatterns }

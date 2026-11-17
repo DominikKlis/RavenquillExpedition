@@ -238,6 +238,8 @@ check(count() == 1, "a sword that was in the bags at install is not logged (revi
 equip(1, 103); advance(2)
 check(count() == 2 and last().q == 4, "first epic in a slot logged even with a tiny gain")
 check(lastPrinted():find("Epischer Helm", 1, true), "epic gear is printed in chat")
+local chatHead = "|cff33ff99Ravenquill Expedition|r |cffbbbbbbGilden-Highlights|r: "
+check(lastPrinted():sub(1, #chatHead) == chatHead, "highlight chat lines start with the suite and module title")
 G.items[301].unloaded = true
 equip(17, 301); advance(1)
 check(count() == 2, "unloaded item waits")

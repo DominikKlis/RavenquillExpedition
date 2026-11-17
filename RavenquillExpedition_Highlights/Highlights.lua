@@ -44,9 +44,6 @@ H.migrations = {
   end,
 }
 
-local function Print(...) GS.Print(L.TITLE, ...) end
-H.Print = Print
-
 local function Table(t) return type(t) == "table" and t or {} end
 
 function H:OnLoad()
@@ -324,10 +321,10 @@ function H:Announce(e)
   if not self:ShouldPrint(e) then return end
   if e.item and not Plain(e.link, "string") and not self:ItemCached(e.item) then
     if C_Item and C_Item.RequestLoadItemDataByID then SafeCall(C_Item.RequestLoadItemDataByID, e.item) end
-    C_Timer.After(2, function() GS:Call(function() Print(self:Format(e)) end) end)
+    C_Timer.After(2, function() GS:Call(function() self:Print(self:Format(e)) end) end)
     return
   end
-  Print(self:Format(e))
+  self:Print(self:Format(e))
 end
 
 function H.TimeText(t) return date(L.FMT_TIME, t) end
@@ -393,8 +390,8 @@ H.options = {
   { type = "header", label = L.OPT_LOG_H },
   { type = "toggle", label = L.OPT_ONLY_HL, tooltip = L.OPT_ONLY_HL_TIP, get = Getter("logOnlyHighlights"), set = Setter("logOnlyHighlights") },
   { type = "button", label = L.OPT_OPEN_LOG, func = function() H:Open() end },
-  { type = "button", label = L.OPT_TEST, tooltip = L.OPT_TEST_TIP, func = function() Print(L.TEST_ADDED:format(H:AddTests())) end },
-  { type = "button", label = L.OPT_CLEARTEST, func = function() Print(L.TEST_CLEARED:format(H:ClearTests())) end },
+  { type = "button", label = L.OPT_TEST, tooltip = L.OPT_TEST_TIP, func = function() H:Print(L.TEST_ADDED:format(H:AddTests())) end },
+  { type = "button", label = L.OPT_CLEARTEST, func = function() H:Print(L.TEST_CLEARED:format(H:ClearTests())) end },
   { type = "text", label = L.OPT_DIAG, tooltip = L.OPT_DIAG_TIP, lines = function() return H:DiagLines() end },
 }
 
