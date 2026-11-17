@@ -2,12 +2,12 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 local P = UI.P
+local Label = P.Label
 local G, MIN_W, MIN_H = P.G, P.MIN_W, P.MIN_H
 local LEFT_W, RIGHT_X, RightW = P.LEFT_W, P.RIGHT_X, P.RightW
 local PANEL_TOP, PANEL_BOTTOM, DETAIL_HEAD = P.PANEL_TOP, P.PANEL_BOTTOM, P.DETAIL_HEAD
 local MEMBER_ROW_H = P.MEMBER_ROW_H
 local MEMBER_LIST_TOP, COUNT_H, C, SUB_TINT = P.MEMBER_LIST_TOP, P.COUNT_H, P.C, P.SUB_TINT
-local SingleLine = P.SingleLine
 local Guard = P.Guard
 local ProfName = P.ProfName
 local NewInset, RaiseInsetBorder = P.NewInset, P.RaiseInsetBorder
@@ -304,12 +304,10 @@ function Build.SearchAndFilter(inset, f, label, tip, onChange)
 end
 
 function Build.NeedsCount(ni)
-  local fs = ni:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  local fs = Label(ni, "GameFontHighlightSmall")
   fs:SetPoint("BOTTOMLEFT", ni, "BOTTOMLEFT", 10, 6)
   fs:SetWidth(LEFT_W - 20)
-  fs:SetJustifyH("LEFT")
   fs:SetTextColor(SUB_TINT[1], SUB_TINT[2], SUB_TINT[3])
-  SingleLine(fs)
   return fs
 end
 
@@ -346,10 +344,8 @@ function Build.MemberListPanel(self, f, mv, painted, listH)
 end
 
 function Build.LeftText(md, template, x, y)
-  local fs = md:CreateFontString(nil, "OVERLAY", template)
+  local fs = Label(md, template)
   fs:SetPoint("TOPLEFT", md, "TOPLEFT", x, y)
-  fs:SetJustifyH("LEFT")
-  SingleLine(fs)
   return fs
 end
 

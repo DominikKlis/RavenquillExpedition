@@ -2,6 +2,7 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 local P = UI.P
+local Label = P.Label
 local C, SUB_TINT, SetAtlasSafe, TexOK = P.C, P.SUB_TINT, P.SetAtlasSafe, P.TexOK
 local SingleLine, SetTip, ColoredItemName = P.SingleLine, P.SetTip, P.ColoredItemName
 local RowGainText, ShortSlotName = P.RowGainText, P.ShortSlotName
@@ -98,21 +99,15 @@ local function CreateSheetCard(parent, best)
   k.isBest = best
   AddQualityIcon(k, 36, "LEFT", k, "LEFT", 4, 0)
   local right = best and -(SHEET_GAIN_W + 12) or -8
-  k.name = k:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  k.name = Label(k, "GameFontNormal")
   k.name:SetPoint("TOPLEFT", k.qual, "TOPRIGHT", 8, -3)
   k.name:SetPoint("RIGHT", k, "RIGHT", right, 0)
-  k.name:SetJustifyH("LEFT")
-  SingleLine(k.name)
-  k.label = k:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  k.label = Label(k, "GameFontDisableSmall")
   k.label:SetPoint("BOTTOMLEFT", k.qual, "BOTTOMRIGHT", 8, 4)
-  k.label:SetJustifyH("LEFT")
-  SingleLine(k.label)
-  k.score = k:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  k.score = Label(k, "GameFontHighlightSmall")
   k.score:SetPoint("LEFT", k.label, "RIGHT", 8, 0)
   k.score:SetPoint("RIGHT", k, "RIGHT", right, 0)
-  k.score:SetJustifyH("LEFT")
   k.score:SetTextColor(SUB_TINT[1], SUB_TINT[2], SUB_TINT[3])
-  SingleLine(k.score)
   function k:FitLabel()
     self.label:SetWidth(math.min(TextWidth(self.label) + 2, 160))
   end
@@ -154,10 +149,8 @@ local function CreateSheetAlt(parent)
   r.hl:SetAllPoints()
   UI.Skin(r.hl, "rowHover")
   AddQualityIcon(r, 20, "LEFT", r, "LEFT", 3, 0)
-  r.name = r:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  r.name = Label(r, "GameFontNormal")
   r.name:SetPoint("LEFT", r.qual, "RIGHT", 8, 0)
-  r.name:SetJustifyH("LEFT")
-  SingleLine(r.name)
   r.offer = CreateOfferButton(r)
   r.gain = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   r.gain:SetWidth(90)
@@ -233,13 +226,9 @@ local function CreateSheet(parent)
   end
   local c = CreateFrame("Frame", nil, sh)
   sh.centre = c
-  c.header = c:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  c.header:SetJustifyH("LEFT")
-  SingleLine(c.header)
-  c.count = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  c.count:SetJustifyH("LEFT")
+  c.header = Label(c, "GameFontNormal")
+  c.count = Label(c, "GameFontHighlightSmall")
   c.count:SetTextColor(SUB_TINT[1], SUB_TINT[2], SUB_TINT[3])
-  SingleLine(c.count)
   c.sepTop = c:CreateTexture(nil, "ARTWORK")
   c.sepTop:SetHeight(1)
   UI.Skin(c.sepTop, "separator")
@@ -260,29 +249,21 @@ local function CreateSheet(parent)
   end
   c.stats = {}
   for i = 1, 6 do
-    local fs = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    fs:SetJustifyH("LEFT")
-    SingleLine(fs)
+    local fs = Label(c, "GameFontHighlightSmall")
     c.stats[i] = fs
   end
-  c.tags = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  c.tags:SetJustifyH("LEFT")
+  c.tags = Label(c, "GameFontHighlightSmall")
   c.tags:SetTextColor(SUB_TINT[1], SUB_TINT[2], SUB_TINT[3])
-  SingleLine(c.tags)
   c.source = UI.CreateLearnButton(c)
   c.offer = P.CreateOfferTextButton(c, c.best, SHEET_OFFER_W)
   c.crafted = CreateCraftedBox(c, c.best)
-  c.craftedLabel = c:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  c.craftedLabel:SetJustifyH("LEFT")
-  SingleLine(c.craftedLabel)
+  c.craftedLabel = Label(c, "GameFontHighlightSmall")
   c.none = c:CreateFontString(nil, "OVERLAY", "GameFontDisable")
   c.none:SetJustifyH("LEFT")
   c.sep = c:CreateTexture(nil, "ARTWORK")
   c.sep:SetHeight(1)
   UI.Skin(c.sep, "separator")
-  c.moreTitle = c:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  c.moreTitle:SetJustifyH("LEFT")
-  SingleLine(c.moreTitle)
+  c.moreTitle = Label(c, "GameFontNormalSmall")
   c.alts = {}
   function c:Alt(i)
     if not self.alts[i] then self.alts[i] = CreateSheetAlt(self) end

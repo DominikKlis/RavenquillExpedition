@@ -2,6 +2,7 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 local P = UI.P
+local Label = P.Label
 local SafeCall = P.SafeCall
 local NEED_SUB_H, C = P.NEED_SUB_H, P.C
 local FileOK, SingleLine, SetTip, SlotName = P.FileOK, P.SingleLine, P.SetTip, P.SlotName
@@ -112,11 +113,9 @@ local function CreateNeedMemberRow(parent)
   b.hl = b:CreateTexture(nil, "HIGHLIGHT")
   b.hl:SetAllPoints()
   b.hlKind = UI.Skin(b.hl, "rowHover")
-  b.name = b:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  b.name = Label(b, "GameFontHighlight")
   b.name:SetPoint("LEFT", b, "LEFT", NEED_SUB_X, 0)
   b.name:SetWidth(UI.NEED_MEMBER_W)
-  b.name:SetJustifyH("LEFT")
-  SingleLine(b.name)
   b.wornBtn = CreateFrame("Button", nil, b)
   b.wornBtn:SetSize(34, 34)
   b.wornBtn:SetPoint("LEFT", b, "LEFT", NEED_SUB_X + UI.NEED_MEMBER_W + 8, 0)
@@ -133,10 +132,8 @@ local function CreateNeedMemberRow(parent)
   b.wornBtn:SetScript("OnClick", function(self)
     if self.link and IsModifiedClick and IsModifiedClick("CHATLINK") then HandleModifiedItemClick(self.link) end
   end)
-  b.state = b:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  b.state = Label(b, "GameFontHighlight")
   b.state:SetPoint("LEFT", b.wornBtn, "RIGHT", 8, 0)
-  b.state:SetJustifyH("LEFT")
-  SingleLine(b.state)
   b.offer = P.CreateOfferButton(b)
   b.crafted = P.CreateCraftedBox(b, b)
   b.gain = b:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -273,10 +270,8 @@ end
 local CD_ICON = 46
 UI.CD_ICON = CD_ICON
 local function DetailTitle(parent, text)
-  local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  fs:SetJustifyH("LEFT")
+  local fs = Label(parent, "GameFontNormalSmall")
   fs:SetText(text)
-  SingleLine(fs)
   return fs
 end
 function UI.AddRoundIcon(f, size)
@@ -323,10 +318,8 @@ function UI.CreateCraftDetail(parent)
   p.name:SetPoint("TOPLEFT", ib, "TOPRIGHT", 12, -4)
   p.name:SetJustifyH("LEFT")
   SingleLine(p.name)
-  p.desc = p:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  p.desc = Label(p, "GameFontHighlight")
   p.desc:SetPoint("TOPLEFT", p.name, "BOTTOMLEFT", 0, -6)
-  p.desc:SetJustifyH("LEFT")
-  SingleLine(p.desc)
   p.learn = UI.CreateLearnButton(p)
   p.forTitle = DetailTitle(p, L.DETAIL_FOR)
   p.forTitle:SetPoint("TOPLEFT", p, "TOPLEFT", 18, -76)
@@ -369,9 +362,7 @@ function UI.CreateCraftDetail(parent)
     for _, a in ipairs(PIN) do
       if P.HasAtlas(a) and P.SetAtlasSafe(b.pin, a) then b.pinOK = true; break end
     end
-    local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    fs:SetJustifyH("LEFT")
-    SingleLine(fs)
+    local fs = Label(b, "GameFontHighlightSmall")
     b.text = fs
     b:SetScript("OnClick", function(self, button)
       local e = p.entry
@@ -419,10 +410,8 @@ local function ReagentRow(p, i)
   f = CreateFrame("Button", nil, p)
   f:SetSize(160, 40)
   AddQualityIcon(f, 36, "LEFT", f, "LEFT", 2, 0)
-  f.text = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  f.text = Label(f, "GameFontHighlight")
   f.text:SetPoint("LEFT", f.qual, "RIGHT", 10, 0)
-  f.text:SetJustifyH("LEFT")
-  SingleLine(f.text)
   SetTip(f, "reagent", function(self)
     if not self.itemID then return end
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")

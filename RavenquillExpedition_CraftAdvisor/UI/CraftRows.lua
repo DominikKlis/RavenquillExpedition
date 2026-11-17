@@ -2,6 +2,7 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 local P = UI.P
+local Label = P.Label
 local SUG_ROW_H, C, SUB_TINT, HasAtlas = P.SUG_ROW_H, P.C, P.SUB_TINT, P.HasAtlas
 local SetAtlasSafe, TexOK, SingleLine, SetTip = P.SetAtlasSafe, P.TexOK, P.SingleLine, P.SetTip
 local SlotName, QualityColor, ColoredItemName, FirstName = P.SlotName, P.QualityColor, P.ColoredItemName, P.FirstName
@@ -199,10 +200,8 @@ end
 function UI.CreateLearnButton(parent)
   local nl = CreateFrame("Button", nil, parent)
   nl:SetHeight(14)
-  nl.text = nl:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  nl.text = Label(nl, "GameFontNormalSmall")
   nl.text:SetPoint("LEFT", nl, "LEFT", 0, 0)
-  nl.text:SetJustifyH("LEFT")
-  SingleLine(nl.text)
   if nl.RegisterForClicks then nl:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
   SetTip(nl, "not learned", function(self) UI.NotLearnedTip(self, self.data, self.cur) end)
   nl:SetScript("OnLeave", function() GameTooltip_Hide() end)
@@ -239,13 +238,9 @@ local function CreateCardRow(parent)
   b.hl:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 0, 0)
   UI.Skin(b.hl, "rowHover")
   AddQualityIcon(b, CARD_ICON, "LEFT", b, "LEFT", CARD_INDENT + 4, 0)
-  b.title = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  b.title:SetJustifyH("LEFT")
-  SingleLine(b.title)
-  b.sub = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  b.sub:SetJustifyH("LEFT")
+  b.title = Label(b, "GameFontNormal")
+  b.sub = Label(b, "GameFontHighlightSmall")
   b.sub:SetTextColor(SUB_TINT[1], SUB_TINT[2], SUB_TINT[3])
-  SingleLine(b.sub)
   b.nl = UI.CreateLearnButton(b)
   if b.RegisterForClicks then b:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
   b.offer = P.CreateOfferTextButton(b, b, CARD_OFFER_W)

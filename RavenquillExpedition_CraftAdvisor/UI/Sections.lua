@@ -2,6 +2,7 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 local P = UI.P
+local Label = P.Label
 local SafeCall, C, SUB_TINT = P.SafeCall, P.C, P.SUB_TINT
 local SingleLine, SetTip, SlotName, SlotTexture = P.SingleLine, P.SetTip, P.SlotName, P.SlotTexture
 local ColoredItemName, ItemIcon, TextWidth = P.ColoredItemName, P.ItemIcon, P.TextWidth
@@ -58,10 +59,8 @@ local function CreateSectionRow(parent)
   b.hl:SetAllPoints()
   UI.Skin(b.hl, "rowHover")
   AddQualityIcon(box, WORN_ICON, "LEFT", box, "LEFT", 8, 0)
-  b.wornName = box:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  b.wornName = Label(box, "GameFontNormal")
   b.wornName:SetPoint("LEFT", box.qual, "RIGHT", 12, 0)
-  b.wornName:SetJustifyH("LEFT")
-  SingleLine(b.wornName)
   b.count = box:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   b.count:SetPoint("RIGHT", box, "RIGHT", -14, 0)
   b.count:SetJustifyH("RIGHT")

@@ -4,7 +4,7 @@ local UI = GCA.UI
 local P = UI.P
 local SafeCall, C, HasAtlas, SetAtlasSafe, TexOK = P.SafeCall, P.C, P.HasAtlas, P.SetAtlasSafe, P.TexOK
 local StatLabel, Backdrop = P.StatLabel, P.Backdrop
-local SetTip = P.SetTip
+local SetTip, SingleLine = P.SetTip, P.SingleLine
 
 local function AddBorder(f, r, g, b, a)
   local e = {}
@@ -53,6 +53,13 @@ local function OnItemClick(btn, ctxFn, primaryFn)
     end
     if primaryFn then primaryFn(d, cur, self) end
   end)
+end
+
+local function Label(parent, template)
+  local fs = parent:CreateFontString(nil, "OVERLAY", template)
+  fs:SetJustifyH("LEFT")
+  SingleLine(fs)
+  return fs
 end
 
 local FUTURE_ALPHA = 0.55
@@ -466,6 +473,7 @@ P.Dim = Dim
 P.GAIN_RGB = GAIN_RGB
 P.GainFont = GainFont
 P.KeepNativeHover = KeepNativeHover
+P.Label = Label
 P.LevelTag = LevelTag
 P.ModifiedDown = ModifiedDown
 P.NativeFont = NativeFont

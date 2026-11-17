@@ -2,7 +2,8 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 local P = UI.P
-local G, SetAtlasSafe, SingleLine, Guard, SetTip = P.G, P.SetAtlasSafe, P.SingleLine, P.Guard, P.SetTip
+local Label = P.Label
+local G, SetAtlasSafe, Guard, SetTip = P.G, P.SetAtlasSafe, P.Guard, P.SetTip
 local Backdrop = P.Backdrop
 
 local function NewEditBox(parent, width)
@@ -219,11 +220,9 @@ end
 local function CreateSurvivalSlider(parent)
   local holder = CreateFrame("Frame", nil, parent)
   holder:SetSize(UI.SLIDER_LABEL_W + 8 + UI.SLIDER_W, 22)
-  holder.label = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  holder.label = Label(holder, "GameFontHighlightSmall")
   holder.label:SetPoint("LEFT", 0, 0)
   holder.label:SetWidth(UI.SLIDER_LABEL_W)
-  holder.label:SetJustifyH("LEFT")
-  SingleLine(holder.label)
   local function label(v)
     local a, b = BonusStats()
     holder.label:SetText(string.format(L.SLIDER_LABEL, a, b, v))
