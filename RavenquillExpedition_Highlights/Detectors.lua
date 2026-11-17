@@ -434,9 +434,9 @@ do
 end
 
 local EVENTS = { "PLAYER_ENTERING_WORLD", "PLAYER_EQUIPMENT_CHANGED", "ENCOUNTER_END", "BOSS_KILL", "QUEST_LOG_UPDATE",
-  "QUEST_ACCEPTED", "QUEST_COMPLETE", "QUEST_TURNED_IN", "PLAYER_LEVEL_UP", "CHAT_MSG_LOOT", "GET_ITEM_INFO_RECEIVED",
+  "QUEST_ACCEPTED", "QUEST_COMPLETE", "QUEST_TURNED_IN", "PLAYER_LEVEL_UP", "CHAT_MSG_LOOT",
   "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "BANKFRAME_CLOSED" }
-local QUIET = { QUEST_LOG_UPDATE = true, GET_ITEM_INFO_RECEIVED = true, BAG_UPDATE_DELAYED = true }
+local QUIET = { QUEST_LOG_UPDATE = true, BAG_UPDATE_DELAYED = true }
 
 local armed = {}
 local function Soon(key, delay, fn)
@@ -473,10 +473,6 @@ do
     BAG_UPDATE_DELAYED = function() Soon("bags", 1, ScanBagsForEpics) end,
     BANKFRAME_OPENED = function() GS:Call(OnBankOpened) end,
     BANKFRAME_CLOSED = function() C_Timer.After(1, function() bankOpen = false end) end,
-    GET_ITEM_INFO_RECEIVED = function()
-      if not H.waitingItems then return end
-      Soon("refresh", 0.5, function() H.waitingItems = false; H:Refresh() end)
-    end,
   }
 
   OnEvent = function(event, ...)

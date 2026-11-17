@@ -111,7 +111,7 @@ function H.Decode(sender, body)
   return ToEntry(sender, code, m)
 end
 
-H.inflight = {}
+local inflight = {}
 
 local function Delay(rank) return 10 + (rank or 0) * 45 + math.random() * 20 end
 
@@ -147,13 +147,25 @@ function H:StillWanted(e)
   return true
 end
 
+function H:Supersede(r)
+  local me = GS:PlayerKey()
+  local events = self:Log()
+  for i = #events, 1, -1 do
+    local o = events[i]
+    if o.k == "boss" and o.grp and o.who == me and o.enc == r.enc and math.abs(o.t - r.t) <= self.BOSS_SAME
+      and self.cdb.outbox[o.id] and not inflight[o.id] then
+      self:Remove(o.id)
+    end
+  end
+end
+
 function H:Send(e)
   local code, m = ToMessage(e)
   if not code or not ch:Encode(code, m) then self.cdb.outbox[e.id] = nil return end
   local id = e.id
-  self.inflight[id] = true
+  inflight[id] = true
   ch:Send(code, m, { onResult = function(status)
-    self.inflight[id] = nil
+    inflight[id] = nil
     local box = self.cdb.outbox[id]
     if not box then return end
     if status == "delivered" then
@@ -174,7 +186,7 @@ local function CollectDue(self, now, gkey)
   for id, o in pairs(self.cdb.outbox) do
     if type(o) ~= "table" or now - (o.t or 0) > self.OUTBOX_MAX_AGE then
       self.cdb.outbox[id] = nil
-    elseif o.g == gkey and self.inflight[id] then
+    elseif o.g == gkey and inflight[id] then
       pending = true
     elseif o.g == gkey and not o.hold then
       if now >= (o.nb or 0) then due[#due + 1] = id else pending = true end

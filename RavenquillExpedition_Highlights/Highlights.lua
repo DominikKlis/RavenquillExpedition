@@ -192,18 +192,6 @@ function H:Prune(gkey)
   end
 end
 
-function H:Supersede(r)
-  local me = GS:PlayerKey()
-  local events = self:Log()
-  for i = #events, 1, -1 do
-    local o = events[i]
-    if o.k == "boss" and o.grp and o.who == me and o.enc == r.enc and math.abs(o.t - r.t) <= self.BOSS_SAME
-      and self.cdb.outbox[o.id] and not (self.inflight and self.inflight[o.id]) then
-      self:Remove(o.id)
-    end
-  end
-end
-
 H.ACTIVITY_MAX = 3000
 H.ACTIVITY_AGE = 30 * 86400
 function H:Activity(e)
@@ -257,6 +245,8 @@ function H:ItemCached(id)
   return name ~= nil
 end
 
+local waitingItems, itemRefreshArmed = false, false
+
 function H:ItemText(e)
   if Plain(e.link, "string") then return e.link end
   local id = e.item
@@ -265,10 +255,19 @@ function H:ItemText(e)
   link = Plain(link, "string")
   if link then return link end
   self.RequestItemData(id)
-  self.waitingItems = true
+  waitingItems = true
   local hex = QUALITY_HEX[e.q or 1] or "ffffff"
   return ("|cff%s[%s]|r"):format(hex, Plain(name, "string") or ("item:" .. id))
 end
+
+H:RegisterEvent("GET_ITEM_INFO_RECEIVED", function(self)
+  if not (self.db and waitingItems) or itemRefreshArmed then return end
+  itemRefreshArmed = true
+  C_Timer.After(0.5, function()
+    itemRefreshArmed = false
+    GS:Call(function() waitingItems = false; self:Refresh() end)
+  end)
+end)
 
 H.QUEST_TAGS = { elite = "TAG_ELITE", group = "TAG_GROUP", dungeon = "TAG_DUNGEON", raid = "TAG_RAID", red = "TAG_RED",
   hard = "TAG_HARD" }

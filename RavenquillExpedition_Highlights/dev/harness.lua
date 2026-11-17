@@ -650,6 +650,22 @@ do
   check(sendsOf(";Me Smith;90;") == 1, "turning sharing back on sends the waiting highlight right away")
 end
 
+do
+  H:ShowWindow()
+  G.items[309] = { name = "Spätes Schwert", q = 4, il = 50, unloaded = true }
+  recv("Dora Dunn", ("1;g;%d;951;Dora Dunn;33;5;309;50;4;40;16"):format(T()))
+  advance(1)
+  local waiting = lines[#lines] or ""
+  G.items[309].unloaded = nil
+  advance(5)
+  local quiet = lines[#lines] or ""
+  fire("GET_ITEM_INFO_RECEIVED", 309, true)
+  advance(1)
+  local arrived = lines[#lines] or ""
+  check(waiting:find("[item:309]", 1, true) and quiet == waiting and arrived:find("[Spätes Schwert]", 1, true),
+    "a received item without data shows its id, and its name once the item data arrives (" .. arrived .. ")")
+end
+
 local probe = GS:NewModule("Probe", { addon = "Probe" })
 local okDup, errDup = pcall(probe.NewChannel, probe, { tag = "H" })
 check(not okDup and tostring(errDup):find("already taken", 1, true), "a channel on Highlights' tag raises")
