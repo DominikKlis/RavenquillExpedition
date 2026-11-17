@@ -149,6 +149,13 @@ local function OnDragUpdate()
   UpdatePosition()
 end
 
+local function RightClickModule()
+  for _, name in ipairs(GS.moduleOrder) do
+    local m = GS.modules[name]
+    if m.loaded and m.launcherRightClick and m.Open then return m end
+  end
+end
+
 local function LauncherTooltip(tip)
   tip:AddLine(GS.OverviewL.TITLE)
   for _, name in ipairs(GS.moduleOrder) do
@@ -160,8 +167,7 @@ local function LauncherTooltip(tip)
   end
   tip:AddLine(" ")
   tip:AddLine(L.LEFT, 0.8, 0.8, 0.8)
-  local craft = GS:GetModule("Craft")
-  if craft and craft.loaded and craft.Open then tip:AddLine(L.RIGHT, 0.8, 0.8, 0.8) end
+  if RightClickModule() then tip:AddLine(L.RIGHT, 0.8, 0.8, 0.8) end
   tip:AddLine(L.DRAG, 0.8, 0.8, 0.8)
 end
 
@@ -172,10 +178,8 @@ local function ShowTooltip(self)
 end
 
 local function LauncherClick(button)
-  if button == "RightButton" then
-    local craft = GS:GetModule("Craft")
-    if craft and craft.loaded and craft.Open then GS:Call(craft.Open, craft) return end
-  end
+  local m = button == "RightButton" and RightClickModule()
+  if m then GS:Call(m.Open, m) return end
   GS:Call(GS.ToggleOverview, GS)
 end
 

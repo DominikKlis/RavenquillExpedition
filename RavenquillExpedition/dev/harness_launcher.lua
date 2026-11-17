@@ -111,7 +111,7 @@ for _, f in ipairs(dofile(DEV .. "toc.lua")(ADDONS .. "RavenquillExpedition")) d
 end
 local RQ = RavenquillExpedition
 local opened = 0
-local craft = RQ:NewModule("Craft", { addon = "CraftTest", title = "Guild Craft Advisor" })
+local craft = RQ:NewModule("Craft", { addon = "CraftTest", title = "Guild Craft Advisor", launcherRightClick = true })
 function craft:OverviewStatus() return "Guild sync: 2 guildies" end
 function craft:Open() opened = opened + 1 end
 local quiet = RQ:NewModule("Quiet", { addon = "QuietTest", title = "Quiet" })
@@ -197,12 +197,18 @@ local realToggle = RQ.ToggleOverview
 RQ.ToggleOverview = function() toggled = toggled + 1 end
 btn._scripts.OnClick(btn, "LeftButton")
 btn._scripts.OnClick(btn, "RightButton")
-RQ.ToggleOverview = realToggle
 check(toggled == 1 and opened == 1, "left-click: the /rq overview; right-click: the Craft module's window")
 btn._scripts.OnEnter(btn)
 local text = table.concat(tip.lines, " | ")
 check(text:find("Guild Craft Advisor: Guild sync: 2 guildies", 1, true) and text:find("Quiet: no status", 1, true)
   and text:find("Right-click", 1, true), "tooltip: every loaded module's status line: " .. text)
+craft.launcherRightClick = nil
+btn._scripts.OnClick(btn, "RightButton")
+btn._scripts.OnEnter(btn)
+check(toggled == 2 and opened == 1 and not table.concat(tip.lines, " | "):find("Right-click", 1, true),
+  "no module claims the right-click: it opens the overview and the tooltip has no right-click line")
+craft.launcherRightClick = true
+RQ.ToggleOverview = realToggle
 check(#errors == 0, "no Lua errors (" .. tostring(errors[1]) .. ")")
 
 io.write(("%d passed, %d failed, 0 skipped\n"):format(pass, fail))

@@ -79,6 +79,7 @@ local GCA = RQ:NewModule("Craft", {
   addon = ADDON, api = 2, slash = "craft", title = L.ADDON_TITLE, icon = "Interface\\Icons\\Trade_LeatherWorking",
   sv = "RavenquillExpeditionCraftDB", dbVersion = 3, defaults = DEFAULTS, migrations = MIGRATIONS,
   loginMigrations = LOGIN_MIGRATIONS,
+  launcherRightClick = true,
 })
 ns.GCA = GCA
 GCA.RQ = RQ
