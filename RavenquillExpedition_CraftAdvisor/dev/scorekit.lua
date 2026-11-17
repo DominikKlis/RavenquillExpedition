@@ -1,18 +1,14 @@
 local P = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "paths.lua")
+local Kit = dofile(P.ADDONS .. "RavenquillExpedition/dev/testkit.lua")
 local ROOT = P.ROOT
 local SG = P.SimGear(arg[1])
 if not SG then
-  print("SKIP score:simgear-source: SimGear Forever not found (pass its folder, set RQ_SIMGEAR or unzip it into <repo>/.cache/simgear/)")
-  print("0 passed, 0 failed, 1 skipped")
-  os.exit(0)
+  Kit.skip("score:simgear-source", "SimGear Forever not found (pass its folder, set RQ_SIMGEAR or unzip it into <repo>/.cache/simgear/)")
+  Kit.finish()
 end
 
-local H = { passes = 0, fails = 0, skips = 0 }
-local function check(cond, label)
-  if cond then H.passes = H.passes + 1; print("  ok   " .. label)
-  else H.fails = H.fails + 1; print("  FAIL " .. label) end
-end
-local function section(s) print("== " .. s) end
+local H = {}
+local check, section = Kit.check, Kit.section
 local function near(a, b, eps) return math.abs((a or 0) - (b or 0)) <= (eps or 1e-9) * math.max(1, math.abs(a or 0), math.abs(b or 0)) end
 
 local seed = 12345
@@ -47,94 +43,70 @@ for _, class in ipairs(CLASSES) do
 end
 print("SimGear loaded")
 
-H.now = 1000
-local timers = {}
-local function advance(sec)
-  local target = H.now + sec
-  while true do
-    table.sort(timers, function(a, b) return a.at < b.at end)
-    local t = timers[1]
-    if not t or t.at > target then break end
-    table.remove(timers, 1); H.now = t.at; t.fn()
-  end
-  H.now = target
-end
+local sched = Kit.Scheduler({ start = 1000 })
+local function advance(sec) sched:advance(sec) end
 local itemDB = {}
 local known = {}
 local talent = { config = nil, nodes = {}, inspect = nil }
 local requests = {}
-local env = setmetatable({}, { __index = _G })
-env.unpack = table.unpack
-env.wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
-env.tinsert = table.insert
-env.time = function() return 1800000000 + math.floor(H.now) end
-env.GetTime = function() return H.now end
-env.GetServerTime = function() return 1800000000 + math.floor(H.now) end
-env.C_Timer = { After = function(d, fn) timers[#timers + 1] = { at = H.now + d, fn = fn } end }
-env.GetBuildInfo = function() return "1.60.1", "70938", "", 16001 end
-env.Constants = { CharacterNameSeparatorConsts = { CHARACTERNAME_SURNAME_SEPARATOR = " " }, TraitConsts = { INSPECT_TRAIT_CONFIG_ID = -1 } }
-env.SlashCmdList = {}
-env.IsInGuild = function() return true end
-env.InCombatLockdown = function() return false end
-env.GetRealmName = function() return "Realm" end
-H.printed = {}
-env.print = function(...) local t = {} for i = 1, select("#", ...) do t[i] = tostring(select(i, ...)) end H.printed[#H.printed + 1] = table.concat(t, " ") end
 local player = { first = "Me", surname = "Stone", class = "DRUID", level = 40, items = {} }
-env.UnitName = function(u) if u == "player" then return player.first, player.surname end end
-env.UnitNameUnmodified = env.UnitName
-env.UnitClass = function(u) if u == "player" then return player.class, player.class end end
-env.UnitLevel = function(u) if u == "player" then return player.level end end
-env.UnitGUID = function(u) if u == "player" then return "G-me" end end
-env.UnitIsUnit = function(a, b) return a == b end
-env.UnitIsPlayer = function(u) return u == "player" end
-env.GetInventoryItemLink = function(u, slot) if u == "player" then return player.items[slot] end end
-env.GetNumGuildMembers = function() return 0 end
-local frames = {}
-local FrameMT = { __index = function(_, k) if type(k) == "string" and k:match("^%u") then return function() end end end }
-env.CreateFrame = function() local f = setmetatable({ scripts = {} }, FrameMT); f.SetScript = function(s, ev, fn) s.scripts[ev] = fn end; frames[#frames + 1] = f; return f end
-local function idOf(item) return type(item) == "number" and item or tonumber(tostring(item):match("item:(%d+)")) end
-env.C_Item = {
-  GetItemInfoInstant = function(item) local m = itemDB[idOf(item)]; if not m then return nil end return idOf(item), "Armor", "x", m.equipLoc, 134, m.classID, m.subClassID end,
-  GetItemInfo = function(item)
-    local id = idOf(item); local m = itemDB[id]; if not m then return nil end
-    return m.name, "|cff|Hitem:" .. id .. "::::::::|h[" .. m.name .. "]|h|r", 2, 20, m.minLevel, nil, nil, nil, m.equipLoc, 134, nil, m.classID, m.subClassID, m.bind or 2
-  end,
-  GetItemStats = function(link) local m = itemDB[idOf(link)]; return m and m.raw or {} end,
-  RequestLoadItemDataByID = function(id) requests[id] = (requests[id] or 0) + 1 end,
-}
-env.C_SpellBook = { IsSpellKnown = function(id) if id == 768 then return talent.cat end return known[id] == true end }
-env.C_ClassTalents = { GetActiveConfigID = function() return talent.config end }
-env.C_Traits = {
-  GetConfigInfo = function(id)
-    if id == talent.config then return { treeIDs = { 777 } } end
-    if id == -1 and talent.inspect then return { treeIDs = { talent.inspect.tree } } end
-  end,
-  GetTreeNodes = function(tree)
-    local list = (tree == 777) and talent.nodes or (talent.inspect and tree == talent.inspect.tree and talent.inspect.nodes) or {}
-    local ids = {}
-    for i in ipairs(list) do ids[i] = tree * 1000 + i end
-    return ids
-  end,
-  GetNodeInfo = function(config, nodeID)
-    local tree, i = math.floor(nodeID / 1000), nodeID % 1000
-    local list = config == talent.config and talent.nodes or (talent.inspect and talent.inspect.nodes) or {}
-    local n = list[i]
-    if not n then return nil end
-    return { posX = n[1], ranksPurchased = n[2], activeRank = n[3] or n[2] }
-  end,
-}
-env.RavenquillExpeditionCraftDB = {}
-local ns = {}
-local K = dofile(ROOT .. "dev/corekit.lua")(env)
-local RQ = K.RQ
 local Files = dofile(ROOT .. "dev/files.lua")
-Files.load(Files.list({ except = { "Data/Sources.lua", "Data/ExtraSources.lua", "Auction.lua", "Sync.lua", "RecipeSources.lua", "UI" } }), ns, env)
-K.done()
+local CA = "RavenquillExpedition_CraftAdvisor"
+local files = Files.kitFiles(Files.list({ except = { "Data/Sources.lua", "Data/ExtraSources.lua", "Auction.lua", "Sync.lua",
+  "RecipeSources.lua", "UI" } }))
+local function idOf(item) return type(item) == "number" and item or tonumber(tostring(item):match("item:(%d+)")) end
+local client = Kit.Client(sched, nil, "Me Stone", { class = "DRUID", level = 40, epoch = 1800000000, files = files,
+  setup = function(env)
+    env.Constants.TraitConsts = { INSPECT_TRAIT_CONFIG_ID = -1 }
+    env.C_GuildInfo = nil
+    env.UnitName = function(u) if u == "player" then return player.first, player.surname end end
+    env.UnitNameUnmodified = env.UnitName
+    env.UnitClass = function(u) if u == "player" then return player.class, player.class end end
+    env.UnitLevel = function(u) if u == "player" then return player.level end end
+    env.UnitGUID = function(u) if u == "player" then return "G-me" end end
+    env.UnitIsUnit = function(a, b) return a == b end
+    env.UnitIsPlayer = function(u) return u == "player" end
+    env.GetInventoryItemLink = function(u, slot) if u == "player" then return player.items[slot] end end
+    env.C_Item = {
+      GetItemInfoInstant = function(item) local m = itemDB[idOf(item)]; if not m then return nil end return idOf(item), "Armor", "x", m.equipLoc, 134, m.classID, m.subClassID end,
+      GetItemInfo = function(item)
+        local id = idOf(item); local m = itemDB[id]; if not m then return nil end
+        return m.name, "|cff|Hitem:" .. id .. "::::::::|h[" .. m.name .. "]|h|r", 2, 20, m.minLevel, nil, nil, nil, m.equipLoc, 134, nil, m.classID, m.subClassID, m.bind or 2
+      end,
+      GetItemStats = function(link) local m = itemDB[idOf(link)]; return m and m.raw or {} end,
+      RequestLoadItemDataByID = function(id) requests[id] = (requests[id] or 0) + 1 end,
+    }
+    env.C_SpellBook = { IsSpellKnown = function(id) if id == 768 then return talent.cat end return known[id] == true end }
+    env.C_ClassTalents = { GetActiveConfigID = function() return talent.config end }
+    env.C_Traits = {
+      GetConfigInfo = function(id)
+        if id == talent.config then return { treeIDs = { 777 } } end
+        if id == -1 and talent.inspect then return { treeIDs = { talent.inspect.tree } } end
+      end,
+      GetTreeNodes = function(tree)
+        local list = (tree == 777) and talent.nodes or (talent.inspect and tree == talent.inspect.tree and talent.inspect.nodes) or {}
+        local ids = {}
+        for i in ipairs(list) do ids[i] = tree * 1000 + i end
+        return ids
+      end,
+      GetNodeInfo = function(config, nodeID)
+        local tree, i = math.floor(nodeID / 1000), nodeID % 1000
+        local list = config == talent.config and talent.nodes or (talent.inspect and talent.inspect.nodes) or {}
+        local n = list[i]
+        if not n then return nil end
+        return { posX = n[1], ranksPurchased = n[2], activeRank = n[3] or n[2] }
+      end,
+    }
+    env.RavenquillExpeditionCraftDB = {}
+  end })
+local env, ns, RQ = client.env, client.ns[CA], client.RQ
+H.printed = client.printed
 local GCA, Scoring, W = ns.GCA, ns.Scoring, ns.Weights
 H.refreshes = 0
 GCA.UI = { Refresh = function() H.refreshes = H.refreshes + 1; if GCA.UI.onRefresh then GCA.UI.onRefresh() end end }
-local fire = function(_, ev, ...) K.fire(ev, ...) end
-local function reloadDB() K.ns.SetupModuleDB(GCA); GCA:OnLoad() end
+local fire = function(_, ev, ...) client.fire(ev, ...) end
+local function reloadDB() client.coreNs.SetupModuleDB(GCA); GCA:OnLoad() end
+fire(GCA, "ADDON_LOADED", "RavenquillExpedition")
 fire(GCA, "ADDON_LOADED", "RavenquillExpedition_CraftAdvisor")
 fire(GCA, "PLAYER_LOGIN")
 
@@ -205,10 +177,9 @@ function H.professionMocks()
   env.GetProfessionInfo = function(i) local p = profState.lines[i]; if p then return p[1], nil, p[2], p[3], nil, nil, p[4] end end
 end
 
-function H.finish()
-  print(("\n%d passed, %d failed, %d skipped"):format(H.passes, H.fails, H.skips))
-  os.exit(H.fails == 0 and 0 or 1)
-end
+H.finish = Kit.finish
+H.client = client
+H.sched = sched
 
 H.CLASSES = CLASSES
 H.CRAFT = CRAFT

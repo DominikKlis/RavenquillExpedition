@@ -174,13 +174,13 @@ do
   local t1 = UIx.OfferText("Leatherworking", dl, "Bud Stone")
   check(#(string.rep("\195\164", 60) .. " " .. longLink) > 255 and t1 == string.rep("\195\164", 60) .. " Hillmans Lederweste",
     "too long with the link -> item name (" .. #t1 .. " bytes)")
-  H.printed = {}
+  local printedMark = #H.printed
   UIx.warnedLong = nil
   GCA.db.settings.whisperCraft = "xy" .. string.rep("\195\164", 200) .. " {item}"
   local t2 = UIx.OfferText("Leatherworking", dl, "Bud Stone")
   local t3 = UIx.OfferText("Leatherworking", dl, "Bud Stone")
   local warned = 0
-  for _, p in ipairs(H.printed) do if p:find("255 Bytes", 1, true) then warned = warned + 1 end end
+  for i = printedMark + 1, #H.printed do if H.printed[i].text:find("255 Bytes", 1, true) then warned = warned + 1 end end
   check(#t2 == 254 and t2 == "xy" .. string.rep("\195\164", 126) and t3 == t2 and warned == 1,
     "cut to " .. #t2 .. " bytes on a character boundary (not inside an umlaut), told once (" .. warned .. ")")
   check(UIx.Utf8Cut("ab|", 3) == "ab|" and UIx.Utf8Cut("abc|d", 4) == "abc" and UIx.Utf8Cut("a\226\130\172b", 3) == "a"

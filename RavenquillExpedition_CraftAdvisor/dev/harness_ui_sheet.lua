@@ -1,4 +1,5 @@
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "uikit.lua")
+local section = H.section
 local GCA, fakeSug, advance, menuOf, check, menuTexts = H.GCA, H.fakeSug, H.advance, H.menuOf, H.check, H.menuTexts
 local plain, captureTip, tipText, plainTip, ns = H.plain, H.captureTip, H.tipText, H.plainTip, H.ns
 local rectOf, rstr, overlap, layoutChecks, Frame = H.rectOf, H.rstr, H.overlap, H.layoutChecks, H.Frame
@@ -7,7 +8,7 @@ H.lateGlobals()
 H.templateMode = "fail"
 
 do
-  print("== member view variants (character sheet / list)")
+  section("member view variants (character sheet / list)")
   local savedTM, savedBrowse = H.templateMode, GCA.IsBrowse
   H.templateMode = "ok"
   GCA.IsBrowse = function() return false end
@@ -81,7 +82,7 @@ do
   local sh, c = UIx.sheet, UIx.sheet.centre
   check(sh._shown and not UIx.sugList._shown and UIx.current == bud and UIx.emptyText._text == "", "member view: the sheet is shown, the list hidden")
 
-  print("== sheet: default slot, badges, selection")
+  section("sheet: default slot, badges, selection")
   check(UIx.sheetSlot == 12 and UIx.sheetAuto and UIx.SheetDefaultSlot(bud.suggestions) == 12,
     "default slot = the biggest upgrade (Craft Ring +50% replaces Ring 2), not the first in character order")
   local badges, sel = {}, {}
@@ -189,7 +190,7 @@ do
     "7 stat changes: 6 shown + '+1 more', 'some stats not readable'; the shared source button (no Offer for an unlearned recipe)")
   check(c.alts[2].data == sh3 and c.alts[2].offer._shown and plain(c.alts[2].tag._text) == "from level 44 · 5 to go" and c.alts[2].dimmed
     and (c.alts[2].offer._alpha or 1) == 1, "alternatives: level tag (orange text) + dimmed for too-high-level (Offer stays at full alpha)")
-  print("== switch keeps the member and the slot; saved (K6: the dropdown's radios)")
+  section("switch keeps the member and the slot; saved (K6: the dropdown's radios)")
   menuOf(UIx.modeToggle)[2]:click()
   check(GCA.db.settings.memberView == "list" and UIx.selected == "Bud Stone" and UIx.current == bud and UIx.sugList._shown and not sh._shown
     and menuOf(UIx.modeToggle)[2]:on() and not menuOf(UIx.modeToggle)[1]:on() and UIx.modeToggle._override == "View: List",
@@ -218,7 +219,7 @@ do
   UIx.selected = "Bud Stone"; UIx:Refresh()
   check(UIx.sheetSlot == 12 and UIx.sheetAuto, "back to Bud: his best slot again (the pick belonged to the member shown then)")
 
-  print("== members without upgrades / without gear")
+  section("members without upgrades / without gear")
   UIx.selected = "Cara Field"; UIx:Refresh()
   local anyBadge = false
   for _, b in pairs(sh.slots) do if b.badge._shown then anyBadge = true end end
@@ -227,7 +228,7 @@ do
   UIx.selected = "Nobody Yet"; UIx:Refresh()
   check(not sh._shown and UIx.emptyText._text == ns.Locales.enUS.EMPTY_NOGEAR, "no gear recorded: no sheet, the empty-state text explains: " .. tostring(UIx.emptyText._text))
 
-  print("== list cards (MemberCards)")
+  section("list cards (MemberCards)")
   UIx.selected = "Bud Stone"
   UIx:SetMemberMode("list")
   sl = UIx.sugList
@@ -264,7 +265,7 @@ do
   check(ecard and plain(ecard.sub._text) == "replaces Minor Stamina on Bracers", "enchant card: what it replaces (no stat changes): " .. plain(ecard and ecard.sub._text))
   check(UIx.errorCount == errs, "no error reported (K4 English)")
 
-  print("== German")
+  section("German")
   ns.locale = "deDE"
   f = UIx.frame
   f:Hide(); GCA.UI.frame = nil; GCA.UI:Toggle(); advance(1)
@@ -290,7 +291,7 @@ do
   sh.slots[10]._scripts.OnClick(sh.slots[10])
   check(plain(c.tags._text) == "ab Stufe 42 · noch 3", "German level tag: " .. plain(c.tags._text))
 
-  print("== layout of both variants (840x560 / 980x640 / 1600x1000, both languages)")
+  section("layout of both variants (840x560 / 980x640 / 1600x1000, both languages)")
   local function sheetLayout(UIy, label)
     local fw = UIy.frame
     local R = function(fr) return rectOf(fr, fw) end
@@ -386,7 +387,7 @@ do
   fit("level tag", string.format(D.LEVEL_TAG, 60, 10), 160, 5.6)
   check(#tooWide == 0, "German text fit at 840x560 (estimate): " .. table.concat(tooWide, "; "))
 
-  print("== fallbacks")
+  section("fallbacks")
   GetFileIDFromPath = function() return nil end
   UIx.frame:Hide(); GCA.UI.frame = nil; GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
@@ -438,7 +439,7 @@ end
 
 check(badAtlas == 0, "SetAtlas was never called for an atlas the client lacks (" .. badAtlas .. ")")
 do
-  print("== native look (no mockup gimmicks left, atlases from the probe, slot art, fallbacks)")
+  section("native look (no mockup gimmicks left, atlases from the probe, slot art, fallbacks)")
   local src = Files.source(Files.group("UI"))
   local gone = {}
   for _, word in ipairs({ "CreateRing", "CreateModeToggle", "CreateChip", "CreateMemberChip", "SetRingColor",

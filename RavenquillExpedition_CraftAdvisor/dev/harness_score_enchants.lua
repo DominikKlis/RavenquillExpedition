@@ -28,7 +28,7 @@ do
   check(GCA.db.known[GCA.charKey].Tailoring == nil and not GCA:IsKnown(461692, "Tailoring") and GCA.knownGen == gen + 1,
     "Tailoring dropped: its saved known IDs cleared, knownGen bumped")
   setProfs({})
-  GCA.loginTime = H.now
+  GCA.loginTime = H.sched.t
   local _, trusted = GCA:ReadProfessions()
   GCA:RefreshKnown()
   check(not trusted and GCA.db.known[GCA.charKey].Leatherworking ~= nil, "empty GetProfessions within 10 s of login: not trusted, LW kept")
@@ -308,14 +308,14 @@ do
   w = by[9]
   check(w and math.abs(w.pct - (val - val7) / base) < 1e-9 and math.abs(w.baseScore - base) < 1e-9,
     "GetItemStats including the enchant: base = item without enchant, same % as before")
-  H.printed = {}
+  local printedMark = #H.printed
   GCA:OnSlash("enchant debug " .. lnk(910001, 1887))
-  check(table.concat(H.printed, "\n"):find("INCLUDED: Agility+7", 1, true), "/gca enchant debug reports 'included' in that case")
+  check(H.client.printedSince(printedMark):find("INCLUDED: Agility+7", 1, true), "/gca enchant debug reports 'included' in that case")
   GCA.ItemAPI.Stats = realStats
   GCA.infoCache = {}
-  H.printed = {}
+  printedMark = #H.printed
   GCA:OnSlash("enchant debug " .. lnk(910001, 1887))
-  check(table.concat(H.printed, "\n"):find("NOT included", 1, true), "... and 'NOT included' when the stats are the same")
+  check(H.client.printedSince(printedMark):find("NOT included", 1, true), "... and 'NOT included' when the stats are the same")
   check(GCA.UnsimmedSchool({ FirePower = 20 }, { weights = { SpellPower = 1 } }) == "FirePower"
     and GCA.UnsimmedSchool({ FirePower = 20 }, { weights = { SpellPower = 1, FirePower = 1 } }) == nil
     and GCA.UnsimmedSchool({ FirePower = 20 }, { weights = { AttackPower = 1 } }) == nil, "unsimmed-school rule")
@@ -331,15 +331,15 @@ do
   env.GameTooltip = setmetatable({}, { __index = function() return function() end end })
   local tipOk = pcall(UIx.ShowSuggestionTooltip, {}, by[9])
   check(tipOk, "suggestion tooltip renders an enchant row")
-  H.printed = {}
+  printedMark = #H.printed
   local okD = pcall(GCA.KnownDebug, GCA)
-  check(okD and table.concat(H.printed, "\n"):find("Enchanting enchant spells", 1, true) == nil
-    and table.concat(H.printed, "\n"):find("Leatherworking item recipes", 1, true), "/gca known debug runs (only your professions probed)")
+  check(okD and H.client.printedSince(printedMark):find("Enchanting enchant spells", 1, true) == nil
+    and H.client.printedSince(printedMark):find("Leatherworking item recipes", 1, true), "/gca known debug runs (only your professions probed)")
   setProfs({ { "Verzauberkunst", 300, 300, 333 } })
   GCA:RefreshKnown()
-  H.printed = {}
+  printedMark = #H.printed
   pcall(GCA.KnownDebug, GCA)
-  check(table.concat(H.printed, "\n"):find("Enchanting enchant spells: 175 in data", 1, true), "/gca known debug probes enchant spells separately")
+  check(H.client.printedSince(printedMark):find("Enchanting enchant spells: 175 in data", 1, true), "/gca known debug probes enchant spells separately")
   for id in pairs(known) do known[id] = nil end
   GCA:SelectProfession("Leatherworking")
 end

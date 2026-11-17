@@ -1,26 +1,10 @@
 local ROOT = (arg[0]:gsub("[^/\\]*$", "")) .. "../"
-unpack = table.unpack
-local H = { passes = 0, fails = 0, skips = 0 }
+local Kit = dofile(ROOT .. "../RavenquillExpedition/dev/testkit.lua")
+local H = {}
 local missing = {}
-local function check(cond, label)
-  if cond then H.passes = H.passes + 1; print("  ok   " .. label) else H.fails = H.fails + 1; print("  FAIL " .. label) end
-end
-
-local now, timers = 1000, {}
-function GetTime() return now end
-function GetServerTime() return 1800000000 + now end
-time = function() return 1800000000 + now end
-C_Timer = { After = function(d, fn) timers[#timers + 1] = { at = now + d, fn = fn } end }
-local function advance(sec)
-  local target = now + sec
-  while true do
-    table.sort(timers, function(a, b) return a.at < b.at end)
-    local t = timers[1]
-    if not t or t.at > target then break end
-    table.remove(timers, 1); now = t.at; t.fn()
-  end
-  now = target
-end
+local check = Kit.check
+local sched = Kit.Scheduler({ start = 1000 })
+local function advance(sec) sched:advance(sec) end
 
 local Frame = {}
 local FrameMT = { __index = function(t, k)
@@ -29,7 +13,7 @@ local FrameMT = { __index = function(t, k)
   return nil
 end }
 local function New(otype, parent, name)
-  local o = setmetatable({ _type = otype or "Frame", _parent = parent, _children = {}, _scripts = {},
+  local o = setmetatable({ _type = otype or "Frame", _parent = parent, _children = {}, _scripts = {}, _events = {},
     _shown = true, _w = 0, _h = 0, _points = {}, _level = parent and (parent._level or 0) + 1 or 0,
     _strata = parent and parent._strata or "MEDIUM", _scale = 1 }, FrameMT)
   if parent and parent._children then table.insert(parent._children, o) end
@@ -47,8 +31,8 @@ end
 for _, m in ipairs({ "SetTexCoord", "SetVertexColor", "SetDesaturated", "SetJustifyH",
   "SetHighlightTexture", "SetNormalTexture", "SetPushedTexture", "SetUserPlaced", "RegisterForClicks", "RegisterForDrag", "SetToplevel", "SetClampedToScreen", "SetMovable",
   "EnableMouse", "StartMoving", "StopMovingOrSizing", "SetScrollChild", "SetTextColor", "SetFixedFrameStrata",
-  "SetFixedFrameLevel", "SetChecked", "SetBackdropColor", "SetBackdropBorderColor", "RegisterEvent",
-  "UnregisterEvent", "SetColorTexture", "SetAllPoints",
+  "SetFixedFrameLevel", "SetChecked", "SetBackdropColor", "SetBackdropBorderColor",
+  "SetColorTexture", "SetAllPoints",
   "SetOrientation", "SetMinMaxValues", "SetValueStep", "SetObeyStepOnDrag", "SetThumbTexture",
   "SetWordWrap", "SetMaxLines", "SetNonSpaceWrap", "SetClipsChildren", "SetAutoFocus", "SetMaxLetters", "ClearFocus",
   "SetCursorPosition",
@@ -100,6 +84,8 @@ function Frame:SetShown(v) if v then self:Show() else self:Hide() end end
 function Frame:IsShown() return self._shown end
 function Frame:IsVisible() local f = self; while f do if not f._shown then return false end f = f._parent end return true end
 function Frame:SetScript(ev, fn) self._scripts[ev] = fn end
+function Frame:RegisterEvent(ev) self._events[ev] = true end
+function Frame:UnregisterEvent(ev) self._events[ev] = nil end
 function Frame:GetScript(ev) return self._scripts[ev] end
 function Frame:HookScript(ev, fn)
   local old = self._scripts[ev]
@@ -144,7 +130,7 @@ end }
 H.templateMode = "ok"
 nativeMode = { dropdown = "ok", search = "ok", category = "ok", scroll = "ok", check = "ok" }
 ScrollUtil = { InitScrollFrameWithScrollBar = function(sf, bar) sf._linkedBar = bar end }
-function CreateFrame(otype, name, parent, template)
+local function NewUIFrame(otype, name, parent, template)
   if otype == "DropdownButton" then
     if nativeMode.dropdown == "fail" then error("Unknown frame type 'DropdownButton'") end
     local f = New(otype, parent, name)
@@ -195,47 +181,45 @@ function CreateFrame(otype, name, parent, template)
   return f
 end
 
-function GetBuildInfo() return "1.60.1", "70938", "", 16001 end
-function wipe(t) for k in pairs(t) do t[k] = nil end return t end
-tinsert = table.insert
-UISpecialFrames = {}
-UIParent = New("Frame"); UIParent._w, UIParent._h = 1920, 1080; GameTooltip = New("GameTooltip"); GameTooltip_Hide = function() end
-for _, m in ipairs({ "SetOwner", "AddLine", "AddDoubleLine", "SetHyperlink" }) do GameTooltip[m] = function() end end
-function InCombatLockdown() return false end
-function IsInGuild() return true end
-function GetRealmName() return "Realm" end
-function UnitName(u) if u == "player" then return "Me", "Stone" end end
-function UnitNameUnmodified(u) return UnitName(u) end
-function UnitClass(u) if u == "player" then return "Schurke", "ROGUE" end end
-function UnitLevel(u) if u == "player" then return 36 end end
-function UnitIsUnit(a, b) return a == b end
-function UnitIsPlayer(u) return u == "player" end
-function UnitGUID(u) if u == "player" then return "G-me" end end
-function GetInventoryItemLink(u, slot) if u == "player" and slot == 5 then return "item:4244::::::::36:1488::11" end end
-function GetInventorySlotInfo(t) return 1, "Interface\\PaperDoll\\UI-PaperDoll-Slot-" .. t end
-function GetNumGuildMembers() return 0 end
-function GetProfessions() return nil end
-SlashCmdList = {}
-C_Item = {
-  GetItemInfoInstant = function(item) return 4244, "Armor", "x", "INVTYPE_CHEST", 134, 4, 2 end,
-  GetItemInfo = function(item) return "Hillman's Vest", "|Hitem:4244|h[Hillman's Vest]|h", 2, 20, 20, nil, nil, nil, "INVTYPE_CHEST", 134, nil, 4, 2, 2 end,
-  GetItemStats = function() return {} end,
-}
-C_SpellBook = { IsSpellKnown = function() return false end }
-
-Minimap = New("Frame", nil, "Minimap")
-Minimap._w, Minimap._h, Minimap._cx, Minimap._cy, Minimap._scale = 140, 140, 1000, 700, 1
-
-local ns = {}
-local K = dofile(ROOT .. "dev/corekit.lua")()
 local Files = dofile(ROOT .. "dev/files.lua")
-Files.load(Files.list({ except = { "Sync.lua" } }), ns)
+local files = Files.kitFiles(Files.list({ except = { "Sync.lua" } }))
+local client = Kit.Client(sched, nil, "Me Stone", { env = _G, epoch = 1800000000, files = files, setup = function(_, c)
+  c.newFrame = NewUIFrame
+  C_ChatInfo, C_GuildInfo = nil, nil
+  UIParent = New("Frame"); UIParent._w, UIParent._h = 1920, 1080; GameTooltip = New("GameTooltip"); GameTooltip_Hide = function() end
+  for _, m in ipairs({ "SetOwner", "AddLine", "AddDoubleLine", "SetHyperlink" }) do GameTooltip[m] = function() end end
+  function InCombatLockdown() return false end
+  function IsInGuild() return true end
+  function GetRealmName() return "Realm" end
+  function UnitName(u) if u == "player" then return "Me", "Stone" end end
+  function UnitNameUnmodified(u) return UnitName(u) end
+  function UnitClass(u) if u == "player" then return "Schurke", "ROGUE" end end
+  function UnitLevel(u) if u == "player" then return 36 end end
+  function UnitIsUnit(a, b) return a == b end
+  function UnitIsPlayer(u) return u == "player" end
+  function UnitGUID(u) if u == "player" then return "G-me" end end
+  function GetInventoryItemLink(u, slot) if u == "player" and slot == 5 then return "item:4244::::::::36:1488::11" end end
+  function GetInventorySlotInfo(t) return 1, "Interface\\PaperDoll\\UI-PaperDoll-Slot-" .. t end
+  function GetNumGuildMembers() return 0 end
+  function GetProfessions() return nil end
+  C_Item = {
+    GetItemInfoInstant = function(item) return 4244, "Armor", "x", "INVTYPE_CHEST", 134, 4, 2 end,
+    GetItemInfo = function(item) return "Hillman's Vest", "|Hitem:4244|h[Hillman's Vest]|h", 2, 20, 20, nil, nil, nil, "INVTYPE_CHEST", 134, nil, 4, 2, 2 end,
+    GetItemStats = function() return {} end,
+  }
+  C_SpellBook = { IsSpellKnown = function() return false end }
+
+  Minimap = New("Frame", nil, "Minimap")
+  Minimap._w, Minimap._h, Minimap._cx, Minimap._cy, Minimap._scale = 140, 140, 1000, 700, 1
+end })
+
+local ns = client.ns.RavenquillExpedition_CraftAdvisor
 local SOURCES = ns.Sources
 ns.Sources = nil
-K.done()
 local GCA = ns.GCA
-local fire = function(_, ev, ...) K.fire(ev, ...) end
+local fire = function(_, ev, ...) client.fire(ev, ...) end
 RavenquillExpeditionCraftDB = { settings = { minimapAngle = 200 } }
+fire(GCA, "ADDON_LOADED", "RavenquillExpedition")
 fire(GCA, "ADDON_LOADED", "RavenquillExpedition_CraftAdvisor")
 fire(GCA, "PLAYER_LOGIN")
 advance(3)
@@ -279,7 +263,7 @@ end
 
 local function plain(t) return (tostring(t or ""):gsub("|T.-|t ?", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
 local function windowChecks(label)
-  print("== Window: " .. label)
+  Kit.section("Window: " .. label)
   GCA.UI.frame = nil
   GCA.UI:Toggle()
   advance(1)
@@ -545,13 +529,12 @@ end
 
 function H.finish(atlasCheck)
   if atlasCheck then check(badAtlas == 0, "SetAtlas was never called for an atlas the client lacks (" .. badAtlas .. ")") end
-  print("== Keys looked up that the mock lacks (nil here; fine if the addon checks for them):")
+  Kit.section("Keys looked up that the mock lacks (nil here; fine if the addon checks for them):")
   local names = {}
   for k in pairs(missing) do names[#names + 1] = k end
   table.sort(names)
-  print("  " .. (#names > 0 and table.concat(names, ", ") or "(none)"))
-  print(("%d passed, %d failed, %d skipped"):format(H.passes, H.fails, H.skips))
-  print(H.fails == 0 and "ALL PASSED" or (H.fails .. " FAILED"))
+  io.write("  ", #names > 0 and table.concat(names, ", ") or "(none)", "\n")
+  Kit.finish()
 end
 
 H.ATLASES = ATLASES
@@ -579,6 +562,7 @@ H.plain = plain
 H.plainTip = plainTip
 H.rectOf = rectOf
 H.rstr = rstr
+H.section = Kit.section
 H.tipText = tipText
 H.windowChecks = windowChecks
 return H

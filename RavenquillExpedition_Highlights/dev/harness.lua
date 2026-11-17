@@ -1,90 +1,9 @@
-unpack = table.unpack
-local DIR = (arg[0]:gsub("[^/\\]*$", "")) .. "../.."
-local fails, passes = 0, 0
-local function check(cond, label)
-  if cond then passes = passes + 1 else fails = fails + 1; io.write("  FAIL ", label, "\n") end
-end
+local Kit = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "../../RavenquillExpedition/dev/testkit.lua")
+local check = Kit.check
 
-local now = 1000
-local BASE = 1800000000
-local timers = {}
-C_Timer = { After = function(d, fn) timers[#timers + 1] = { at = now + d, fn = fn } end }
-local function advance(sec)
-  local stop = now + sec
-  while true do
-    table.sort(timers, function(a, b) return a.at < b.at end)
-    local t = timers[1]
-    if not t or t.at > stop then break end
-    table.remove(timers, 1)
-    now = math.max(now, t.at)
-    t.fn()
-  end
-  now = stop
-end
-function GetTime() return now end
-function GetServerTime() return BASE + math.floor(now) end
-time = function() return BASE + math.floor(now) end
-date = os.date
-local printed = {}
-print = function(...)
-  local t = {}
-  for i = 1, select("#", ...) do t[i] = tostring(select(i, ...)) end
-  printed[#printed + 1] = table.concat(t, " ")
-end
-local function lastPrinted() return printed[#printed] or "" end
-local function printedSince(n) return table.concat(printed, "\n", n + 1) end
-local errors = {}
-function geterrorhandler() return function(msg) errors[#errors + 1] = msg; io.write("  ERROR ", tostring(msg), "\n") end end
-function debugstack() return "" end
-function wipe(t) for k in pairs(t) do t[k] = nil end return t end
-tinsert = table.insert
-math.random = function() return 0.5 end
 local SECRET = setmetatable({}, { __eq = function() error("compared a secret") end,
   __tostring = function() error("used a secret") end, __index = function() error("indexed a secret") end })
-function issecretvalue(v) return rawequal(v, SECRET) end
-
-local frames = {}
 local lines = {}
-local function obj()
-  return setmetatable({}, { __index = function(_, k)
-    if type(k) ~= "string" or not k:match("^%u") then return nil end
-    if k == "IsShown" then return function(s) return rawget(s, "_shown") end end
-    if k == "SetChecked" then return function(s, v) rawset(s, "_checked", v and true or false) end end
-    if k == "GetChecked" then return function(s) return rawget(s, "_checked") end end
-    if k == "Disable" then return function(s) rawset(s, "_disabled", true) end end
-    if k == "Enable" then return function(s) rawset(s, "_disabled", false) end end
-    if k == "IsEnabled" then return function(s) return not rawget(s, "_disabled") end end
-    if k == "SetText" then return function(s, v) rawset(s, "_text", v) end end
-    if k == "GetText" then return function(s) return rawget(s, "_text") end end
-    if k == "GetVerticalScroll" or k == "GetHeight" then return function() return 0 end end
-    if k == "Show" then return function(s) s._shown = true; local sc = rawget(s, "_scripts"); if sc and sc.OnShow then sc.OnShow(s) end end end
-    if k == "Hide" then return function(s) s._shown = false end end
-    if k == "SetScript" then return function(s, ev, fn) local sc = rawget(s, "_scripts") or {}; rawset(s, "_scripts", sc); sc[ev] = fn end end
-    if k == "RegisterEvent" then return function(s, ev) local e = rawget(s, "_ev") or {}; rawset(s, "_ev", e); e[ev] = true end end
-    if k == "CreateFontString" or k == "CreateTexture" then return function() return obj() end end
-    if k == "AddMessage" then return function(_, m) lines[#lines + 1] = m end end
-    if k == "Clear" then return function() wipe(lines) end end
-    return function() end
-  end })
-end
-function CreateFrame(_, name, _, template)
-  if template == "ButtonFrameTemplate" then error("no template in mock") end
-  local o = obj()
-  frames[#frames + 1] = o
-  if name then _G[name] = o end
-  return o
-end
-local function fire(event, ...)
-  for _, f in ipairs(frames) do
-    local ev, sc = rawget(f, "_ev"), rawget(f, "_scripts")
-    if ev and ev[event] and sc and sc.OnEvent then sc.OnEvent(f, event, ...) end
-  end
-end
-UIParent, GameTooltip = obj(), obj()
-UISpecialFrames = {}
-SlashCmdList = {}
-RAID_CLASS_COLORS = { ROGUE = { colorStr = "fffff569" }, DRUID = { colorStr = "ffff7d0a" }, MAGE = { colorStr = "ff3fc7eb" } }
-
 local G = {
   inInstance = false, itype = "none", instName = "Elwynn",
   level = 30, inCombat = false, guild = "Die Gilde",
@@ -94,81 +13,9 @@ local G = {
   roster = { { "Me Smith-Forever", 30, "ROGUE" }, { "Bud Stone-Forever", 28, "DRUID" }, { "Cara Moss-Forever", 31, "MAGE" },
              { "Abe Ash-Forever", 60, "WARRIOR" }, { "Dora Dunn-Forever", 33, "PRIEST" } },
 }
-function GetBuildInfo() return "1.60.1", "70938", "", 16001 end
-function GetLocale() return "deDE" end
-Constants = { CharacterNameSeparatorConsts = { CHARACTERNAME_SURNAME_SEPARATOR = " " } }
-Enum = { QuestTag = { Group = 1, Raid = 62, Dungeon = 81, Heroic = 85, Raid10 = 88, Raid25 = 89 } }
-function UnitNameUnmodified(u)
-  if u == "player" then return "Me", "Smith" end
-  local g = G.group[u]
-  if g then return g[1], g[2] end
-end
-UnitName = UnitNameUnmodified
-function UnitClass() return "Schurke", "ROGUE" end
-function UnitLevel() return G.level end
-function GetMaxPlayerLevel() return 60 end
-function Ambiguate(n) return n end
-function GetGuildInfo() return G.guild end
-function GetNormalizedRealmName() return "Forever" end
-function GetRealmName() return "Forever" end
-function IsInGuild() return true end
-function IsInInstance() return G.inInstance, G.itype end
-function GetInstanceInfo() return G.instName, G.itype end
-function GetRealZoneText() return G.instName end
-function InCombatLockdown() return G.inCombat end
-function IsShiftKeyDown() return false end
-function GetNumGuildMembers() return #G.roster end
-function GetGuildRosterInfo(i) local r = G.roster[i]; return r[1], nil, nil, r[2], nil, nil, nil, nil, true, nil, r[3] end
-C_GuildInfo = { GuildRoster = function() fire("GUILD_ROSTER_UPDATE") end }
-function GetNumGroupMembers() local n = 0; for _ in pairs(G.group) do n = n + 1 end; return n end
-function IsInRaid() return G.raid end
-C_ChatInfo = {
-  RegisterAddonMessagePrefix = function() return true end,
-  SendAddonMessage = function(prefix, msg, chan)
-    if G.sendResult == 0 then G.sent[#G.sent + 1] = { prefix = prefix, msg = msg, chan = chan, t = now } end
-    return G.sendResult
-  end,
-}
-function hooksecurefunc(tbl, name, post)
-  local orig = tbl[name]
-  tbl[name] = function(...) local r = { orig(...) }; post(...); return unpack(r) end
-end
 local function link(id) local it = G.items[id]; return ("|cnIQ%d:|Hitem:%d::::::::30:::::|h[%s]|h|r"):format(it.q, id, it.name) end
 local function idOf(x) return type(x) == "number" and x or tonumber(tostring(x):match("item:(%d+)")) end
-C_Item = {
-  GetItemInfo = function(x) local id = idOf(x); local it = G.items[id]; if not it or it.unloaded then return end; return it.name, link(id), it.q, it.il end,
-  GetDetailedItemLevelInfo = function(x) local it = G.items[idOf(x)]; if not it or it.unloaded then return end; return it.il end,
-  RequestLoadItemDataByID = function() end,
-}
 local function container(bag) if bag == -1 then return G.bank[-1] end; if bag >= 0 and bag <= 4 then return G.bags[bag] end; return G.bank[bag] end
-C_Container = {
-  GetContainerNumSlots = function(bag) return container(bag) and 16 or 0 end,
-  GetContainerItemInfo = function(bag, slot)
-    local c = container(bag); local id = c and c[slot]
-    if not id then return nil end
-    return { itemID = id, quality = G.items[id].q, hyperlink = link(id) }
-  end,
-}
-NUM_BAG_SLOTS, NUM_TOTAL_EQUIPPED_BAG_SLOTS, NUM_BANKBAGSLOTS, BANK_CONTAINER = 4, 4, 6, -1
-C_AddOns = {
-  IsAddOnLoaded = function(name) return name == "RavenquillExpedition" or name == "RavenquillExpedition_Highlights" end,
-  GetAddOnInfo = function(name)
-    if name == "RavenquillExpedition_CraftAdvisor" then return name, "Guild Craft Advisor", "", false, "DISABLED" end
-    return name, nil, nil, false, "MISSING"
-  end,
-}
-function GetInventoryItemLink(_, slot) local id = G.equipped[slot]; return id and link(id) end
-C_QuestLog = {
-  GetNumQuestLogEntries = function() return #G.quests end,
-  GetInfo = function(i) local q = G.quests[i]; return { title = q.title, level = q.level, suggestedGroup = q.group or 0, isHeader = q.header or false, questID = q.id } end,
-  GetQuestTagInfo = function(id) return G.tags[id] end,
-  IsEliteQuest = function() return false end,
-}
-LOOT_ITEM_SELF = "Ihr erhaltet Beute: %s."
-LOOT_ITEM_SELF_MULTIPLE = "Ihr erhaltet Beute: %sx%d."
-LOOT_ITEM = "%1$s bekommt Beute: %2$s."
-LOOT_ITEM_MULTIPLE = "%1$s bekommt Beute: %2$sx%3$d."
-
 G.items = {
   [100] = { name = "Alter Helm", q = 2, il = 20 }, [101] = { name = "Neuer Helm", q = 3, il = 30 },
   [102] = { name = "Kleiner Helm", q = 3, il = 23 }, [103] = { name = "Epischer Helm", q = 4, il = 24 },
@@ -183,15 +30,92 @@ G.items = {
 G.equipped = { [1] = 100, [11] = 200, [12] = 201, [16] = 106 }
 G.bags[0] = { [1] = 105, [2] = 307 }
 
-local function load(addon, file, ns)
-  local chunk, err = loadfile(DIR .. "/" .. addon .. "/" .. file)
-  if not chunk then error(err) end
-  chunk(addon, ns)
-end
-local coreNS, hlNS = {}, {}
-for _, f in ipairs(dofile(DIR .. "/RavenquillExpedition/dev/toc.lua")(DIR .. "/RavenquillExpedition")) do load("RavenquillExpedition", f, coreNS) end
-for _, f in ipairs({ "Locale.lua", "Highlights.lua", "Wire.lua", "Detectors.lua", "LogWindow.lua" }) do load("RavenquillExpedition_Highlights", f, hlNS) end
-local GS, H = RavenquillExpedition, hlNS.H
+local sched = Kit.Scheduler({ start = 1000 })
+local me = Kit.Client(sched, nil, "Me Smith", { guild = "Die Gilde", realm = "Forever", locale = "deDE", class = "ROGUE",
+  epoch = 1800000000, random = function() return 0.5 end, addons = { "RavenquillExpedition_Highlights" },
+  setup = function(env, c)
+    local _ENV = env
+    c.frameMethods.AddMessage = function(_, m) lines[#lines + 1] = m end
+    c.frameMethods.Clear = function() wipe(lines) end
+    c.frameMethods.Disable = function(s) s._disabled = true end
+    c.frameMethods.Enable = function(s) s._disabled = false end
+    c.frameMethods.IsEnabled = function(s) return not s._disabled end
+    c.frameMethods.GetVerticalScroll = function() return 0 end
+    c.frameMethods.GetHeight = function() return 0 end
+    local create = CreateFrame
+    function CreateFrame(otype, name, parent, template)
+      if template == "ButtonFrameTemplate" then error("no template in mock") end
+      return create(otype, name, parent, template)
+    end
+    function issecretvalue(v) return rawequal(v, SECRET) end
+    RAID_CLASS_COLORS = { ROGUE = { colorStr = "fffff569" }, DRUID = { colorStr = "ffff7d0a" }, MAGE = { colorStr = "ff3fc7eb" } }
+    Enum = { QuestTag = { Group = 1, Raid = 62, Dungeon = 81, Heroic = 85, Raid10 = 88, Raid25 = 89 } }
+    function UnitNameUnmodified(u)
+      if u == "player" then return "Me", "Smith" end
+      local g = G.group[u]
+      if g then return g[1], g[2] end
+    end
+    UnitName = UnitNameUnmodified
+    function UnitClass() return "Schurke", "ROGUE" end
+    function UnitLevel() return G.level end
+    function GetGuildInfo() return G.guild end
+    function IsInGuild() return true end
+    function IsInInstance() return G.inInstance, G.itype end
+    function GetInstanceInfo() return G.instName, G.itype end
+    function GetRealZoneText() return G.instName end
+    function InCombatLockdown() return G.inCombat end
+    function IsShiftKeyDown() return false end
+    function GetNumGuildMembers() return #G.roster end
+    function GetGuildRosterInfo(i) local r = G.roster[i]; return r[1], nil, nil, r[2], nil, nil, nil, nil, true, nil, r[3] end
+    C_GuildInfo = { GuildRoster = function() c.fire("GUILD_ROSTER_UPDATE") end }
+    function GetNumGroupMembers() local n = 0; for _ in pairs(G.group) do n = n + 1 end; return n end
+    function IsInRaid() return G.raid end
+    C_ChatInfo = {
+      RegisterAddonMessagePrefix = function() return true end,
+      SendAddonMessage = function(prefix, msg, chan)
+        if G.sendResult == 0 then G.sent[#G.sent + 1] = { prefix = prefix, msg = msg, chan = chan, t = sched.t } end
+        return G.sendResult
+      end,
+    }
+    C_Item = {
+      GetItemInfo = function(x) local id = idOf(x); local it = G.items[id]; if not it or it.unloaded then return end; return it.name, link(id), it.q, it.il end,
+      GetDetailedItemLevelInfo = function(x) local it = G.items[idOf(x)]; if not it or it.unloaded then return end; return it.il end,
+      RequestLoadItemDataByID = function() end,
+    }
+    C_Container = {
+      GetContainerNumSlots = function(bag) return container(bag) and 16 or 0 end,
+      GetContainerItemInfo = function(bag, slot)
+        local ct = container(bag); local id = ct and ct[slot]
+        if not id then return nil end
+        return { itemID = id, quality = G.items[id].q, hyperlink = link(id) }
+      end,
+    }
+    NUM_BAG_SLOTS, NUM_TOTAL_EQUIPPED_BAG_SLOTS, NUM_BANKBAGSLOTS, BANK_CONTAINER = 4, 4, 6, -1
+    C_AddOns = {
+      IsAddOnLoaded = function(name) return name == "RavenquillExpedition" or name == "RavenquillExpedition_Highlights" end,
+      GetAddOnInfo = function(name)
+        if name == "RavenquillExpedition_CraftAdvisor" then return name, "Guild Craft Advisor", "", false, "DISABLED" end
+        return name, nil, nil, false, "MISSING"
+      end,
+    }
+    function GetInventoryItemLink(_, slot) local id = G.equipped[slot]; return id and link(id) end
+    C_QuestLog = {
+      GetNumQuestLogEntries = function() return #G.quests end,
+      GetInfo = function(i) local q = G.quests[i]; return { title = q.title, level = q.level, suggestedGroup = q.group or 0, isHeader = q.header or false, questID = q.id } end,
+      GetQuestTagInfo = function(id) return G.tags[id] end,
+      IsEliteQuest = function() return false end,
+    }
+    LOOT_ITEM_SELF = "Ihr erhaltet Beute: %s."
+    LOOT_ITEM_SELF_MULTIPLE = "Ihr erhaltet Beute: %sx%d."
+    LOOT_ITEM = "%1$s bekommt Beute: %2$s."
+    LOOT_ITEM_MULTIPLE = "%1$s bekommt Beute: %2$sx%3$d."
+  end })
+local env, fire, printed, errors = me.env, me.fire, me.printed, me.errors
+local function advance(sec) sched:advance(sec) end
+local function lastPrinted() local p = printed[#printed]; return p and p.text or "" end
+local printedSince = me.printedSince
+local hlNS = me.ns.RavenquillExpedition_Highlights
+local GS, H = me.RQ, hlNS.H
 
 fire("ADDON_LOADED", "RavenquillExpedition")
 fire("ADDON_LOADED", "RavenquillExpedition_Highlights")
@@ -213,7 +137,7 @@ local function echoAll()
   for _, s in ipairs(G.sent) do if not s.echoed then s.echoed = true; fire("CHAT_MSG_ADDON", s.prefix, s.msg, "GUILD", "Me Smith") end end
 end
 local function recv(sender, body) fire("CHAT_MSG_ADDON", "RQE1", "H;" .. body, "GUILD", sender) end
-local function T() return BASE + math.floor(now) end
+local function T() return env.time() end
 local function outboxSize() local n = 0; for _ in pairs(H.cdb.outbox) do n = n + 1 end; return n end
 
 check(GS:PlayerKey() == "Me Smith", "player key is 'First Surname'")
@@ -258,8 +182,8 @@ check(G.sent[1].prefix == "RQE1" and G.sent[1].chan == "GUILD", "shared prefix o
 echoAll(); advance(20)
 check(outboxSize() == 0, "echo clears the outbox")
 advance(120)
-C_ChatInfo.SendAddonMessage("RQEMap1", "x", "GUILD")
-C_ChatInfo.SendAddonMessage("GCAdv1", "y", "WHISPER")
+env.C_ChatInfo.SendAddonMessage("RQEMap1", "x", "GUILD")
+env.C_ChatInfo.SendAddonMessage("GCAdv1", "y", "WHISPER")
 check(GS.Comm.foreign == 1 and math.abs(GS.Comm.tokens - (CC.BURST - 1)) < 0.01,
   ("a foreign GUILD send costs a token, a whisper doesn't (%.2f of %d)"):format(GS.Comm.tokens, CC.BURST))
 
@@ -462,7 +386,7 @@ for _, k in ipairs({ "gear", "loot", "boss", "quest", "level" }) do
 end
 
 echoAll(); advance(130)
-wipe(H.cdb.outbox)
+env.wipe(H.cdb.outbox)
 equip(2, 303); advance(2)
 local id = last().id
 local mine = ";" .. id:match("#(%d+)$") .. ";Me Smith;"
@@ -479,7 +403,7 @@ for _, x in ipairs(G.sent) do if x.msg:find(mine, 1, true) then x.echoed = false
 echoAll(); advance(20)
 check(H.cdb.outbox[id] == nil, "outbox empty after echo")
 advance(3700)
-wipe(H.cdb.shareLog); wipe(H.cdb.outbox)
+env.wipe(H.cdb.shareLog); env.wipe(H.cdb.outbox)
 H:Settings().shareCap = 2
 for _, lvl in ipairs({ 10, 20, 30 }) do fire("PLAYER_LEVEL_UP", lvl) end
 check(outboxSize() == 2, "only shareCap highlights per hour are shared, the rest stay local")
@@ -503,12 +427,12 @@ do
 end
 
 check(H.db.diag.seen.ENCOUNTER_END and H.db.diag.last.QUEST_TURNED_IN, "event diagnostics recorded")
-check(GS:Peers()["Cara Moss"] and RavenquillExpeditionDB.diagSender == nil, "peers recorded; no guildmate name stored for diagnosis")
+check(GS:Peers()["Cara Moss"] and env.RavenquillExpeditionDB.diagSender == nil, "peers recorded; no guildmate name stored for diagnosis")
 local function opt(label)
   for i, o in ipairs(H.options) do if o.label == label then return i, o end end
 end
-SlashCmdList.RAVENQUILL("hl")
-local ov = _G.RavenquillExpeditionOverview
+env.SlashCmdList.RAVENQUILL("hl")
+local ov = env.RavenquillExpeditionOverview
 check(ov and ov:IsShown() and GS.optionsModule == "Highlights", "/rq hl opens the Highlights options")
 local panel = ov.optView.panels.Highlights
 check(panel and #panel.controls == #H.options, "one control per option entry")
@@ -542,11 +466,11 @@ check(H:Settings().chatAll and all:IsEnabled(), "chat all")
 rawget(panel.controls[opt(L.OPT_TEST)], "_scripts").OnClick()
 check(lastPrinted():find("6 Testeinträge", 1, true), "test button adds 6 test entries")
 rawget(panel.controls[opt(L.OPT_OPEN_LOG)], "_scripts").OnClick()
-check(_G.RavenquillExpeditionHighlightsFrame:IsShown() and lines[#lines]:find("Höchststufe 60", 1, true), "log button opens the window, test entry last")
+check(env.RavenquillExpeditionHighlightsFrame:IsShown() and lines[#lines]:find("Höchststufe 60", 1, true), "log button opens the window, test entry last")
 rawget(panel.controls[opt(L.OPT_CLEARTEST)], "_scripts").OnClick()
 check(lastPrinted():find("6 Testeinträge entfernt", 1, true), "test entries removed")
 rawget(panel.controls[opt(L.OPT_DIAG)], "_scripts").OnClick()
-local box = _G.RavenquillExpeditionCopyBox
+local box = env.RavenquillExpeditionCopyBox
 check(box and box:IsShown() and box.text:find("events seen", 1, true) and box.text:find("last QUEST_TURNED_IN", 1, true),
   "diagnostics open in the copy box")
 local text = box.text
@@ -555,10 +479,10 @@ rawget(box.eb, "_scripts").OnTextChanged(box.eb, true)
 check(box.eb:GetText() == text, "the copy box is read-only")
 local core = GS:DiagLines()
 check(table.concat(core, "\n"):find("sync: queue", 1, true) and table.concat(core, "\n"):find("Cara Moss", 1, true), "core diagnostics (sync, peers)")
-SlashCmdList.RAVENQUILL("hl share off")
+env.SlashCmdList.RAVENQUILL("hl share off")
 check(H:Settings().share and GS.optionsModule == "Highlights", "old chat subcommands do nothing but open the options")
 
-SlashCmdList.RAVENQUILL("")
+env.SlashCmdList.RAVENQUILL("")
 check(ov:IsShown() and GS.optionsModule == nil, "/rq from the options view goes to the overview")
 local rows = GS:OverviewRows()
 check(rows[1].title == H.title and rows[1].state == "loaded" and rows[1].open and rows[1].options
@@ -566,9 +490,9 @@ check(rows[1].title == H.title and rows[1].state == "loaded" and rows[1].open an
 check(rows[2].state == "missing" and rows[2].slash == "/rq map", "Map row: not installed")
 check(rows[3].state == "disabled" and rows[3].slash == "/rq craft" and rows[3].title == "Guild Craft Advisor", "Craft row: disabled")
 check(#rows == 3, "three known rows, no duplicates")
-_G.RavenquillExpeditionHighlightsFrame:Hide()
+env.RavenquillExpeditionHighlightsFrame:Hide()
 rawget(ov.home.rows[1].button, "_scripts").OnClick()
-check(_G.RavenquillExpeditionHighlightsFrame:IsShown(), "Open button shows the Highlights window")
+check(env.RavenquillExpeditionHighlightsFrame:IsShown(), "Open button shows the Highlights window")
 rawget(ov.home.rows[1].opt, "_scripts").OnClick()
 check(GS.optionsModule == "Highlights" and ov.optView:IsShown() and not ov.home:IsShown(), "Options button switches to the options view")
 GS:ShowHome()
@@ -581,14 +505,14 @@ function craft:Open() crafted = true end
 function craft:OverviewStatus() return "Gilden-Sync · 4 erfasst" end
 rows = GS:OverviewRows()
 check(#rows == 3 and rows[3].state == "loaded" and rows[3].status == "Gilden-Sync · 4 erfasst" and rows[3].open, "Craft module replaces the GCA row")
-SlashCmdList.RAVENQUILL("craft")
+env.SlashCmdList.RAVENQUILL("craft")
 check(crafted, "/rq craft without options opens its window")
 local extra = GS:NewModule("Extra", { addon = "RavenquillExpedition_Extra", slash = "ex", title = "Extra" })
 local helped = false
 function extra:OnSlash(rest) helped = (rest == "") end
 rows = GS:OverviewRows()
 check(rows[4] and rows[4].title == "Extra" and not rows[4].open and not rows[4].options, "unknown module listed")
-SlashCmdList.RAVENQUILL("ex")
+env.SlashCmdList.RAVENQUILL("ex")
 check(helped, "/rq ex runs the module's OnSlash with no arguments")
 local opened = false
 local map = GS:NewModule("Map", { addon = "RavenquillExpedition_Map", slash = "map", title = "Karte", icon = "Interface\\Icons\\INV_Misc_Map_01" })
@@ -605,7 +529,7 @@ check(#rows == 4, "a registered Map is not listed twice")
 GS:ShowHome()
 rawget(ov.home.rows[2].button, "_scripts").OnClick()
 check(opened, "Map's Open button calls mod:Open()")
-SlashCmdList.RAVENQUILL("map")
+env.SlashCmdList.RAVENQUILL("map")
 check(GS.optionsModule == "Map" and ov.optView.panels.Map, "/rq map opens the map's options")
 local sizePlus = ov.optView.panels.Map.controls[2].plus
 for _ = 1, 10 do rawget(sizePlus, "_scripts").OnClick() end
@@ -619,8 +543,8 @@ check(rows[2].status == GS.OverviewL.LOADED and rows[2].open, "a failing status 
 check(#errors == errBefore + 1, "the hook's error goes to BugSack")
 table.remove(errors)
 function map:OverviewStatus() return "Auf der Karte: 2 · Teilen an" end
-SlashCmdList.RAVENQUILL("")
-SlashCmdList.RAVENQUILL("")
+env.SlashCmdList.RAVENQUILL("")
+env.SlashCmdList.RAVENQUILL("")
 check(not ov:IsShown(), "/rq on the overview closes it")
 check(#errors == 0, "no Lua errors (" .. #errors .. ")")
 
@@ -679,5 +603,4 @@ check(peers.Old == nil and peers.Broken == nil and peers.Fresh,
   "PrunePeers drops peers older than PEER_MAX_AGE and broken entries")
 check(type(GS.version) == "string" and GS.version ~= "", "core version comes from the .toc metadata (or 'dev')")
 
-io.write(("%d passed, %d failed\n"):format(passes, fails))
-if fails > 0 then os.exit(1) end
+Kit.finish()

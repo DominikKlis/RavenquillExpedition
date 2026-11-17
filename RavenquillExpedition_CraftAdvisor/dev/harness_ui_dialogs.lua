@@ -1,10 +1,11 @@
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "uikit.lua")
+local section = H.section
 local ns, GCA, advance, fakeSections, fakeSug, menuOf = H.ns, H.GCA, H.advance, H.fakeSections, H.fakeSug, H.menuOf
 local descendants, captureTip, check, tipText, Files = H.descendants, H.captureTip, H.check, H.tipText, H.Files
 H.lateGlobals()
 
 local function sweep(locale)
-  print("== Sweep: every OnEnter / OnClick (" .. locale .. ")")
+  section("Sweep: every OnEnter / OnClick (" .. locale .. ")")
   ns.locale = locale
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
@@ -139,7 +140,7 @@ sweep("enUS")
 sweep("deDE")
 
 do
-  print("== Error reporter wraps tooltips (H-1)")
+  section("Error reporter wraps tooltips (H-1)")
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   local UIx = GCA.UI
@@ -163,7 +164,7 @@ do
 end
 
 do
-  print("== Whisper editor: ESC (L-1)")
+  section("Whisper editor: ESC (L-1)")
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   local UIx, f = GCA.UI, GCA.UI.frame
@@ -213,7 +214,7 @@ do
 end
 
 do
-  print("== No members: nothing stale (L-4)")
+  section("No members: nothing stale (L-4)")
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   local UIx = GCA.UI
@@ -230,7 +231,7 @@ do
 end
 
 do
-  print("== Window: atlases missing (fallbacks)")
+  section("Window: atlases missing (fallbacks)")
   H.atlasMode = "missing"
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
@@ -260,7 +261,7 @@ CreateFrame = function(otype, name, parent, template)
   return origCF(otype, name, parent, template)
 end
 do
-  print("== Window: fallback path")
+  section("Window: fallback path")
   H.atlasMode = "missing"
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
@@ -279,7 +280,7 @@ end
 CreateFrame = origCF
 
 do
-  print("== whisper to a name with a space; K0/L3: spec reasons + slash replies localized")
+  section("whisper to a name with a space; K0/L3: spec reasons + slash replies localized")
   local box = { text = "" }
   function box:SetChatType(t) self.chatType = t end
   function box:SetTellTarget(n) self.tell = n end
@@ -356,7 +357,7 @@ do
 end
 
 do
-  print("== Settings: one writer (GCA:SetSetting / GCA:SetSurvival) for the /rq options and the window")
+  section("Settings: one writer (GCA:SetSetting / GCA:SetSurvival) for the /rq options and the window")
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   local UIx, s = GCA.UI, GCA.db.settings

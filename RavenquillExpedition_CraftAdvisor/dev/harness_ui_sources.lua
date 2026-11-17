@@ -1,4 +1,5 @@
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "uikit.lua")
+local section = H.section
 local GCA, advance, ns, SOURCES, check, fakeSug = H.GCA, H.advance, H.ns, H.SOURCES, H.check, H.fakeSug
 local plain, captureTip, tipText, ROOT, Files, Frame = H.plain, H.captureTip, H.tipText, H.ROOT, H.Files, H.Frame
 local fakeSections, plainTip = H.fakeSections, H.plainTip
@@ -6,7 +7,7 @@ H.lateGlobals()
 H.templateMode = "fail"
 
 do
-  print("== where to get missing recipes (own Data/Sources.lua, no other addon) + inner border")
+  section("where to get missing recipes (own Data/Sources.lua, no other addon) + inner border")
   GCA.UI:Toggle(); advance(1)
   local UIx = GCA.UI
   local Src = UIx.Src
@@ -405,7 +406,7 @@ do
 end
 
 do
-  print("== W: weapon rows in the list, the sheet and guild needs")
+  section("W: weapon rows in the list, the sheet and guild needs")
   local errBefore = GCA.UI.errorCount or 0
   local E = { key = "kw", set = { weights = { Strength = 1, MainHandDps = 2, TwoHandDps = 2, OffHandDps = 1 }, source = {} },
     raw = { source = { kind = "sim", minLevel = 30, maxLevel = 40 } }, class = "WARRIOR", spec = "FURY", level = 40, share = 0.5, t = 1 }

@@ -42,6 +42,12 @@ function F.load(list, ns, env)
   end
 end
 
+function F.kitFiles(list)
+  local out = {}
+  for i, f in ipairs(list) do out[i] = { ROOT .. f, ADDON } end
+  return out
+end
+
 function F.loadUI(ns, env)
   if ns.GCA and ns.L == nil then ns.L = ns.GCA.L end
   F.load(F.group("UI"), ns, env)

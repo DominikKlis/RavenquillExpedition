@@ -1,115 +1,41 @@
-unpack = table.unpack
 local DEV = (arg[0]:gsub("[^/\\]*$", ""))
-local ADDONS = DEV .. "../../"
+local Kit = dofile(DEV .. "../../RavenquillExpedition/dev/testkit.lua")
+local check = Kit.check
 local RECORD = arg[1] == "--record"
-local Golden = dofile(ADDONS .. "RavenquillExpedition/dev/golden.lua")
+local Golden = dofile(Kit.ADDONS .. "RavenquillExpedition/dev/golden.lua")
 local gold = Golden.open(DEV .. "fixtures/compat_golden.lua", RECORD)
-math.random = Golden.Random(99)
 
-local pass, fail = 0, 0
-local function check(cond, what)
-  if cond then pass = pass + 1; print("  ok   " .. what) else fail = fail + 1; print("  FAIL " .. what) end
-end
-
-local now, BASE = 100, 1800000000
-local timers = {}
-C_Timer = { After = function(d, fn) timers[#timers + 1] = { at = now + d, fn = fn } end }
-local function advance(sec)
-  local stop = now + sec
-  while true do
-    table.sort(timers, function(a, b) return a.at < b.at end)
-    local t = timers[1]
-    if not t or t.at > stop then break end
-    table.remove(timers, 1); now = math.max(now, t.at); t.fn()
-  end
-  now = stop
-end
-function GetTime() return now end
-function GetServerTime() return BASE + math.floor(now) end
-time = function() return BASE + math.floor(now) end
-date = os.date
-print_ = print
-function geterrorhandler() return function(msg) print_("  ERROR " .. tostring(msg)) end end
-function debugstack() return "" end
-function wipe(t) for k in pairs(t) do t[k] = nil end return t end
-tinsert = table.insert
-local frames = {}
-local function obj()
-  return setmetatable({}, { __index = function(_, k)
-    if type(k) ~= "string" or not k:match("^%u") then return nil end
-    if k == "SetScript" then return function(s, ev, fn) local sc = rawget(s, "_scripts") or {}; rawset(s, "_scripts", sc); sc[ev] = fn end end
-    if k == "RegisterEvent" then return function(s, ev) local e = rawget(s, "_ev") or {}; rawset(s, "_ev", e); e[ev] = true end end
-    if k == "CreateFontString" or k == "CreateTexture" then return function() return obj() end end
-    return function() end
+local EPOCH = 1800000000
+local sched = Kit.Scheduler({ start = 100 })
+local bus = Kit.Bus(sched)
+local me = Kit.Client(sched, bus, "Me Smith", { guild = "Die Gilde", realm = "Forever", class = "ROGUE", level = 30,
+  epoch = EPOCH, random = Kit.Random(99), addons = { "RavenquillExpedition_Highlights" }, setup = function(env)
+    local _ENV = env
+    RAID_CLASS_COLORS = {}
+    Enum = { QuestTag = {} }
+    C_Item = { GetItemInfo = function() end, GetDetailedItemLevelInfo = function() end, RequestLoadItemDataByID = function() end }
+    C_Container = { GetContainerNumSlots = function() return 0 end, GetContainerItemInfo = function() end }
+    NUM_BAG_SLOTS, NUM_TOTAL_EQUIPPED_BAG_SLOTS, NUM_BANKBAGSLOTS, BANK_CONTAINER = 4, 4, 6, -1
+    C_AddOns = { IsAddOnLoaded = function() return false end, GetAddOnInfo = function(n) return n, nil, nil, false, "MISSING" end }
+    function GetInventoryItemLink() end
+    C_QuestLog = { GetNumQuestLogEntries = function() return 0 end }
+    LOOT_ITEM_SELF, LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %s.", "You receive loot: %sx%d."
+    LOOT_ITEM, LOOT_ITEM_MULTIPLE = "%s receives loot: %s.", "%s receives loot: %sx%d."
   end })
+local env, coreNS, fire = me.env, me.coreNs, me.fire
+local GS, H = me.RQ, me.ns.RavenquillExpedition_Highlights.H
+local function sentSince(mark)
+  local out = {}
+  for i = mark + 1, #me.sent do local s = me.sent[i]; out[#out + 1] = s.prefix .. "|" .. s.chat .. "|" .. s.msg end
+  return out
 end
-function CreateFrame() local o = obj(); frames[#frames + 1] = o; return o end
-local function fire(event, ...)
-  for _, f in ipairs(frames) do
-    local ev, sc = rawget(f, "_ev"), rawget(f, "_scripts")
-    if ev and ev[event] and sc and sc.OnEvent then sc.OnEvent(f, event, ...) end
-  end
-end
-UIParent, GameTooltip = obj(), obj()
-UISpecialFrames, SlashCmdList = {}, {}
-RAID_CLASS_COLORS = {}
-function GetBuildInfo() return "1.60.1", "70938", "", 16001 end
-function GetLocale() return "enUS" end
-Constants = { CharacterNameSeparatorConsts = { CHARACTERNAME_SURNAME_SEPARATOR = " " } }
-Enum = { QuestTag = {} }
-function UnitNameUnmodified(u) if u == "player" then return "Me", "Smith" end end
-UnitName = UnitNameUnmodified
-function UnitClass() return "Rogue", "ROGUE" end
-function UnitLevel() return 30 end
-function GetMaxPlayerLevel() return 60 end
-function Ambiguate(n) return n end
-function GetGuildInfo() return "Die Gilde" end
-function GetNormalizedRealmName() return "Forever" end
-function GetRealmName() return "Forever" end
-function IsInGuild() return true end
-function IsInInstance() return false, "none" end
-function InCombatLockdown() return false end
-function GetNumGuildMembers() return 1 end
-function GetGuildRosterInfo() return "Me Smith-Forever", nil, nil, 30, nil, nil, nil, nil, true, nil, "ROGUE" end
-C_GuildInfo = { GuildRoster = function() end }
-function GetNumGroupMembers() return 0 end
-function IsInRaid() return false end
-local sent = {}
-C_ChatInfo = {
-  RegisterAddonMessagePrefix = function() return true end,
-  SendAddonMessage = function(prefix, msg, chan)
-    sent[#sent + 1] = prefix .. "|" .. chan .. "|" .. msg
-    C_Timer.After(1, function() fire("CHAT_MSG_ADDON", prefix, msg, chan, "Me Smith-Forever") end)
-    return 0
-  end,
-}
-function hooksecurefunc(tbl, name, post)
-  local orig = tbl[name]
-  tbl[name] = function(...) local r = { orig(...) }; post(...); return unpack(r) end
-end
-C_Item = { GetItemInfo = function() end, GetDetailedItemLevelInfo = function() end, RequestLoadItemDataByID = function() end }
-C_Container = { GetContainerNumSlots = function() return 0 end, GetContainerItemInfo = function() end }
-NUM_BAG_SLOTS, NUM_TOTAL_EQUIPPED_BAG_SLOTS, NUM_BANKBAGSLOTS, BANK_CONTAINER = 4, 4, 6, -1
-C_AddOns = { IsAddOnLoaded = function() return false end, GetAddOnInfo = function(n) return n, nil, nil, false, "MISSING" end }
-function GetInventoryItemLink() end
-C_QuestLog = { GetNumQuestLogEntries = function() return 0 end }
-LOOT_ITEM_SELF, LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %s.", "You receive loot: %sx%d."
-LOOT_ITEM, LOOT_ITEM_MULTIPLE = "%s receives loot: %s.", "%s receives loot: %sx%d."
-
-local function load(addon, file, ns) assert(loadfile(ADDONS .. addon .. "/" .. file))(addon, ns) end
-local coreNS, hlNS = {}, {}
-for _, f in ipairs(dofile(ADDONS .. "RavenquillExpedition/dev/toc.lua")(ADDONS .. "RavenquillExpedition")) do load("RavenquillExpedition", f, coreNS) end
-for _, f in ipairs({ "Locale.lua", "Highlights.lua", "Wire.lua", "Detectors.lua", "LogWindow.lua" }) do
-  load("RavenquillExpedition_Highlights", f, hlNS)
-end
-local GS, H = RavenquillExpedition, hlNS.H
 fire("ADDON_LOADED", "RavenquillExpedition")
 fire("ADDON_LOADED", "RavenquillExpedition_Highlights")
 fire("PLAYER_LOGIN")
-advance(5)
+sched:advance(5)
 
 local ME = "Me Smith"
-local T = BASE - 5000
+local T = EPOCH - 5000
 local ENTRIES = {
   { k = "gear", t = T, who = ME, lvl = 30, cls = "ROGUE", id = ME .. "#" .. T .. "#1", item = 12345, il = 33, q = 3, oil = 20, slot = 1 },
   { k = "loot", t = T + 1, who = ME, lvl = 30, cls = "ROGUE", id = ME .. "#" .. (T + 1) .. "#2", item = 19019, q = 5, src = "bag" },
@@ -129,18 +55,18 @@ local ENTRIES = {
   { k = "gear", t = T + 10, who = ME, lvl = 30, cls = "SHAMAN", id = ME .. "#" .. (T + 10) .. "#10", item = 1 },
 }
 
-print("== Encoder layer")
+Kit.section("Encoder layer")
 local bodies = {}
 for i, e in ipairs(ENTRIES) do bodies[i] = H.Encode(e) or "<nil>" end
 gold:compare("hl.encode", bodies, check)
 
-print("== Lane layer")
-sent = {}
+Kit.section("Lane layer")
+local laneMark = #me.sent
 for i, b in ipairs(bodies) do if b ~= "<nil>" then H.channel:Send(H.ToMessage(ENTRIES[i])) end end
-advance(600)
-gold:compare("hl.lane", sent, check)
+sched:advance(600)
+gold:compare("hl.lane", sentSince(laneMark), check)
 
-print("== Decoder layer")
+Kit.section("Decoder layer")
 local goldBodies = RECORD and bodies or (gold.data["hl.encode"] or {})
 local okDec, total = 0, 0
 for i, e in ipairs(ENTRIES) do
@@ -157,7 +83,7 @@ for i, e in ipairs(ENTRIES) do
 end
 check(okDec == total and total >= 10, ("%d/%d golden bodies decode to their entries"):format(okDec, total))
 
-print("== SavedVariables layer: old shapes load into the same tables as before")
+Kit.section("SavedVariables layer: old shapes load into the same tables as before")
 local function lines(s) local out = {} for l in (s .. "\n"):gmatch("(.-)\n") do out[#out + 1] = l end return out end
 local SV_CASES = {
   fresh = { nil, nil },
@@ -171,14 +97,13 @@ for name in pairs(SV_CASES) do names[#names + 1] = name end
 table.sort(names)
 for _, name in ipairs(names) do
   local c = SV_CASES[name]
-  RavenquillExpeditionHighlightsDB, RavenquillExpeditionHighlightsCharDB = c[1], c[2]
+  env.RavenquillExpeditionHighlightsDB, env.RavenquillExpeditionHighlightsCharDB = c[1], c[2]
   coreNS.SetupModuleDB(H)
   H:OnLoad()
-  local cdb = RavenquillExpeditionHighlightsCharDB
-  if cdb.installedAt == time() then cdb.installedAt = "<now>" end
-  gold:compare("sv." .. name, lines(Golden.Serialize({ db = RavenquillExpeditionHighlightsDB, cdb = cdb })), check)
+  local cdb = env.RavenquillExpeditionHighlightsCharDB
+  if cdb.installedAt == env.time() then cdb.installedAt = "<now>" end
+  gold:compare("sv." .. name, lines(Golden.Serialize({ db = env.RavenquillExpeditionHighlightsDB, cdb = cdb })), check)
 end
 
 gold:finish()
-print_(("%d passed, %d failed, 0 skipped"):format(pass, fail))
-os.exit(fail == 0 and 0 or 1)
+Kit.finish()

@@ -1,11 +1,6 @@
 local ROOT = (arg[0]:gsub("[^/\\]*$", "")) .. "../"
-
-local fails, passes = 0, 0
-local function check(cond, label)
-  if cond then passes = passes + 1; print("  ok   " .. label)
-  else fails = fails + 1; print("  FAIL " .. label) end
-end
-local function section(s) print("== " .. s) end
+local Kit = dofile(ROOT .. "../RavenquillExpedition/dev/testkit.lua")
+local check, section = Kit.check, Kit.section
 
 local realSets, allLinks, seen = {}, {}, {}
 for i, items in ipairs(dofile(ROOT .. "dev/fixtures/gear_sets.lua")) do
@@ -24,23 +19,10 @@ local function withViewer(items, lvl)
 end
 local GEAR = {}
 for i, s in ipairs(realSets) do GEAR[i] = s.items end
-print(("fixtures: %d real gear sets, %d distinct links"):format(#realSets, #allLinks))
+io.write(("fixtures: %d real gear sets, %d distinct links\n"):format(#realSets, #allLinks))
 
-local now = 0
-local timers, tseq = {}, 0
-local function addTimer(d, fn) tseq = tseq + 1; timers[#timers + 1] = { at = now + d, seq = tseq, fn = fn } end
-local function advance(sec)
-  local target = now + sec
-  while true do
-    table.sort(timers, function(a, b) if a.at ~= b.at then return a.at < b.at end return a.seq < b.seq end)
-    local t = timers[1]
-    if not t or t.at > target then break end
-    table.remove(timers, 1); now = t.at
-    local ok, err = pcall(t.fn)
-    if not ok then fails = fails + 1; print("  FAIL timer error: " .. tostring(err)) end
-  end
-  now = target
-end
+local sched = Kit.Scheduler({ trap = true })
+local function advance(sec) sched:advance(sec) end
 
 local GUILD = {
   { name = "Anna Stone", class = "ROGUE", level = 36 },
@@ -55,49 +37,28 @@ local GUILD_BY = {}
 for _, g in ipairs(GUILD) do GUILD_BY[g.name] = g end
 
 local clients = {}
-local bus = { log = {}, drop = nil, result = nil, echo = true, sentBy = {} }
-
-local function deliver(from, prefix, msg)
-  bus.log[#bus.log + 1] = { t = now, from = from.name, msg = msg }
-  bus.sentBy[from.name] = (bus.sentBy[from.name] or 0) + 1
-  for _, c in pairs(clients) do
-    if c.online and (c ~= from or bus.echo) and not (bus.drop and bus.drop(msg, from, c)) then
-      addTimer(0.2, function() if c.online then c.fire("CHAT_MSG_ADDON", prefix, msg, "GUILD", from.name) end end)
-    end
-  end
-end
-
-local Kit = dofile(ROOT .. "../RavenquillExpedition/dev/testkit.lua")
-local kitSched = setmetatable({}, { __index = function(_, k) if k == "t" then return now end end })
-function kitSched.at(_, t, fn) addTimer(t - now, fn) end
-local kitBus = { clients = {} }
-function kitBus.member() end
-function kitBus.send(_, client, prefix, msg, chat)
-  assert(chat == "GUILD", "non-GUILD send: " .. tostring(chat))
-  deliver(client, prefix, msg)
-end
+local bus = Kit.Bus(sched)
+bus.latency = 0.2
+local sendResult
 
 local CA = "RavenquillExpedition_CraftAdvisor"
 local Files = dofile(ROOT .. "dev/files.lua")
-local FILES = Files.list({ except = { "Data/Sources.lua", "Data/ExtraSources.lua", "Auction.lua", "RecipeSources.lua", "UI" } })
+local FILES = Files.kitFiles(Files.list({ except = { "Data/Sources.lua", "Data/ExtraSources.lua", "Auction.lua", "RecipeSources.lua", "UI" } }))
+
+local LegacyFrame = {}
+LegacyFrame.__index = LegacyFrame
+function LegacyFrame:SetScript(ev, fn) self._scripts[ev] = fn end
+function LegacyFrame:RegisterEvent(ev) self._events[ev] = true end
+function LegacyFrame:UnregisterEvent(ev) self._events[ev] = nil end
 
 local function NewClient(name, gear, db, opts)
   opts = opts or {}
   local first, surname = name:match("^(%S+) (%S+)$")
   local g = GUILD_BY[name]
-  local files = {}
-  for i, f in ipairs(opts.files or FILES) do files[i] = { ROOT .. f, CA } end
-  local c
-  c = Kit.Client(kitSched, kitBus, name, { class = g.class, level = g.level, files = files,
-    noCore = opts.files ~= nil,
+  local c = Kit.Client(sched, bus, name, { class = g.class, level = g.level, files = opts.files and Files.kitFiles(opts.files) or FILES,
+    noCore = opts.files ~= nil, epoch = 1800000000,
     random = math.random, setup = function(env, kc)
-    c = kc
-    kc.gear, kc.units, kc.rosterReady, kc.prints = gear, {}, opts.rosterReady ~= false, {}
-    env.print = function(...) local t = {} for i = 1, select("#", ...) do t[i] = tostring(select(i, ...)) end kc.prints[#kc.prints + 1] = table.concat(t, " ") end
-    env.time = function() return 1800000000 + math.floor(now) end
-    env.GetServerTime = env.time
-    env.C_Timer = { After = function(d, fn) addTimer(d, function() if kc.online then fn() end end) end }
-    env.Ambiguate = function(n) return n end
+    kc.gear, kc.units, kc.rosterReady = gear, {}, opts.rosterReady ~= false
     env.GetNumSubgroupMembers = function() return 0 end
     local function U(u)
       if u == "player" then return { first = first, surname = surname, class = g.class, level = kc.level or g.level, guid = "G-" .. name, items = kc.gear } end
@@ -143,22 +104,12 @@ local function NewClient(name, gear, db, opts)
     local send = env.C_ChatInfo.SendAddonMessage
     env.C_ChatInfo.SendAddonMessage = function(prefix, msg, chan)
       assert(#msg <= 255, "message over 255 bytes: " .. #msg)
-      if bus.result then local r = bus.result(msg, kc); if r ~= nil and r ~= 0 then return r end end
+      assert(chan == "GUILD", "non-GUILD send: " .. tostring(chan))
+      if sendResult then local r = sendResult(msg, kc); if r ~= nil and r ~= 0 then return r end end
       return send(prefix, msg, chan)
     end
     env.RavenquillExpeditionCraftDB = db
-    if opts.files then
-      local Frame = {}
-      Frame.__index = Frame
-      function Frame:SetScript(ev, fn) self._scripts[ev] = fn end
-      function Frame:RegisterEvent(ev) self._events[ev] = true end
-      function Frame:UnregisterEvent(ev) self._events[ev] = nil end
-      env.CreateFrame = function()
-        local f = setmetatable({ _scripts = {}, _events = {} }, Frame)
-        kc.frames[#kc.frames + 1] = f
-        return f
-      end
-    end
+    if opts.files then kc.newFrame = function() return setmetatable({ _scripts = {}, _events = {} }, LegacyFrame) end end
   end })
   local ns = c.ns[CA]
   c.GCA = ns.GCA
@@ -215,8 +166,8 @@ check(wc and #wc <= 6, "worst-case 17-slot set encodes in " .. (wc and #wc or "n
 
 section("Login: first player alone sends only Q; no gear without listeners")
 advance(60)
-check(countBus(function(e) return e.from == "Anna Stone" and e.msg:sub(1, 2) == "Q;" end) == 1, "Anna sent one Q")
-check(countBus(function(e) return e.from == "Anna Stone" and e.msg:sub(1, 2) == "G;" end) == 0, "Anna sent no gear (nobody listening)")
+check(countBus(function(e) return e.sender == "Anna Stone" and e.msg:sub(1, 2) == "Q;" end) == 1, "Anna sent one Q")
+check(countBus(function(e) return e.sender == "Anna Stone" and e.msg:sub(1, 2) == "G;" end) == 0, "Anna sent no gear (nobody listening)")
 check(A.S.echoSeen ~= nil, "Anna saw her own echo")
 
 section("Second login: Bert gets Anna's gear, Anna gets Bert's")
@@ -229,32 +180,32 @@ check(rec(B, "Anna Stone") and rec(B, "Anna Stone").source == "self", "stored as
 
 section("Third login within 10 min (F#2): Cora still gets both")
 advance(60)
-local t0 = now
+local t0 = sched.t
 local Cc = Login("Cora Vale", copy(GEAR[3]))
 advance(150)
 check(rec(Cc, "Anna Stone") and rec(Cc, "Bert Hill"), "Cora has Anna's and Bert's gear")
 check(rec(A, "Cora Vale") and rec(B, "Cora Vale"), "Anna and Bert have Cora's gear")
-local annaSelf = busSince(t0, function(e) return e.from == "Anna Stone" and e.msg:match("^G;;") and e.msg:match(";1/%d;") end)
+local annaSelf = busSince(t0, function(e) return e.sender == "Anna Stone" and e.msg:match("^G;;") and e.msg:match(";1/%d;") end)
 check(annaSelf == 1, "Anna answered with exactly one broadcast (" .. annaSelf .. ")")
 
 section("Repeated Qs are absorbed by one pending answer")
 advance(600)
-t0 = now
+t0 = sched.t
 A.fire("CHAT_MSG_ADDON", "GCAdv1", "Q;2", "GUILD", "Bert Hill")
 advance(2)
 A.fire("CHAT_MSG_ADDON", "GCAdv1", "Q;2", "GUILD", "Cora Vale")
 advance(120)
-annaSelf = busSince(t0, function(e) return e.from == "Anna Stone" and e.msg:match("^G;;") and e.msg:match(";1/%d;") end)
+annaSelf = busSince(t0, function(e) return e.sender == "Anna Stone" and e.msg:match("^G;;") and e.msg:match(";1/%d;") end)
 check(annaSelf == 1, "two Qs -> one broadcast (" .. annaSelf .. ")")
 
 section("Own gear change is broadcast (debounced) and replaces older data")
 advance(200)
-t0 = now
+t0 = sched.t
 local oldTs = rec(B, "Anna Stone").ts
 A.gear[5] = GEAR[4][5] or GEAR[2][5]
 A.fire("PLAYER_EQUIPMENT_CHANGED")
 advance(10)
-check(busSince(t0, function(e) return e.from == "Anna Stone" and e.msg:match("^G;;") end) == 0, "not sent before the 20 s debounce")
+check(busSince(t0, function(e) return e.sender == "Anna Stone" and e.msg:match("^G;;") end) == 0, "not sent before the 20 s debounce")
 advance(120)
 check(rec(B, "Anna Stone").ts > oldTs and sameGear(rec(B, "Anna Stone").items, A.gear, B.GCA), "Bert has Anna's new gear")
 check(sameGear(rec(Cc, "Anna Stone").items, A.gear, Cc.GCA), "Cora has Anna's new gear")
@@ -265,9 +216,9 @@ A.instance = true
 A.fire("PLAYER_ENTERING_WORLD", false, false)
 A.gear[8] = GEAR[3][8] or GEAR[2][8]
 A.fire("PLAYER_EQUIPMENT_CHANGED")
-t0 = now
+t0 = sched.t
 advance(200)
-check(busSince(t0, function(e) return e.from == "Anna Stone" end) == 0, "nothing sent from the instance")
+check(busSince(t0, function(e) return e.sender == "Anna Stone" end) == 0, "nothing sent from the instance")
 A.instance = false
 A.fire("PLAYER_ENTERING_WORLD", false, false)
 advance(120)
@@ -285,7 +236,7 @@ local function inspect(c, uname, items, opts)
   advance(2)
   c.units.target = nil
 end
-local relaysBefore = countBus(function(e) return e.from == "Anna Stone" and e.msg:match("^G;Dora") end)
+local relaysBefore = countBus(function(e) return e.sender == "Anna Stone" and e.msg:match("^G;Dora") end)
 inspect(A, "Dora Field", doraGear)
 local doraTs = rec(A, "Dora Field") and rec(A, "Dora Field").ts
 check(doraTs ~= nil and rec(A, "Dora Field").source == "inspect", "Dora stored from inspect")
@@ -304,23 +255,23 @@ advance(5)
 inspect(A, "Emil Brook", copy(GEAR[1]), { loseAt = 0.7 })
 check(rec(A, "Emil Brook") ~= nil, "target lost before the final pass: still stored")
 advance(400)
-local relaysDora = countBus(function(e) return e.from == "Anna Stone" and e.msg:match("^G;Dora Field;") and e.msg:match(";1/%d;") end) - relaysBefore
+local relaysDora = countBus(function(e) return e.sender == "Anna Stone" and e.msg:match("^G;Dora Field;") and e.msg:match(";1/%d;") end) - relaysBefore
 check(relaysDora == 1, "Dora relayed once (" .. relaysDora .. ")")
 check(rec(B, "Dora Field") and rec(B, "Dora Field").from == "Anna Stone", "Bert has Dora via Anna")
 
 section("Group scan: 3 inspects in a row -> 3 relays, one per ~60 s (F#5)")
 advance(100)
-t0 = now
+t0 = sched.t
 inspect(A, "Finn Moor", copy(GEAR[2]))
 inspect(A, "Gina Reed", copy(GEAR[3]))
 GUILD_BY["Emil Brook"].level = 33
 inspect(A, "Emil Brook", copy(GEAR[4]))
 advance(30)
-check(busSince(t0, function(e) return e.from == "Anna Stone" and e.msg:match("^G;%a") and e.msg:match(";1/%d;") end) <= 1, "not all at once")
+check(busSince(t0, function(e) return e.sender == "Anna Stone" and e.msg:match("^G;%a") and e.msg:match(";1/%d;") end) <= 1, "not all at once")
 advance(300)
 check(rec(B, "Finn Moor") and rec(B, "Gina Reed") and rec(B, "Emil Brook") and sameGear(rec(B, "Emil Brook").items, GEAR[4], B.GCA),
   "Bert got all three relays")
-check(busSince(t0, function(e) return e.from == "Anna Stone" and e.msg:match("^G;%a") and e.msg:match(";1/%d;") end) == 3, "exactly 3 relays")
+check(busSince(t0, function(e) return e.sender == "Anna Stone" and e.msg:match("^G;%a") and e.msg:match(";1/%d;") end) == 3, "exactly 3 relays")
 
 section("Relay cancel: someone else relays the same subject first")
 advance(30)
@@ -328,23 +279,23 @@ local dora2 = copy(GEAR[1])
 inspect(A, "Gina Reed", copy(GEAR[1]))
 inspect(B, "Dora Field", dora2)
 inspect(A, "Dora Field", withViewer(dora2, 40))
-t0 = now
+t0 = sched.t
 advance(400)
-local annaDora = busSince(t0, function(e) return e.from == "Anna Stone" and e.msg:match("^G;Dora Field;") end)
-local bertDora = busSince(t0 - 5, function(e) return e.from == "Bert Hill" and e.msg:match("^G;Dora Field;") end)
+local annaDora = busSince(t0, function(e) return e.sender == "Anna Stone" and e.msg:match("^G;Dora Field;") end)
+local bertDora = busSince(t0 - 5, function(e) return e.sender == "Bert Hill" and e.msg:match("^G;Dora Field;") end)
 check(bertDora >= 1 and annaDora == 0, ("Bert relayed Dora (%d msgs), Anna cancelled hers (%d msgs)"):format(bertDora, annaDora))
 check(sameGear(rec(Cc, "Dora Field").items, dora2, Cc.GCA), "Cora has Dora's new gear")
 
 section("Lost chunk: record not applied; applied on the next broadcast")
 advance(200)
 local cora0 = rec(Cc, "Bert Hill").ts
-bus.drop = function(msg, from, to) return from.name == "Bert Hill" and to.name == "Cora Vale" and msg:match("^G;;.-;2/%d;") end
+bus.drop = function(sender, _, msg, to) return sender == "Bert Hill" and to.name == "Cora Vale" and msg:match("^G;;.-;2/%d;") ~= nil end
 B.gear[1] = GEAR[1][1] or GEAR[3][1]; B.gear[3] = GEAR[3][3] or GEAR[1][3]
 B.fire("PLAYER_EQUIPMENT_CHANGED")
 advance(200)
 check(rec(Cc, "Bert Hill").ts == cora0, "Cora didn't apply Bert's record with a missing chunk")
 check(rec(A, "Bert Hill").ts > cora0, "Anna (no loss) applied it")
-bus.drop = nil
+bus.drop = function() return false end
 B.fire("CHAT_MSG_ADDON", "GCAdv1", "Q;2", "GUILD", "Cora Vale")
 advance(200)
 check(rec(Cc, "Bert Hill").ts > cora0, "applied on the next broadcast")
@@ -352,11 +303,11 @@ check(rec(Cc, "Bert Hill").ts > cora0, "applied on the next broadcast")
 section("Throttled sends (result 3/8) are held and sent whole")
 advance(200)
 local throttles = 0
-bus.result = function(msg, c) if c == A and throttles < 3 then throttles = throttles + 1; return 3 end end
+sendResult = function(_, c) if c == A and throttles < 3 then throttles = throttles + 1; return 3 end end
 A.gear[10] = GEAR[2][10] or GEAR[3][10]
 A.fire("PLAYER_EQUIPMENT_CHANGED")
 advance(400)
-bus.result = nil
+sendResult = nil
 check(throttles == 3 and sameGear(rec(B, "Anna Stone").items, A.gear, B.GCA), "after 3 throttles the record arrives whole")
 
 section("Merge rules")
@@ -438,23 +389,23 @@ check(not ginaOwn or ginaOwn.source ~= "self", "no self record for Gina from jun
 
 section("No echo: the core's slow mode (1 per 5 min, one warning) is our 'paused'; Retry sync leaves it")
 advance(300)
-bus.echo = false
+bus.drop = function(sender, _, _, to) return to.name == sender end
 A.gear[6] = GEAR[2][6] or GEAR[3][6]
 A.fire("PLAYER_EQUIPMENT_CHANGED")
 advance(600)
-local warn = 0 for _, p in ipairs(A.prints) do if p:find("sending slowly", 1, true) then warn = warn + 1 end end
+local warn = 0 for _, p in ipairs(A.printed) do if p.text:find("sending slowly", 1, true) then warn = warn + 1 end end
 check(A.RQ:CommState().slow and A.GCA:SyncState() == "paused" and warn == 1,
   "nothing echoed for 120 s after a loss: slow mode, sync state 'paused', the core warns once (" .. warn .. ")")
 local lines = {}
 A.GCA:SyncStatus(function(l) lines[#lines + 1] = l end)
 check(lines[1] == A.GCA.L.SYNC_STOPPED_MSG and lines[1]:find("sending continues slowly", 1, true), "sync status says sending continues slowly")
-local t1 = now
+local t1 = sched.t
 A.gear[6] = GEAR[3][6] or GEAR[1][6]
 A.fire("PLAYER_EQUIPMENT_CHANGED")
 advance(900)
-local slowSent = busSince(t1, function(e) return e.from == "Anna Stone" end)
+local slowSent = busSince(t1, function(e) return e.sender == "Anna Stone" end)
 check(slowSent >= 1 and slowSent <= 4, "while slow, sending continues at 1 per 5 min (" .. slowSent .. " in 15 min)")
-bus.echo = true
+bus.drop = function() return false end
 A.GCA:SyncRetry()
 advance(300)
 check(not A.RQ:CommState().slow and A.GCA:SyncState() ~= "paused" and sameGear(rec(B, "Anna Stone").items, A.gear, B.GCA),
@@ -463,28 +414,28 @@ check(not A.RQ:CommState().slow and A.GCA:SyncState() ~= "paused" and sameGear(r
 section("Roster not loaded yet: Q deferred until it is")
 Logout(Cc)
 advance(30)
-t0 = now
+t0 = sched.t
 local D = Login("Cora Vale", copy(GEAR[3]), Cc.GCA.db, { rosterReady = false })
 D.GCA.db.sync["Cora Vale-Realm"].lastQ = nil
 advance(90)
-check(busSince(t0, function(e) return e.from == "Cora Vale" and e.msg:sub(1, 2) == "Q;" end) == 0, "no Q while the roster is empty")
+check(busSince(t0, function(e) return e.sender == "Cora Vale" and e.msg:sub(1, 2) == "Q;" end) == 0, "no Q while the roster is empty")
 D.rosterReady = true; D.fire("GUILD_ROSTER_UPDATE")
 advance(30)
-check(busSince(t0, function(e) return e.from == "Cora Vale" and e.msg:sub(1, 2) == "Q;" end) == 1, "Q sent once the roster loaded")
+check(busSince(t0, function(e) return e.sender == "Cora Vale" and e.msg:sub(1, 2) == "Q;" end) == 1, "Q sent once the roster loaded")
 
 section("/reload within 15 min doesn't resend Q; an alt does (F#11)")
 advance(60)
-t0 = now
+t0 = sched.t
 local D2 = Login("Cora Vale", copy(GEAR[3]), D.GCA.db)
 advance(90)
-check(busSince(t0, function(e) return e.from == "Cora Vale" and e.msg:sub(1, 2) == "Q;" end) == 0, "/reload: no second Q")
+check(busSince(t0, function(e) return e.sender == "Cora Vale" and e.msg:sub(1, 2) == "Q;" end) == 0, "/reload: no second Q")
 Logout(D2)
 local db = D2.GCA.db
-t0 = now
+t0 = sched.t
 GUILD[#GUILD + 1] = { name = "Cora Alt", class = "MAGE", level = 20 }; GUILD_BY["Cora Alt"] = GUILD[#GUILD]
 local E = Login("Cora Alt", copy(GEAR[2]), db)
 advance(90)
-check(busSince(t0, function(e) return e.from == "Cora Alt" and e.msg:sub(1, 2) == "Q;" end) == 1, "alt on the same account sends its own Q")
+check(busSince(t0, function(e) return e.sender == "Cora Alt" and e.msg:sub(1, 2) == "Q;" end) == 1, "alt on the same account sends its own Q")
 
 section("Review fixes: realm-suffixed echo, own record retried after expiry, relay without level")
 local R1 = E.GCA
@@ -492,18 +443,18 @@ local peersBefore = 0 for _ in pairs(E.S.peers) do peersBefore = peersBefore + 1
 E.S.echoSeen = nil
 E.fire("CHAT_MSG_ADDON", "GCAdv1", "Q;2", "GUILD", "Cora Alt-Realm")
 local peersAfter = 0 for _ in pairs(E.S.peers) do peersAfter = peersAfter + 1 end
-check(E.S.echoSeen == now and peersAfter == peersBefore, "realm-suffixed own echo recognised")
+check(E.S.echoSeen == sched.t and peersAfter == peersBefore, "realm-suffixed own echo recognised")
 check(R1.db.members["Cora Alt-Realm"] == nil, "no member record for ourselves under another name")
 advance(300)
-local busyUntil = now + 400
-local function busy() if now < busyUntil then for _ = 1, 10 do E.RQ.Comm.heard[#E.RQ.Comm.heard + 1] = now end; addTimer(10, busy) end end
+local busyUntil = sched.t + 400
+local function busy() if sched.t < busyUntil then for _ = 1, 10 do E.RQ.Comm.heard[#E.RQ.Comm.heard + 1] = sched.t end; sched:at(sched.t + 10, busy) end end
 busy()
 local dropsBefore = 0
 E.gear[7] = GEAR[1][7] or GEAR[4][7]
 E.fire("PLAYER_EQUIPMENT_CHANGED")
-t0 = now
+t0 = sched.t
 advance(380)
-check(busSince(t0, function(e) return e.from == "Cora Alt" and e.msg:match("^G;;") end) == 0, "nothing sent while the guild channel is busy")
+check(busSince(t0, function(e) return e.sender == "Cora Alt" and e.msg:match("^G;;") end) == 0, "nothing sent while the guild channel is busy")
 check(E.S.pending.self == nil and E.RQ:CommState().records == 0, "own record dropped from the core's record lane after 300 s unsent")
 advance(400)
 check(sameGear(rec(A, "Cora Alt").items, E.gear, A.GCA), "own record went out after the busy period (retried)")
@@ -512,7 +463,7 @@ local f, sn = "Gina", "Reed"
 A.units.target = { first = f, surname = sn, class = "SHAMAN", level = nil, guid = "G-Gina Reed", items = copy(GEAR[4]) }
 A.GCA.db.members["Gina Reed"].level = nil
 A.GCA:OnInspectReady("G-Gina Reed"); advance(2); A.units.target = nil
-t0 = now
+t0 = sched.t
 advance(200)
 check(rec(B, "Gina Reed") and rec(B, "Gina Reed").level == 32 and sameGear(rec(B, "Gina Reed").items, GEAR[4], B.GCA),
   "relay without unit level used the roster level (32) and arrived")
@@ -526,14 +477,14 @@ advance(100)
 local legacyFiles = { "Data/Leatherworking.lua", "dev/fixtures/compat_0.2.0/Core.lua", "dev/fixtures/compat_0.2.0/Sync.lua" }
 local K = Login("Kai Old", copy(GEAR[1]), {}, { files = legacyFiles })
 advance(120)
-t0 = now
+t0 = sched.t
 local I = Login("Ivy Lake", copy(GEAR[2]), {}, { talents = { { 5020, 15 }, { 1020, 5 } } })
 local J = Login("Jon Ash", copy(GEAR[3]), {}, { talents = { { 5020, 20 } }, knownSpells = { 768 } })
 advance(400)
 local sMsgs = busSince(t0, function(e) return e.msg:sub(1, 2) == "S;" end)
 check(sMsgs >= 2, "spec messages sent (" .. sMsgs .. ")")
 local ivyIdx = I.GCA.SPEC_INDEX["ROGUE/COMBAT"]
-check(busSince(t0, function(e) return e.from == "Ivy Lake" and e.msg:match("^S;" .. I.GCA.b36(ivyIdx) .. ";%w+$") end) >= 1, "Ivy sent S;<Combat>;<ts>")
+check(busSince(t0, function(e) return e.sender == "Ivy Lake" and e.msg:match("^S;" .. I.GCA.b36(ivyIdx) .. ";%w+$") end) >= 1, "Ivy sent S;<Combat>;<ts>")
 check(J.GCA:MemberSpec("Ivy Lake", "ROGUE", {}) == "COMBAT", "Jon knows Ivy is Combat (synced)")
 local js, jhow = I.GCA:MemberSpec("Jon Ash", "DRUID", {})
 check(js == "FERAL_CAT" and jhow == "synced", "Ivy knows Jon's spec: " .. tostring(js) .. " (" .. tostring(jhow) .. ")")
@@ -571,21 +522,21 @@ section("one chatty sender can't hold everyone's sending; several busy senders s
 do
   advance(900)
   A.RQ:CommResume()
-  local spamUntil = now + 900
+  local spamUntil = sched.t + 900
   local function spam()
-    if now < spamUntil then
+    if sched.t < spamUntil then
       A.fire("CHAT_MSG_ADDON", "GCAdv1", "X;junk", "GUILD", "Spam Bot")
-      addTimer(1, spam)
+      sched:at(sched.t + 1, spam)
     end
   end
   spam()
   A.gear[7] = GEAR[2][7] ~= A.gear[7] and GEAR[2][7] or GEAR[3][7]
   A.fire("PLAYER_EQUIPMENT_CHANGED")
-  local t1 = now
+  local t1 = sched.t
   advance(840)
-  local sent = busSince(t1, function(e) return e.from == A.name and e.msg:match("^G;;") end)
+  local sent = busSince(t1, function(e) return e.sender == A.name and e.msg:match("^G;;") end)
   local recent = 0
-  for _, t in ipairs(A.RQ.Comm.heard) do if now - t <= 60 then recent = recent + 1 end end
+  for _, t in ipairs(A.RQ.Comm.heard) do if sched.t - t <= 60 then recent = recent + 1 end end
   check(sent >= 1 and recent <= A.RQ.CommConst.HEARD_PER_SENDER,
     ("own gear goes out while one guildie sends 1 msg/s (%d chunk(s) sent, %d heard in the last 60 s)"):format(sent, recent))
   advance(200)
@@ -593,25 +544,25 @@ do
   local busy = {}
   for i = 1, math.ceil(CC.BUSY_HEARD / CC.HEARD_PER_SENDER) + 2 do busy[i] = "Busy" .. i .. " Guildie" end
   A.RQ.Comm.heard = {}
-  local busyUntil2 = now + 300
+  local busyUntil2 = sched.t + 300
   local function chatter()
-    if now < busyUntil2 then
+    if sched.t < busyUntil2 then
       for _, who in ipairs(busy) do
         A.fire("CHAT_MSG_ADDON", "GCAdv1", "X;busy", "GUILD", who)
       end
-      addTimer(15, chatter)
+      sched:at(sched.t + 15, chatter)
     end
   end
   chatter()
   advance(50)
   A.gear[7] = GEAR[2][7] ~= A.gear[7] and GEAR[2][7] or GEAR[3][7]
   A.fire("PLAYER_EQUIPMENT_CHANGED")
-  local t2 = now
+  local t2 = sched.t
   advance(200)
-  check(busSince(t2, function(e) return e.from == A.name and e.msg:match("^G;;") end) == 0,
+  check(busSince(t2, function(e) return e.sender == A.name and e.msg:match("^G;;") end) == 0,
     ("%d busy senders (%d heard/min, hold at %d): our send is held (%d heard)"):format(#busy, #busy * 4, CC.BUSY_HEARD, #A.RQ.Comm.heard))
   advance(600)
-  check(busSince(t2, function(e) return e.from == A.name and e.msg:match("^G;;") end) >= 1, "held send goes out once it is quiet")
+  check(busSince(t2, function(e) return e.sender == A.name and e.msg:match("^G;;") end) >= 1, "held send goes out once it is quiet")
 end
 
 section("the inspect queue waits for the final storing read before the next NotifyInspect")
@@ -621,12 +572,12 @@ do
   local answerDelay = { ["G-Dora Field"] = 0.3, ["G-Emil Brook"] = 0.3, ["G-Finn Moor"] = false, ["G-Gina Reed"] = 2.9 }
   A.env.NotifyInspect = function(u)
     local x = A.units[u]
-    notifies[#notifies + 1] = { t = now, guid = x and x.guid }
+    notifies[#notifies + 1] = { t = sched.t, guid = x and x.guid }
     local d = x and answerDelay[x.guid]
-    if d then addTimer(d, function() A.fire("INSPECT_READY", x.guid) end) end
+    if d then sched:at(sched.t + d, function() A.fire("INSPECT_READY", x.guid) end) end
   end
   local realStore = G.StoreRecord
-  G.StoreRecord = function(self, key, ...) stores[#stores + 1] = { t = now, key = key }; return realStore(self, key, ...) end
+  G.StoreRecord = function(self, key, ...) stores[#stores + 1] = { t = sched.t, key = key }; return realStore(self, key, ...) end
   local function unit(token, uname, items)
     local g = GUILD_BY[uname]
     local f, s = uname:match("^(%S+) (%S+)$")
@@ -654,7 +605,7 @@ do
   check(#notifies == 2 and G.inspecting == nil, "an error in the final read doesn't hang the queue")
   G.StoreRecord = realStore
   notifies = {}
-  A.env.NotifyInspect = function(u) notifies[#notifies + 1] = { t = now }; G.inspectAnswered = G.inspecting end
+  A.env.NotifyInspect = function(u) notifies[#notifies + 1] = { t = sched.t }; G.inspectAnswered = G.inspecting end
   G.lastInspect = {}
   G:QueueInspect("party2", true)
   advance(G.INSPECT_NO_ANSWER + 1)
@@ -758,7 +709,7 @@ do
   local r = rec(B, "Anna Stone")
   check(r and r.time and r.ts and r.time > r.ts and B.env.time() - r.time < 3600,
     "received record: time is our receive time (" .. tostring(r and r.time) .. "), ts kept (" .. tostring(r and r.ts) .. ")")
-  local function resumed() local n = 0 for _, p in ipairs(A.prints) do if p:find("Guild sync resumed", 1, true) then n = n + 1 end end return n end
+  local function resumed() local n = 0 for _, p in ipairs(A.printed) do if p.text:find("Guild sync resumed", 1, true) then n = n + 1 end end return n end
   local n0 = resumed()
   A.RQ:CommResume()
   A.GCA:SyncRetry()
@@ -803,11 +754,11 @@ do
     G.pruneDone = nil
     A.fire("GUILD_ROSTER_UPDATE")
   end
-  G.loginTime = now
+  G.loginTime = sched.t
   db.rosterLast = 7
   try()
   check(db.members["Gone Away"] and not G.pruneDone, "too soon after login: nothing pruned")
-  G.loginTime = now - 120
+  G.loginTime = sched.t - 120
   db.rosterLast = nil
   try()
   check(db.members["Gone Away"] and db.rosterLast == 7, "first session that records a roster size: nothing pruned")
@@ -829,14 +780,15 @@ do
   try()
   check(db.members["Gone Away"], "incomplete roster read (an index without a name): nothing pruned")
   hole = nil
-  local p0 = #A.prints
+  local p0 = #A.printed
   try()
   check(db.members["Gone Away"] == nil and db.specs["Gone Away"] == nil and db.crafted[G.charKey]["Gone Away"] == nil
     and db.crafted["Other Main-Realm"]["Gone Away"] == nil and db.specs["Spec Only"] == nil,
     "left the guild + older than 30 days: gear, spec and crafted marks (every character) removed")
   check(db.members["Just Left"] and db.members["No Stamp"] and db.members["Dora Field"] and db.members[G.playerKey]
     and db.members["My Alt"] and db.members["Other Main"], "kept: recent, no timestamp, still in the guild, own characters")
-  check(#A.prints == p0 + 1 and A.prints[#A.prints]:find("Removed 2 character", 1, true) ~= nil, "one chat line: " .. tostring(A.prints[#A.prints]))
+  local lastLine = A.printed[#A.printed] and A.printed[#A.printed].text
+  check(#A.printed == p0 + 1 and lastLine:find("Removed 2 character", 1, true) ~= nil, "one chat line: " .. tostring(lastLine))
   db.members["Gone Away"] = { class = "MAGE", level = 30, time = old, items = {} }
   A.fire("GUILD_ROSTER_UPDATE")
   check(db.members["Gone Away"] ~= nil, "once per session")
@@ -847,22 +799,12 @@ end
 
 section("Pacing: nobody sent more than the core's budget allows (4 per 60 s, 22 per 600 s)")
 local function worst(window)
-  local w = 0
-  for name in pairs(bus.sentBy) do
-    local times = {}
-    for _, e in ipairs(bus.log) do if e.from == name then times[#times + 1] = e.t end end
-    for i = 1, #times do
-      local n = 0
-      for j = i, #times do if times[j] - times[i] < window then n = n + 1 end end
-      w = math.max(w, n)
-    end
-  end
+  local w, senders = 0, {}
+  for _, e in ipairs(bus.log) do senders[e.sender] = true end
+  for name in pairs(senders) do w = math.max(w, bus:maxPer(window, name)) end
   return w
 end
 local w60, w600 = worst(60), worst(600)
 check(w60 <= 4 and w600 <= 22, ("max messages by one client: %d in any 60 s (<= 4), %d in any 600 s (<= 22)"):format(w60, w600))
-local total = 0 for _, n in pairs(bus.sentBy) do total = total + n end
-print(("  info: %d messages on the bus over %.0f simulated minutes"):format(total, now / 60))
-
-print(("\n%d passed, %d failed"):format(passes, fails))
-os.exit(fails == 0 and 0 or 1)
+io.write(("  info: %d messages on the bus over %.0f simulated minutes\n"):format(#bus.log, sched.t / 60))
+Kit.finish()

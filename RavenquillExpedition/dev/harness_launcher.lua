@@ -1,115 +1,39 @@
-unpack = table.unpack
 local DEV = (arg[0]:gsub("[^/\\]*$", ""))
-local ADDONS = DEV .. "../../"
-local pass, fail = 0, 0
-local function check(cond, what)
-  if cond then pass = pass + 1; io.write("  ok   ", what, "\n") else fail = fail + 1; io.write("  FAIL ", what, "\n") end
-end
-local function section(s) io.write("== ", s, "\n") end
+local Kit = dofile(DEV .. "testkit.lua")
+local check, section = Kit.check, Kit.section
 
-local now = 100
-local timers = {}
-C_Timer = { After = function(d, fn) timers[#timers + 1] = { at = now + d, fn = fn } end }
-local function advance(sec)
-  local stop = now + sec
-  while true do
-    table.sort(timers, function(a, b) return a.at < b.at end)
-    local t = timers[1]
-    if not t or t.at > stop then break end
-    table.remove(timers, 1); now = math.max(now, t.at); t.fn()
-  end
-  now = stop
-end
-function GetTime() return now end
-function GetServerTime() return 1800000000 + math.floor(now) end
-time = GetServerTime
-date = os.date
-local errors, printed = {}, {}
-function geterrorhandler() return function(msg) errors[#errors + 1] = msg end end
-function debugstack() return "" end
-print = function(...) local t = {} for i = 1, select("#", ...) do t[i] = tostring(select(i, ...)) end printed[#printed + 1] = table.concat(t, " ") end
+local Geometry = {}
+function Geometry.SetSize(s, w, h) s._w, s._h = w, h end
+function Geometry.GetWidth(s) return s._w or 0 end
+function Geometry.GetHeight(s) return s._h or 0 end
+function Geometry.GetCenter(s) return s._cx, s._cy end
+function Geometry.GetEffectiveScale() return 1 end
+function Geometry.IsForbidden(s) return s._forbidden end
+function Geometry.SetFrameStrata(s, v) s._strata = v end
+function Geometry.SetFrameLevel(s, l) s._level = l end
+function Geometry.ClearAllPoints(s) s._points = {} end
+function Geometry.SetPoint(s, ...) s._points = s._points or {}; s._points[#s._points + 1] = { ... } end
 
-local frames = {}
-local Frame = {}
-local FrameMT = { __index = function(_, k)
-  if Frame[k] then return Frame[k] end
-  if type(k) == "string" and k:match("^%u") then return function() end end
-end }
-local function New(otype, parent, name)
-  local f = setmetatable({ _type = otype or "Frame", _children = {}, _scripts = {}, _events = {}, _shown = true, _w = 0, _h = 0,
-    _points = {} }, FrameMT)
-  if parent and parent._children then parent._children[#parent._children + 1] = f end
-  if name then f._name = name; _G[name] = f end
-  return f
-end
-function Frame:SetScript(ev, fn) self._scripts[ev] = fn end
-function Frame:HookScript(ev, fn) local old = self._scripts[ev]; self._scripts[ev] = function(...) if old then old(...) end fn(...) end end
-function Frame:RegisterEvent(ev) self._events[ev] = true end
-function Frame:UnregisterEvent(ev) self._events[ev] = nil end
-function Frame:Show() self._shown = true end
-function Frame:Hide() self._shown = false end
-function Frame:IsShown() return self._shown end
-function Frame:IsVisible() return self._shown end
-function Frame:SetSize(w, h) self._w, self._h = w, h end
-function Frame:GetWidth() return self._w end
-function Frame:GetHeight() return self._h end
-function Frame:GetCenter() return self._cx, self._cy end
-function Frame:GetEffectiveScale() return 1 end
-function Frame:GetName() return self._name end
-function Frame:GetObjectType() return self._type end
-function Frame:IsForbidden() return self._forbidden end
-function Frame:GetChildren() return unpack(self._children) end
-function Frame:SetFrameStrata(s) self._strata = s end
-function Frame:SetFrameLevel(l) self._level = l end
-function Frame:ClearAllPoints() self._points = {} end
-function Frame:SetPoint(...) self._points[#self._points + 1] = { ... } end
-function Frame:CreateTexture() return New("Texture") end
-function CreateFrame(otype, name, parent) local f = New(otype, parent, name); frames[#frames + 1] = f; return f end
-local function fire(event, ...)
-  for _, f in ipairs(frames) do
-    if f._events[event] and f._scripts.OnEvent then f._scripts.OnEvent(f, event, ...) end
-  end
-end
-local tip = { lines = {} }
-GameTooltip = setmetatable(tip, { __index = function(_, k)
-  if k == "AddLine" then return function(_, t) tip.lines[#tip.lines + 1] = t end end
-  if k == "SetOwner" then return function() tip.lines = {} end end
-  return function() end
-end })
-UIParent = New("Frame")
-UISpecialFrames, SlashCmdList = {}, {}
-Minimap = New("Frame", nil, "Minimap")
-Minimap._w, Minimap._h, Minimap._cx, Minimap._cy = 140, 140, 1000, 700
 local cursor = { 0, 0 }
-function GetCursorPosition() return cursor[1], cursor[2] end
+local sched = Kit.Scheduler({ start = 100 })
+local me = Kit.Client(sched, nil, "Me Smith", { guild = "Die Gilde", epoch = 1800000000, setup = function(env, c)
+  for k, fn in pairs(Geometry) do c.frameMethods[k] = fn end
+  env.GetCursorPosition = function() return cursor[1], cursor[2] end
+  env.RavenquillExpeditionCraftDB = { settings = { minimapAngle = 200 } }
+end })
+local env, coreNS, RQ, fire, tip = me.env, me.coreNs, me.RQ, me.fire, me.tip
+local Minimap = env.Minimap
+Minimap._shown = true
+Minimap._w, Minimap._h, Minimap._cx, Minimap._cy = 140, 140, 1000, 700
 local function Child(name, otype, angle, w, opts)
-  local c = New(otype, Minimap, name)
-  c._w, c._h = w, w
+  local c = env.CreateFrame(otype, name, Minimap)
+  c._w, c._h, c._shown = w, w, true
   c._cx = Minimap._cx + math.cos(math.rad(angle)) * 75
   c._cy = Minimap._cy + math.sin(math.rad(angle)) * 75
   for k, v in pairs(opts or {}) do c[k] = v end
   return c
 end
 
-function GetBuildInfo() return "1.60.1", "70938", "", 16001 end
-function GetLocale() return "enUS" end
-Constants = { CharacterNameSeparatorConsts = { CHARACTERNAME_SURNAME_SEPARATOR = " " } }
-function UnitNameUnmodified(u) if u == "player" then return "Me", "Smith" end end
-UnitName = UnitNameUnmodified
-function GetRealmName() return "Realm" end
-function IsInGuild() return true end
-function GetGuildInfo() return "Die Gilde" end
-function IsInInstance() return false end
-function InCombatLockdown() return false end
-function GetNumGuildMembers() return 0 end
-C_GuildInfo = { GuildRoster = function() end }
-
-RavenquillExpeditionCraftDB = { settings = { minimapAngle = 200 } }
-local coreNS = {}
-for _, f in ipairs(dofile(DEV .. "toc.lua")(ADDONS .. "RavenquillExpedition")) do
-  assert(loadfile(ADDONS .. "RavenquillExpedition/" .. f))("RavenquillExpedition", coreNS)
-end
-local RQ = RavenquillExpedition
 local opened = 0
 local craft = RQ:NewModule("Craft", { addon = "CraftTest", title = "Guild Craft Advisor", launcherRightClick = true })
 function craft:OverviewStatus() return "Guild sync: 2 guildies" end
@@ -130,15 +54,15 @@ local unplaced = Child("UnplacedButton", "Button", 0, 31); unplaced._cx, unplace
 fire("PLAYER_LOGIN")
 
 section("Settings: one-time copy of the Craft Advisor's button")
-local s = RavenquillExpeditionDB.launcher
+local s = env.RavenquillExpeditionDB.launcher
 check(type(s) == "table" and s.angle == 200 and not s.dragged and not s.hide, "launcher settings copied from the old Craft Advisor button (angle 200)")
-RavenquillExpeditionCraftDB.settings.minimapHide = true
+env.RavenquillExpeditionCraftDB.settings.minimapHide = true
 check(RQ:LauncherSettings() == s and not s.hide, "copied once: later changes to the old settings don't matter")
-RavenquillExpeditionCraftDB.settings.minimapHide = nil
+env.RavenquillExpeditionCraftDB.settings.minimapHide = nil
 
 section("Placement")
 local btn = coreNS.LauncherButton()
-check(btn ~= nil and btn == _G.RavenquillExpeditionLauncher and btn._shown, "button created at PLAYER_LOGIN")
+check(btn ~= nil and btn == env.RavenquillExpeditionLauncher and btn._shown, "button created at PLAYER_LOGIN")
 check(btn and btn._strata == "MEDIUM" and btn._level == 8, "strata MEDIUM, level 8")
 local a = RQ:LauncherFreeAngle()
 check(math.abs(a - 346.75) < 0.01, ("largest-gap angle = %.2f (expect 346.75)"):format(a))
@@ -149,7 +73,7 @@ check(math.abs(a2 - 34.75) < 0.01, ("with the late button: %.2f (expect 34.75)")
 section("Delayed auto-place, drag, re-place")
 fire("PLAYER_ENTERING_WORLD")
 check(s.angle == 200, "angle untouched before the 5 s delay")
-advance(5)
+sched:advance(5)
 check(math.abs(s.angle - 34.75) < 0.01, ("auto-placed after 5 s: %.2f"):format(s.angle))
 local p = btn._points[1]
 check(p and p[1] == "CENTER" and p[2] == Minimap, "button anchored to the Minimap centre")
@@ -157,7 +81,7 @@ cursor[1], cursor[2] = 1000, 800
 btn._scripts.OnDragStart(btn); btn._scripts.OnUpdate(btn); btn._scripts.OnDragStop(btn)
 check(math.abs(s.angle - 90) < 0.01 and s.dragged, "drag sets 90° and marks it dragged")
 s.angle = 200
-fire("PLAYER_ENTERING_WORLD"); advance(6)
+fire("PLAYER_ENTERING_WORLD"); sched:advance(6)
 check(s.angle == 200, "a dragged button is not auto-moved")
 local placed = RQ:LauncherReplace()
 check(math.abs(placed - 34.75) < 0.01 and math.abs(s.angle - 34.75) < 0.01 and not s.dragged, "re-place: back into the largest gap, drag forgotten")
@@ -165,7 +89,7 @@ local saved = Minimap._children; Minimap._children = { btn }
 check(RQ:LauncherFreeAngle() == 225, "no other buttons -> 225")
 Minimap._children = saved
 Minimap.GetChildren = function() error("boom") end
-check(RQ:LauncherFreeAngle() == 225 and #errors == 0, "a scan error -> 225, no Lua error")
+check(RQ:LauncherFreeAngle() == 225 and #me.errors == 0, "a scan error -> 225, no Lua error")
 Minimap.GetChildren = nil
 local dbg = {}
 RQ:LauncherDebug(function(l) dbg[#dbg + 1] = l end)
@@ -209,7 +133,6 @@ check(toggled == 2 and opened == 1 and not table.concat(tip.lines, " | "):find("
   "no module claims the right-click: it opens the overview and the tooltip has no right-click line")
 craft.launcherRightClick = true
 RQ.ToggleOverview = realToggle
-check(#errors == 0, "no Lua errors (" .. tostring(errors[1]) .. ")")
+check(#me.errors == 0, "no Lua errors (" .. tostring(me.errors[1]) .. ")")
 
-io.write(("%d passed, %d failed, 0 skipped\n"):format(pass, fail))
-os.exit(fail == 0 and 0 or 1)
+Kit.finish()

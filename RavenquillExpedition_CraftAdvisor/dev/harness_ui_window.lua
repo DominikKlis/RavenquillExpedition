@@ -1,4 +1,5 @@
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "uikit.lua")
+local section = H.section
 local windowChecks, GCA, descendants, check, advance = H.windowChecks, H.GCA, H.descendants, H.check, H.advance
 local menuOf, menuTexts, fakeSug, plain, captureTip = H.menuOf, H.menuTexts, H.fakeSug, H.plain, H.captureTip
 local plainTip, tipText, New, ns, fakeSections = H.plainTip, H.tipText, H.New, H.ns, H.fakeSections
@@ -12,7 +13,7 @@ do
 end
 
 do
-  print("== Window: profession selector (G3/G6.1/G7.11)")
+  section("Window: profession selector (G3/G6.1/G7.11)")
   local profs = { 165, 333 }
   GetProfessions = function() return 1, 2 end
   GetProfessionInfo = function(i)
@@ -52,7 +53,7 @@ do
   GetProfessions = function() return nil end
 end
 do
-  print("== Window: suggestion rows (L1, L6, H5.1, H5.2, U3)")
+  section("Window: suggestion rows (L1, L6, H5.1, H5.2, U3)")
   GCA.UI:Toggle(); advance(1)
   local UIx = GCA.UI
   local f = UIx.frame
@@ -220,7 +221,7 @@ do
   check(UIx.OfferText("Leatherworking", d, "Bud Stone"):find("^Hi Bud! I'm a leatherworker and could craft you |Hitem:4244"),
     "whisper: " .. UIx.OfferText("Leatherworking", d, "Bud Stone"))
 
-  print("== Window: K6 Filter dropdowns (L5 toggles), whisper editor (U2), help (U6)")
+  section("Window: K6 Filter dropdowns (L5 toggles), whisper editor (U2), help (U6)")
   local fb, mf = UIx.filterButton, UIx.memberFilter
   check(UIx.optionsButton == nil and UIx.optionsPopup == nil and fb.native and mf.native and fb._template == "WowStyle1FilterDropdownTemplate"
     and mf._template == "WowStyle1FilterDropdownTemplate" and fb._w == 90 and fb._h == 18 and UIx.filterPopup == nil,
@@ -279,7 +280,7 @@ do
 end
 
 do
-  print("== Window: German client (H4)")
+  section("Window: German client (H4)")
   ns.locale = "deDE"
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
@@ -308,7 +309,7 @@ do
 end
 
 do
-  print("== Window: slot sections (plan I)")
+  section("Window: slot sections (plan I)")
   GCA.UI:Toggle(); advance(1)
   local UIx, f = GCA.UI, GCA.UI.frame
   local before = UIx.errorCount
@@ -412,7 +413,7 @@ do
   check(UIx.errorCount == before, "no error reported")
   HandleModifiedItemClick = function() end
 
-  print("== Window: slot sections in German (plan I)")
+  section("Window: slot sections in German (plan I)")
   ns.locale = "deDE"
   f:Hide()
   GCA.UI.frame = nil
@@ -436,7 +437,7 @@ do
 end
 
 do
-  print("== Window: resizable (plan J2)")
+  section("Window: resizable (plan J2)")
   GCA.db.settings.window = nil
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
@@ -543,7 +544,7 @@ do
   check(UIx.errorCount == before, "no error reported (J2)")
   f:Hide()
 
-  print("== Window: resize on older / missing APIs (J2)")
+  section("Window: resize on older / missing APIs (J2)")
   local srb = Frame.SetResizeBounds
   Frame.SetResizeBounds = nil
   local minCalls = {}
@@ -570,7 +571,7 @@ do
   Frame.SetResizable, Frame.StartSizing = sr, ss
   GCA.db.settings.window = nil
 
-  print("== Window: resize grip in German (J2)")
+  section("Window: resize grip in German (J2)")
   ns.locale = "deDE"
   f = reopen()
   local g4 = GCA.UI.resizeGrip

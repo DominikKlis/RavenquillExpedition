@@ -433,9 +433,9 @@ end
 section("Debug: /gca stats <item link>")
 do
   addItem(900020, "Hit Ring", "INVTYPE_FINGER", 30, { ITEM_MOD_HIT_RATING_SHORT = 10, ITEM_MOD_STRANGE_SHORT = 1 })
-  H.printed = {}
+  local printedMark = #H.printed
   GCA:OnSlash("stats |cff|Hitem:900020::::::::40:1488|h[Hit Ring]|h|r")
-  local all = table.concat(H.printed, "\n")
+  local all = H.client.printedSince(printedMark)
   check(all:find("ITEM_MOD_HIT_RATING_SHORT=10") and all:find("MeleeHit=1") and all:find("SpellHit=1") and all:find("unmapped: ITEM_MOD_STRANGE_SHORT"),
     "raw keys, canonical result and unmapped keys printed")
 end

@@ -1,4 +1,5 @@
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "uikit.lua")
+local section = H.section
 local GCA, fakeSug, fakeSections, check, advance = H.GCA, H.fakeSug, H.fakeSections, H.check, H.advance
 local plain, menuOf, captureTip, plainTip, tipText = H.plain, H.menuOf, H.captureTip, H.plainTip, H.tipText
 local Frame, ATLASES, ns, menuTexts, layoutChecks = H.Frame, H.ATLASES, H.ns, H.menuTexts, H.layoutChecks
@@ -6,7 +7,7 @@ H.lateGlobals()
 H.templateMode = "fail"
 
 do
-  print("== Core GuildNeeds (order, grouping, cache)")
+  section("Core GuildNeeds (order, grouping, cache)")
   local savedTM, savedBrowse = H.templateMode, GCA.IsBrowse
   H.templateMode = "ok"
   GCA.IsBrowse = function() return false end
@@ -51,7 +52,7 @@ do
   check(n4 ~= n3 and GCA.needsBuilds == nb + 2, "InvalidateScores (new sugCache) rebuilds")
   advance(1)
 
-  print("== GuildNeedsByCraft + NeedsRows (grouped by craft, search, offline box)")
+  section("GuildNeedsByCraft + NeedsRows (grouped by craft, search, offline box)")
   local function sg(id, over)
     over = over or {}
     over.cand = { spellID = id, itemID = id, recipe = { skill = 100, src = "trainer", r = {} } }
@@ -114,7 +115,7 @@ do
   check(#UIx.NeedsRows(nd, "olga", false) == 0 and #UIx.NeedsRows(nd, "olga", true) == 2, "an offline member is found only with the offline box")
   check(#UIx.NeedsRows(nd, "zzz", false) == 0 and #UIx.NeedsRows(nd, "50%", false) == 0, "no match: nothing; a '%' is plain text")
 
-  print("== TagLine, pair slots, gain text")
+  section("TagLine, pair slots, gain text")
   check(plain(UIx.TagLine({ { "a", "|cffff0000" }, { "b" }, { "c", "|cff00ff00" }, { "d", "|cff0000ff" } })) == "a  ·  b  ·  c  ·  d"
     and select(2, UIx.TagLine({ { "a", "|cffff0000" }, { "b" }, { "c", "|cff00ff00" }, { "d", "|cff0000ff" } }):gsub("|c", "")) == 2,
     "TagLine: at most two coloured tags")
@@ -128,7 +129,7 @@ do
   check(eb == "+12 pts" and es == "(empty slot)" and UIx.ChipGain(fakeSug({ points = 7 })) == "+7.0" and UIx.Pips == nil,
     "no pips; card '+12 pts' over '(empty slot)', Gildenbedarf '+7.0'")
 
-  print("== window opens on guild needs (grouped by craft); offline box; expand; click-through")
+  section("window opens on guild needs (grouped by craft); offline box; expand; click-through")
   ITEM_QUALITY_COLORS = { [2] = { r = 0.12, g = 1, b = 0 }, [3] = { r = 0, g = 0.44, b = 0.87 } }
   local selected = {}
   PanelTemplates_SelectTab = function(t) selected[t] = true end
@@ -355,7 +356,7 @@ do
   check(GCA.needsBuilds == nbB and UIx.layoutW == 1300 and nd.w == 1300 - 290, "resizing, refreshing and searching reuse the cached groups (no rebuild); the detail panel follows")
   f:SetSize(980, 640); advance(0.1)
 
-  print("== member list (search, Online / Offline groups = native category headers, native rows)")
+  section("member list (search, Online / Offline groups = native category headers, native rows)")
   UIx:SetView("member")
   UIx.collapsed.online, UIx.collapsed.offline = false, true
   UIx.selected = "Bud Stone"
@@ -444,7 +445,7 @@ do
   UIx.collapsed.offline = true
   check(UIx.syncDot.text._text == "Guild sync · 3 recorded", "sync label: 'Guild sync · 3 recorded' (members with gear, not you): " .. tostring(UIx.syncDot.text._text))
 
-  print("== header strip, (i) icon, sync label")
+  section("header strip, (i) icon, sync label")
   check(UIx.syncText == nil and UIx.syncDot and UIx.syncDot.dot == nil and UIx.survival._parent == f.content, "sync text gone from the header strip; K6: no dot; slider in the bottom bar")
   local sync = GCA.SyncState
   for _, st in ipairs({ "ok", "idle", "paused", "off" }) do
@@ -467,7 +468,7 @@ do
   f:Hide()
   GCA.GetMemberList = origML
 
-  print("== skill bar (StatusBar path), class icon, skin table")
+  section("skill bar (StatusBar path), class icon, skin table")
   Frame.SetStatusBarTexture = function(self, t) self._sbTex = t end
   Frame.SetStatusBarColor = function(self, ...) self._sbColor = { ... } end
   UIx.frame:Hide(); GCA.UI.frame = nil; GCA.UI:Toggle(); advance(1)
@@ -513,7 +514,7 @@ do
   GCA.UI.frame:Hide()
   UIx = GCA.UI
 
-  print("== German texts on the new parts")
+  section("German texts on the new parts")
   ns.locale = "deDE"
   GCA.GetMemberList = function() return list end
   GCA.UI.frame = nil
@@ -570,7 +571,7 @@ do
   ns.locale = "enUS"
   GCA.GetMemberList = origML
 
-  print("== K: fallbacks (no tab template, no texture files, slider template present)")
+  section("K: fallbacks (no tab template, no texture files, slider template present)")
   local origCF = CreateFrame
   CreateFrame = function(otype, name, parent, template)
     if template == "PanelTabButtonTemplate" then error("Couldn't find inherited node 'PanelTabButtonTemplate'") end

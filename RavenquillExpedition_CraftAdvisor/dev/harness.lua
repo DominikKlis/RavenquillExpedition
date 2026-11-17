@@ -1,111 +1,80 @@
-unpack = table.unpack
-local fails, passes = 0, 0
-local function check(cond, label)
-  if cond then passes = passes + 1; io.write("  ok   ", label, "\n") else fails = fails + 1; io.write("  FAIL ", label, "\n") end
+local ROOT = (arg[0]:gsub("[^/\\]*$", "")) .. "../"
+local Kit = dofile(ROOT .. "../RavenquillExpedition/dev/testkit.lua")
+local check = Kit.check
+local CA = "RavenquillExpedition_CraftAdvisor"
+local Files = dofile(ROOT .. "dev/files.lua")
+local files = Files.kitFiles({ "Locales/enUS.lua", "Locales/deDE.lua", "Data/Leatherworking.lua", "Data/Blacksmithing.lua",
+  "Data/Tailoring.lua", "Data/Engineering.lua", "Data/Enchanting.lua", "Data/Enchants.lua" })
+for _, f in ipairs(Files.kitFiles(Files.list({ from = "Data/Weights.lua", except = { "Data/Sources.lua", "Sync.lua", "RecipeSources.lua" } }))) do
+  files[#files + 1] = f
 end
-local printed = {}
-local rawprint = print
-print = function(...)
-  local t = {}
-  for i = 1, select("#", ...) do t[i] = tostring(select(i, ...)) end
-  printed[#printed + 1] = table.concat(t, " ")
-  rawprint(...)
-end
-local function printedSince(n) return table.concat(printed, "\n", n + 1) end
-function GetBuildInfo() return "1.60.1","70938","",16001 end
-function UnitNameUnmodified(u) if u=="target" then return "Buddy","Stone" end return UnitName(u) end
-RavenquillExpeditionCraftDB = { members = { ["Old-Timer"] = { time = 5, items = {} } } }
-time = os.time
-function wipe(t) for k in pairs(t) do t[k]=nil end return t end
-tinsert = table.insert
-UISpecialFrames = {}
-local timers = {}
-C_Timer = { After = function(_, fn) timers[#timers+1] = fn end }
-local function runTimers() local n=0 while #timers>0 and n<200 do local t=table.remove(timers,1); t(); n=n+1 end end
-local function obj()
-  local o = {}
-  return setmetatable(o, { __index = function(t, k) if not k:match("^%u") then return nil end
-    if k == "GetChecked" or k=="IsShown" then return function(s) return rawget(s,"_shown") end end
-    if k == "Show" then return function(s) s._shown = true; local sc=rawget(s,"_scripts"); if sc and sc.OnShow then sc.OnShow(s) end end end
-    if k == "Hide" then return function(s) s._shown = false end end
-    if k == "SetShown" then return function(s, v) if v then s:Show() else s:Hide() end end end
-    if k == "SetScript" then return function(s, ev, fn) local sc = rawget(s,"_scripts") or {}; rawset(s,"_scripts",sc); sc[ev]=fn end end
-    if k:match("^Create") then return function() return obj() end end
-    if k == "RegisterEvent" then return function(s, ev) rawset(s,"_e",true) end end
-    return function() end
-  end })
-end
-CreateFrame = function(_, name) local o = obj(); if name then _G[name] = o end; return o end
-UIParent = obj(); GameTooltip = obj(); GameTooltip_Hide = function() end
-RAID_CLASS_COLORS = { DRUID = {r=1,g=.49,b=.04}, ROGUE={r=1,g=.96,b=.41}, MAGE={r=.41,g=.8,b=.94} }
-ITEM_QUALITY_COLORS = { [1]={r=1,g=1,b=1}, [2]={r=.1,g=1,b=.1}, [3]={r=0,g=.4,b=1} }
-LOCALIZED_CLASS_NAMES_MALE = { DRUID="Druide", ROGUE="Schurke", MAGE="Magier" }
-function InCombatLockdown() return false end
-function IsInGuild() return true end
-function IsInRaid() return false end
-function GetNumSubgroupMembers() return 1 end
-function GetNumGroupMembers() return 2 end
-function GetTime() return os.time() end
-function GetRealmName() return "Realm" end
-function Ambiguate(n) return (n:gsub("%-Realm$","")) end
-SlashCmdList = {}
 local units = {
   player = { name="Me", class="ROGUE", level=30, guid="G-me", items={ [8]="item:2302::::" } },
   target = { name="Buddy", class="DRUID", level=28, guid="G-buddy", items={ [5]="item:2300::::", [8]="item:2302::::" } },
   party1 = { name="Mage", class="MAGE", level=30, guid="G-mage", items={} },
 }
-function UnitName(u) local x=units[u]; return x and x.name end
-function UnitClass(u) local x=units[u]; return x and x.class, x and x.class end
-function UnitLevel(u) local x=units[u]; return x and x.level end
-function UnitGUID(u) local x=units[u]; return x and x.guid end
-function UnitIsPlayer(u) return units[u] ~= nil end
-function UnitIsUnit(a,b) return units[a] and units[a]==units[b] end
-function UnitIsInMyGuild(u) return units[u] ~= nil end
-function UnitExists(u) return units[u] ~= nil end
-function CanInspect() return true end
 local notified
-function NotifyInspect(u) notified = u end
-function GetInventoryItemLink(u, slot) local x=units[u]; return x and x.items[slot] end
-function GetInventorySlotInfo(t) return 1, "tex" end
-function GetNumGuildMembers() return 2 end
-function GetGuildRosterInfo(i) if i==1 then return "Buddy Stone",nil,nil,28,nil,nil,nil,nil,true,nil,"DRUID" else return "Offy-Realm",nil,nil,50,nil,nil,nil,nil,false,nil,"ROGUE" end end
-function GetProfessions() return 1, nil end
-function GetProfessionInfo(i) return "Lederverarbeitung", nil, 120, 150, nil, nil, 165 end
 local itemMeta = {}
-C_Item = {
-  GetItemInfoInstant = function(item) local id = type(item)=="number" and item or tonumber(tostring(item):match("item:(%d+)")); local m = itemMeta[id]; if not m then return id, "Misc","Misc","",1,15,0 end return id,"Armor","x",m.loc,1,4,m.sub end,
-  GetItemInfo = function(item) local id = type(item)=="number" and item or tonumber(tostring(item):match("item:(%d+)")); local m = itemMeta[id] or {loc="",sub=0,lvl=1}; return "Item"..id, "|Hitem:"..id.."|h[Item"..id.."]|h", 2, 20, m.lvl, nil,nil,nil, m.loc, 1, nil, 4, m.sub, m.bind or 2 end,
-  GetItemStats = function(link) local id = tonumber(link:match("item:(%d+)")); local m = itemMeta[id]; return m and m.stats or {} end,
-  RequestLoadItemDataByID = function() end,
-  GetItemNameByID = function(id) return "Reagent"..id end,
-  GetItemCount = function() return 3 end,
-}
-C_SpellBook = { IsSpellKnown = function(id) return id == 2149 or id == 2160 or id == 3762 end }
-local ns = {}
-local ROOT = (arg[0]:gsub("[^/\\]*$", "")) .. "../"
-local function load(f) local chunk = assert(loadfile(ROOT .. f)); chunk("RavenquillExpedition_CraftAdvisor", ns) end
-local K = dofile(ROOT .. "dev/corekit.lua")()
-local Files = dofile(ROOT .. "dev/files.lua")
-load("Locales/enUS.lua"); load("Locales/deDE.lua")
-load("Data/Leatherworking.lua"); load("Data/Blacksmithing.lua"); load("Data/Tailoring.lua"); load("Data/Engineering.lua")
-load("Data/Enchanting.lua"); load("Data/Enchants.lua")
 itemMeta[2302] = { loc="INVTYPE_FEET", sub=2, lvl=1, stats={RESISTANCE0_NAME=30} }
 itemMeta[2300] = { loc="INVTYPE_CHEST", sub=2, lvl=8, stats={RESISTANCE0_NAME=60, ITEM_MOD_AGILITY_SHORT=1} }
 itemMeta[4244] = { loc="INVTYPE_CHEST", sub=2, lvl=20, stats={RESISTANCE0_NAME=90, ITEM_MOD_AGILITY_SHORT=4, ITEM_MOD_STAMINA_SHORT=3} }
-Files.load(Files.list({ from = "Data/Weights.lua", except = { "Data/Sources.lua", "Sync.lua", "RecipeSources.lua" } }), ns)
-K.done()
+local sched = Kit.Scheduler()
+local client = Kit.Client(sched, nil, "Me", { env = _G, files = files, setup = function()
+  C_ChatInfo = nil
+  function UnitNameUnmodified(u) if u=="target" then return "Buddy","Stone" end return UnitName(u) end
+  RavenquillExpeditionCraftDB = { members = { ["Old-Timer"] = { time = 5, items = {} } } }
+  GameTooltip_Hide = function() end
+  C_SpellBook = { IsSpellKnown = function(id) return id == 2149 or id == 2160 or id == 3762 end }
+  RAID_CLASS_COLORS = { DRUID = {r=1,g=.49,b=.04}, ROGUE={r=1,g=.96,b=.41}, MAGE={r=.41,g=.8,b=.94} }
+  ITEM_QUALITY_COLORS = { [1]={r=1,g=1,b=1}, [2]={r=.1,g=1,b=.1}, [3]={r=0,g=.4,b=1} }
+  LOCALIZED_CLASS_NAMES_MALE = { DRUID="Druide", ROGUE="Schurke", MAGE="Magier" }
+  function InCombatLockdown() return false end
+  function IsInGuild() return true end
+  function IsInRaid() return false end
+  function GetNumSubgroupMembers() return 1 end
+  function GetNumGroupMembers() return 2 end
+  function GetRealmName() return "Realm" end
+  function Ambiguate(n) return (n:gsub("%-Realm$","")) end
+  function UnitName(u) local x=units[u]; return x and x.name end
+  function UnitClass(u) local x=units[u]; return x and x.class, x and x.class end
+  function UnitLevel(u) local x=units[u]; return x and x.level end
+  function UnitGUID(u) local x=units[u]; return x and x.guid end
+  function UnitIsPlayer(u) return units[u] ~= nil end
+  function UnitIsUnit(a,b) return units[a] and units[a]==units[b] end
+  function UnitIsInMyGuild(u) return units[u] ~= nil end
+  function UnitExists(u) return units[u] ~= nil end
+  function CanInspect() return true end
+  function NotifyInspect(u) notified = u end
+  function GetInventoryItemLink(u, slot) local x=units[u]; return x and x.items[slot] end
+  function GetInventorySlotInfo(t) return 1, "tex" end
+  function GetNumGuildMembers() return 2 end
+  function GetGuildRosterInfo(i) if i==1 then return "Buddy Stone",nil,nil,28,nil,nil,nil,nil,true,nil,"DRUID" else return "Offy-Realm",nil,nil,50,nil,nil,nil,nil,false,nil,"ROGUE" end end
+  function GetProfessions() return 1, nil end
+  function GetProfessionInfo(i) return "Lederverarbeitung", nil, 120, 150, nil, nil, 165 end
+  C_Item = {
+    GetItemInfoInstant = function(item) local id = type(item)=="number" and item or tonumber(tostring(item):match("item:(%d+)")); local m = itemMeta[id]; if not m then return id, "Misc","Misc","",1,15,0 end return id,"Armor","x",m.loc,1,4,m.sub end,
+    GetItemInfo = function(item) local id = type(item)=="number" and item or tonumber(tostring(item):match("item:(%d+)")); local m = itemMeta[id] or {loc="",sub=0,lvl=1}; return "Item"..id, "|Hitem:"..id.."|h[Item"..id.."]|h", 2, 20, m.lvl, nil,nil,nil, m.loc, 1, nil, 4, m.sub, m.bind or 2 end,
+    GetItemStats = function(link) local id = tonumber(link:match("item:(%d+)")); local m = itemMeta[id]; return m and m.stats or {} end,
+    RequestLoadItemDataByID = function() end,
+    GetItemNameByID = function(id) return "Reagent"..id end,
+    GetItemCount = function() return 3 end,
+  }
+end })
+local ns, fire, printed = client.ns[CA], client.fire, client.printed
+local printedSince = client.printedSince
 local GCA = ns.GCA
-local h = function(_, ev, ...) K.fire(ev, ...) end
+local h = function(_, ev, ...) fire(ev, ...) end
+h(GCA, "ADDON_LOADED", "RavenquillExpedition")
 h(GCA, "ADDON_LOADED", "RavenquillExpedition_CraftAdvisor")
-h(GCA, "PLAYER_LOGIN"); runTimers()
-h(GCA, "GUILD_ROSTER_UPDATE"); runTimers()
+h(GCA, "PLAYER_LOGIN"); sched:flush(200)
+h(GCA, "GUILD_ROSTER_UPDATE"); sched:flush(200)
 print("known", GCA:KnownCount(GCA:SelectedProfession()))
 check(GCA:KnownCount(GCA:SelectedProfession()) == 3, "3 recipes known (IsSpellKnown)")
 check(GCA.db.settings.inspectTalents == false, "inspected talents default off")
 GCA:InspectTarget(); print("notified", notified)
 check(notified == "target", "Inspect target -> NotifyInspect(target)")
-h(GCA, "INSPECT_READY", "G-buddy"); runTimers()
-GCA:ScanGroup(); runTimers(); h(GCA, "INSPECT_READY", "G-mage"); runTimers()
+h(GCA, "INSPECT_READY", "G-buddy"); sched:flush(200)
+GCA:ScanGroup(); sched:flush(200); h(GCA, "INSPECT_READY", "G-mage"); sched:flush(200)
 for k, m in pairs(RavenquillExpeditionCraftDB.members) do print("member", k, m.class, m.level, m.source) end
 local bud = RavenquillExpeditionCraftDB.members["Buddy Stone"]
 check(bud and bud.class == "DRUID" and bud.level == 28 and bud.source == "inspect" and bud.items[5], "Buddy Stone recorded from the inspect (DRUID 28, chest)")
@@ -143,7 +112,7 @@ print("with unlearned:", #e)
 check(#e >= 1, "show unlearned: still computes")
 check(GCA.db.settings.memberView == "sheet", "member view defaults to the character sheet")
 GCA.db.settings.memberView = "list"
-GCA.UI:Toggle(); runTimers()
+GCA.UI:Toggle(); sched:flush(200)
 print("UI shown", GCA.UI.frame:IsShown(), "selected", GCA.UI.selected, "auto", GCA.UI.autoKey, "first", GCA.UI.memberList.pools.default[1].data.key, GCA.UI.memberList.pools.default[1].data.best, "rows", #GCA.UI.sugList.pools.default)
 check(GCA.UI.frame:IsShown() and GCA.UI.selected == "Buddy Stone" and #GCA.UI.sugList.pools.default >= 1, "/gca opens the window with Buddy selected and a suggestion row")
 do
@@ -259,15 +228,15 @@ Minimap = CreateFrame()
 rawset(Minimap, "GetWidth", function() return 140 end)
 rawset(Minimap, "GetCenter", function() return 100, 100 end)
 rawset(Minimap, "GetEffectiveScale", function() return 1 end)
-local RQ = K.RQ
+local RQ = client.RQ
 RQ:UpdateLauncher()
-local b = K.ns.LauncherButton()
+local b = client.coreNs.LauncherButton()
 check(b ~= nil and _G.GuildCraftAdvisorMinimapButton == nil, "the suite launcher is the minimap button (no own Craft Advisor button)")
 tipLines = {}
 local mmEnter = b and rawget(b, "_scripts") and rawget(b, "_scripts").OnEnter
 local okTip = mmEnter and pcall(mmEnter, b)
 local tipText = table.concat(tipLines, " | ")
-check(okTip and tipText:find("Guild Craft Advisor: " .. (GCA:OverviewStatus() or K.ns.LauncherL.NO_STATUS), 1, true) and tipText:find("Right-click", 1, true),
+check(okTip and tipText:find("Guild Craft Advisor: " .. (GCA:OverviewStatus() or client.coreNs.LauncherL.NO_STATUS), 1, true) and tipText:find("Right-click", 1, true),
   "launcher tooltip: the Craft Advisor's status line, right-click opens our window: " .. tipText)
 local showOpt
 for _, o in ipairs(GCA.options) do if o.label == ns.L.OPT_MINIMAP then showOpt = o end end
@@ -329,6 +298,4 @@ do
   store.Leatherworking, GCA.db.knownAuth = savedLW, savedAuth
   GCA:RefreshKnown()
 end
-print = rawprint
-print(("\n%d passed, %d failed"):format(passes, fails))
-os.exit(fails == 0 and 0 or 1)
+Kit.finish()

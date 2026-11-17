@@ -2,12 +2,8 @@ local DEV = (arg[0]:gsub("[^/\\]*$", ""))
 if DEV == "" then DEV = "./" end
 local Files = dofile(DEV .. "files.lua")
 local ROOT = Files.ROOT
-
-local passes, fails = 0, 0
-local function check(cond, label)
-  if cond then passes = passes + 1; print("  ok   " .. label) else fails = fails + 1; print("  FAIL " .. label) end
-end
-local function section(s) print("== " .. s) end
+local Kit = dofile(ROOT .. "../RavenquillExpedition/dev/testkit.lua")
+local check, section = Kit.check, Kit.section
 local function count(t) local n = 0 for _ in pairs(t) do n = n + 1 end return n end
 local function isInt(v, lo, hi) return math.type(v) == "integer" and v >= lo and (not hi or v <= hi) end
 local function readAll(p) local h = assert(io.open(p, "rb")); local s = h:read("a"); h:close(); return s end
@@ -141,5 +137,4 @@ do
   check(#tools == 0 and #refs == 0, "no dev tool reads CraftersJournal or QuestieDB " .. table.concat(tools, ", ") .. " " .. table.concat(refs, ", "))
 end
 
-print(("\n%d passed, %d failed"):format(passes, fails))
-os.exit(fails == 0 and 0 or 1)
+Kit.finish()
