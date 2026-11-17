@@ -10,8 +10,12 @@ local function SurnameSeparator()
 end
 GS.SurnameSeparator = SurnameSeparator
 
+local playerKey, realmSuffixes
+
+function ns.ResetNameCache() playerKey, realmSuffixes = nil, nil end
+
 local function RealmSuffixes()
-  if GS.realmSuffixes then return GS.realmSuffixes end
+  if realmSuffixes then return realmSuffixes end
   local out = {}
   for _, r in ipairs({ Plain(SafeCall(GetNormalizedRealmName), "string") or false,
                        Plain(SafeCall(GetRealmName), "string") or false }) do
@@ -20,7 +24,7 @@ local function RealmSuffixes()
       out[#out + 1] = "-" .. r:gsub("[%s%-]", "")
     end
   end
-  if out[1] then GS.realmSuffixes = out end
+  if out[1] then realmSuffixes = out end
   return out
 end
 
@@ -51,8 +55,8 @@ function GS:UnitKey(unit)
 end
 
 function GS:PlayerKey()
-  if not self.playerKey then self.playerKey = self:UnitKey("player") end
-  return self.playerKey
+  if not playerKey then playerKey = self:UnitKey("player") end
+  return playerKey
 end
 
 function GS:IsMe(key)

@@ -131,7 +131,13 @@ check(printed[#printed]:find("API 99", 1, true) ~= nil, "and the player is told 
 local logins, guildChanges = 0, {}
 function mod:OnLogin() logins = logins + 1 end
 function mod:OnGuildChanged(new, old) guildChanges[#guildChanges + 1] = tostring(old) .. ">" .. tostring(new) end
+local fullName = UnitNameUnmodified
+UnitNameUnmodified, G.realm = function(u) if u == "player" then return "Me" end end, "Elsewhere"
+local beforeLogin = RQ:PlayerKey() .. "|" .. tostring(RQ:StripRealm("Bud Stone-Elsewhere"))
+UnitNameUnmodified, G.realm = fullName, "Forever"
 fire("PLAYER_LOGIN")
+check(beforeLogin == "Me|Bud Stone" and RQ:PlayerKey() == "Me Smith" and RQ:StripRealm("Bud Stone-Elsewhere") == nil,
+  "PLAYER_LOGIN forgets the player name and realm read before it (" .. beforeLogin .. ")")
 check(logins == 1 and db.loginRan == 1 and db.vLogin == 1, "PLAYER_LOGIN: login migrations, then OnLogin")
 fire("PLAYER_GUILD_UPDATE")
 check(#guildChanges == 0, "guild update with the same guild: no OnGuildChanged")

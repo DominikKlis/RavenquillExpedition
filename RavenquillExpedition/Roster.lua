@@ -3,11 +3,12 @@ local GS = ns.GS
 local SafeCall, Plain = GS.SafeCall, GS.Plain
 
 GS.roster = {}
+local rosterAsked, rosterRead, rosterCount, rosterOffline, onlineCount, onlineCountAt
 
 function GS:RequestRoster()
   local now = GetTime()
-  if self.rosterAsked and now - self.rosterAsked < 15 then return end
-  self.rosterAsked = now
+  if rosterAsked and now - rosterAsked < 15 then return end
+  rosterAsked = now
   if C_GuildInfo and C_GuildInfo.GuildRoster then SafeCall(C_GuildInfo.GuildRoster)
   elseif GuildRoster then SafeCall(GuildRoster) end
 end
@@ -25,10 +26,10 @@ function GS:ReadRoster()
     end
   end
   if n > 0 then
-    self.roster, self.rosterCount, self.rosterOffline = roster, n, offline
-    self.onlineAt = nil
+    self.roster, rosterCount, rosterOffline = roster, n, offline
+    onlineCountAt = nil
   end
-  self.rosterRead = GetTime()
+  rosterRead = GetTime()
 end
 
 function GS:IsGuildMember(key)
@@ -46,18 +47,18 @@ function GS:RosterEntry(key)
   return first and self.roster[first] or nil
 end
 
-function GS:RosterReadAt() return self.rosterRead end
+function GS:RosterReadAt() return rosterRead end
 
 function GS:RosterComplete()
-  return next(self.roster) ~= nil, self.rosterCount or 0, self.rosterOffline or 0
+  return next(self.roster) ~= nil, rosterCount or 0, rosterOffline or 0
 end
 
 function GS:OnlineCount()
   local now = GetTime()
-  if self.onlineAt and now - self.onlineAt < 30 then return self.online end
+  if onlineCountAt and now - onlineCountAt < 30 then return onlineCount end
   local n = 0
   for _, e in pairs(self.roster) do if e.online then n = n + 1 end end
-  self.online, self.onlineAt = n, now
+  onlineCount, onlineCountAt = n, now
   return n
 end
 

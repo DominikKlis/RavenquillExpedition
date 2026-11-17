@@ -230,7 +230,7 @@ end
 
 local function OnPlayerLogin()
   GS.loggedIn = true
-  GS.playerKey, GS.realmSuffixes = nil, nil
+  ns.ResetNameCache()
   GS.guildKey = GS:GuildKey()
   GS:RequestRoster()
   GS:Call(GS.PrunePeers, GS)
