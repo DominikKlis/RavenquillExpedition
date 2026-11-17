@@ -36,9 +36,10 @@ do
     not GCA:CanWear("HUNTER", 60, { classID = 4, subClassID = 0, equipLoc = "INVTYPE_HOLDABLE" }) and
     GCA:CanWear("MAGE", 1, { classID = 4, subClassID = 0, equipLoc = "INVTYPE_HOLDABLE" }), "held off-hands: not for Hunters/Rogues")
   check(GCA:CanWear("WARRIOR", 60, { classID = 2, subClassID = 7, equipLoc = "INVTYPE_WEAPON" }), "W: a Warrior can wield a one-handed sword")
-  check(GCA.SLOTS_FOR.INVTYPE_RELIC[1] == 18 and GCA.SLOTS_FOR.INVTYPE_WEAPON[2] == 17 and GCA.SLOTS_FOR.INVTYPE_2HWEAPON[1] == 16
-    and GCA.SLOTS_FOR.INVTYPE_RANGEDRIGHT[1] == 18 and GCA.SLOTS_FOR.INVTYPE_THROWN[1] == 18 and GCA.SLOTS_FOR.INVTYPE_WEAPONOFFHAND[1] == 17,
-    "SLOTS_FOR (W1): relic -> 18, one-hander 16/17, two-hander 16, off-hand weapon 17, ranged/wand/thrown 18")
+  local LOCS = GCA.Scoring.EQUIP_LOCS
+  check(LOCS.INVTYPE_RELIC.slots[1] == 18 and LOCS.INVTYPE_WEAPON.slots[2] == 17 and LOCS.INVTYPE_2HWEAPON.slots[1] == 16
+    and LOCS.INVTYPE_RANGEDRIGHT.slots[1] == 18 and LOCS.INVTYPE_THROWN.slots[1] == 18 and LOCS.INVTYPE_WEAPONOFFHAND.slots[1] == 17,
+    "EQUIP_LOCS slots (W1): relic -> 18, one-hander 16/17, two-hander 16, off-hand weapon 17, ranged/wand/thrown 18")
 end
 
 H.finish()

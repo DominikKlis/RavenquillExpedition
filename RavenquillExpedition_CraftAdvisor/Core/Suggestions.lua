@@ -2,6 +2,7 @@ local ADDON, ns = ...
 local GCA = ns.GCA
 local RQ = RavenquillExpedition
 local Scoring, Better, Order = ns.Scoring, GCA.BetterSuggestion, GCA.SuggestionOrder
+local EQUIP_LOCS = Scoring.EQUIP_LOCS
 local EMPTY = {}
 local PlayerFaction, Offerable, KeepSuggestion = GCA.PlayerFaction, GCA.Offerable, GCA.KeepSuggestion
 
@@ -30,15 +31,17 @@ local function ReadEquipped(self, items)
   return equipped, equippedInfo, unknownSlot, pending
 end
 
-local function TouchesUnknown(self, unknownSlot, loc)
-  for _, sl in ipairs(self.SLOTS_FOR[loc] or EMPTY) do if unknownSlot[sl] then return true end end
-  return self.HAND_LOCS[loc] == true and (unknownSlot[16] == true or unknownSlot[17] == true)
+local function TouchesUnknown(unknownSlot, loc)
+  local rule = EQUIP_LOCS[loc]
+  if not rule then return false end
+  for _, sl in ipairs(rule.slots) do if unknownSlot[sl] then return true end end
+  return rule.hand ~= nil and (unknownSlot[16] == true or unknownSlot[17] == true)
 end
 
 local function OffersCandidate(self, ctx, cand, known)
   if not Offerable(known, ctx.showAll, cand.recipe, ctx.faction) then return false end
   if not self:CanWear(ctx.class, ctx.maxLevel, cand) then return false end
-  if ctx.excluded[cand.equipLoc] or TouchesUnknown(self, ctx.unknownSlot, cand.equipLoc) then return false end
+  if ctx.excluded[cand.equipLoc] or TouchesUnknown(ctx.unknownSlot, cand.equipLoc) then return false end
   if cand.equipLoc ~= "INVTYPE_WEAPONOFFHAND" then return true end
   return ctx.dwFrom and ctx.dwFrom <= ctx.maxLevel
 end
@@ -80,9 +83,10 @@ local function CompareCandidate(self, ctx, cand, info)
 end
 
 local function TargetSlot(self, cand, r, equippedInfo)
-  local slot = r.replaces and r.replaces[1] or self.SLOTS_FOR[cand.equipLoc][1]
+  local rule = EQUIP_LOCS[cand.equipLoc]
+  local slot = r.replaces and r.replaces[1] or rule.slots[1]
   if r.status == "needs-partner" then
-    return Scoring.OFF_HAND_TYPES[cand.equipLoc] and 17 or 16, equippedInfo[16]
+    return rule.hand == "off" and 17 or 16, equippedInfo[16]
   end
   if cand.equipLoc == "INVTYPE_2HWEAPON" and equippedInfo[16] and equippedInfo[17] then
     return slot, self:PairInfo(equippedInfo[16], equippedInfo[17])
@@ -122,7 +126,8 @@ end
 local function KeepItemSuggestion(self, ctx, sug, r)
   local cand = sug.cand
   sug.afterIDs = ItemIDsAfter(ctx.equipped, sug.slot, r.replaces, cand.itemID)
-  local group = self.HAND_LOCS[cand.equipLoc] and sug.slot or self.SLOTS_FOR[cand.equipLoc][1]
+  local rule = EQUIP_LOCS[cand.equipLoc]
+  local group = rule.hand and sug.slot or rule.slots[1]
   local bestKey = group .. "|" .. (sug.future and "f" or "w") .. (sug.known and "k" or "u")
   KeepSuggestion(ctx.best, ctx.all, bestKey, group, sug)
 end

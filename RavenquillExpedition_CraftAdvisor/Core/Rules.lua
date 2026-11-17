@@ -157,7 +157,7 @@ function GCA:GetCandidates(prof)
     local _, _, _, equipLoc, icon, classID, subClassID = SafeCall(ItemAPI.Instant, r.item)
     if equipLoc == nil then
       missing = true
-    elseif self.SLOTS_FOR[equipLoc] then
+    elseif Scoring.EQUIP_LOCS[equipLoc] then
       list[#list + 1] = {
         spellID = spellID, itemID = r.item, recipe = r, equipLoc = equipLoc,
         icon = icon, classID = classID, subClassID = subClassID,
@@ -258,8 +258,6 @@ function GCA.KeepSuggestion(best, all, bestKey, group, sug)
   rows[#rows + 1] = sug
 end
 GCA.TIER_PARTNER = 2
-GCA.HAND_LOCS = { INVTYPE_WEAPON = true, INVTYPE_WEAPONMAINHAND = true, INVTYPE_WEAPONOFFHAND = true,
-  INVTYPE_2HWEAPON = true, INVTYPE_SHIELD = true, INVTYPE_HOLDABLE = true }
 
 function GCA:PairInfo(mh, oh)
   local stats = {}

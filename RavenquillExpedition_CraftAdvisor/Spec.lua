@@ -86,14 +86,13 @@ function GCA:InferTree(points, class)
   return best, "talents"
 end
 
-local ONE_HAND = { INVTYPE_WEAPON = true, INVTYPE_WEAPONOFFHAND = true, INVTYPE_WEAPONMAINHAND = true }
-
 function GCA:OffHandIsWeapon(items)
   local link = items and items[17]
   if not link then return false end
   local instant = self.ItemAPI.Instant
   local _, _, _, equipLoc = SafeCall(instant, link)
-  return ONE_HAND[equipLoc or ""] == true
+  local rule = ns.Scoring.EQUIP_LOCS[equipLoc or ""]
+  return rule ~= nil and rule.oneHand == true
 end
 
 function GCA:ResolveTree(tree, class, items, catKnown)

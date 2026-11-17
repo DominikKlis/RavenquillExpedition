@@ -4,12 +4,10 @@ local IsSecret, SafeCall, Scoring = GCA.IsSecret, GCA.SafeCall, ns.Scoring
 local EMPTY = {}
 
 GCA.ENCHANT_SLOTS = { [15] = "back", [5] = "chest", [9] = "wrist", [10] = "hands", [8] = "feet", [2] = "neck" }
-local ENCHANT_HAND = { INVTYPE_2HWEAPON = { "twohand", "weapon" }, INVTYPE_WEAPON = { "weapon" }, INVTYPE_WEAPONMAINHAND = { "weapon" } }
-local ENCHANT_OFF = { INVTYPE_SHIELD = { "shield" }, INVTYPE_HOLDABLE = { "offhand" } }
 function GCA:EnchantKeysFor(slot, equipLoc)
   if self.ENCHANT_SLOTS[slot] then return { self.ENCHANT_SLOTS[slot] } end
-  if slot == 16 then return ENCHANT_HAND[equipLoc or ""] end
-  if slot == 17 then return ENCHANT_OFF[equipLoc or ""] end
+  local rule = Scoring.EQUIP_LOCS[equipLoc or ""]
+  if rule and rule.enchant and rule.slots[1] == slot then return rule.enchant end
 end
 
 function GCA:EnchantIDOf(link)
