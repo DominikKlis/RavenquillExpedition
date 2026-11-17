@@ -47,7 +47,7 @@ function GS:Call(fn, ...)
     local msg = tostring(err)
     local trace = debugstack and debugstack(2, 8, 4)
     GS:Trace("err", msg, trace)
-    if RavenquillExpeditionDB then RavenquillExpeditionDB.lastError = { t = time(), msg = msg, trace = trace } end
+    if GS.db then GS.db.lastError = { t = time(), msg = msg, trace = trace } end
     local h = geterrorhandler and geterrorhandler()
     if h then pcall(h, msg) end
     return msg

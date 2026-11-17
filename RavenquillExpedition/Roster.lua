@@ -78,8 +78,10 @@ end
 
 GS.PEER_MAX_AGE = 14 * 86400
 
+local function FreshPeer(t, now, window) return now - t <= (window or GS.PEER_MAX_AGE) end
+
 function GS:Peers()
-  local db = RavenquillExpeditionDB
+  local db = self.db
   if not db then return end
   local g = self:GuildKey() or self.guildKey
   if not g then return end
@@ -99,12 +101,12 @@ function GS:NotePeer(key)
 end
 
 function GS:PrunePeers()
-  local db = RavenquillExpeditionDB
+  local db = self.db
   if not db then return end
   local now = self:Now()
   local function prune(peers)
     for key, t in pairs(peers) do
-      if type(t) ~= "number" or now - t > self.PEER_MAX_AGE then peers[key] = nil end
+      if type(t) ~= "number" or not FreshPeer(t, now) then peers[key] = nil end
     end
   end
   if type(db.peers) == "table" then prune(db.peers) end
@@ -121,15 +123,27 @@ function GS:IsPeer(key)
   if key and self:IsMe(key) then return true end
   local peers = key and self:Peers()
   local t = peers and peers[key]
-  return t and self:Now() - t <= self.PEER_MAX_AGE or false
+  return t and FreshPeer(t, self:Now()) or false
 end
 
 function ns.PeerCount(window)
   local n, now = 0, GS:Now()
   for _, t in pairs(GS:Peers() or {}) do
-    if type(t) == "number" and now - t <= (window or GS.PEER_MAX_AGE) then n = n + 1 end
+    if type(t) == "number" and FreshPeer(t, now, window) then n = n + 1 end
   end
   return n
+end
+
+function ns.PeersOnRoster()
+  local total, online, now = 0, 0, GS:Now()
+  for key, t in pairs(GS:Peers() or {}) do
+    local member = FreshPeer(t, now) and GS.roster[key]
+    if member then
+      total = total + 1
+      if member.online then online = online + 1 end
+    end
+  end
+  return total, online
 end
 
 function GS:ElectionRank(candidates)

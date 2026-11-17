@@ -193,8 +193,7 @@ function ns.BuildPanel(parent, options)
   local function refreshAll() for _, fn in ipairs(p.refreshers) do GS:Call(fn) end end
   p.refreshAll = refreshAll
   local y = 0
-  local list = type(options) == "table" and options or {}
-  for _, o in ipairs(list) do
+  for _, o in ipairs(options or {}) do
     local build = type(o) == "table" and Build[o.type]
     if build then
       local h, refresh, control = build(p, o, y, refreshAll)
@@ -203,7 +202,7 @@ function ns.BuildPanel(parent, options)
       p.controls[#p.controls + 1] = control or false
     end
   end
-  if not list[1] then
+  if not options then
     local fs = p:CreateFontString(nil, "OVERLAY", "GameFontDisable")
     fs:SetPoint("TOPLEFT", 6, -6)
     fs:SetText(L.NO_OPTIONS)

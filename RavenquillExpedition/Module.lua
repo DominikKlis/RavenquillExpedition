@@ -159,15 +159,23 @@ end
 
 function GS:GetModule(name) return self.modules[name] end
 
+local function ModuleOptions(m)
+  if type(m.options) == "table" and m.options[1] then return m.options end
+end
+ns.ModuleOptions = ModuleOptions
+
+local function SlashWord(m) return m.slash or m.name:lower() end
+ns.SlashWord = SlashWord
+
 SLASH_RAVENQUILL1 = "/rq"
 SLASH_RAVENQUILL2 = "/ravenquill"
-local function SlashMatches(m, name, key)
-  return (m.slash or name:lower()) == key or name:lower() == key
+local function SlashMatches(m, key)
+  return SlashWord(m) == key or m.name:lower() == key
 end
 
 local function OpenFromSlash(m, name, rest)
   if rest ~= "" and m.OnSlash then return GS:Call(m.OnSlash, m, rest) end
-  if type(m.options) == "table" and m.options[1] then return GS:Call(GS.OpenModule, GS, name) end
+  if ModuleOptions(m) then return GS:Call(GS.OpenModule, GS, name) end
   if m.Open then return GS:Call(m.Open, m) end
   if m.OnSlash then return GS:Call(m.OnSlash, m, "") end
   GS:Call(GS.ToggleOverview, GS)
@@ -176,7 +184,7 @@ end
 local function SlashModule(key)
   for _, name in ipairs(GS.moduleOrder) do
     local m = GS.modules[name]
-    if SlashMatches(m, name, key) then return m, name end
+    if SlashMatches(m, key) then return m, name end
   end
 end
 

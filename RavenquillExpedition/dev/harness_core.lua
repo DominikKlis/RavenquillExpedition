@@ -194,6 +194,11 @@ RavenquillExpeditionDB.peers = { ["Bud Stone"] = RQ:Now() - 100, ["Cara Moss"] =
 check(coreNS.PeerCount(3600) == 1 and coreNS.PeerCount() == 2, "PeerCount(window)")
 check(RavenquillExpeditionDB.peers == nil and RavenquillExpeditionDB.peersByGuild["Die Gilde@Forever"]["Bud Stone"],
   "the old peers table moved into the current guild")
+local peersHere = RavenquillExpeditionDB.peersByGuild["Die Gilde@Forever"]
+peersHere["Anna Muller-Lee"] = RQ:Now() - RQ.PEER_MAX_AGE - 5
+check(RQ:OverviewPeersLine() == "2 Gildenmitglieder mit Ravenquill (1 online)",
+  "overview peers line: fresh peers on the roster, then the online ones (" .. RQ:OverviewPeersLine() .. ")")
+peersHere["Anna Muller-Lee"] = nil
 G.guild = "Andere Gilde"
 check(coreNS.PeerCount() == 0 and not RQ:IsPeer("Bud Stone"), "another guild: none of the first guild's peers count")
 RQ:NotePeer("Zed Other")

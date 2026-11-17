@@ -20,11 +20,11 @@ end
 
 local function ModuleRow(mod, k)
   local row = { name = mod.name, title = mod.title or (k and k.title) or mod.name, icon = mod.icon or (k and k.icon)
-    or "Interface\\Icons\\INV_Misc_QuestionMark", slash = "/rq " .. (mod.slash or mod.name:lower()), state = "loaded" }
+    or "Interface\\Icons\\INV_Misc_QuestionMark", slash = "/rq " .. ns.SlashWord(mod), state = "loaded" }
   row.status = mod.OverviewStatus and GS:Call(mod.OverviewStatus, mod) or L.LOADED
   if type(row.status) ~= "string" then row.status = "" end
   if mod.Open then row.open = function() GS:Call(mod.Open, mod) end end
-  if type(mod.options) == "table" and mod.options[1] then row.options = true end
+  if ns.ModuleOptions(mod) then row.options = true end
   return row
 end
 
@@ -65,20 +65,10 @@ function GS:OverviewSyncLine()
   return line
 end
 
-function GS:OverviewPeersLine()
-  local total, online = 0, 0
-  local now = self:Now()
-  for key, t in pairs(self:Peers() or {}) do
-    if now - t <= self.PEER_MAX_AGE and self.roster[key] then
-      total = total + 1
-      if self.roster[key].online then online = online + 1 end
-    end
-  end
-  return L.PEERS:format(total, online)
-end
+function GS:OverviewPeersLine() return L.PEERS:format(ns.PeersOnRoster()) end
 
 function GS:DiagLines()
-  local db = RavenquillExpeditionDB or {}
+  local db = self.db or {}
   local out = {
     "Ravenquill Expedition v" .. self.version .. "  build " .. tostring((select(4, GetBuildInfo()))),
     "player: " .. tostring(self:PlayerKey()) .. "  guild: " .. tostring(self:GuildKey()),
@@ -254,7 +244,7 @@ function GS:ShowModuleOptions(name)
   for _, p in pairs(opt.panels) do p:Hide() end
   local p = opt.panels[name]
   if not p then
-    p = ns.BuildPanel(opt.scroll, mod.options)
+    p = ns.BuildPanel(opt.scroll, ns.ModuleOptions(mod))
     opt.panels[name] = p
   end
   opt.title:SetText(mod.title or name)
