@@ -40,8 +40,7 @@ function GS:OverviewRows()
       local state = AddonState(k.addon)
       local row = { title = k.title or k.module, icon = k.icon, slash = "/rq " .. k.slash, state = state }
       if state == "loaded" then
-        row.status = (k.legacyStatus and k.legacyStatus()) or L.LEGACY
-        row.open = k.legacyOpen
+        row.status = L.LEGACY
       elseif state == "disabled" then row.status = L.ENABLE_HINT
       else row.status = L.MISSING end
       if type(row.status) ~= "string" then row.status = "" end

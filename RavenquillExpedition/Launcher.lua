@@ -157,7 +157,7 @@ function GS:LauncherClick(button)
     local craft = self:GetModule("Craft")
     if craft and craft.loaded and craft.Open then self:Call(craft.Open, craft) return end
   end
-  if self.ToggleOverview then self:Call(self.ToggleOverview, self) end
+  self:Call(self.ToggleOverview, self)
 end
 
 local function Create()

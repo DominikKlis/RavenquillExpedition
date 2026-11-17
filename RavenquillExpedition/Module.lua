@@ -98,7 +98,6 @@ local function FillDefaults(t, defaults)
     if v ~= nil and type(t[k]) ~= type(v) then t[k] = Copy(v) end
   end
 end
-GS.FillDefaults = FillDefaults
 
 local function Migrate(mod, db, cdb, list, field, upTo)
   if type(list) ~= "table" and not upTo then return end
@@ -168,10 +167,10 @@ end
 
 local function OpenFromSlash(m, name, rest)
   if rest ~= "" and m.OnSlash then return GS:Call(m.OnSlash, m, rest) end
-  if type(m.options) == "table" and m.options[1] and GS.OpenModule then return GS:Call(GS.OpenModule, GS, name) end
+  if type(m.options) == "table" and m.options[1] then return GS:Call(GS.OpenModule, GS, name) end
   if m.Open then return GS:Call(m.Open, m) end
   if m.OnSlash then return GS:Call(m.OnSlash, m, "") end
-  if GS.ToggleOverview then GS:Call(GS.ToggleOverview, GS) end
+  GS:Call(GS.ToggleOverview, GS)
 end
 
 local function SlashModule(key)
@@ -187,7 +186,7 @@ SlashCmdList.RAVENQUILL = function(msg)
   local m, name
   if key then m, name = SlashModule(key:lower()) end
   if m then OpenFromSlash(m, name, rest) return end
-  if GS.ToggleOverview then GS:Call(GS.ToggleOverview, GS) end
+  GS:Call(GS.ToggleOverview, GS)
 end
 
 local function EachModule(fn)
@@ -227,7 +226,7 @@ local function OnPlayerLogin()
   GS.guildKey = GS:GuildKey()
   GS:RequestRoster()
   GS:Call(GS.PrunePeers, GS)
-  if GS.OnLoginComm then GS:Call(GS.OnLoginComm, GS) end
+  GS:Call(GS.OnLoginComm, GS)
   EachModule(function(m)
     if m.db and m.loginMigrations then GS:Call(Migrate, m, m.db, m.cdb, m.loginMigrations, "vLogin") end
   end)

@@ -45,8 +45,9 @@ function GS:Call(fn, ...)
   local args = pack(...)
   local r = pack(xpcall(function() return fn(unpack(args, 1, args.n)) end, function(err)
     local msg = tostring(err)
-    GS:Trace("err", msg, debugstack and debugstack(2, 8, 4))
-    if RavenquillExpeditionDB then RavenquillExpeditionDB.lastError = { t = time(), msg = msg, trace = debugstack and debugstack(2, 8, 4) } end
+    local trace = debugstack and debugstack(2, 8, 4)
+    GS:Trace("err", msg, trace)
+    if RavenquillExpeditionDB then RavenquillExpeditionDB.lastError = { t = time(), msg = msg, trace = trace } end
     local h = geterrorhandler and geterrorhandler()
     if h then pcall(h, msg) end
     return msg
