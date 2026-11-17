@@ -47,7 +47,7 @@ local function SyncOn()
   return s and s.sync
 end
 local function Enabled()
-  return SyncOn() and RQ.Plain(RQ.SafeCall(IsInGuild)) and true or false
+  return SyncOn() and GCA.PlainCall(nil, IsInGuild) and true or false
 end
 local function InInstance() return RQ:InInstance() end
 

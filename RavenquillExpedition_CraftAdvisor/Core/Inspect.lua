@@ -2,14 +2,14 @@ local ADDON, ns = ...
 local GCA = ns.GCA
 local L = ns.L
 local RQ = RavenquillExpedition
-local IsSecret, SafeCall = GCA.IsSecret, GCA.SafeCall
+local IsSecret, SafeCall, Plain, PlainCall = GCA.IsSecret, GCA.SafeCall, GCA.Plain, GCA.PlainCall
 local function Print(...) GCA:Print(...) end
 
 function GCA:ReadUnitItems(unit, into)
   local got = 0
   for slot = 1, 19 do
-    local link = SafeCall(GetInventoryItemLink, unit, slot)
-    if type(link) == "string" and not IsSecret(link) then
+    local link = PlainCall("string", GetInventoryItemLink, unit, slot)
+    if link then
       into[slot] = link
       got = got + 1
     end
@@ -107,10 +107,7 @@ end
 
 local function UnitClassLevel(unit)
   local _, class = SafeCall(UnitClass, unit)
-  local level = SafeCall(UnitLevel, unit)
-  if IsSecret(class) then class = nil end
-  if IsSecret(level) or type(level) ~= "number" then level = nil end
-  return class, level
+  return Plain(class), PlainCall("number", UnitLevel, unit)
 end
 
 function GCA:StoreMember(unit, items, source)
@@ -136,31 +133,25 @@ for i = 1, 40 do UNIT_TOKENS[#UNIT_TOKENS + 1] = "raid" .. i end
 
 function GCA:UnitFromGUID(guid)
   if not guid or IsSecret(guid) then return end
-  if UnitTokenFromGUID then
-    local u = SafeCall(UnitTokenFromGUID, guid)
-    if u and not IsSecret(u) then return u end
-  end
-  if InspectFrame and InspectFrame.unit and not IsSecret(InspectFrame.unit) then
-    local ig = SafeCall(UnitGUID, InspectFrame.unit)
-    if ig and not IsSecret(ig) and ig == guid then return InspectFrame.unit end
-  end
+  local token = PlainCall(nil, UnitTokenFromGUID, guid)
+  if token then return token end
+  local inspected = Plain(InspectFrame and InspectFrame.unit)
+  if inspected and PlainCall(nil, UnitGUID, inspected) == guid then return inspected end
   for _, u in ipairs(UNIT_TOKENS) do
-    local g = SafeCall(UnitGUID, u)
-    if g and not IsSecret(g) and g == guid then return u end
+    if PlainCall(nil, UnitGUID, u) == guid then return u end
   end
 end
 
 GCA.inspectGen = 0
 function GCA:OnNotifyInspect(unit)
   self.inspectGen = self.inspectGen + 1
-  local g = unit and SafeCall(UnitGUID, unit)
-  self.inspectGUID = (g and not IsSecret(g)) and g or nil
+  self.inspectGUID = unit and PlainCall(nil, UnitGUID, unit) or nil
 end
 if hooksecurefunc then pcall(hooksecurefunc, "NotifyInspect", function(unit) GCA:OnNotifyInspect(unit) end) end
 
 function GCA:OnInspectReady(guid)
   self.inspectGen = self.inspectGen + 1
-  self.inspectGUID = (guid and not IsSecret(guid)) and guid or nil
+  self.inspectGUID = Plain(guid) or nil
   local gen = self.inspectGen
   if self.inspecting and self.inspecting == guid then self.inspectAnswered = guid end
   local unit = self:UnitFromGUID(guid)
@@ -202,8 +193,8 @@ GCA.INSPECT_FINAL_READ, GCA.INSPECT_NO_ANSWER, GCA.INSPECT_HARD_LIMIT, GCA.INSPE
 GCA.inspectToken = 0
 
 function GCA:QueueInspect(unit, force)
-  local guid = SafeCall(UnitGUID, unit)
-  if not guid or IsSecret(guid) then return false end
+  local guid = PlainCall(nil, UnitGUID, unit)
+  if not guid then return false end
   if not force and self.lastInspect[guid] and GetTime() - self.lastInspect[guid] < 120 then return false end
   for _, g in ipairs(self.queue) do if g == guid then return true end end
   self.queue[#self.queue + 1] = guid
@@ -322,8 +313,8 @@ end
 function GCA:AutoInspectCheck(unit)
   local why = AutoInspectOff(self) or UnitNotInspectable(self, unit)
   if why then return false, why end
-  local guid = SafeCall(UnitGUID, unit)
-  if not guid or IsSecret(guid) then return false, "unit" end
+  local guid = PlainCall(nil, UnitGUID, unit)
+  if not guid then return false, "unit" end
   why = ReadRecently(self, unit, guid)
   if why then return false, why end
   return true, guid

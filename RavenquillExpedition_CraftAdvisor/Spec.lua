@@ -1,6 +1,6 @@
 local ADDON, ns = ...
 local GCA = ns.GCA
-local SafeCall, IsSecret = GCA.SafeCall, GCA.IsSecret
+local SafeCall, IsSecret, Plain, PlainCall = GCA.SafeCall, GCA.IsSecret, GCA.Plain, GCA.PlainCall
 
 GCA.SPEC_LIST = {
   { "DRUID", "BALANCE", "Balance" }, { "DRUID", "FERAL_CAT", "Feral (Cat)" },
@@ -107,8 +107,6 @@ function GCA:ResolveTree(tree, class, items, catKnown)
   return tree
 end
 
-local function Plain(v) if IsSecret(v) then return nil end return v end
-
 local function TraitsAPIMissing()
   return not (C_Traits and C_Traits.GetConfigInfo and C_Traits.GetTreeNodes and C_Traits.GetNodeInfo)
 end
@@ -116,8 +114,8 @@ end
 local function NumberOr0(v) return type(v) == "number" and v or 0 end
 
 local function ReadNode(configID, nodeID)
-  local info = SafeCall(C_Traits.GetNodeInfo, configID, Plain(nodeID))
-  if type(info) ~= "table" or IsSecret(info) then return nil end
+  local info = PlainCall("table", C_Traits.GetNodeInfo, configID, Plain(nodeID))
+  if not info then return nil end
   local x = Plain(info.posX)
   if type(x) ~= "number" then return nil end
   return { posX = x, rp = NumberOr0(Plain(info.ranksPurchased)), ar = NumberOr0(Plain(info.activeRank)) }
@@ -147,8 +145,8 @@ end
 function GCA:ReadTraitConfig(configID, allTrees)
   if TraitsAPIMissing() then return nil, "no C_Traits" end
   if type(configID) ~= "number" then return nil, "no config ID" end
-  local config = SafeCall(C_Traits.GetConfigInfo, configID)
-  if type(config) ~= "table" or IsSecret(config) then return nil, "no config info" end
+  local config = PlainCall("table", C_Traits.GetConfigInfo, configID)
+  if not config then return nil, "no config info" end
   local treeIDs = Plain(config.treeIDs)
   if type(treeIDs) ~= "table" or not Plain(treeIDs[1]) then return nil, "config has no tree" end
   local raw = {}
@@ -165,10 +163,8 @@ end
 
 function GCA:CatFormKnown()
   for _, fn in ipairs({ IsPlayerSpell or false, C_SpellBook and C_SpellBook.IsSpellKnown or false }) do
-    if fn then
-      local ok, v = pcall(fn, 768)
-      if ok and not IsSecret(v) and type(v) == "boolean" then return v end
-    end
+    local v = PlainCall("boolean", fn, 768)
+    if v ~= nil then return v end
   end
   return nil
 end

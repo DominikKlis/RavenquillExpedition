@@ -2,7 +2,7 @@ local ADDON, ns = ...
 local GCA = ns.GCA
 local L = ns.L
 local RQ = RavenquillExpedition
-local IsSecret, SafeCall = GCA.IsSecret, GCA.SafeCall
+local IsSecret, SafeCall, PlainCall = GCA.IsSecret, GCA.SafeCall, GCA.PlainCall
 local function Print(...) GCA:Print(...) end
 
 function GCA:IsGuildmate(unit)
@@ -17,7 +17,7 @@ end
 function GCA:RosterRead()
   local loaded, n, offline = RQ:RosterComplete()
   if not loaded or type(n) ~= "number" or n <= 0 then return false end
-  local live = RQ.Plain(SafeCall(GetNumGuildMembers), "number")
+  local live = PlainCall("number", GetNumGuildMembers)
   if live ~= n then return false end
   local read = 0
   for _ in RQ:EachMember() do read = read + 1 end
@@ -27,14 +27,14 @@ end
 GCA.PRUNE_DELAY, GCA.PRUNE_MIN_ROSTER, GCA.PRUNE_AGE = 60, 5, 30 * 86400
 
 function GCA:OwnCharacterKeys()
-  local own, realm = {}, SafeCall(GetRealmName)
+  local own, realm = {}, PlainCall("string", GetRealmName)
   if self.playerKey then own[self.playerKey] = true end
   local db = self.db
   for _, t in ipairs({ db.known or {}, db.sync or {}, db.profSel or {}, db.crafted or {} }) do
     for charKey in pairs(t) do
       if type(charKey) == "string" then
         own[charKey] = true
-        if type(realm) == "string" and not IsSecret(realm) and charKey:sub(-(#realm + 1)) == "-" .. realm then
+        if realm and charKey:sub(-(#realm + 1)) == "-" .. realm then
           own[charKey:sub(1, -(#realm + 2))] = true
         end
         local base = charKey:match("^(.+)%-[^%-]+$")

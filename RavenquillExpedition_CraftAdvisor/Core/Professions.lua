@@ -1,6 +1,6 @@
 local ADDON, ns = ...
 local GCA = ns.GCA
-local IsSecret, SafeCall, ItemIDFrom = GCA.IsSecret, GCA.SafeCall, GCA.ItemIDFrom
+local SafeCall, Plain, PlainCall, ItemIDFrom = GCA.SafeCall, GCA.Plain, GCA.PlainCall, GCA.ItemIDFrom
 
 GCA.PROFESSIONS = {
   { key = "Leatherworking", skillLine = 165, icon = "Interface\\Icons\\Trade_LeatherWorking", crafter = "a leatherworker", spec = true },
@@ -60,14 +60,14 @@ function GCA:ReadProfessions()
   local list = { SafeCall(GetProfessions) }
   local any = false
   for i = 1, 6 do
-    local idx = list[i]
-    if idx ~= nil and not IsSecret(idx) then
+    local idx = Plain(list[i])
+    if idx ~= nil then
       any = true
       local name, _, rank, maxRank, _, _, skillLine = SafeCall(GetProfessionInfo, idx)
-      local p = type(skillLine) == "number" and not IsSecret(skillLine) and self.PROF_BY_LINE[skillLine]
+      local line = Plain(skillLine, "number")
+      local p = line and self.PROF_BY_LINE[line]
       if p then
-        own[p.key] = { rank = (not IsSecret(rank)) and rank or nil, maxRank = (not IsSecret(maxRank)) and maxRank or nil,
-          name = (type(name) == "string" and not IsSecret(name)) and name or nil }
+        own[p.key] = { rank = Plain(rank) or nil, maxRank = Plain(maxRank) or nil, name = Plain(name, "string") }
       end
     end
   end
@@ -112,15 +112,8 @@ end
 GCA.knownNow, GCA.knownCounts = {}, {}
 
 local function SpellKnown(spellID)
-  if C_SpellBook and C_SpellBook.IsSpellKnown then
-    local ok, v = pcall(C_SpellBook.IsSpellKnown, spellID)
-    if ok and not IsSecret(v) and v then return true end
-  end
-  if IsPlayerSpell then
-    local ok, v = pcall(IsPlayerSpell, spellID)
-    if ok and not IsSecret(v) and v then return true end
-  end
-  return false
+  local known = PlainCall(nil, C_SpellBook and C_SpellBook.IsSpellKnown, spellID) or PlainCall(nil, IsPlayerSpell, spellID)
+  return known and true or false
 end
 GCA.SpellKnown = SpellKnown
 
@@ -191,7 +184,7 @@ local function MarkKnown(store, prof, spellID)
 end
 
 local function LearnedFlag(info)
-  if type(info) == "table" and info.learned ~= nil and not IsSecret(info.learned) then return info.learned end
+  if type(info) == "table" then return Plain(info.learned) end
 end
 
 local function TallyRecipe(api, id, profs, tally)
@@ -253,15 +246,14 @@ end
 
 local function LegacyRow(i)
   local id = GetTradeSkillItemLink and ItemIDFrom(SafeCall(GetTradeSkillItemLink, i))
-  local rlink = GetTradeSkillRecipeLink and SafeCall(GetTradeSkillRecipeLink, i)
-  local spell = type(rlink) == "string" and not IsSecret(rlink) and tonumber(rlink:match("enchant:(%d+)"))
+  local rlink = PlainCall("string", GetTradeSkillRecipeLink, i)
+  local spell = rlink and tonumber(rlink:match("enchant:(%d+)"))
   return id, spell
 end
 
 local function ScanLegacyWindow(self, store, own, profs)
   local which = LegacyWindowProfessions(own, profs)
-  local n = SafeCall(GetNumTradeSkills) or 0
-  if IsSecret(n) then n = 0 end
+  local n = PlainCall(nil, GetNumTradeSkills) or 0
   for i = 1, n do
     local id, spell = LegacyRow(i)
     for _, prof in ipairs(which) do

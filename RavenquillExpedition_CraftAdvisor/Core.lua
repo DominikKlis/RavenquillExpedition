@@ -1,6 +1,8 @@
 local ADDON, ns = ...
 local L = ns.L
 local RQ = RavenquillExpedition
+local IsSecret, SafeCall, Plain = RQ.IsSecret, RQ.SafeCall, RQ.Plain
+local function PlainCall(typ, fn, ...) return Plain((SafeCall(fn, ...)), typ) end
 
 local DEFAULTS = { guildOnly = true, showUnlearned = false, lookahead = true, autoTarget = true, hideOffline = true, sync = true,
   survival = 0.5, inspectTalents = false,
@@ -59,8 +61,8 @@ end
 local LOGIN_MIGRATIONS = {
   [1] = function(db)
     db.known = db.known or {}
-    local realm = RQ.Plain(RQ.SafeCall(GetRealmName), "string") or "?"
-    local first = RQ.Plain(RQ.SafeCall(UnitName, "player"), "string") or "?"
+    local realm = PlainCall("string", GetRealmName) or "?"
+    local first = PlainCall("string", UnitName, "player") or "?"
     local charKey, oldKey = (RQ:PlayerKey() or first) .. "-" .. realm, first .. "-" .. realm
     if oldKey ~= charKey and db.known[oldKey] and not db.known[charKey] then
       db.known[charKey] = db.known[oldKey]
@@ -88,9 +90,7 @@ GCA.DEFAULTS = DEFAULTS
 
 GCA.LOOKAHEAD_LEVELS = 5
 
-
-local IsSecret, SafeCall = RQ.IsSecret, RQ.SafeCall
-GCA.IsSecret, GCA.SafeCall = IsSecret, SafeCall
+GCA.IsSecret, GCA.SafeCall, GCA.Plain, GCA.PlainCall = IsSecret, SafeCall, Plain, PlainCall
 
 local ItemAPI = {
   Info     = (C_Item and C_Item.GetItemInfo) or GetItemInfo,

@@ -1,7 +1,7 @@
 local ADDON, ns = ...
 local GCA = ns.GCA
 local L = ns.L
-local IsSecret, SafeCall, ItemAPI, ItemIDFrom = GCA.IsSecret, GCA.SafeCall, GCA.ItemAPI, GCA.ItemIDFrom
+local SafeCall, Plain, ItemAPI, ItemIDFrom = GCA.SafeCall, GCA.Plain, GCA.ItemAPI, GCA.ItemIDFrom
 
 local Scoring = ns.Scoring
 GCA.Scoring = Scoring
@@ -137,7 +137,7 @@ function GCA:GetInfo(item)
   if c then return c end
   local name, link, quality, ilvl, minLevel, _, _, _, equipLoc, icon, _, classID, subClassID, bindType =
     SafeCall(ItemAPI.Info, item)
-  if not name or IsSecret(name) then
+  if not Plain(name) then
     return nil, self:NoteMissingItem(ItemIDFrom(item))
   end
   local statLink = (type(item) == "string" and item) or link
@@ -172,10 +172,6 @@ function GCA:Score(info, e)
   return s
 end
 
-local function PlainString(v)
-  if type(v) == "string" and not IsSecret(v) then return v end
-end
-
 local function TipLines(data)
   return type(data) == "table" and type(data.lines) == "table" and data.lines or nil
 end
@@ -183,7 +179,7 @@ end
 local function ItemTooltipLines(TI, itemID, link)
   local lines = TipLines(itemID and TI.GetItemByID and SafeCall(TI.GetItemByID, itemID))
   if not lines and type(link) == "string" and TI.GetHyperlink then lines = TipLines(SafeCall(TI.GetHyperlink, link)) end
-  if lines and not IsSecret(lines) then return lines end
+  return Plain(lines)
 end
 
 GCA.speedCache = {}
@@ -194,8 +190,8 @@ function GCA:WeaponSpeed(itemID, link)
   local rawLines = ItemTooltipLines(TI, itemID, link)
   if not rawLines then return nil end
   local lines = {}
-  for i, line in ipairs(rawLines) do lines[i] = { rightText = PlainString(type(line) == "table" and line.rightText) } end
-  local speed = Scoring.weaponSpeedFromLines(lines, PlainString(SPEED))
+  for i, line in ipairs(rawLines) do lines[i] = { rightText = Plain(type(line) == "table" and line.rightText, "string") } end
+  local speed = Scoring.weaponSpeedFromLines(lines, Plain(SPEED, "string"))
   if speed and itemID then self.speedCache[itemID] = speed end
   return speed
 end

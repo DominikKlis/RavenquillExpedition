@@ -1,6 +1,6 @@
 local ADDON, ns = ...
 local GCA = ns.GCA
-local IsSecret, SafeCall, ItemAPI = GCA.IsSecret, GCA.SafeCall, GCA.ItemAPI
+local IsSecret, SafeCall, Plain, PlainCall, ItemAPI = GCA.IsSecret, GCA.SafeCall, GCA.Plain, GCA.PlainCall, GCA.ItemAPI
 local function Print(...) GCA:Print(...) end
 local ItemIDFrom, Scoring = GCA.ItemIDFrom, ns.Scoring
 local EMPTY = {}
@@ -32,7 +32,7 @@ local function FirstDps(stats)
 end
 
 local function WeaponLine(speed, dps, subClassID)
-  local label = type(SPEED) == "string" and not IsSecret(SPEED) and SPEED or "nil"
+  local label = Plain(SPEED, "string") or "nil"
   return string.format("Weapon: speed %s (label %s), DPS %s, dagger %s", speed and string.format("%.2f", speed) or "not read",
     tostring(label), dps and string.format("%.2f", dps) or "-", tostring(subClassID == 15))
 end
@@ -56,8 +56,8 @@ end
 function GCA:StatsDebug(link, P)
   P = P or Print
   if not link or not link:find("item:", 1, true) then P("Usage: /rq craft stats <shift-click an item>") return end
-  local raw = SafeCall(ItemAPI.Stats, link)
-  if type(raw) ~= "table" or IsSecret(raw) then
+  local raw = PlainCall("table", ItemAPI.Stats, link)
+  if not raw then
     RequestItemStats(link, P)
     return
   end
@@ -182,15 +182,15 @@ local function EnchantedLinks(self, link)
   if link and link:find("item:", 1, true) then return { link } end
   local links = {}
   for _, slot in ipairs(self.SYNC_SLOTS) do
-    local l = SafeCall(GetInventoryItemLink, "player", slot)
-    if type(l) == "string" and not IsSecret(l) and self:EnchantIDOf(l) then links[#links + 1] = l end
+    local l = PlainCall("string", GetInventoryItemLink, "player", slot)
+    if l and self:EnchantIDOf(l) then links[#links + 1] = l end
   end
   return links
 end
 
 local function CanonicalStats(link)
-  local raw = SafeCall(ItemAPI.Stats, link)
-  if type(raw) ~= "table" or IsSecret(raw) then return nil end
+  local raw = PlainCall("table", ItemAPI.Stats, link)
+  if not raw then return nil end
   return (Scoring.normalize(raw))
 end
 

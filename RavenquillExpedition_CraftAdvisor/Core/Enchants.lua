@@ -1,6 +1,6 @@
 local ADDON, ns = ...
 local GCA = ns.GCA
-local IsSecret, SafeCall, Scoring = GCA.IsSecret, GCA.SafeCall, ns.Scoring
+local SafeCall, Plain, PlainCall, Scoring = GCA.SafeCall, GCA.Plain, GCA.PlainCall, ns.Scoring
 local EMPTY = {}
 
 GCA.ENCHANT_SLOTS = { [15] = "back", [5] = "chest", [9] = "wrist", [10] = "hands", [8] = "feet", [2] = "neck" }
@@ -31,8 +31,7 @@ function GCA.UnsimmedSchool(stats, set)
 end
 
 local function PlayerFaction()
-  local f = UnitFactionGroup and SafeCall(UnitFactionGroup, "player")
-  if type(f) == "string" and not IsSecret(f) then return f end
+  return PlainCall("string", UnitFactionGroup, "player")
 end
 GCA.PlayerFaction = PlayerFaction
 
@@ -46,8 +45,7 @@ function GCA:EnchantInfo(row)
     local n, _, ic = SafeCall(GetSpellInfo, row.spell)
     name, icon = name or n, icon or ic
   end
-  if IsSecret(name) or type(name) ~= "string" then name = nil end
-  if IsSecret(icon) then icon = nil end
+  name, icon = Plain(name, "string"), Plain(icon)
   c = { name = name or row.name, icon = icon or "Interface\\Icons\\Trade_Engraving", quality = 1, minLevel = 0,
     cstats = row.stats or {}, enchantRow = row }
   if name then self.enchantInfo[row.spell] = c end
