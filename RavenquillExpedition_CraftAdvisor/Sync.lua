@@ -231,7 +231,7 @@ function GCA:CheckOwnSpec()
   end)
 end
 
-local function DrainRelays() end
+local DrainRelays
 
 function GCA:RelayInspect(key)
   if not Enabled() or key == self.playerKey or not RQ:RosterEntry(key) then return end
@@ -245,7 +245,7 @@ function GCA:RelayInspect(key)
   DrainRelays()
 end
 
-DrainRelays = function()
+function DrainRelays()
   if S.relayTimer or not next(S.relayPending) then return end
   local now = GetTime()
   local wait = math.max(0, (S.lastRelay or -1e9) + C.RELAY_SPACING - now) + C.RELAY_MIN + math.random() * C.RELAY_JITTER

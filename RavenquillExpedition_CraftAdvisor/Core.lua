@@ -154,7 +154,6 @@ function GCA:OnLogin()
   if class and not IsSecret(class) then self.playerClass = class end
   local realm = GetRealmName() or "?"
   self.charKey = (self.playerKey or UnitName("player") or "?") .. "-" .. realm
-  self.itemToSpell = self:ItemToSpell(self:SelectedProfession())
   C_Timer.After(3, function()
     self:CaptureSelf()
     self:RefreshKnown()
@@ -162,7 +161,7 @@ function GCA:OnLogin()
     self:RefreshOwnSpec()
   end)
   C_Timer.After(self.PRUNE_DELAY + 1, function() RQ:RequestRoster() end)
-  C_Timer.After(self.PROF_TRUST_DELAY + 2, function() self:RefreshKnown(); RQ:Call(self.KnownDiag, self, "login") end)
+  C_Timer.After(self.PROF_TRUST_DELAY + 2, function() self:RefreshKnown() end)
   if self.OnSyncLogin then self:OnSyncLogin() end
 end
 
@@ -204,10 +203,7 @@ function events:GET_ITEM_INFO_RECEIVED(itemID, success)
 end
 
 function events:TRADE_SKILL_SHOW()
-  C_Timer.After(0.5, function()
-    RQ:Call(self.KnownDiag, self, "window")
-    self:ScanTradeSkill()
-  end)
+  C_Timer.After(0.5, function() self:ScanTradeSkill() end)
 end
 events.TRADE_SKILL_LIST_UPDATE = events.TRADE_SKILL_SHOW
 events.TRADE_SKILL_DATA_SOURCE_CHANGED = events.TRADE_SKILL_SHOW
@@ -226,42 +222,6 @@ function events:NEW_RECIPE_LEARNED(recipeID)
 end
 function events:LEARNED_SPELL_IN_TAB() C_Timer.After(0.5, function() self:RefreshKnown() end) end
 
-local function DiagFlag(v)
-  if IsSecret(v) then return "S" end
-  return v and "1" or (v == false and "0" or "-")
-end
-
-local function PlainTrue(v) return v and not IsSecret(v) end
-
-local function SpellDiagRow(api, saved, id)
-  local ips = IsPlayerSpell and SafeCall(IsPlayerSpell, id)
-  local isk = C_SpellBook and C_SpellBook.IsSpellKnown and SafeCall(C_SpellBook.IsSpellKnown, id)
-  local info = api and api.GetRecipeInfo and SafeCall(api.GetRecipeInfo, id)
-  local tsl = type(info) == "table" and info.learned
-  local isSaved = saved and saved[id]
-  if PlainTrue(ips) or PlainTrue(isk) or PlainTrue(tsl) or isSaved then
-    return DiagFlag(ips) .. DiagFlag(isk) .. DiagFlag(tsl) .. DiagFlag(isSaved)
-  end
-end
-
-local function ProfessionDiag(self, api, saved, prof)
-  local rows = {}
-  for id in pairs(self:KnowableSpells(prof)) do
-    local row = SpellDiagRow(api, saved, id)
-    if row then rows[id] = row end
-  end
-  if next(rows) then return rows end
-end
-
-function GCA:KnownDiag(tag)
-  if not (self.db and self.charKey) then return end
-  local store = self:KnownStore()
-  local out = { when = date and date("%Y-%m-%d %H:%M:%S"), tag = tag }
-  for _, p in ipairs(self.PROFESSIONS) do out[p.key] = ProfessionDiag(self, C_TradeSkillUI, store[p.key], p.key) end
-  local diag = self:Diag()
-  diag.knownDiag = diag.knownDiag or {}
-  diag.knownDiag[tag or "login"] = out
-end
 function events:SKILL_LINES_CHANGED()
   if self.skillTimer or not self.charKey then return end
   self.skillTimer = true

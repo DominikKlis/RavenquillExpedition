@@ -140,10 +140,10 @@ function GCA:PassesRestrictions(itemID, class, isSelf)
   end
   if r.skill then
     if not isSelf then return false end
-    local ok = false
-    for _, p in pairs(self:OwnProfessions()) do if p.name == r.skill then ok = true end end
-    for key in pairs(self:OwnProfessions()) do if key == r.skill then ok = true end end
-    return ok
+    for key, p in pairs(self:OwnProfessions()) do
+      if key == r.skill or p.name == r.skill then return true end
+    end
+    return false
   end
   return true
 end

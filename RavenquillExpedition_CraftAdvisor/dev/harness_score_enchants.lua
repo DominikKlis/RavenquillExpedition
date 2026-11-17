@@ -18,7 +18,7 @@ do
     "itemToSpell per profession: 18258 -> 22815 (LW) / 22813 (Tailoring)")
   check(GCA:SelectedProfession() == "Leatherworking" and not GCA:IsBrowse(), "default selection: your first gear profession (LW)")
   GCA:SelectProfession("Tailoring")
-  check(GCA.itemToSpell[18258] == 22813 and GCA.db.profSel[GCA.charKey] == "Tailoring", "switch to Tailoring: itemToSpell rebuilt, choice saved per character")
+  check(GCA:SelectedProfession() == "Tailoring" and GCA.db.profSel[GCA.charKey] == "Tailoring", "switch to Tailoring: selected, choice saved per character")
   GCA:SelectProfession("Blacksmithing")
   check(GCA:IsBrowse() and GCA:IsBrowse("Blacksmithing") and not GCA:IsBrowse("Leatherworking"), "Blacksmithing is browse (not yours)")
   GCA:SelectProfession("Leatherworking")
