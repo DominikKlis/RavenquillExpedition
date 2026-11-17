@@ -5,12 +5,10 @@ exclude_files = { "**/libs/**", "**/Data/**", "**/dev/fixtures/**", ".cache/**" 
 ignore = { "212", "542", "211/ADDON", "211/ns" }
 
 globals = {
-  "GuildCraftAdvisor", "GuildCraftAdvisor_OnCompartmentClick", "RQDevInbox", "RavenquillExpedition",
-  "RavenquillExpeditionCraftDB", "RavenquillExpeditionDB", "RavenquillExpeditionDevDB",
-  "RavenquillExpeditionHighlightsCharDB", "RavenquillExpeditionHighlightsDB", "RavenquillExpeditionMapDB",
-  "RavenquillExpedition_CraftAdvisor_OnCompartmentClick", "RavenquillExpedition_OnCompartmentClick",
-  "SLASH_GCAPROBE1", "SLASH_GUILDCRAFTADVISOR1", "SLASH_GUILDCRAFTADVISOR2", "SLASH_RAVENQUILL1",
-  "SLASH_RAVENQUILL2", "SlashCmdList",
+  "RQDevInbox", "RavenquillExpedition", "RavenquillExpeditionCraftDB", "RavenquillExpeditionDB",
+  "RavenquillExpeditionDevDB", "RavenquillExpeditionHighlightsCharDB", "RavenquillExpeditionHighlightsDB",
+  "RavenquillExpeditionMap", "RavenquillExpeditionMapDB", "RavenquillExpedition_CraftAdvisor_OnCompartmentClick",
+  "RavenquillExpedition_OnCompartmentClick", "SLASH_RAVENQUILL1", "SLASH_RAVENQUILL2", "SlashCmdList",
 }
 
 read_globals = {

@@ -103,10 +103,10 @@ do
   if f then base = f() or {} end
 end
 base.metrics = base.metrics or {}
+local luacheckConfig = { files = {} }
+assert(loadfile(ROOT .. ".luacheckrc", "t", luacheckConfig))()
 local allow = {}
-for _, n in ipairs(base.allow or {}) do allow[n] = true end
-local legacy = {}
-for _, n in ipairs(base.legacy or {}) do legacy[n] = true; allow[n] = true end
+for _, n in ipairs(luacheckConfig.globals) do allow[n] = true end
 
 local M = {}
 local order = {}
@@ -189,15 +189,13 @@ else
   metric("main_slots", nil, 120, "luac not found (set LUAC)")
 end
 do
-  local bad, leg, w = 0, 0, {}
+  local bad, w = 0, {}
   for _, p in ipairs(shipped) do
     for name in pairs(globalWrites(p)) do
-      if legacy[name] then leg = leg + 1
-      elseif not allow[name] then bad = bad + 1; w[#w + 1] = p .. " " .. name end
+      if not allow[name] then bad = bad + 1; w[#w + 1] = p .. " " .. name end
     end
   end
-  metric("global_writes", bad, 0, "global writes outside the allowlist" .. (LUAC and "" or " (luac missing: _G only)"), w)
-  metric("legacy_globals", leg, 0, "old GuildCraftAdvisor-era globals still written")
+  metric("global_writes", bad, 0, "global writes outside the .luacheckrc globals" .. (LUAC and "" or " (luac missing: _G only)"), w)
 end
 do
   local files = {}
@@ -207,7 +205,7 @@ do
   for _, p in ipairs(files) do
     for i, l in ipairs(fileLines(p)) do
       if l:find("%f[%a]%a:[/\\]") or l:find("WTF[/\\]Account[/\\][^*/\\%s\"'$]") or l:find("AppData") or l:find("/Users/") then
-        if not (p == "scripts/link-addons.ps1" and l:find("^%s*#")) then n = n + 1; w[#w + 1] = p .. ":" .. i end
+        n = n + 1; w[#w + 1] = p .. ":" .. i
       end
     end
   end
@@ -374,17 +372,10 @@ if opts.update or not next(base.metrics) then
   local out = { "return {",
     "  metrics = {" }
   local names = {}
-  for k in pairs(base.metrics) do names[#names + 1] = k end
+  for k in pairs(base.metrics) do if M[k] then names[#names + 1] = k end end
   table.sort(names)
   for _, k in ipairs(names) do out[#out + 1] = ("    %s = %s,"):format(k, tostring(base.metrics[k])) end
   out[#out + 1] = "  },"
-  local function list(key, t)
-    local s = {}
-    for _, n in ipairs(t or {}) do s[#s + 1] = ("%q"):format(n) end
-    out[#out + 1] = ("  %s = { %s },"):format(key, table.concat(s, ", "))
-  end
-  list("allow", base.allow)
-  list("legacy", base.legacy)
   out[#out + 1] = "}"
   local f = assert(io.open(BASELINE, "wb"))
   f:write(table.concat(out, "\n"), "\n")
