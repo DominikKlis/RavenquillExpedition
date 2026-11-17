@@ -28,23 +28,25 @@ local function ModuleRow(mod, k)
   return row
 end
 
+local ADDON_WITHOUT_MODULE = {
+  loaded = { status = "LEGACY" },
+  disabled = { status = "ENABLE_HINT", note = "DISABLED" },
+  missing = { status = "MISSING", note = "NOT_INSTALLED" },
+}
+
+local function AddonRow(k)
+  local state = AddonState(k.addon)
+  local look = ADDON_WITHOUT_MODULE[state]
+  return { title = k.title or k.module, icon = k.icon, slash = "/rq " .. k.slash, state = state,
+    status = L[look.status], note = look.note and L[look.note] }
+end
+
 function GS:OverviewRows()
   local rows, seen = {}, {}
   for _, k in ipairs(KNOWN_ADDONS) do
-    local mod = k.module and self.modules[k.module]
-    if mod then
-      seen[k.module] = true
-      rows[#rows + 1] = ModuleRow(mod, k)
-    else
-      local state = AddonState(k.addon)
-      local row = { title = k.title or k.module, icon = k.icon, slash = "/rq " .. k.slash, state = state }
-      if state == "loaded" then
-        row.status = L.LEGACY
-      elseif state == "disabled" then row.status = L.ENABLE_HINT
-      else row.status = L.MISSING end
-      if type(row.status) ~= "string" then row.status = "" end
-      rows[#rows + 1] = row
-    end
+    local mod = self.modules[k.module]
+    seen[k.module] = true
+    rows[#rows + 1] = mod and ModuleRow(mod, k) or AddonRow(k)
   end
   for _, name in ipairs(self.moduleOrder) do
     if not seen[name] then rows[#rows + 1] = ModuleRow(self.modules[name]) end
@@ -278,6 +280,50 @@ function GS:ShowModuleOptions(name)
   p.refreshAll()
 end
 
+local function ShowButton(b, onClick)
+  if not onClick then return b:Hide() end
+  b:Show()
+  b:SetScript("OnClick", onClick)
+end
+
+local function RenderRow(r, d)
+  r:Show()
+  r.icon:SetTexture(d.icon)
+  r.icon:SetDesaturated(d.state ~= "loaded")
+  r.title:SetText(d.title)
+  r.cmd:SetText(d.slash)
+  r.status:SetText(d.status)
+  ShowButton(r.button, d.open and function() d.open(); GS:Call(GS.RefreshOverview, GS) end)
+  ShowButton(r.opt, d.options and function() GS:ShowModuleOptions(d.name) end)
+  if d.note then
+    r.note:SetText(d.note)
+    r.note:Show()
+  else
+    r.note:Hide()
+  end
+end
+
+local function RenderRows(widgets, rows)
+  for i, r in ipairs(widgets) do
+    if rows[i] then RenderRow(r, rows[i]) else r:Hide() end
+  end
+end
+
+local function RenderRecent(m)
+  m:Clear()
+  local lines
+  for _, name in ipairs(GS.moduleOrder) do
+    local mod = GS.modules[name]
+    if mod.OverviewRecent then lines = GS:Call(mod.OverviewRecent, mod, 8) break end
+  end
+  if type(lines) == "table" and lines[1] then
+    for _, line in ipairs(lines) do m:AddMessage(line) end
+  else
+    m:AddMessage(L.NO_RECENT, 0.6, 0.6, 0.6)
+  end
+  if m.ScrollToBottom then m:ScrollToBottom() end
+end
+
 function GS:RefreshOverview()
   if not (win and win:IsShown()) then return end
   if self.optionsModule then
@@ -290,49 +336,8 @@ function GS:RefreshOverview()
   home.guild:SetText((g and ("<" .. g .. ">") or L.NO_GUILD) .. "  |cff888888v" .. self.version .. "|r")
   home.sync:SetText(self:OverviewSyncLine())
   home.peers:SetText(self:OverviewPeersLine())
-
-  local rows = self:OverviewRows()
-  for i, r in ipairs(home.rows) do
-    local d = rows[i]
-    if d then
-      r:Show()
-      r.icon:SetTexture(d.icon)
-      r.icon:SetDesaturated(d.state ~= "loaded")
-      r.title:SetText(d.title)
-      r.cmd:SetText(d.slash)
-      r.status:SetText(d.status)
-      if d.state == "loaded" then
-        r.note:Hide()
-        if d.open then
-          r.button:Show()
-          r.button:SetScript("OnClick", function() d.open(); GS:Call(GS.RefreshOverview, GS) end)
-        else r.button:Hide() end
-        if d.options then
-          r.opt:Show()
-          r.opt:SetScript("OnClick", function() GS:ShowModuleOptions(d.name) end)
-        else r.opt:Hide() end
-      else
-        r.button:Hide(); r.opt:Hide(); r.note:Show()
-        r.note:SetText(d.state == "disabled" and L.DISABLED or d.state == "missing" and L.NOT_INSTALLED or "")
-      end
-    else
-      r:Hide()
-    end
-  end
-
-  local m = home.recent
-  m:Clear()
-  local lines
-  for _, name in ipairs(self.moduleOrder) do
-    local mod = self.modules[name]
-    if mod.OverviewRecent then lines = self:Call(mod.OverviewRecent, mod, 8) break end
-  end
-  if type(lines) == "table" and lines[1] then
-    for _, line in ipairs(lines) do m:AddMessage(line) end
-  else
-    m:AddMessage(L.NO_RECENT, 0.6, 0.6, 0.6)
-  end
-  if m.ScrollToBottom then m:ScrollToBottom() end
+  RenderRows(home.rows, self:OverviewRows())
+  RenderRecent(home.recent)
 end
 
 local refreshTickPending = false
