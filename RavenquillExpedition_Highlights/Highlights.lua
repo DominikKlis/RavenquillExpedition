@@ -123,8 +123,10 @@ local function InsertByTime(events, e)
   table.insert(events, pos, e)
 end
 
+local lootHeard = {}
+
 local function OnHeardFromWire(self, e)
-  if e.k == "loot" then self.lootHeard[e.who .. "#" .. tostring(e.item)] = e.t end
+  if e.k == "loot" then lootHeard[e.who .. "#" .. tostring(e.item)] = e.t end
   if e.k == "boss" and e.grp then self:Supersede(e) end
   self:Announce(e)
 end
@@ -171,10 +173,10 @@ function H:CapWho(events, idx, who)
   end
 end
 
-H.recv = {}
+local recv = {}
 function H:Admit(sender, now)
-  local list = self.recv[sender]
-  if not list then list = {}; self.recv[sender] = list end
+  local list = recv[sender]
+  if not list then list = {}; recv[sender] = list end
   GS.PruneTimes(list, 3600, now)
   if #list >= self.RECV_PER_HOUR then
     self.db.diag.recvCapped = (self.db.diag.recvCapped or 0) + 1
@@ -220,9 +222,8 @@ function H:Activity(e)
   return e
 end
 
-H.lootHeard = {}
 function H:LootReportedByOthers(e)
-  local t = self.lootHeard[e.who .. "#" .. tostring(e.item)]
+  local t = lootHeard[e.who .. "#" .. tostring(e.item)]
   return t and math.abs(t - e.t) <= self.LOOT_DEDUPE or false
 end
 

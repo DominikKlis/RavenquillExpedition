@@ -3,7 +3,7 @@ local GS = RavenquillExpedition
 local H = ns.H
 local L = ns.L
 
-local win
+local win, refreshArmed
 
 local function CreateWindow()
   local ok, f = pcall(CreateFrame, "Frame", "RavenquillExpeditionHighlightsFrame", UIParent, "ButtonFrameTemplate")
@@ -150,9 +150,9 @@ function H:Refresh()
 end
 
 function H:RefreshSoon()
-  if self.refreshArmed or not (win and win:IsShown()) then return end
-  self.refreshArmed = true
-  C_Timer.After(0.5, function() self.refreshArmed = false; GS:Call(H.Refresh, H) end)
+  if refreshArmed or not (win and win:IsShown()) then return end
+  refreshArmed = true
+  C_Timer.After(0.5, function() refreshArmed = false; GS:Call(H.Refresh, H) end)
 end
 
 function H:ToggleWindow()
