@@ -37,9 +37,10 @@ do
     table.sort(a); table.sort(b)
     if table.concat(a, ",") ~= table.concat(b, ",") or ours.dualWieldFrom ~= sg.dualWieldFrom or ours.noHoldable ~= (sg.equip.noHoldable == true) then same = false end
     for k in pairs(sg.dualWield or {}) do if not ours.dualWield[k] then same = false end end
-    if (ours.noHoldable == true) ~= (GCA.NO_HOLDABLE[class] == true) then same = false end
+    local holdable = GCA:WearFrom(class, { classID = 4, subClassID = 0, equipLoc = "INVTYPE_HOLDABLE" })
+    if (holdable == nil) ~= (ours.noHoldable == true) then same = false end
   end
-  check(same, "Data/Weights.lua classWeapons = SimGear Classes.lua (weapons, dualWield, dualWieldFrom, noHoldable; NO_HOLDABLE agrees)")
+  check(same, "Data/Weights.lua classWeapons = SimGear Classes.lua (weapons, dualWield, dualWieldFrom, noHoldable; held off-hands follow noHoldable)")
 end
 
 do

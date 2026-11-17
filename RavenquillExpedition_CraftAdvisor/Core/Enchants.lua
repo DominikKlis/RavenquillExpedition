@@ -1,6 +1,7 @@
 local ADDON, ns = ...
 local GCA = ns.GCA
-local SafeCall, Plain, PlainCall, Scoring = GCA.SafeCall, GCA.Plain, GCA.PlainCall, ns.Scoring
+local SafeCall, Plain, Scoring = GCA.SafeCall, GCA.Plain, ns.Scoring
+local PlayerFaction = GCA.PlayerFaction
 local EMPTY = {}
 
 GCA.ENCHANT_SLOTS = { [15] = "back", [5] = "chest", [9] = "wrist", [10] = "hands", [8] = "feet", [2] = "neck" }
@@ -29,11 +30,6 @@ function GCA.UnsimmedSchool(stats, set)
     if SCHOOLS[k] and w[k] == nil then return k end
   end
 end
-
-local function PlayerFaction()
-  return PlainCall("string", UnitFactionGroup, "player")
-end
-GCA.PlayerFaction = PlayerFaction
 
 GCA.enchantInfo = {}
 function GCA:EnchantInfo(row)

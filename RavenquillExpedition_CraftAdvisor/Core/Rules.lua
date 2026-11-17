@@ -5,7 +5,6 @@ local IsSecret, SafeCall, ItemAPI, Scoring = GCA.IsSecret, GCA.SafeCall, GCA.Ite
 local EMPTY = {}
 
 local CLOTH_ONLY = { MAGE = true, PRIEST = true, WARLOCK = true }
-GCA.NO_HOLDABLE = { HUNTER = true, ROGUE = true }
 GCA.RELIC_CLASS = { [7] = "PALADIN", [8] = "DRUID", [9] = "SHAMAN" }
 
 GCA.ARMOR_PROF_LEVEL = 40
@@ -47,7 +46,8 @@ local function ArmorFrom(self, class, sub)
 end
 function GCA:WearFrom(class, cand)
   local sub = cand.subClassID
-  if cand.equipLoc == "INVTYPE_HOLDABLE" and class and self.NO_HOLDABLE[class] then return nil end
+  local cw = self:ClassWeapons(class)
+  if cand.equipLoc == "INVTYPE_HOLDABLE" and cw and cw.noHoldable then return nil end
   if cand.classID == 2 then return WeaponFrom(self, class, sub) end
   if cand.classID ~= 4 then return nil end
   if cand.equipLoc == "INVTYPE_CLOAK" or sub == 0 or sub == 1 then return 0 end
@@ -232,47 +232,3 @@ function GCA:SetHint(itemID, afterIDs, prof)
   if need == 1 then return string.format(L.HINT_ONE, set.name, what, table.concat(missing, L.HINT_OR)) end
   return string.format(L.HINT_MORE, set.name, what, need, table.concat(missing, ", "))
 end
-
-local function Better(a, b)
-  if a.tier ~= b.tier then return a.tier < b.tier end
-  if math.abs(a.points - b.points) > 1e-9 then return a.points > b.points end
-  if a.known ~= b.known then return a.known end
-  if (a.kind == "enchant") ~= (b.kind == "enchant") then return b.kind == "enchant" end
-  return a.slot < b.slot
-end
-GCA.BetterSuggestion = Better
-
-local function OtherFaction(row, faction)
-  return row.faction and faction and row.faction ~= faction
-end
-function GCA.Offerable(known, showAll, row, faction)
-  if known then return true end
-  return showAll and not OtherFaction(row, faction)
-end
-function GCA.KeepSuggestion(best, all, bestKey, group, sug)
-  local cur = best[bestKey]
-  if not cur or Better(sug, cur) then best[bestKey] = sug end
-  if not all then return end
-  local rows = all[group] or {}
-  all[group] = rows
-  rows[#rows + 1] = sug
-end
-GCA.TIER_PARTNER = 2
-
-function GCA:PairInfo(mh, oh)
-  local stats = {}
-  for k, v in pairs(mh.cstats or EMPTY) do stats[k] = v end
-  local off = Scoring.inOffHand({ stats = oh.cstats or EMPTY })
-  for k, v in pairs(off.stats or EMPTY) do stats[k] = (stats[k] or 0) + v end
-  return { name = (mh.name or "?") .. " + " .. (oh.name or "?"), quality = mh.quality, icon = mh.icon, link = mh.link,
-    cstats = stats, speed = mh.speed, pair = { mh, oh } }
-end
-
-local function Order(a, b)
-  if a.tier ~= b.tier then return a.tier < b.tier end
-  local fa, fb = a.future and true or false, b.future and true or false
-  if fa ~= fb then return fb end
-  return Better(a, b)
-end
-GCA.SuggestionOrder = Order
-

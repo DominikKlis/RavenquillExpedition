@@ -28,6 +28,7 @@ Core\Roster.lua
 Core\Inspect.lua
 Core\Professions.lua
 Core\Rules.lua
+Core\Ranking.lua
 Core\Enchants.lua
 Core\Suggestions.lua
 Core\Crafted.lua
