@@ -104,6 +104,7 @@ fire("ADDON_LOADED", "RavenquillExpedition")
 fire("ADDON_LOADED", "RavenquillExpedition_Dev")
 
 print("== Log")
+check(RQ:GetModule("Dev") == Dev.mod and Dev.mod.api == 2, "Dev is the core's module \"Dev\" and declares core API 2")
 local db = RavenquillExpeditionDevDB
 check(type(db) == "table" and db.on == true, "SavedVariables created, logging on by default")
 local all = Dev.Entries()

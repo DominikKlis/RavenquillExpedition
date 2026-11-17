@@ -79,7 +79,7 @@ frame:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
   end)
 end)
 
-local mod = RQ:NewModule("Dev", { addon = ADDON, slash = "dev", title = "Dev tools",
+local mod = RQ:NewModule("Dev", { addon = ADDON, api = 2, slash = "dev", title = "Dev tools",
   icon = "Interface\\Icons\\INV_Misc_Gear_01" })
 Dev.mod = mod
 
