@@ -129,10 +129,6 @@ function UI:RefreshMemberList()
   self.memberList:SetData(UI.MemberRows(self.lastMembers or {}, q))
 end
 
-function UI:SearchChanged()
-  if self.searchBox then self.searchBox:Changed() end
-end
-
 UI.SEARCH_W = LEFT_W - 21 - 90 - 12
 function UI:LayoutFilterBar()
   if not (self.needsCount and self.frame) then return end
@@ -157,13 +153,11 @@ local function NeedsCountText(prof, crafts, members)
   return crafts == 1 and string.format(L.NEEDS_COUNT_1, who) or string.format(L.NEEDS_COUNT, crafts, who)
 end
 
-local function NeedsCountSuffix(self, prof, settings, all)
-  self.needsMissing = 0
+local function NeedsCountSuffix(prof, settings, all)
   if GCA:IsBrowse(prof) then return "  " .. C.browse .. string.format(L.HEAD_BROWSE, ProfName(prof)) .. "|r" end
   if not settings.showUnlearned then return "" end
   local missing = 0
   for _, e in ipairs(all) do if not e.group.sug.known then missing = missing + 1 end end
-  self.needsMissing = missing
   if missing == 0 then return "" end
   return "  ·  " .. C.notLearned .. (missing == 1 and L.NEEDS_MISSING_1 or string.format(L.NEEDS_MISSING, missing)) .. "|r"
 end
@@ -187,9 +181,8 @@ function UI:RefreshNeeds()
   local data, crafts, members, offN, all = UI.NeedsRows(needs, query, s.needsOffline)
   local sel = FindNeedSelection(all)
   UI.needSel = sel and sel.group.key or nil
-  self.needsData = data
   self.needsList:SetData(data)
-  self.needsCount:SetText(NeedsCountText(prof, crafts, members) .. NeedsCountSuffix(self, prof, s, all))
+  self.needsCount:SetText(NeedsCountText(prof, crafts, members) .. NeedsCountSuffix(prof, s, all))
   if UI.offlineN ~= offN then
     UI.offlineN = offN
     self:RefreshFilters()

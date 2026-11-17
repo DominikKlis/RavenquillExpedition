@@ -116,9 +116,6 @@ function UI.Skin(tex, role)
   tex:SetColorTexture(c[1], c[2], c[3], c[4])
   return "color"
 end
-function UI.SkinTint(tex, kind, r, g, b, a)
-  if kind == "color" then tex:SetColorTexture(r, g, b, a or 1) elseif tex.SetVertexColor then tex:SetVertexColor(r, g, b, a or 1) end
-end
 
 local function SingleLine(fs)
   if fs.SetWordWrap then fs:SetWordWrap(false) end

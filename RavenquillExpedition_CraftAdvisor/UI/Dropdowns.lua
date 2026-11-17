@@ -270,8 +270,7 @@ function UI.FilterMenu(_, root)
     local e
     if def.action then
       if root.CreateDivider then root:CreateDivider() end
-      local ok, made = pcall(SurvivalSubmenu, root)
-      UI.survivalInMenu = ok and made == true
+      pcall(SurvivalSubmenu, root)
       e = root:CreateButton(EntryLabel(def), function() EntryDo(def) end)
     else
       e = root:CreateCheckbox(EntryLabel(def), function() return EntryOn(def) end, function() EntryDo(def) end)

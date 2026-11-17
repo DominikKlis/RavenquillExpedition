@@ -111,7 +111,6 @@ end
 UI.NEEDS_KINDS = { cat = { create = CreateNeedsCatRow, update = UpdateNeedsCatRow, height = P.GROUP_ROW_H } }
 
 local NEED_SUB_X = 8
-local NEED_SUB_NAME_W = 130
 UI.NEED_MEMBER_W = 110
 local function CreateNeedMemberRow(parent)
   local b = CreateFrame("Button", nil, parent)
@@ -121,12 +120,9 @@ local function CreateNeedMemberRow(parent)
   b.hlKind = UI.Skin(b.hl, "rowHover")
   b.name = b:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   b.name:SetPoint("LEFT", b, "LEFT", NEED_SUB_X, 0)
-  b.name:SetWidth(NEED_SUB_NAME_W)
+  b.name:SetWidth(UI.NEED_MEMBER_W)
   b.name:SetJustifyH("LEFT")
   SingleLine(b.name)
-  b.name:ClearAllPoints()
-  b.name:SetPoint("LEFT", b, "LEFT", NEED_SUB_X, 0)
-  b.name:SetWidth(UI.NEED_MEMBER_W)
   b.wornBtn = CreateFrame("Button", nil, b)
   b.wornBtn:SetSize(34, 34)
   b.wornBtn:SetPoint("LEFT", b, "LEFT", NEED_SUB_X + UI.NEED_MEMBER_W + 8, 0)
@@ -170,23 +166,6 @@ local function CreateNeedMemberRow(parent)
 end
 
 UI.NEED_GAIN_SUB_W = 60
-local function NeedWearText(d)
-  if d.kind == "enchant" then
-    local item = d.item and d.item.name or "?"
-    return d.equipped and string.format(L.REPLACES_ON, d.equipped.name or "?", item) or string.format(L.NO_ENCHANT_ON, item)
-  end
-  if d.equipped then return string.format(L.NEEDS_WEARS, ColoredItemName(d.equipped)) end
-  return L.CARDS_EMPTY
-end
-
-local function NeedState(d, m)
-  local parts = { m.online and L.NEEDS_STATE_ON or L.NEEDS_STATE_OFF }
-  local pair = UI.RowPair(d)
-  parts[#parts + 1] = (pair and (pair .. ": ") or "") .. NeedWearText(d)
-  return table.concat(parts, "  ·  ")
-end
-UI.NeedState = NeedState
-
 local function NeedItemText(d)
   if d.kind == "enchant" then
     local item = d.item

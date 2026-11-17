@@ -541,8 +541,8 @@ function Fill.Stats(c, d)
   c.diffs = diffs
   return diffs, partial
 end
-function Fill.Tags(c, d, cur, diffs, partial)
-  local tags = CraftTags(d, cur, true, true)
+function Fill.Tags(c, d, diffs, partial)
+  local tags = CraftTags(d, true)
   if diffs and #diffs > #c.stats then tags[#tags + 1] = { string.format(L.STATS_MORE, #diffs - #c.stats) } end
   if partial then tags[#tags + 1] = { L.STATS_PARTIAL } end
   c.tags:SetText(TagLine(tags))
@@ -579,7 +579,7 @@ function Fill.Upgrade(c, cur, rows, d, worn, slot)
   Fill.BestCard(c.best, d, rows, dUnit)
   c.arrow:Show()
   local diffs, partial = Fill.Stats(c, d)
-  Fill.Tags(c, d, cur, diffs, partial)
+  Fill.Tags(c, d, diffs, partial)
   c.hasSource = UI.UpdateLearnButton(c.source, d, cur, c.sourceW) > 0
   Fill.Actions(c, d, cur)
   c.none:Hide()

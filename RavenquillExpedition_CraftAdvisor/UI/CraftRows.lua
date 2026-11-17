@@ -184,7 +184,7 @@ end
 
 Tags.ORDER = { Tags.Replaces, Tags.Hands, Tags.Set, Tags.Rough }
 
-local function CraftTags(d, cur, withLevel, noLearned)
+local function CraftTags(d, withLevel)
   local tags = {}
   if withLevel and d.future and d.wearAt then tags[#tags + 1] = { LevelTag(d), C.levelTag } end
   for _, tagOf in ipairs(Tags.ORDER) do
@@ -351,7 +351,7 @@ local function UpdateCardRow(b, d)
   b.icon:SetTexture(d.info.icon or ItemIcon(d.cand.itemID))
   SetIconQuality(b, d.info.quality)
   b.title:SetText(Card.Title(d))
-  local tags = CraftTags(d, cur, true, true)
+  local tags = CraftTags(d, true)
   local learned = d.known
   b.sub:SetText(((not learned and #tags > 0) and "·  " or "") .. TagLine(tags))
   local nlW = UI.UpdateLearnButton(b.nl, d, cur, math.floor((UI.listW or 400) * 0.6))
@@ -365,7 +365,6 @@ local function UpdateCardRow(b, d)
   LayoutRight(b, showOffer, showCheck, 7)
   local avail = Card.TextWidth(showOffer, showCheck)
   b.textW = avail
-  b.hasSource = false
   Card.PlaceSub(b, learned, avail, nlW)
   b.hasSub = #tags > 0 or not learned
   Card.PlaceTitle(b, avail)
@@ -375,8 +374,7 @@ local function UpdateCardRow(b, d)
 end
 
 UI.UpdateCardRow = UpdateCardRow
-UI.SOURCE_EXTRA_H = 10
-function UI.CardHeight(b) return SUG_ROW_H + (b.hasSource and UI.SOURCE_EXTRA_H or 0) end
+function UI.CardHeight() return SUG_ROW_H end
 
 P.AddQualityIcon = AddQualityIcon
 P.CraftTags = CraftTags

@@ -10,18 +10,6 @@ local SourceText, ProfName, NativeFont, GainFont = P.SourceText, P.ProfName, P.N
 
 UI.collapsed = { online = false, offline = true }
 
-local function MemberBadge(d)
-  local count = d.knownCount or 0
-  if not d.member then return C.dim .. "–|r" end
-  if d.state == "no-spec" then return C.warn .. "spec?|r" end
-  if d.state == "no-level" then return C.warn .. "lvl?|r" end
-  if d.browse then return C.browse .. "·|r" end
-  if count > 0 and d.best then return C.upgrade .. UI.GainNum(d.best.points) .. "|r" end
-  if count > 0 then return C.upgrade .. "+" .. count .. "|r" end
-  return C.dim .. "0|r"
-end
-UI.MemberBadge = MemberBadge
-
 local function MemberLine(d)
   if not d.member then return C.dim .. L.MEMBER_TIP_NOT_INSPECTED .. "|r" end
   if d.browse then return C.browse .. string.format(L.MEMBER_LINE_BROWSE, d.suggestions and #d.suggestions or 0) .. "|r" end

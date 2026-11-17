@@ -301,13 +301,13 @@ do
   end
   ns.Sources = nil
   reset()
-  local tags = UIx.CraftTags(dT, cur)
+  local tags = UIx.CraftTags(dT)
   local tag
   for _, x in ipairs(tags) do if x[1] == "Not learned" then tag = x end end
   check(tag == nil and UIx.LearnText(dT, cur):find(UIx.COLORS.notLearnedTag, 1, true) and UIx.LearnText(fakeSug({ known = false, cand = { spellID = 1, recipe = {} } }), cur),
     "user 2026-11-15: no grey 'Not learned' tag any more; one red source text (UI.LearnText) for every view")
   local b = show(dT)
-  check(not b.hasSource and b.source == nil and b.nl._shown and plain(b.nl.text._text) == "Trainer (skill 100)"
+  check(b.source == nil and b.nl._shown and plain(b.nl.text._text) == "Trainer (skill 100)"
     and b.nl.text._text:find("TrainerGossipIcon", 1, true) and b.nl.text._text:find(UIx.COLORS.notLearnedTag, 1, true) and b._SetHeight[1] == 50,
     "user 2026-11-15: unlearned card = the best source with its icon (trainer), red, no third source line, 50 px: " .. plain(b.nl.text._text))
   do
@@ -347,7 +347,7 @@ do
   local okRight = pcall(b.nl._scripts.OnClick, b.nl, "RightButton")
   check(okClick and okRight, "clicking 'Not learned' (left: map marker / right: menu) raises no error")
   b = show(fakeSug())
-  check(not b.hasSource and not b.nl._shown and b._SetHeight[1] == 50, "known recipe -> no 'Not learned' button, 50 px")
+  check(not b.nl._shown and b._SetHeight[1] == 50, "known recipe -> no 'Not learned' button, 50 px")
   local de = ns.Locales.deDE
   check(string.format(de.SRC_LINE_VENDOR, "A", "B") == "Händler: A (B)" and string.format(de.SRC_LINE_TRAINER_HAVE, 170, 150) == "Lehrer (Fertigkeit 170, du hast 150)"
     and de.FILTER_UNLEARNED == "Fehlende Rezepte zeigen" and de.NOT_LEARNED == "Nicht erlernt", "K7 German texts")
