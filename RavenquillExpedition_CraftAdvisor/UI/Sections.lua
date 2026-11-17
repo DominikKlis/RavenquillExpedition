@@ -2,7 +2,7 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 local P = UI.P
-local SafeCall, MIN_W, RightW, C, SUB_TINT = P.SafeCall, P.MIN_W, P.RightW, P.C, P.SUB_TINT
+local SafeCall, C, SUB_TINT = P.SafeCall, P.C, P.SUB_TINT
 local SingleLine, SetTip, SlotName, SlotTexture = P.SingleLine, P.SetTip, P.SlotName, P.SlotTexture
 local ColoredItemName, ItemIcon, TextWidth = P.ColoredItemName, P.ItemIcon, P.TextWidth
 local AddQualityIcon, SetIconQuality = P.AddQualityIcon, P.SetIconQuality
@@ -10,7 +10,6 @@ local ShortSlotName, GainText = P.ShortSlotName, P.GainText
 
 local SECTION_H = 56
 local WORN_ICON = 34
-UI.listW = RightW(MIN_W) - 30
 UI.SECTION_H = SECTION_H
 
 UI.HAND_SECTION = { [16] = "SECTION_MAINHAND", [17] = "SECTION_OFFHAND", [18] = "SECTION_RANGED" }
@@ -98,7 +97,7 @@ local function CreateSectionRow(parent)
   return b
 end
 
-local function UpdateSectionRow(b, d)
+local function UpdateSectionRow(b, d, listW)
   local sec = d.sec
   local parts, first = {}, nil
   for _, wx in ipairs(sec.worn) do
@@ -122,7 +121,7 @@ local function UpdateSectionRow(b, d)
   local n = #sec.rows
   b.count:SetText(n == 1 and string.format(L.CARDS_COUNT_1, n) or string.format(L.CARDS_COUNT, n))
   local countW = TextWidth(b.count)
-  b.textW = math.max(40, UI.listW - (8 + WORN_ICON + 4 + 12) - countW - 14 - 12)
+  b.textW = math.max(40, listW - (8 + WORN_ICON + 4 + 12) - countW - 14 - 12)
   b.wornName:SetWidth(b.textW)
   b.empty = empty
 end
@@ -167,15 +166,15 @@ local function CreateFoldRow(parent)
   return b
 end
 
-local function UpdateFoldRow(b, d)
-  b.text:SetWidth(UI.listW - 20)
+local function UpdateFoldRow(b, d, listW)
+  b.text:SetWidth(listW - 20)
   b.text:SetText(FoldText(d.secs))
 end
 
-local function FoldHeight(b)
+local function FoldHeight(b, _, listW)
   local h = b.text.GetStringHeight and SafeCall(b.text.GetStringHeight, b.text)
   if type(h) ~= "number" or GCA.IsSecret(h) or h <= 0 then
-    local perLine = math.max(20, math.floor((UI.listW - 20) / 5.5))
+    local perLine = math.max(20, math.floor((listW - 20) / 5.5))
     h = math.ceil(#(b.text:GetText() or "") / perLine) * 12
   end
   return math.max(SECTION_H, math.ceil(h) + 20)

@@ -182,7 +182,7 @@ do
     and s1.offer._shown and not s1.offer.isIcon and s1.offer._text == "Offer" and s1.offer._w == 80 and s1.crafted._shown
     and s1.crafted.template == "MinimalCheckboxTemplate" and plain(s1.gain._text) == "+38" and s1.chip == nil and s1._shown and s2._shown,
     "member row on one line: member column | worn icon + its name beside it | gain, 'Offer', box: " .. plain(s1.state._text))
-  check(nd.members.viewH == 2 * 42 and UIx.detailListW == nd.w - 44 and s1.stateW >= 40,
+  check(nd.members.viewH == 2 * 42 and nd.members.viewW == nd.w - 44 and s1.stateW >= 40,
     "the member list is as tall as its rows (2 x 42), as wide as the detail panel")
   fm[5]:click()
   r1 = nl.rows[1]
@@ -378,7 +378,7 @@ do
   check(mb.sel._shown and mb.sel._atlas == "Professions_Recipe_Active" and not ml.rows[1].sel._shown
     and mb.hl._atlas == "Professions_Recipe_Hover" and mb.hl._alpha == 0.5,
     "the selected member = Professions_Recipe_Active, hover = Professions_Recipe_Hover")
-  check(mb.textW == UIx.memberListW - 22 - UIx.MEMBER_GAIN_W - 10 and mb.name._SetWordWrap[1] == false, "name left of the gain, one line")
+  check(mb.textW == UIx.memberList.viewW - 22 - UIx.MEMBER_GAIN_W - 10 and mb.name._SetWordWrap[1] == false, "name left of the gain, one line")
   captureTip(); mb._scripts.OnEnter(mb)
   check(tipText():find("3 upgrades · best: Waist", 1, true), "the former second line is in the row's tooltip")
   captureTip(); ml.rows[3]._scripts.OnEnter(ml.rows[3])
@@ -512,10 +512,10 @@ do
   fit("search placeholder", ns.Locales.deDE.NEEDS_SEARCH, UIx.SEARCH_W - 35, 5.6)
   fit("offline filter entry", string.format(ns.Locales.deDE.NEEDS_OFFLINE, 12), 260, 5.6)
   fit("needs count", "12 Herstellungen lohnen für 45 Mitglieder", UIx.LEFT_W - 20, 5.6)
-  fit("member row", "Mitglied Nachname  60", UIx.memberListW - 22 - UIx.MEMBER_GAIN_W - 10, 6.5)
+  fit("member row", "Mitglied Nachname  60", UIx.memberList.viewW - 22 - UIx.MEMBER_GAIN_W - 10, 6.5)
   fit("member search", ns.Locales.deDE.MEMBER_SEARCH, UIx.SEARCH_W - 35, 5.6)
-  fit("category header", "Schmuckstücke", UIx.needsW - 8 - 32, 8)
-  fit("craft row", "Dunkler Ledergürtel [3]", UIx.needsW - 22 - UIx.NEED_GAIN_W - 10, 6.5)
+  fit("category header", "Schmuckstücke", UIx.needsList.viewW - 8 - 32, 8)
+  fit("craft row", "Dunkler Ledergürtel [3]", UIx.needsList.viewW - 22 - UIx.NEED_GAIN_W - 10, 6.5)
   fit("detail title", string.format(ns.Locales.deDE.DETAIL_FOR_N, 12), UIx.needDetail.w - 36, 5.6)
   fit("filter reset tip", ns.Locales.deDE.FILTER_RESET, 200, 6.5)
   fit("spec label", "Göttliche Pein (Schaden)", UIx.SPEC_BTN_W - 28 - 30, 5.6)

@@ -309,10 +309,10 @@ function Card.Title(d)
   return name .. " " .. C.muted .. "(" .. pair .. ")|r"
 end
 
-function Card.TextWidth(showOffer, showCheck)
+function Card.TextWidth(showOffer, showCheck, listW)
   local textL = CARD_INDENT + 4 + CARD_ICON + 4 + 10
   local rightW = 6 + (showOffer and (CARD_OFFER_W + 4) or 0) + (showCheck and (22 + 6) or 0) + CARD_GAIN_W + 10
-  return math.max(40, UI.listW - textL - rightW)
+  return math.max(40, listW - textL - rightW)
 end
 
 function Card.PlaceSub(b, learned, avail, nlW)
@@ -338,7 +338,7 @@ function Card.PlaceTitle(b, avail)
   b.title:SetWidth(avail)
 end
 
-local function UpdateCardRow(b, d)
+local function UpdateCardRow(b, d, listW)
   local cur = UI.current
   b.icon:SetTexture(d.info.icon or ItemIcon(d.cand.itemID))
   SetIconQuality(b, d.info.quality)
@@ -346,7 +346,7 @@ local function UpdateCardRow(b, d)
   local tags = CraftTags(d, true)
   local learned = d.known
   b.sub:SetText(((not learned and #tags > 0) and "·  " or "") .. TagLine(tags))
-  local nlW = UI.UpdateLearnButton(b.nl, d, cur, math.floor((UI.listW or 400) * 0.6))
+  local nlW = UI.UpdateLearnButton(b.nl, d, cur, math.floor(listW * 0.6))
   local big, small = CardGain(d)
   b.gain:SetText(big)
   b.points:SetText(small)
@@ -355,7 +355,7 @@ local function UpdateCardRow(b, d)
   b.crafted:SetShown(showCheck)
   b.crafted:SetChecked(mark ~= nil)
   LayoutRight(b, showOffer, showCheck, 7)
-  local avail = Card.TextWidth(showOffer, showCheck)
+  local avail = Card.TextWidth(showOffer, showCheck, listW)
   b.textW = avail
   Card.PlaceSub(b, learned, avail, nlW)
   b.hasSub = #tags > 0 or not learned

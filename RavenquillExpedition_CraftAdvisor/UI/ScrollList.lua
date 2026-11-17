@@ -51,18 +51,17 @@ local function CreateScrollList(parent, width, height, rowHeight, createRow, upd
     self.rowY = {}
     for _, d in ipairs(data) do
       local kind = kinds and d.rowKind and kinds[d.rowKind]
-      local row, h, update, n
+      local row, h, update
       if kind then
         local pool = self.pools[d.rowKind]
         if not pool then pool = {}; self.pools[d.rowKind] = pool end
-        n = (used[d.rowKind] or 0) + 1
+        local n = (used[d.rowKind] or 0) + 1
         used[d.rowKind] = n
         row = pool[n]
         if not row then row = kind.create(content); pool[n] = row end
         h, update = kind.height, kind.update
       else
         nRows = nRows + 1
-        n = nRows
         row = self.rows[nRows]
         if not row then row = createRow(content); self.rows[nRows] = row end
         h, update = rowHeight, updateRow
@@ -71,9 +70,9 @@ local function CreateScrollList(parent, width, height, rowHeight, createRow, upd
       row:SetPoint("TOPLEFT", 0, -y)
       row:SetPoint("RIGHT", content, "RIGHT")
       row.data = d
-      update(row, d, n, #self.rowY + 1, data)
+      update(row, d, self.viewW)
       if type(h) == "function" then
-        h = h(row, d)
+        h = h(row, d, self.viewW)
         row:SetHeight(h - 2)
       end
       self.rowY[#self.rowY + 1] = { y, h }

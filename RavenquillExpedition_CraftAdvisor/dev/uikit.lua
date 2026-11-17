@@ -509,7 +509,7 @@ local function layoutChecks(UIx, f, label)
   local ml, sl = R(UIx.memberList), R(UIx.sugList)
   check(ml.b == mi.b - 5 and ml.r == mi.r - 25 and sl.b == si.b - 5 and sl.r == si.r - 29,
     label .. ": both scroll frames fill their panel (25 / 29 px left for the scroll bar, as in 0.5.0) " .. rstr(ml) .. " " .. rstr(sl))
-  check(UIx.sugList.content._w == UIx.sugList.viewW and UIx.memberList.content._w == UIx.memberList.viewW and UIx.listW == UIx.sugList.viewW,
+  check(UIx.sugList.content._w == UIx.sugList.viewW and UIx.memberList.content._w == UIx.memberList.viewW,
     label .. ": scroll content as wide as the view (rows anchored to its right edge)")
   local nt, sb = R(UIx.nameText), R(UIx.specButton)
   local ic, hd0, tg = R(UIx.infoIcon), R(UIx.sugHeader), R(UIx.modeToggle)
@@ -524,7 +524,7 @@ local function layoutChecks(UIx, f, label)
   local obx = R(UIx.filterButton)
   check(sbx.l >= ni.l and sbx.t >= ni.t and sbx.b <= nl.t and obx.r == ni.r - 8 and obx.b <= nl.t and sbx.r < obx.l
     and cnt.t >= nl.b and cnt.b <= ni.b and cnt.l == ni.l + 10 and cnt.r == ni.r - 10
-    and UIx.needsList.content._w == UIx.needsList.viewW and UIx.needsW == UIx.needsList.viewW,
+    and UIx.needsList.content._w == UIx.needsList.viewW,
     label .. ": search | Filter above the list, the count under it, all inside the list panel " .. rstr(sbx) .. " " .. rstr(obx) .. " " .. rstr(cnt))
   local ms = R(UIx.memberSearch)
   check(ms.l >= mi.l and ms.r <= mi.r and ms.t >= mi.t and ms.b <= ml.t, label .. ": member search inside the member panel, above the list " .. rstr(ms))

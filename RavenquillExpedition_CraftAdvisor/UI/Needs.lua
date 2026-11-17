@@ -57,7 +57,7 @@ local function CreateCraftGroupRow(parent)
   return b
 end
 
-local function UpdateCraftGroupRow(b, e)
+local function UpdateCraftGroupRow(b, e, listW)
   local g = e.group
   local d = g.sug
   local cur = g.best and g.best.member
@@ -65,7 +65,7 @@ local function UpdateCraftGroupRow(b, e)
   b.label:SetText(Tag(d.info.name or "?", colour))
   b.count:SetText(" [" .. #e.rows .. "]")
   b.gain:SetText(e.rows[1] and ChipGain(e.rows[1].sug) or "")
-  local avail = math.max(40, (UI.needsW or (P.LEFT_W - 30)) - MEMBER_TEXT_X - UI.NEED_GAIN_W - 10)
+  local avail = math.max(40, listW - MEMBER_TEXT_X - UI.NEED_GAIN_W - 10)
   local countW = TextWidth(b.count)
   b.label:SetWidth(math.max(20, math.min(TextWidth(b.label) + 2, avail - countW)))
   b.textW = avail
@@ -98,9 +98,8 @@ local function CreateNeedsCatRow(parent)
   b:SetScript("OnLeave", GameTooltip_Hide)
   return b
 end
-local function UpdateNeedsCatRow(b, d)
-  b.rowW = UI.needsW
-  b:SetCategory(CatTitle(d.cat), not UI.needsCollapsed[d.cat])
+local function UpdateNeedsCatRow(b, d, listW)
+  b:SetCategory(CatTitle(d.cat), not UI.needsCollapsed[d.cat], listW)
 end
 UI.NEEDS_KINDS = { cat = { create = CreateNeedsCatRow, update = UpdateNeedsCatRow, height = P.GROUP_ROW_H } }
 
@@ -191,12 +190,12 @@ local function FillWornButton(btn, item)
   btn:SetAlpha(btn.link and 1 or 0.5)
 end
 
-local function NeedRowStateWidth(showOffer, showCheck)
+local function NeedRowStateWidth(showOffer, showCheck, listW)
   local rightW = 6 + (showOffer and (UI.OFFER_SMALL_W + 4) or 0) + (showCheck and 28 or 0) + UI.NEED_GAIN_SUB_W
-  return math.max(40, (UI.detailListW or 300) - (NEED_SUB_X + UI.NEED_MEMBER_W + 8 + 42) - rightW - 8)
+  return math.max(40, listW - (NEED_SUB_X + UI.NEED_MEMBER_W + 8 + 42) - rightW - 8)
 end
 
-local function UpdateNeedMemberRow(b, e)
+local function UpdateNeedMemberRow(b, e, listW)
   local d, m = e.sug, e.member
   b.name:SetText(UI.MemberName(m))
   local text, item = NeedRowText(d)
@@ -208,7 +207,7 @@ local function UpdateNeedMemberRow(b, e)
   b.crafted:SetShown(showCheck)
   b.crafted:SetChecked(mark ~= nil)
   LayoutRight(b, showOffer, showCheck)
-  local avail = NeedRowStateWidth(showOffer, showCheck)
+  local avail = NeedRowStateWidth(showOffer, showCheck, listW)
   b.gain:SetWidth(UI.NEED_GAIN_SUB_W)
   b.state:SetWidth(avail)
   b.stateW = avail
@@ -564,8 +563,7 @@ end
 
 function Detail.Members(p, e, room, w)
   local listH = math.max(NEED_SUB_H, math.min(#e.rows * NEED_SUB_H, room))
-  UI.detailListW = math.max(100, w - 44)
-  p.members:Resize(UI.detailListW, listH)
+  p.members:Resize(math.max(100, w - 44), listH)
   p.members:SetData(e.rows)
   p.listH = listH
   return listH

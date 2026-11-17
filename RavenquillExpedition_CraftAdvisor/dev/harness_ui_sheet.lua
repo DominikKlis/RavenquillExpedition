@@ -236,7 +236,7 @@ do
   check(card and plain(card.title._text) == "Hillman's Leather Vest" and plain(card.sub._text) == ""
     and card.gain._text == "+12 pts" and card.points._text == "" and card.offer._shown and card.crafted._shown,
     "card (user 2026-11-15): name, no stat-difference line, '+12 pts', box, Offer: " .. plain(card and card.sub._text))
-  check(card.textW + (16 + 4 + 38 + 4 + 10) + (6 + 84 + 4 + 22 + 6 + 84 + 10) == UIx.listW, "card texts (16 px indent) end where the gain / box / Offer block starts (no overlap)")
+  check(card.textW + (16 + 4 + 38 + 4 + 10) + (6 + 84 + 4 + 22 + 6 + 84 + 10) == UIx.sugList.viewW, "card texts (16 px indent) end where the gain / box / Offer block starts (no overlap)")
   card.crafted:SetChecked(true); card.crafted._scripts.OnClick(card.crafted)
   check(GCA:CraftedMark("Bud Stone", "Leatherworking", 3762) ~= nil, "card crafted box stores the mark")
   GCA:SetCrafted("Bud Stone", "Leatherworking", s1, false)
@@ -362,7 +362,7 @@ do
         if r._shown and r.textW then
           local showO, showC = r.offer._shown, r.crafted._shown
           local rightW = 6 + (showO and 88 or 0) + (showC and 28 or 0) + 84 + 10
-          if r.textW + 72 + rightW ~= UIx.listW or r.textW < 60 then okCards = false end
+          if r.textW + 72 + rightW ~= UIx.sugList.viewW or r.textW < 60 then okCards = false end
         end
       end
       check(okCards, "" .. loc .. " " .. sz[1] .. "x" .. sz[2] .. ": every card's texts end at its right block, at least 60 px wide (K6: 16 px indent)")

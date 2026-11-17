@@ -347,7 +347,7 @@ do
     "cards indented 16 px under their worn row, no tree lines / row shading")
   local g = FP[1]
   check(g.text._text == "No craftable upgrade: Head, Neck, Shoulder, Back, Wrist, Hands, Waist, Legs, Feet, Trinkets (not loaded), Main Hand, Off Hand, Ranged"
-    and g.text._SetWordWrap and g.text._SetWordWrap[1] == true and g.text._SetMaxLines == nil and g.text._SetWidth[1] == UIx.listW - 20 and g.edges == nil and g.line ~= nil,
+    and g.text._SetWordWrap and g.text._SetWordWrap[1] == true and g.text._SetMaxLines == nil and g.text._SetWidth[1] == UIx.sugList.viewW - 20 and g.edges == nil and g.line ~= nil,
     "one folded, wrapping line names the 13 slots (unloaded trinket marked): " .. tostring(g.text._text))
   check(not (g.text._text or ""):find("–", 1, true), "no '– no upgrade –' lines any more")
   local gt = g

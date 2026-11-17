@@ -2,7 +2,7 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 local P = UI.P
-local G, LEFT_W, MEMBER_ROW_H, GROUP_ROW_H, C = P.G, P.LEFT_W, P.MEMBER_ROW_H, P.GROUP_ROW_H, P.C
+local G, MEMBER_ROW_H, GROUP_ROW_H, C = P.G, P.MEMBER_ROW_H, P.GROUP_ROW_H, P.C
 local SUB_TINT, HasAtlas, SetAtlasSafe, SingleLine = P.SUB_TINT, P.HasAtlas, P.SetAtlasSafe, P.SingleLine
 local SetTip, ClassColor, ClassName, Hex = P.SetTip, P.ClassColor, P.ClassName, P.Hex
 local GainText, ShortSlotName, SpecHowText, Ago = P.GainText, P.ShortSlotName, P.SpecHowText, P.Ago
@@ -126,13 +126,12 @@ function UI.MemberName(m)
   return UI.StatusDot(online) .. " " .. Hex(r, g, b) .. tostring(m.key or "?") .. "|r"
 end
 
-local function UpdateMemberRow(b, d, n)
+local function UpdateMemberRow(b, d, listW)
   local offline = not d.online and not d.isSelf
   b.name:SetText(UI.MemberName(d) .. "  " .. C.muted .. tostring(d.level or "?") .. "|r"
     .. (d.isSelf and (" " .. C.dim .. "(" .. L.YOU .. ")|r") or ""))
   b.gain:SetText(MemberGain(d))
-  local rowW = UI.memberListW or (LEFT_W - 30)
-  local textW = math.max(40, rowW - MEMBER_TEXT_X - UI.MEMBER_GAIN_W - 10)
+  local textW = math.max(40, listW - MEMBER_TEXT_X - UI.MEMBER_GAIN_W - 10)
   b.name:SetWidth(textW)
   b.textW = textW
   b.name:SetAlpha(1)
@@ -227,9 +226,9 @@ function UI.CreateCategoryRow(parent, onToggle)
   local function toggle() if b.onToggle then b.onToggle(b) end end
   b:SetScript("OnClick", toggle)
   cb:SetScript("OnClick", toggle)
-  function b:SetCategory(text, open)
+  function b:SetCategory(text, open, rowW)
     self.text:SetText(text)
-    self.text:SetWidth(math.max(20, (self.rowW or (LEFT_W - 30)) - 8 - 32))
+    self.text:SetWidth(math.max(20, rowW - 8 - 32))
     self.open = open and true or false
     local pair = UI.CollapseAtlases()
     if pair and SetAtlasSafe(self.CollapseButton.Icon, pair[open and 1 or 2], true) then
@@ -257,10 +256,8 @@ local function CreateGroupRow(parent)
   return b
 end
 
-local function UpdateGroupRow(b, d)
-  local open = not UI.collapsed[d.group]
-  b.rowW = UI.memberListW
-  b:SetCategory(GroupLabel(d.group), open)
+local function UpdateGroupRow(b, d, listW)
+  b:SetCategory(GroupLabel(d.group), not UI.collapsed[d.group], listW)
 end
 
 P.CreateGroupRow = CreateGroupRow

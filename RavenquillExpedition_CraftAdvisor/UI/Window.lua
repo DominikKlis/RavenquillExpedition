@@ -217,20 +217,17 @@ function UI:Layout()
   local dw = rw + 4
   local iw, ih = dw - 12, listH - DETAIL_HEAD - 6
   self.memberInset:SetSize(LEFT_W, listH)
-  UI.memberListW = LEFT_W - 30
   self.memberList:Resize(LEFT_W - 30, listH - MEMBER_LIST_TOP - 5, true)
   self.memberDetail:SetSize(dw, listH)
   self.nameText:SetWidth(dw - 28 - UI.SPEC_BTN_W - 10)
   self.subText:SetWidth(dw - 28 - UI.SPEC_BTN_W - 10)
   self.sugHeader:SetWidth(dw - 34 - UI.TOGGLE_W - 22)
   self.sugInset:SetSize(iw, ih)
-  UI.listW = iw - 34
   self.sugList:Resize(iw - 34, ih - 10, true)
   self.emptyText:SetWidth(iw - 60)
   self.sheet:SetSize(iw, ih)
   self:LayoutSheet(iw, ih)
   self.needsInset:SetSize(LEFT_W, listH)
-  UI.needsW = LEFT_W - 30
   self.needsList:Resize(LEFT_W - 30, listH - MEMBER_LIST_TOP - 5 - COUNT_H, true)
   local nd = self.needDetail
   nd:SetSize(dw, listH)
@@ -324,7 +321,6 @@ function Build.NeedsView(self, f, c, painted, listH, rw)
   self.needsInset = ni
   self.searchBox, self.filterButton, self.filterPopup = Build.SearchAndFilter(ni, f, L.NEEDS_SEARCH, L.NEEDS_SEARCH_TIP,
     function() UI:RefreshNeeds() end)
-  UI.needsW = LEFT_W - 30
   self.needsList = CreateScrollList(ni, LEFT_W - 30, listH - MEMBER_LIST_TOP - 5 - COUNT_H, P.NEED_ROW_H, P.CreateCraftGroupRow,
     P.UpdateCraftGroupRow, UI.NEEDS_KINDS)
   self.needsList:SetPoint("TOPLEFT", 5, -MEMBER_LIST_TOP)
@@ -343,7 +339,6 @@ function Build.MemberListPanel(self, f, mv, painted, listH)
   self.memberInset = left
   self.memberSearch, self.memberFilter, self.memberFilterPopup = Build.SearchAndFilter(left, f, L.MEMBER_SEARCH,
     L.MEMBER_SEARCH_TIP, function() UI:RefreshMemberList() end)
-  UI.memberListW = LEFT_W - 30
   self.memberList = CreateScrollList(left, LEFT_W - 30, listH - MEMBER_LIST_TOP - 5, MEMBER_ROW_H, P.CreateMemberRow, P.UpdateMemberRow,
     { group = { create = P.CreateGroupRow, update = P.UpdateGroupRow, height = P.GROUP_ROW_H } })
   self.memberList:SetPoint("TOPLEFT", 5, -MEMBER_LIST_TOP)
