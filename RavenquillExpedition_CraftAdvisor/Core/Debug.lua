@@ -163,7 +163,7 @@ end
 
 local function KnownCountsLine(self)
   local t = {}
-  for _, p in ipairs(self.PROFESSIONS) do t[#t + 1] = p.key .. "=" .. (self.knownCounts[p.key] or 0) end
+  for _, p in ipairs(self.PROFESSIONS) do t[#t + 1] = p.key .. "=" .. self:KnownCount(p.key) end
   return string.format("Known counts: %s", table.concat(t, ", "))
 end
 

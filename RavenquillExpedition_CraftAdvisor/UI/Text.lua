@@ -179,7 +179,7 @@ local function ProfLabel(prof, withKnown)
   if GCA:IsBrowse(prof) then return ProfName(prof) .. " " .. C.browse .. L.PROF_BROWSE_TAG .. "|r" end
   local rank, maxRank = GCA:GetSkill(prof)
   local t = rank and string.format(L.PROF_SKILL, ProfName(prof), rank, maxRank or 300) or ProfName(prof)
-  if withKnown then t = t .. "  " .. C.muted .. string.format(L.PROF_KNOWN, GCA.knownCounts[prof] or 0) .. "|r" end
+  if withKnown then t = t .. "  " .. C.muted .. string.format(L.PROF_KNOWN, GCA:KnownCount(prof)) .. "|r" end
   return t
 end
 UI.ProfLabel = ProfLabel
