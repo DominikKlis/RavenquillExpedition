@@ -55,6 +55,13 @@ local function OnItemClick(btn, ctxFn, primaryFn)
   end)
 end
 
+local FUTURE_ALPHA = 0.55
+local function Dim(row, future, parts)
+  local a = future and FUTURE_ALPHA or 1
+  for _, part in ipairs(parts) do part:SetAlpha(a) end
+  row.dimmed = future and true or false
+end
+
 local function NewTextButton(parent, w, h, text)
   local ok, b = pcall(CreateFrame, "Button", nil, parent, "UIPanelButtonTemplate")
   if not (ok and b) then
@@ -455,6 +462,7 @@ end
 P.AddBorder = AddBorder
 P.ApplyLevels = ApplyLevels
 P.CardGain = CardGain
+P.Dim = Dim
 P.GAIN_RGB = GAIN_RGB
 P.GainFont = GainFont
 P.KeepNativeHover = KeepNativeHover

@@ -69,9 +69,7 @@ local function UpdateCraftGroupRow(b, e, listW)
   local countW = TextWidth(b.count)
   b.label:SetWidth(math.max(20, math.min(TextWidth(b.label) + 2, avail - countW)))
   b.textW = avail
-  local a = g.future and 0.55 or 1
-  for _, f in ipairs({ b.label, b.count, b.gain }) do f:SetAlpha(a) end
-  b.dimmed = g.future
+  P.Dim(b, g.future, { b.label, b.count, b.gain })
   b.sel:SetShown(UI.needSel == g.key)
 end
 
@@ -216,8 +214,7 @@ local function UpdateNeedMemberRow(b, e, listW)
   b.stateW = avail
   b.name:SetAlpha(1)
   b.state:SetAlpha(1)
-  b.gain:SetAlpha(d.future and 0.55 or 1)
-  b.dimmed = d.future and true or false
+  P.Dim(b, d.future, { b.gain })
 end
 
 local function Lower(v)

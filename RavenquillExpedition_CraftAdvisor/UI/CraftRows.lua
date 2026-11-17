@@ -360,9 +360,7 @@ local function UpdateCardRow(b, d, listW)
   Card.PlaceSub(b, learned, avail, nlW)
   b.hasSub = #tags > 0 or not learned
   Card.PlaceTitle(b, avail)
-  local a = d.future and 0.55 or 1
-  for _, x in ipairs({ b.qual, b.iconBorder, b.icon, b.title, b.sub, b.nl, b.gain, b.points }) do x:SetAlpha(a) end
-  b.dimmed = d.future and true or false
+  P.Dim(b, d.future, { b.qual, b.iconBorder, b.icon, b.title, b.sub, b.nl, b.gain, b.points })
 end
 
 UI.UpdateCardRow = UpdateCardRow

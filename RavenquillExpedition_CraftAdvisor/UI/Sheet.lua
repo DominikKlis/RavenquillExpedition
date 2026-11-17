@@ -222,9 +222,7 @@ local function FillSheetAlt(r, d, cur, width)
   local cw = Fill.AltTagWidth(r, Fill.AltTag(d, cur))
   local offerW = Fill.OfferWidth(r, showOffer)
   r.name:SetWidth(math.max(20, width - (3 + 24 + 8) - cw - 90 - 6 - offerW - 6))
-  local a = d.future and 0.55 or 1
-  for _, x in ipairs({ r.qual, r.iconBorder, r.icon, r.name, r.gain, r.tag }) do x:SetAlpha(a) end
-  r.dimmed = d.future and true or false
+  P.Dim(r, d.future, { r.qual, r.iconBorder, r.icon, r.name, r.gain, r.tag })
 end
 
 local function CreateSheet(parent)
@@ -510,9 +508,7 @@ function Fill.BestCard(k, d, rows, dUnit)
   local big, small = CardGain(d)
   k.gain:SetText(big)
   k.points:SetText(small)
-  local a = d.future and 0.55 or 1
-  for _, x in ipairs({ k.qual, k.iconBorder, k.icon, k.name, k.gain }) do x:SetAlpha(a) end
-  k.dimmed = d.future and true or false
+  P.Dim(k, d.future, { k.qual, k.iconBorder, k.icon, k.name, k.gain })
   k:Show()
 end
 function Fill.Stats(c, d)
