@@ -108,12 +108,16 @@ local function ItemIDFrom(item)
 end
 GCA.ItemIDFrom = ItemIDFrom
 
+function GCA:RefreshUI()
+  if self.UI and self.UI.Refresh then self.UI:Refresh() end
+end
+
 function GCA:Invalidate()
   if self.refreshPending then return end
   self.refreshPending = true
   C_Timer.After(0.25, function()
     self.refreshPending = false
-    if self.UI and self.UI.Refresh then self.UI:Refresh() end
+    self:RefreshUI()
   end)
 end
 

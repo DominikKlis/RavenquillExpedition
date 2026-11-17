@@ -63,11 +63,10 @@ function GCA:SetSurvival(percent)
   return true
 end
 
-local function RefreshUI() if GCA.UI and GCA.UI.Refresh then GCA.UI:Refresh() end end
 local function SettingToggle(key, label, tip)
   return { type = "toggle", label = L[label], tooltip = tip and L[tip] or nil,
     get = function() local s = GCA:Settings(); return s and s[key] and true or false end,
-    set = function(v) if GCA:SetSetting(key, v and true or false) then RefreshUI() end end }
+    set = function(v) if GCA:SetSetting(key, v and true or false) then GCA:RefreshUI() end end }
 end
 function GCA:BuildOptions()
   local a, b = ns.G("SPELL_STAT3_NAME"), ns.G("SPELL_STAT5_NAME")
@@ -78,7 +77,7 @@ function GCA:BuildOptions()
     { type = "range", label = string.format(L.OPT_SURVIVAL, a, b), tooltip = string.format(L.SLIDER_TIP, a, b),
       min = 0, max = 100, step = 5, format = "%d %%",
       get = function() return math.floor(GCA:SurvivalShare() * 100 + 0.5) end,
-      set = function(v) if GCA:SetSurvival(v) then RefreshUI() end end },
+      set = function(v) if GCA:SetSurvival(v) then GCA:RefreshUI() end end },
 
     { type = "header", label = L.OPT_H_GEAR },
     SettingToggle("autoInspect", "FILTER_AUTOINSPECT", "FILTER_AUTOINSPECT_TIP"),
@@ -93,14 +92,14 @@ function GCA:BuildOptions()
         wipe(GCA.db.members)
         GCA:CaptureSelf()
         Print(L.CMD_RESET)
-        RefreshUI()
+        GCA:RefreshUI()
       end },
 
     { type = "header", label = L.OPT_H_SYNC },
     SettingToggle("sync", "FILTER_SYNC", "FILTER_SYNC_TIP"),
     { type = "button", label = L.OPT_SYNC_RETRY, tooltip = L.OPT_SYNC_RETRY_TIP,
       disabled = function() return not (GCA.SyncState and GCA:SyncState() == "paused") end,
-      func = function() if GCA.SyncRetry then GCA:SyncRetry() end; RefreshUI() end },
+      func = function() if GCA.SyncRetry then GCA:SyncRetry() end; GCA:RefreshUI() end },
     { type = "text", label = L.OPT_SYNC_STATUS,
       lines = function()
         if not GCA.SyncStatus then return { L.CMD_SYNC_NOT_LOADED } end
