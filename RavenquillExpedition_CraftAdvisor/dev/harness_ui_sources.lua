@@ -156,9 +156,9 @@ do
   C_SuperTrack = { SetSuperTrackedUserWaypoint = function(v) native.st = v end }
   C_Map.SetUserWaypoint = function(p) native.p = p end
   C_Map.CanSetUserWaypointOnMap = function() return true end
-  TomTom = { AddWaypoint = function(self, m, x, y, opts) tt[#tt + 1] = { self = self, m = m, x = x, y = y, title = opts and opts.title } return "uid" end }
+  TomTom = { AddWaypoint = function(self, m, x, y, opts) tt[#tt + 1] = { self = self, m = m, x = x, y = y, title = opts and opts.title, from = opts and opts.from } return "uid" end }
   local vn = info.list[1].npc
-  check(Src.SetWaypoint(vn) == true and tt[1] and tt[1].self == TomTom and tt[1].m == 1417 and tt[1].x == 0.45 and tt[1].y == 0.6
+  check(Src.SetWaypoint(vn) == true and tt[1] and tt[1].self == TomTom and tt[1].from == "Craft Advisor" and tt[1].m == 1417 and tt[1].x == 0.45 and tt[1].y == 0.6
     and tt[1].title == "Androd Fadran" and native.p == nil and said[#said] == "Waypoint set: Androd Fadran, Arathi Highlands 45, 60.",
     "waypoint: TomTom:AddWaypoint(1417, 0.45, 0.6, { title }) when TomTom is installed: " .. tostring(said[#said]))
   TomTom = { AddWaypoint = function() error("TomTom changed") end }
@@ -315,6 +315,8 @@ do
     check(S.Icon("quest"):find("AvailableQuestIcon", 1, true) and S.Icon("vendor"):find("VendorGossipIcon", 1, true)
       and S.Icon("drop"):find("Skull", 1, true) and S.Icon("world"):find("INV_Misc_Map_01", 1, true) and S.Icon("nope"):find("INV_Scroll_03", 1, true),
       "source icons: quest !, vendor bag, mob drop skull, world drop map, other = scroll")
+    check(S.Money(1250305) == "125g 3s 5c" and S.Money(20000) == "2g" and S.Money(0) == nil,
+      "money without GetCoinTextureString: '125g 3s 5c', zero parts left out, nothing for 0")
     check(S.PatternPrice({ scroll = 5000 }) == nil, "no Auctionator: no pattern price")
     Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function(_, id) return id == 5000 and 125000 or nil end } } }
     local savedGet = GCA.GetInfo

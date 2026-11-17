@@ -272,7 +272,7 @@ function Build.DragBar(f, c)
 end
 
 function Build.Window(self)
-  local f = P.NewWindow("RavenquillExpeditionCraftFrame", "Guild Craft Advisor")
+  local f = P.NewWindow("RavenquillExpeditionCraftFrame", L.ADDON_TITLE)
   self.frame = f
   self:RestoreGeometry()
   f:SetFrameStrata("HIGH")

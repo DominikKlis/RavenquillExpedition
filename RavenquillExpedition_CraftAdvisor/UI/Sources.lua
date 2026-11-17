@@ -208,9 +208,9 @@ local function Money(c)
   if type(s) == "string" and s ~= "" then return s end
   local g, si, k = math.floor(c / 10000), math.floor(c / 100) % 100, c % 100
   local parts = {}
-  if g > 0 then parts[#parts + 1] = g .. "g" end
-  if si > 0 then parts[#parts + 1] = si .. "s" end
-  if k > 0 then parts[#parts + 1] = k .. "c" end
+  if g > 0 then parts[#parts + 1] = string.format(L.MONEY_GOLD, g) end
+  if si > 0 then parts[#parts + 1] = string.format(L.MONEY_SILVER, si) end
+  if k > 0 then parts[#parts + 1] = string.format(L.MONEY_COPPER, k) end
   return table.concat(parts, " ")
 end
 Src.Money = Money
@@ -342,7 +342,7 @@ function Src.SetWaypoint(n)
   if not (type(n) == "table" and n.map and n.x and n.y) then return false end
   local tt = _G["TomTom"]
   local ok = type(tt) == "table" and type(tt.AddWaypoint) == "function"
-    and pcall(tt.AddWaypoint, tt, n.map, n.x, n.y, { title = n.name, from = "Craft Advisor" })
+    and pcall(tt.AddWaypoint, tt, n.map, n.x, n.y, { title = n.name, from = L.WAYPOINT_FROM })
   ok = ok or pcall(function()
     if not (C_Map and C_Map.SetUserWaypoint and UiMapPoint and UiMapPoint.CreateFromCoordinates) then error("no waypoint API") end
     if C_Map.CanSetUserWaypointOnMap and not C_Map.CanSetUserWaypointOnMap(n.map) then error("map refuses waypoints") end
