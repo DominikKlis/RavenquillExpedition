@@ -221,8 +221,7 @@ end
 function events:PLAYER_TARGET_CHANGED()
   local s = self:Settings()
   if not (s and s.autoInspect) or InCombatLockdown() then return end
-  if not SafeCall(UnitIsPlayer, "target") or SafeCall(UnitIsUnit, "target", "player") then return end
-  if not self:IsGuildmate("target") or not SafeCall(CanInspect, "target") then return end
+  if not self:CanInspectGuildmate("target") then return end
   self:QueueInspect("target", false)
 end
 

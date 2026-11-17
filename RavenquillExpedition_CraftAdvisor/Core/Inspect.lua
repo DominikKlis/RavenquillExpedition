@@ -256,16 +256,24 @@ function GCA:InspectTarget()
   Print(string.format(L.MSG_INSPECTING, RQ:UnitKey("target") or "target"))
 end
 
+function GCA:CanInspectGuildmate(unit)
+  if not SafeCall(UnitIsPlayer, unit) or SafeCall(UnitIsUnit, unit, "player") then return nil, "unit" end
+  if not self:IsGuildmate(unit) then return nil, "guild" end
+  return SafeCall(CanInspect, unit), "caninspect"
+end
+
+local function GroupUnits()
+  local prefix, count = "party", PlainCall("number", GetNumSubgroupMembers)
+  if SafeCall(IsInRaid) then prefix, count = "raid", PlainCall("number", GetNumGroupMembers) end
+  local units = {}
+  for i = 1, count or 0 do units[i] = prefix .. i end
+  return units
+end
+
 function GCA:ScanGroup()
   local n = 0
-  local prefix, count = "party", GetNumSubgroupMembers()
-  if IsInRaid() then prefix, count = "raid", GetNumGroupMembers() end
-  for i = 1, count do
-    local u = prefix .. i
-    if SafeCall(UnitIsPlayer, u) and not SafeCall(UnitIsUnit, u, "player") and self:IsGuildmate(u)
-       and SafeCall(CanInspect, u) and self:QueueInspect(u, true) then
-      n = n + 1
-    end
+  for _, u in ipairs(GroupUnits()) do
+    if self:CanInspectGuildmate(u) and self:QueueInspect(u, true) then n = n + 1 end
   end
   Print(n > 0 and string.format(L.MSG_QUEUED, n) or L.MSG_NONE_IN_GROUP)
 end
@@ -286,10 +294,8 @@ local function OutOfInspectRange(unit)
 end
 
 local function UnitNotInspectable(self, unit)
-  if not SafeCall(UnitIsPlayer, unit) or SafeCall(UnitIsUnit, unit, "player") then return "unit" end
-  if not self:IsGuildmate(unit) then return "guild" end
-  local can = SafeCall(CanInspect, unit)
-  if not can or IsSecret(can) then return "caninspect" end
+  local can, why = self:CanInspectGuildmate(unit)
+  if not Plain(can) then return why end
   if OutOfInspectRange(unit) then return "range" end
 end
 
@@ -325,12 +331,8 @@ function GCA:AutoScanGroup()
   if not (s and s.autoInspect) then return 0 end
   if InCombatLockdown() then self.autoGroupPending = true; return 0 end
   self.autoGroupPending = nil
-  local prefix, count = "party", SafeCall(GetNumSubgroupMembers) or 0
-  if SafeCall(IsInRaid) then prefix, count = "raid", SafeCall(GetNumGroupMembers) or 0 end
-  if IsSecret(count) or type(count) ~= "number" then return 0 end
   local n = 0
-  for i = 1, count do
-    local u = prefix .. i
+  for _, u in ipairs(GroupUnits()) do
     if self:AutoInspectCheck(u) and self:QueueInspect(u, true) then n = n + 1 end
   end
   if n > 0 and self.verbose then Print(string.format(L.MSG_AUTO_QUEUED, n)) end
