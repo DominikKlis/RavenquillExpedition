@@ -89,3 +89,24 @@ function GCA:MatchNeeds(needs, query, withOffline)
   end
   return matched, members, CountNewMembers(needs and needs.offline or EMPTY, {})
 end
+
+function GCA.MatchesSearch(text, query)
+  return Matches(text, SearchKey(query))
+end
+
+function GCA.ListedMembers(members, query)
+  local q = SearchKey(query)
+  local online, offline = {}, {}
+  for _, e in ipairs(members or EMPTY) do
+    if (e.isSelf or e.member) and Matches(e.key, q) then
+      if e.isSelf or e.online then online[#online + 1] = e else offline[#offline + 1] = e end
+    end
+  end
+  return online, offline
+end
+
+function GCA.DefaultMember(members)
+  for _, e in ipairs(members) do
+    if not e.isSelf and e.best then return e end
+  end
+end

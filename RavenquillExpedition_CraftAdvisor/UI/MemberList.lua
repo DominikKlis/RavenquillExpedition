@@ -147,13 +147,7 @@ local function UpdateMemberRow(b, d, listW)
 end
 
 function UI.MemberRows(members, query)
-  local q = tostring(query or ""):lower():match("^%s*(.-)%s*$") or ""
-  local online, offline = {}, {}
-  for _, e in ipairs(members or {}) do
-    if (e.isSelf or e.member) and (q == "" or tostring(e.key):lower():find(q, 1, true)) then
-      if e.isSelf or e.online then online[#online + 1] = e else offline[#offline + 1] = e end
-    end
-  end
+  local online, offline = GCA.ListedMembers(members, query)
   local out = {}
   local function group(key, list)
     if #list == 0 then return end

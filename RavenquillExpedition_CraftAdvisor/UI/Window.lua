@@ -94,8 +94,7 @@ end
 
 local function ClearSearchHiding(self, key)
   local ms = self.memberSearch
-  local q = ms and tostring(ms:GetText() or ""):lower():match("^%s*(.-)%s*$") or ""
-  if q ~= "" and not tostring(key):lower():find(q, 1, true) then ms:SetText(""); ms:Changed() end
+  if ms and not GCA.MatchesSearch(key, ms:GetText()) then ms:SetText(""); ms:Changed() end
 end
 
 local function ScrollMemberIntoView(self, key)
@@ -450,12 +449,6 @@ function UI:Toggle()
   self.frame:SetShown(not self.frame:IsShown())
 end
 
-function UI.PickDefault(members)
-  for _, e in ipairs(members) do
-    if not e.isSelf and e.best then return e end
-  end
-end
-
 local function UpdateProfessionButton(self, prof, browse)
   local rank, maxRank = GCA:GetSkill(prof)
   if browse then
@@ -487,7 +480,7 @@ local function SelectCurrentMember(self, members)
   local auto = current == nil or self.selected == self.autoKey
   local keepCurrent = current and current.best and not current.isSelf
   if auto and not keepCurrent then
-    current = UI.PickDefault(members) or current or members[1]
+    current = GCA.DefaultMember(members) or current or members[1]
     self:Select(current and current.key, true)
   end
   return current

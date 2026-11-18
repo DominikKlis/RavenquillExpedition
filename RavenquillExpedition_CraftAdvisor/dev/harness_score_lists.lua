@@ -57,4 +57,33 @@ do
   check(#all == 0 and members == 0 and offline == 0, "no needs yet: nothing matches")
 end
 
+section("Core: who the member list shows, the search, the default pick (ListedMembers, MatchesSearch, DefaultMember)")
+do
+  local me = { key = "Me Stone", isSelf = true, online = true }
+  local bud = { key = "Bud Stone", online = true, member = {}, best = { points = 3 } }
+  local cara = { key = "Cara Field", online = true, member = {} }
+  local olga = { key = "Olga Field", online = false, member = {}, best = { points = 9 } }
+  local noGear = { key = "Nogear Nick", online = true }
+  local members = { me, bud, cara, olga, noGear }
+  local function keys(list)
+    local out = {}
+    for i, e in ipairs(list) do out[i] = e.key end
+    return table.concat(out, ",")
+  end
+  local on, off = GCA.ListedMembers(members, "")
+  check(keys(on) == "Me Stone,Bud Stone,Cara Field" and keys(off) == "Olga Field",
+    "you and recorded members, split online / offline in the given order; a guildmate with no gear is not listed: " .. keys(on) .. " | " .. keys(off))
+  on, off = GCA.ListedMembers(members, "  STONE ")
+  check(keys(on) == "Me Stone,Bud Stone" and #off == 0, "the search matches names without case or outer spaces: " .. keys(on))
+  on, off = GCA.ListedMembers(members, "field")
+  check(keys(on) == "Cara Field" and keys(off) == "Olga Field", "the search reaches offline members too")
+  check(#GCA.ListedMembers(members, "50%") == 0 and #GCA.ListedMembers(nil, "") == 0, "a '%' is plain text; no members, no rows")
+  check(GCA.MatchesSearch("Bud Stone", " bud ") and GCA.MatchesSearch("Bud Stone", nil) and GCA.MatchesSearch("Bud Stone", "")
+    and not GCA.MatchesSearch("Bud Stone", "cara"), "MatchesSearch: same rule for a single name; an empty search matches all")
+  check(GCA.DefaultMember(members) == bud and GCA.DefaultMember({ cara, olga }) == olga,
+    "default pick: the first member other than you with an upgrade, offline ones included")
+  check(GCA.DefaultMember({ { key = "Me Stone", isSelf = true, best = {} }, cara }) == nil and GCA.DefaultMember({}) == nil,
+    "default pick: none when only you have an upgrade or nobody does")
+end
+
 H.finish()
