@@ -123,40 +123,40 @@ do
   do
     local n = { id = 101, map = 1417, x = 0.45, y = 0.6 }
     local converted = 0
-    local realConvert, realUnitPos = C_Map.GetWorldPosFromMapPos, UnitPosition
-    C_Map.GetWorldPosFromMapPos = function(m, v) converted = converted + 1; return realConvert(m, v) end
+    local realConvert, realUnitPos = env.C_Map.GetWorldPosFromMapPos, env.UnitPosition
+    env.C_Map.GetWorldPosFromMapPos = function(m, v) converted = converted + 1; return realConvert(m, v) end
     pos = { 1867 - 30, 600 + 40 }
     reset()
     local d1, d2 = RS.Distance(n), RS.Distance(n)
     check(math.abs(d1 - 2500) < 1e-6 and d2 == d1 and converted == 1,
       "Distance: squared distance to the NPC's world position, converted once per NPC (" .. d1 .. ")")
-    UnitPosition = function() return pos[1], pos[2], 0, 1 end
+    env.UnitPosition = function() return pos[1], pos[2], 0, 1 end
     local otherInstance = RS.Distance(n)
-    UnitPosition = function() error("restricted") end
+    env.UnitPosition = function() error("restricted") end
     local erroring = RS.Distance(n)
-    UnitPosition = nil
+    env.UnitPosition = nil
     local missing = RS.Distance(n)
-    UnitPosition = function() return nil, nil, 0, 0 end
+    env.UnitPosition = function() return nil, nil, 0, 0 end
     local noCoords = RS.Distance(n)
-    UnitPosition = realUnitPos
+    env.UnitPosition = realUnitPos
     pos = nil
     local nowhere = RS.Distance(n)
     check(otherInstance == math.huge and erroring == math.huge and missing == math.huge and noCoords == math.huge and nowhere == math.huge,
-      "Distance: another instance, an erroring or missing UnitPosition, no coordinates, no position -> unreachable")
-    C_Map.GetWorldPosFromMapPos = function() converted = converted + 1; error("boom") end
+      "Distance: another instance, an erroring or missing env.UnitPosition, no coordinates, no position -> unreachable")
+    env.C_Map.GetWorldPosFromMapPos = function() converted = converted + 1; error("boom") end
     pos = { 0, 0 }
     reset(); converted = 0
     local failed1, failed2 = RS.Distance(n), RS.Distance(n)
-    C_Map.GetWorldPosFromMapPos = function() return 0, { GetXY = function() return nil, nil end } end
+    env.C_Map.GetWorldPosFromMapPos = function() return 0, { GetXY = function() return nil, nil end } end
     reset()
     local noXY = RS.Distance(n)
-    C_Map.GetWorldPosFromMapPos = function() return nil, { GetXY = function() return 0, 0 end } end
-    UnitPosition = function() return 0, 0, 0, nil end
+    env.C_Map.GetWorldPosFromMapPos = function() return nil, { GetXY = function() return 0, 0 end } end
+    env.UnitPosition = function() return 0, 0, 0, nil end
     reset()
     local noInstance = RS.Distance(n)
-    UnitPosition = realUnitPos
+    env.UnitPosition = realUnitPos
     local unmapped = RS.Distance({ id = 102 })
-    C_Map.GetWorldPosFromMapPos = realConvert
+    env.C_Map.GetWorldPosFromMapPos = realConvert
     check(failed1 == math.huge and failed2 == math.huge and converted == 1 and noXY == math.huge and noInstance == math.huge
       and unmapped == math.huge, "Distance: a failed conversion is tried once and remembered; no coordinates, no instance or no map -> unreachable")
   end

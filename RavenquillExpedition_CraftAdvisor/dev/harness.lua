@@ -301,9 +301,9 @@ end
 do
   local db, members = GCA.db, GCA.db.members
   local function listed()
-    local byKey, keys = {}, {}
-    for _, en in ipairs(GCA:GetMemberList()) do byKey[en.key] = en; keys[#keys + 1] = en.key end
-    return byKey, table.concat(keys, ", ")
+    local memberByKey, keys = {}, {}
+    for _, en in ipairs(GCA:GetMemberList()) do memberByKey[en.key] = en; keys[#keys + 1] = en.key end
+    return memberByKey, table.concat(keys, ", ")
   end
   local savedHide = db.settings.hideOffline
   db.settings.hideOffline = false
@@ -320,12 +320,12 @@ do
   check(list["Alt Char"] == nil and list["Gone Guildie"] and list["Gone Guildie"].class == "MAGE" and list["Gone Guildie"].level == 12,
     "a record of your own alt outside the roster is not listed, someone else's is (class and level from the record): " .. keys)
   members["Alt Char"], members["Gone Guildie"] = nil, nil
-  local bud = members["Buddy Stone"]
-  local savedClass, savedLevel = bud.class, bud.level
-  bud.class, bud.level = "MAGE", 20
+  local buddy = members["Buddy Stone"]
+  local savedClass, savedLevel = buddy.class, buddy.level
+  buddy.class, buddy.level = "MAGE", 20
   list = listed()
   check(list["Buddy Stone"].class == "DRUID" and list["Buddy Stone"].level == 28, "the live roster's class and level win over a stale record")
-  bud.class, bud.level = savedClass, savedLevel
+  buddy.class, buddy.level = savedClass, savedLevel
   itemMeta[9001] = { loc = "INVTYPE_WEAPON", sub = 0, lvl = 1, stats = {} }
   members["Wave Shammy"] = { class = "SHAMAN", level = 30, source = "inspect", items = { [17] = "item:9001::::" } }
   db.specs["Wave Shammy"] = { class = "SHAMAN", tree = "ENHANCEMENT", src = "inspect", ts = 1 }

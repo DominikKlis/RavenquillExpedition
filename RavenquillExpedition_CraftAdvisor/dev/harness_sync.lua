@@ -722,8 +722,8 @@ do
   local key = "Finn Moor"
   local savedFinn = db.members[key]
   advance(300)
-  local function relays(t0)
-    return busSince(t0, function(e)
+  local function relays(since)
+    return busSince(since, function(e)
       return e.sender == "Anna Stone" and e.msg:find("G;" .. key .. ";", 1, true) == 1 and e.msg:match(";1/%d;") ~= nil
     end)
   end
@@ -736,10 +736,10 @@ do
     db.members[key] = r
     S.relayHeard[key], S.relayHeardSig[key], S.addonUsers[key] = nil, nil, nil
     if setup then setup(r) end
-    local t0 = sched.t
+    local relayFrom = sched.t
     G:RelayInspect(key)
     advance(150)
-    return relays(t0)
+    return relays(relayFrom)
   end
   local now = A.env.GetTime
   check(try(inspected()) == 1, "control: our fresh inspect read of a guildie without the addon is relayed once")
@@ -756,17 +756,17 @@ do
   local inInstance = try(inspected())
   A.instance = false
   A.fire("PLAYER_ENTERING_WORLD", false, false)
-  local t0 = sched.t
+  local relayFrom = sched.t
   advance(150)
-  check(inInstance == 0 and relays(t0) == 1, "inside an instance the relay waits, and goes out after leaving")
+  check(inInstance == 0 and relays(relayFrom) == 1, "inside an instance the relay waits, and goes out after leaving")
   local cs = db.sync[G.charKey]
   local savedPeers, savedPeerAt = S.peers, cs.peerAt
   S.peers, cs.peerAt = {}, nil
   local noPeer = try(inspected())
   S.peers, cs.peerAt = savedPeers, savedPeerAt
-  t0 = sched.t
+  relayFrom = sched.t
   advance(150)
-  check(noPeer == 0 and relays(t0) == 1, "with no other addon user known the relay waits for one")
+  check(noPeer == 0 and relays(relayFrom) == 1, "with no other addon user known the relay waits for one")
   db.members[key] = nil
   for i = 1, A.C.RELAY_MAX do S.relayPending["Queued " .. i] = now() - 100 + i end
   G:RelayInspect(key)
