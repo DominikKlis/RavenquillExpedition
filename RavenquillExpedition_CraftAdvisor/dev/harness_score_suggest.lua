@@ -297,6 +297,39 @@ do
   local legs2
   for _, sug in ipairs(l2) do if sug.slot == 7 then legs2 = sug end end
   check(legs2 and not l2.unknownSlots, "late arrival: refresh, legs compared again")
+  local r2 = H.refreshes
+  fire(GCA, "GET_ITEM_INFO_RECEIVED", ghost, true)
+  advance(5)
+  check(H.refreshes == r2, "once it has loaded, another GET_ITEM_INFO_RECEIVED for it doesn't refresh")
+end
+
+section("Item info: the link kept, the item ID, answers the API leaves out")
+do
+  addItem(900061, "Plain Vest", "INVTYPE_CHEST", 20, { ITEM_MOD_AGILITY_SHORT = 2 })
+  local hyper = "|cff|Hitem:900061::::::::|h[Plain Vest]|h|r"
+  local byID, byString = GCA:GetInfo(900061), GCA:GetInfo(link(900061))
+  check(byID.link == hyper and byString.link == hyper and byID.itemID == 900061 and byString.itemID == 900061
+    and byID.cstats.Agility == 2 and GCA:GetInfo(900061) == byID,
+    "the API's hyperlink is kept for an item ID and for an item string; a second call answers from the cache")
+  local realInfo, realStats = GCA.ItemAPI.Info, GCA.ItemAPI.Stats
+  local statsAsked = {}
+  GCA.ItemAPI.Info = function(item)
+    if item == 900063 then return "Linkless Vest", nil, 2, 20, nil, nil, nil, nil, "INVTYPE_CHEST", 134, nil, 4, 2, 2 end
+    return "Bare Vest", "item:900062", 2, 20, nil, nil, nil, nil, "INVTYPE_CHEST", 134, nil, 4, 2, 2
+  end
+  GCA.ItemAPI.Stats = function(l) statsAsked[#statsAsked + 1] = l; return 7 end
+  local given = link(900062)
+  local plain, named, linkless = GCA:GetInfo(given), GCA:GetInfo("Bare Vest"), GCA:GetInfo(900063)
+  GCA.ItemAPI.Info, GCA.ItemAPI.Stats = realInfo, realStats
+  check(plain.link == given and statsAsked[1] == given,
+    "without a hyperlink from the API the item string asked for is kept and read for stats")
+  check(named.itemID == 900062 and linkless.itemID == 900063 and linkless.link == nil,
+    "the item ID comes from what was asked for, else from the API's link")
+  check(plain.minLevel == 0 and next(plain.stats) == nil and next(plain.cstats) == nil,
+    "no required level -> 0; a stats answer that isn't a table -> no stats")
+  GCA.infoCache[given], GCA.infoCache["Bare Vest"], GCA.infoCache[900063] = nil, nil, nil
+  local none, loading = GCA:GetInfo(nil)
+  check(none == nil and loading == nil, "no item -> no info, and not counted as still loading")
 end
 
 section("Spec from talents: own C_Traits nodes, ties, variants (F4, F8.2, F8.7)")

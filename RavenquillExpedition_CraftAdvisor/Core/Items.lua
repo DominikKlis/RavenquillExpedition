@@ -131,20 +131,19 @@ function GCA:ScheduleLoadRetry()
   end)
 end
 
-function GCA:GetInfo(item)
-  if not item then return end
-  local c = self.infoCache[item]
-  if c then return c end
+local function KeptLink(itemString, apiLink)
+  if type(apiLink) == "string" and apiLink:find("|H", 1, true) then return apiLink end
+  return itemString or apiLink
+end
+
+local function ReadInfo(self, item)
   local name, link, quality, ilvl, minLevel, _, _, _, equipLoc, icon, _, classID, subClassID, bindType =
     SafeCall(ItemAPI.Info, item)
-  if not Plain(name) then
-    return nil, self:NoteMissingItem(ItemIDFrom(item))
-  end
-  local statLink = (type(item) == "string" and item) or link
-  local stats = SafeCall(ItemAPI.Stats, statLink)
-  c = {
-    itemID = ItemIDFrom(item) or ItemIDFrom(link), name = name,
-    link = (type(link) == "string" and link:find("|H", 1, true) and link) or (type(item) == "string" and item) or link,
+  if not Plain(name) then return nil end
+  local itemString = type(item) == "string" and item
+  local stats = SafeCall(ItemAPI.Stats, itemString or link)
+  local c = {
+    itemID = ItemIDFrom(item) or ItemIDFrom(link), name = name, link = KeptLink(itemString, link),
     quality = quality, ilvl = ilvl, minLevel = minLevel or 0, equipLoc = equipLoc, icon = icon,
     classID = classID, subClassID = subClassID, bind = bindType,
     stats = type(stats) == "table" and stats or {}, scores = {},
@@ -155,6 +154,15 @@ function GCA:GetInfo(item)
     c.speed = self:WeaponSpeed(c.itemID, c.link)
     c.dagger = subClassID == 15 or nil
   end
+  return c
+end
+
+function GCA:GetInfo(item)
+  if not item then return end
+  local c = self.infoCache[item]
+  if c then return c end
+  c = ReadInfo(self, item)
+  if not c then return nil, self:NoteMissingItem(ItemIDFrom(item)) end
   self.infoCache[item] = c
   if c.itemID then self.loadState[c.itemID] = nil end
   return c
