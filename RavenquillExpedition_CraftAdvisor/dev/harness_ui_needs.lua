@@ -282,6 +282,8 @@ do
       and t:find("^To craft: ") and t:find("\nProfit: ") and not nd.cost._text:find("|cffff2020", 1, true),
       "Auctionator: 'To craft' = 5x120 + 2x10 (vendor) + 300 = 920c, 'Profit' = 2000 x 0.95 - 920: " .. t:gsub("\n", " | "))
     check(-nd.srcTitle._points[1][5] == rTop + 18 + 3 * UIx.REAGENT_STEP + 2 * 15 + 8, "the price lines push the sources down")
+    UIx:UpdateCraftDetail(nil, "")
+    check(not nd.cost._shown and not nd.reagTitle._shown, "the selection clears: the price lines go with the reagents")
     prices[9100] = 500
     UIx:UpdateCraftDetail(rentry)
     check(nd.cost._text:find("|cffff2020-", 1, true) and GCA.Auction.Profit(9100, 920) == math.floor(500 * 0.95 - 920), "a loss is red with a minus")

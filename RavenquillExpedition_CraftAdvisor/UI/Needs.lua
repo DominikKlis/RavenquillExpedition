@@ -432,6 +432,7 @@ local Detail = { LIST_TOP = 92, SRC_MAX = 4, SRC_LINE_H = 16 }
 function Detail.Clear(p)
   UI.UpdateLearnButton(p.learn, nil)
   for _, f in ipairs(p.reag) do f:Hide() end
+  p.cost:Hide()
   p.members:SetData({})
 end
 
