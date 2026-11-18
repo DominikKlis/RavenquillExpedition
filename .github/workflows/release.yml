@@ -67,7 +67,7 @@ jobs:
             --argjson gv "$gv" \
             '{changelog: $changelog, changelogType: "markdown", displayName: $name, gameVersions: $gv, releaseType: $type}')
           code=$(curl -sS -o upload.json -w '%{http_code}' -H "X-Api-Token: ${CF_API_KEY}" \
-            -F "metadata=${metadata}" \
+            --form-string "metadata=${metadata}" \
             -F "file=@${{ steps.meta.outputs.zip }}" \
             "$api/projects/${CF_PROJECT_ID}/upload-file")
           cat upload.json; echo
