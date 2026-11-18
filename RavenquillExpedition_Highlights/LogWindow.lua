@@ -137,8 +137,9 @@ local function AddEventLine(self, m, e)
 end
 
 local function FooterText(self, nHL, nAct)
+  local gkey = self:GuildKey()
   return L.FOOTER:format(nHL, self:Settings().share and L.ON or L.OFF)
-    .. (nAct > 0 and ("  ·  " .. L.FOOTER_ACT:format(nAct)) or "") .. "  ·  " .. (GS:GuildKey() or L.NO_GUILD)
+    .. (nAct > 0 and ("  ·  " .. L.FOOTER_ACT:format(nAct)) or "") .. "  ·  " .. (gkey ~= "-" and gkey or L.NO_GUILD)
 end
 
 function H:Refresh()

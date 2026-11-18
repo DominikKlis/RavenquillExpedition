@@ -587,6 +587,19 @@ do
   local arrived = lines[#lines] or ""
   check(waiting:find("[item:309]", 1, true) and quiet == waiting and arrived:find("[Spätes Schwert]", 1, true),
     "a received item without data shows its id, and its name once the item data arrives (" .. arrived .. ")")
+  local footer = env.RavenquillExpeditionHighlightsFrame.footer
+  G.guild = nil
+  H:Refresh()
+  local cachedLast, cachedFooter = lines[#lines], footer._text
+  local inGuild = env.IsInGuild
+  env.IsInGuild = function() return false end
+  H:Refresh()
+  local noGuildFooter = footer._text
+  env.IsInGuild, G.guild = inGuild, "Die Gilde"
+  H:Refresh()
+  check(cachedLast == arrived and cachedFooter:find("  ·  Die Gilde@Forever$") and noGuildFooter:find("  ·  (keine Gilde)", 1, true),
+    "GetGuildInfo empty for a moment: the footer names the cached guild whose log it shows; out of a guild '(keine Gilde)' ("
+    .. cachedFooter .. " / " .. noGuildFooter .. ")")
 end
 
 local probe = me.newModule("Probe")
