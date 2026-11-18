@@ -42,7 +42,7 @@ jobs:
           echo "type=$type" >> "$GITHUB_OUTPUT"
           echo "zip=dist/RavenquillExpedition-${version}.zip" >> "$GITHUB_OUTPUT"
 
-      - name: Build zip (core, Map, Highlights; no dev folders)
+      - name: Build zip (core, Map, Highlights, CraftAdvisor; no dev folders)
         shell: pwsh
         run: ./scripts/package.ps1 -Version '${{ steps.meta.outputs.version }}'
 
