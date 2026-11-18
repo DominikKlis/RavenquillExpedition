@@ -100,14 +100,29 @@ do
   tipLines[bsItem] = { "BS Chest", "Benötigt Stufe 40", "Klassen: Krieger" }
   GCA.restrCache = nil
   check(not GCA:PassesRestrictions(bsItem, "PALADIN", false) and GCA:PassesRestrictions(bsItem, "WARRIOR", false), "German client: \"Klassen: Krieger\" bars a Paladin")
-  env.ITEM_CLASSES_ALLOWED, env.ITEM_REQ_SKILL, env.LOCALIZED_CLASS_NAMES_MALE = nil, nil, nil
+  env.LOCALIZED_CLASS_NAMES_FEMALE = { WARRIOR = "Kriegerin", PALADIN = "Paladin" }
+  tipLines[bsItem] = { "BS Chest", "Klassen: Kriegerin" }
+  GCA.restrCache = nil
+  check(GCA:PassesRestrictions(bsItem, "WARRIOR", false) and not GCA:PassesRestrictions(bsItem, "PALADIN", false)
+    and GCA:PassesRestrictions(bsItem, nil, false), "German client: the female class name counts too; an unknown class isn't barred")
+  env.ITEM_CLASSES_ALLOWED, env.ITEM_REQ_SKILL, env.LOCALIZED_CLASS_NAMES_MALE, env.LOCALIZED_CLASS_NAMES_FEMALE = nil, nil, nil, nil
   tipLines[bsItem] = { "BS Chest", "Requires Engineering (225)" }
   GCA.restrCache = nil
   check(not GCA:PassesRestrictions(bsItem, "PALADIN", false) and not GCA:PassesRestrictions(bsItem, "PALADIN", true),
     "Requires Engineering: not for guildies, not for you without Engineering")
   setProfs({ { "Lederverarbeitung", 225, 300, 165 }, { "Engineering", 250, 300, 202 } })
   GCA:ReadProfessions()
-  check(GCA:PassesRestrictions(bsItem, "PALADIN", true), "... for you with Engineering: yes")
+  check(GCA:PassesRestrictions(bsItem, "PALADIN", true) and not GCA:PassesRestrictions(bsItem, "PALADIN", false),
+    "... for you with Engineering: yes; for a guildie still no")
+  tipLines[bsItem] = { "BS Chest", "Requires Leatherworking (225)" }
+  GCA.restrCache = nil
+  local byKey = GCA:PassesRestrictions(bsItem, "PALADIN", true)
+  env.ITEM_REQ_SKILL = "Benötigt %s"
+  tipLines[bsItem] = { "BS Chest", "Benötigt Lederverarbeitung (225)" }
+  GCA.restrCache = nil
+  local byName = GCA:PassesRestrictions(bsItem, "PALADIN", true)
+  env.ITEM_REQ_SKILL = nil
+  check(byKey and byName, "a required profession matches by its key (Leatherworking) or by its client name (Lederverarbeitung)")
   do
     tipLines[bsItem] = { "Requires Engineering (225)", "Classes:  Warrior , Death Knight", "Requires Mining", "Classes: Secret" }
     env.issecretvalue = function(v) return v == "Classes: Secret" end

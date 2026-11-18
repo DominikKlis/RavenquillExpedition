@@ -132,20 +132,25 @@ function GCA:ItemRestrictions(itemID)
   return c
 end
 
+local function NameListed(names, name) return name and names[name:lower()] end
+
+local function ClassAllowed(names, class)
+  local male = LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class]
+  local female = LOCALIZED_CLASS_NAMES_FEMALE and LOCALIZED_CLASS_NAMES_FEMALE[class]
+  return NameListed(names, male) or NameListed(names, female) or names[class:lower()]
+end
+
+local function HasProfession(self, skill)
+  for key, p in pairs(self:OwnProfessions()) do
+    if key == skill or p.name == skill then return true end
+  end
+  return false
+end
+
 function GCA:PassesRestrictions(itemID, class, isSelf)
   local r = self:ItemRestrictions(itemID)
-  if r.classes and class then
-    local m = LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class]
-    local f = LOCALIZED_CLASS_NAMES_FEMALE and LOCALIZED_CLASS_NAMES_FEMALE[class]
-    if not ((m and r.classes[m:lower()]) or (f and r.classes[f:lower()]) or r.classes[class:lower()]) then return false end
-  end
-  if r.skill then
-    if not isSelf then return false end
-    for key, p in pairs(self:OwnProfessions()) do
-      if key == r.skill or p.name == r.skill then return true end
-    end
-    return false
-  end
+  if r.classes and class and not ClassAllowed(r.classes, class) then return false end
+  if r.skill and not (isSelf and HasProfession(self, r.skill)) then return false end
   return true
 end
 
