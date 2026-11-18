@@ -214,28 +214,12 @@ local function UpdateNeedMemberRow(b, e, listW)
   P.Dim(b, d.future, { b.gain })
 end
 
-local function Lower(v)
-  return tostring(v):lower()
-end
-
-local function MatchingRows(g, q)
-  if q == "" or Lower(g.sug.info and g.sug.info.name or ""):find(q, 1, true) then return g.rows end
-  local rows = {}
-  for _, r in ipairs(g.rows) do
-    if Lower(r.member.key):find(q, 1, true) then rows[#rows + 1] = r end
+local function CategoryRows(entries)
+  local cats, byCat = {}, {}
+  for _, e in ipairs(entries) do
+    if not byCat[e.cat] then byCat[e.cat] = {}; cats[#cats + 1] = e.cat end
+    table.insert(byCat[e.cat], e)
   end
-  return rows
-end
-
-local function CountNewMembers(rows, seen)
-  local n = 0
-  for _, r in ipairs(rows) do
-    if not seen[r.member.key] then seen[r.member.key] = true; n = n + 1 end
-  end
-  return n
-end
-
-local function CategoryRows(cats, byCat)
   local out = {}
   for _, key in ipairs(cats) do
     out[#out + 1] = { rowKind = "cat", cat = key, n = #byCat[key] }
@@ -247,24 +231,8 @@ local function CategoryRows(cats, byCat)
 end
 
 function UI.NeedsRows(needs, query, withOffline)
-  local q = Lower(query or ""):match("^%s*(.-)%s*$") or ""
-  local groups = needs and (withOffline and needs.craftsAll or needs.crafts) or {}
-  local crafts, members, seen = 0, 0, {}
-  local cats, byCat, all = {}, {}, {}
-  for _, g in ipairs(groups) do
-    local rows = MatchingRows(g, q)
-    if #rows > 0 then
-      crafts = crafts + 1
-      members = members + CountNewMembers(rows, seen)
-      local key = GCA.SECTION_OF[g.sug.slot] or g.sug.slot
-      if not byCat[key] then byCat[key] = {}; cats[#cats + 1] = key end
-      local e = { group = g, rows = rows, cat = key }
-      table.insert(byCat[key], e)
-      all[#all + 1] = e
-    end
-  end
-  local offN = CountNewMembers(needs and needs.offline or {}, {})
-  return CategoryRows(cats, byCat), crafts, members, offN, all
+  local all, members, offN = GCA:MatchNeeds(needs, query, withOffline)
+  return CategoryRows(all), #all, members, offN, all
 end
 
 local CD_ICON = 46

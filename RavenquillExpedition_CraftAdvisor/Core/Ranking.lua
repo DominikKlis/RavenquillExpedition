@@ -50,3 +50,42 @@ function GCA:PairInfo(mh, oh)
   return { name = (mh.name or "?") .. " + " .. (oh.name or "?"), quality = mh.quality, icon = mh.icon, link = mh.link,
     cstats = stats, speed = mh.speed, pair = { mh, oh } }
 end
+
+local function SearchKey(query)
+  return tostring(query or ""):lower():match("^%s*(.-)%s*$") or ""
+end
+
+local function Matches(text, q)
+  return q == "" or tostring(text):lower():find(q, 1, true) ~= nil
+end
+
+local function MatchingRows(g, q)
+  if Matches(g.sug.info and g.sug.info.name or "", q) then return g.rows end
+  local rows = {}
+  for _, r in ipairs(g.rows) do
+    if Matches(r.member.key, q) then rows[#rows + 1] = r end
+  end
+  return rows
+end
+
+local function CountNewMembers(rows, seen)
+  local n = 0
+  for _, r in ipairs(rows) do
+    if not seen[r.member.key] then seen[r.member.key] = true; n = n + 1 end
+  end
+  return n
+end
+
+function GCA:MatchNeeds(needs, query, withOffline)
+  local q = SearchKey(query)
+  local groups = needs and (withOffline and needs.craftsAll or needs.crafts) or EMPTY
+  local matched, seen, members = {}, {}, 0
+  for _, g in ipairs(groups) do
+    local rows = MatchingRows(g, q)
+    if #rows > 0 then
+      members = members + CountNewMembers(rows, seen)
+      matched[#matched + 1] = { group = g, rows = rows, cat = self.SECTION_OF[g.sug.slot] or g.sug.slot }
+    end
+  end
+  return matched, members, CountNewMembers(needs and needs.offline or EMPTY, {})
+end
