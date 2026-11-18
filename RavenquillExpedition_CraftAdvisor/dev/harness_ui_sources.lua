@@ -1,4 +1,5 @@
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "uikit.lua")
+local env = H.env
 local section = H.section
 local GCA, advance, ns, SOURCES, check, fakeSug = H.GCA, H.advance, H.ns, H.SOURCES, H.check, H.fakeSug
 local plain, captureTip, tipText, ROOT, Files, Frame = H.plain, H.captureTip, H.tipText, H.ROOT, H.Files, H.Frame
@@ -20,7 +21,7 @@ do
     return UIx.sugList.pools.default[1]
   end
   local function reset() Src.Reset(); RS.world = {} end
-  check(_G.CraftersJournal == nil and _G.LibQuestieDB == nil and type(REAL) == "table" and type(RS) == "table",
+  check(env.CraftersJournal == nil and env.LibQuestieDB == nil and type(REAL) == "table" and type(RS) == "table",
     "sources: CraftersJournal / QuestieDB absent in this run, Data/Sources.lua and RecipeSources.lua loaded")
   ns.Sources = nil
   reset()
@@ -60,16 +61,16 @@ do
   local MAPS = { [1417] = "Arathi Highlands", [1429] = "Elwynn Forest", [1453] = "Stormwind City", [1454] = "Orgrimmar" }
   local AREAS = { [40] = "Westfall", [1585] = "Blackrock Depths" }
   local pos
-  C_Map = {
+  env.C_Map = {
     GetMapInfo = function(m) return MAPS[m] and { name = MAPS[m] } or nil end,
     GetAreaInfo = function(a) return AREAS[a] end,
     GetWorldPosFromMapPos = function(m, v) return 0, { GetXY = function() return v.x * 1000 + m, v.y * 1000 end } end,
   }
-  CreateVector2D = function(x, y) return { x = x, y = y } end
-  UnitPosition = function() if pos then return pos[1], pos[2], 0, 0 end end
-  UnitFactionGroup = function() return "Alliance" end
-  C_Reputation = { GetFactionDataByID = function(id) return id == 59 and { reaction = 5 } or nil end }
-  FACTION_STANDING_LABEL6 = "Honored"
+  env.CreateVector2D = function(x, y) return { x = x, y = y } end
+  env.UnitPosition = function() if pos then return pos[1], pos[2], 0, 0 end end
+  env.UnitFactionGroup = function() return "Alliance" end
+  env.C_Reputation = { GetFactionDataByID = function(id) return id == 59 and { reaction = 5 } or nil end }
+  env.FACTION_STANDING_LABEL6 = "Honored"
   do
     local db = {
       npcs = {
@@ -88,15 +89,15 @@ do
       for _, id in ipairs({ 1, 2, 3, 4, 5, 6, 7, 8, "1", 99 }) do out[#out + 1] = describe(RS.NpcInfo(db, id)) end
       return table.concat(out, ";")
     end
-    local savedMap = C_Map
+    local savedMap = env.C_Map
     local MAPS2, AREAS2 = { [1417] = "Arathi Highlands" }, { [40] = "Westfall", [1585] = "Blackrock Depths", [77] = "" }
-    C_Map = { GetMapInfo = function(m) return MAPS2[m] and { name = MAPS2[m] } or nil end, GetAreaInfo = function(a) return AREAS2[a] end }
+    env.C_Map = { GetMapInfo = function(m) return MAPS2[m] and { name = MAPS2[m] } or nil end, GetAreaInfo = function(a) return AREAS2[a] end }
     local withMap = all()
-    C_Map = { GetMapInfo = function() error("boom") end, GetAreaInfo = function(a) return AREAS2[a] end }
+    env.C_Map = { GetMapInfo = function() error("boom") end, GetAreaInfo = function(a) return AREAS2[a] end }
     local erroring = all()
-    C_Map = nil
+    env.C_Map = nil
     local noMap = all()
-    C_Map = savedMap
+    env.C_Map = savedMap
     check(withMap == "1|Mapped|A|1417|0.45|0.6|Arathi Highlands|12-14;2|Area only||nil|nil|nil|Blackrock Depths|50;"
       .. "3|Bad coords|H|nil|nil|nil|Westfall|5-7;4|Unknown map||9999|0.1|0.1|Westfall|nil;5|Empty area||nil|nil|nil|nil|nil;"
       .. "6|No place|nil|nil|nil|nil|nil|nil;nil;nil;nil;nil",
@@ -153,46 +154,46 @@ do
   local said, savedPrint = {}, GCA.Print
   GCA.Print = function(_, m) said[#said + 1] = plain(m) end
   local native, tt = {}, {}
-  UiMapPoint = { CreateFromCoordinates = function(m, x, y) return { m, x, y } end }
-  C_SuperTrack = { SetSuperTrackedUserWaypoint = function(v) native.st = v end }
-  C_Map.SetUserWaypoint = function(p) native.p = p end
-  C_Map.CanSetUserWaypointOnMap = function() return true end
-  TomTom = { AddWaypoint = function(self, m, x, y, opts) tt[#tt + 1] = { self = self, m = m, x = x, y = y, title = opts and opts.title, from = opts and opts.from } return "uid" end }
+  env.UiMapPoint = { CreateFromCoordinates = function(m, x, y) return { m, x, y } end }
+  env.C_SuperTrack = { SetSuperTrackedUserWaypoint = function(v) native.st = v end }
+  env.C_Map.SetUserWaypoint = function(p) native.p = p end
+  env.C_Map.CanSetUserWaypointOnMap = function() return true end
+  env.TomTom = { AddWaypoint = function(self, m, x, y, opts) tt[#tt + 1] = { self = self, m = m, x = x, y = y, title = opts and opts.title, from = opts and opts.from } return "uid" end }
   local vn = info.list[1].npc
-  check(Src.SetWaypoint(vn) == true and tt[1] and tt[1].self == TomTom and tt[1].from == "Craft Advisor" and tt[1].m == 1417 and tt[1].x == 0.45 and tt[1].y == 0.6
+  check(Src.SetWaypoint(vn) == true and tt[1] and tt[1].self == env.TomTom and tt[1].from == "Craft Advisor" and tt[1].m == 1417 and tt[1].x == 0.45 and tt[1].y == 0.6
     and tt[1].title == "Androd Fadran" and native.p == nil and said[#said] == "Waypoint set: Androd Fadran, Arathi Highlands 45, 60.",
     "waypoint: TomTom:AddWaypoint(1417, 0.45, 0.6, { title }) when TomTom is installed: " .. tostring(said[#said]))
-  TomTom = { AddWaypoint = function() error("TomTom changed") end }
+  env.TomTom = { AddWaypoint = function() error("TomTom changed") end }
   check(Src.SetWaypoint(vn) == true and native.p and native.p[1] == 1417 and native.p[2] == 0.45 and native.p[3] == 0.6 and native.st == true,
     "waypoint: TomTom erroring -> C_Map.SetUserWaypoint(UiMapPoint 1417 / 0.45 / 0.6) + super-track")
-  TomTom = nil
+  env.TomTom = nil
   native = {}
   check(Src.SetWaypoint(vn) == true and native.p and native.p[1] == 1417, "waypoint: no TomTom -> the client's user waypoint")
-  C_Map.SetUserWaypoint, C_Map.CanSetUserWaypointOnMap, UiMapPoint, C_SuperTrack = nil, nil, nil, nil
+  env.C_Map.SetUserWaypoint, env.C_Map.CanSetUserWaypointOnMap, env.UiMapPoint, env.C_SuperTrack = nil, nil, nil, nil
   check(Src.SetWaypoint(vn) == false and said[#said] == "Couldn't set a waypoint: Androd Fadran is at Arathi Highlands 45, 60.",
     "waypoint: no TomTom, no waypoint API -> the coordinates in chat: " .. tostring(said[#said]))
   check(Src.SetWaypoint(info.list[2].npc) == false and Src.SetWaypoint(idg.list[1].npc) == false, "no coordinates -> no waypoint, nothing invented")
   GCA.Print = savedPrint
   local made
-  MenuUtil = { CreateContextMenu = function(owner, gen)
+  env.MenuUtil = { CreateContextMenu = function(owner, gen)
     local root = { items = {} }
     function root:CreateTitle(x) self.title = x end
     function root:CreateButton(x) self.items[#self.items + 1] = x end
     gen(owner, root); made = root
   end }
-  check(Src.Menu(UIParent, info, "Vest") and made and made.title == "Vest" and #made.items == 1
+  check(Src.Menu(env.UIParent, info, "Vest") and made and made.title == "Vest" and #made.items == 1
     and made.items[1] == "Show on map: Androd Fadran (vendor)", "right-click menu via MenuUtil.CreateContextMenu (show on map)")
   local openedMap
-  OpenWorldMap = function(id) openedMap = id end
+  env.OpenWorldMap = function(id) openedMap = id end
   GCA.Print = function() end
   Src.ShowOnMap(vn)
   GCA.Print = savedPrint
   check(openedMap == vn.map, "clicking a source opens the world map on its zone (" .. tostring(openedMap) .. ")")
-  OpenWorldMap = nil
+  env.OpenWorldMap = nil
   check(Src.ShowOnMap({ name = "x" }) == false, "no coordinates -> nothing happens")
-  MenuUtil = nil
-  check(Src.Menu(UIParent, { list = {} }) == false, "no coordinates and no pattern -> no menu")
-  check(UIx.SourceClick(UIParent, "RightButton", fakeSug(), cur) == true and UIx.SourceClick(UIParent, "LeftButton", dP, cur) == false,
+  env.MenuUtil = nil
+  check(Src.Menu(env.UIParent, { list = {} }) == false, "no coordinates and no pattern -> no menu")
+  check(UIx.SourceClick(env.UIParent, "RightButton", fakeSug(), cur) == true and UIx.SourceClick(env.UIParent, "LeftButton", dP, cur) == false,
     "SourceClick: right-click handled, left click not")
   ns.Sources = { npcs = {}, recipes = setmetatable({}, { __index = function() error("boom") end }) }
   reset()
@@ -201,7 +202,7 @@ do
   reset()
   check(plain(UIx.SourceLine(dP, cur)) == "Pattern", "sources: data of the wrong shape -> treated as missing")
   ns.Sources = REAL
-  C_Map, CreateVector2D, UnitPosition, C_Reputation, FACTION_STANDING_LABEL6 = nil, nil, nil, nil, nil
+  env.C_Map, env.CreateVector2D, env.UnitPosition, env.C_Reputation, env.FACTION_STANDING_LABEL6 = nil, nil, nil, nil, nil
   reset()
   do
     local missing, n = {}, 0
@@ -280,7 +281,7 @@ do
     check(#bad == 0, "Data/Sources.lua: every trainer, vendor and quest giver is an NPC row, every quest and faction exists "
       .. table.concat(bad, ", ", 1, math.min(#bad, 12)))
   end
-  UnitFactionGroup = nil
+  env.UnitFactionGroup = nil
   reset()
   do
     local dN = fakeSug({ known = false, cand = { spellID = 10550, recipe = { src = "pattern", skill = 205 } } })
@@ -296,7 +297,7 @@ do
     local ic = UIx.SourceInfo(dC, cur)
     check(ic.list[1].kind == "drop" and ic.list[2].kind == "container" and UIx.Src.LineOf(ic.list[2], ic) == "Found in: Decoded True Believer Clippings",
       "extra sources: drop + 'Found in: <item>' (Darkrune Helm)")
-    captureTip(); GameTooltip:SetOwner(UIParent); UIx.Src.AddTooltip(ic)
+    captureTip(); env.GameTooltip:SetOwner(env.UIParent); UIx.Src.AddTooltip(ic)
     check(tipText():find("Found in: Decoded True Believer Clippings", 1, true) and tipText():find("Cenarion Hold Infantry", 1, true), "extra sources in the source tooltip")
     Src.Reset()
   end
@@ -323,7 +324,7 @@ do
     ns.locale = "enUS"
     check(german == "125G 3S 5K", "German money uses the German client's symbols G, S, K (Kupfer): " .. tostring(german))
     check(S.PatternPrice({ scroll = 5000 }) == nil, "no Auctionator: no pattern price")
-    Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function(_, id) return id == 5000 and 125000 or nil end } } }
+    env.Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function(_, id) return id == 5000 and 125000 or nil end } } }
     local savedGet = GCA.GetInfo
     GCA.GetInfo = function(self, id) if id == 5000 then return { bind = 2 } elseif id == 5001 then return { bind = 1 } end return savedGet(self, id) end
     check(S.PatternPrice({ scroll = 5000 }) == 125000 and S.PatternPrice({ scroll = 5001 }) == nil,
@@ -344,7 +345,7 @@ do
     S.AddTooltip({ cj = true, list = { { kind = "drop", npcs = { { name = "Bandit", level = 12, zone = "Westfall" } } } } })
     check(not tipText():find("Price", 1, true), "a drop without an AH price: no price block")
     GCA.GetInfo = savedGet
-    Auctionator = nil
+    env.Auctionator = nil
   end
   H.tip, H.hyper = {}, {}
   b.nl._scripts.OnEnter(b.nl)
@@ -358,16 +359,16 @@ do
   local de = ns.Locales.deDE
   check(string.format(de.SRC_LINE_VENDOR, "A", "B") == "Händler: A (B)" and string.format(de.SRC_LINE_TRAINER_HAVE, 170, 150) == "Lehrer (Fertigkeit 170, du hast 150)"
     and de.FILTER_UNLEARNED == "Fehlende Rezepte zeigen" and de.NOT_LEARNED == "Nicht erlernt", "German texts")
-  local nsf = UIx.AddInnerBorder(CreateFrame("Frame", nil, UIParent))
+  local nsf = UIx.AddInnerBorder(env.CreateFrame("Frame", nil, env.UIParent))
   check(nsf and nsf.how == "atlas" and nsf.TopLeftCorner._atlas == "UI-Frame-InnerTopLeft" and nsf.RightEdge._atlas == "!UI-Frame-InnerRightTile"
     and nsf.BottomLeftCorner._points[1][5] == -1 and nsf.TopEdge._h == 3 and nsf.LeftEdge._w == 3,
     "inner border: 6x6 corners (bottom at y -1), 3 px tiles, probe atlases")
-  NineSliceUtil = { ApplyLayoutByName = function(f, name) f.TopLeftCorner = { layout = name } end }
-  local nsu = UIx.AddInnerBorder(CreateFrame("Frame", nil, UIParent))
+  env.NineSliceUtil = { ApplyLayoutByName = function(f, name) f.TopLeftCorner = { layout = name } end }
+  local nsu = UIx.AddInnerBorder(env.CreateFrame("Frame", nil, env.UIParent))
   check(nsu.how == "util" and nsu.TopLeftCorner.layout == "InsetFrameTemplate", "inner border: NineSliceUtil 'InsetFrameTemplate' layout when present")
-  NineSliceUtil = nil
-  local origInfo = C_Texture.GetAtlasInfo
-  C_Texture.GetAtlasInfo = function(name)
+  env.NineSliceUtil = nil
+  local origInfo = env.C_Texture.GetAtlasInfo
+  env.C_Texture.GetAtlasInfo = function(name)
     local i = origInfo(name)
     if i and name:find("^Skillbar_") then i.leftTexCoord, i.rightTexCoord, i.topTexCoord, i.bottomTexCoord = 0.1, 0.9, 0, 1 end
     if name == "Skillbar_Fill_Flipbook_Tailoring" then return { width = 1, height = 1, file = 1, leftTexCoord = 0, rightTexCoord = 1, topTexCoord = 0, bottomTexCoord = 1 } end
@@ -404,7 +405,7 @@ do
   else
     check(false, "rank bar: UI.CreateProfessionPicker exported for the test")
   end
-  C_Texture.GetAtlasInfo = origInfo
+  env.C_Texture.GetAtlasInfo = origInfo
   UIx.frame:Hide()
 end
 
@@ -480,7 +481,7 @@ do
     table.sort(list, GCA.SuggestionOrder)
     list.sections = GCA:BuildSections(rowsBy, {}, items, eqInfo, {}, E)
     return { key = key, online = true, class = "WARRIOR", level = 40, prof = "Blacksmithing", state = "ok", weights = E,
-      member = { items = items, time = time(), source = "inspect" }, suggestions = list, best = list[1], knownCount = #list,
+      member = { items = items, time = env.time(), source = "inspect" }, suggestions = list, best = list[1], knownCount = #list,
       spec = "FURY", specHow = "manual" }
   end
   local wm = member("Wes Arms", { [16] = { twoH, partner }, [17] = { offH }, [18] = { gun } })

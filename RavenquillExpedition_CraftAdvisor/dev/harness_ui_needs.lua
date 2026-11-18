@@ -1,4 +1,5 @@
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "uikit.lua")
+local env = H.env
 local section = H.section
 local GCA, fakeSug, fakeSections, check, advance = H.GCA, H.fakeSug, H.fakeSections, H.check, H.advance
 local plain, menuOf, captureTip, plainTip, tipText = H.plain, H.menuOf, H.captureTip, H.plainTip, H.tipText
@@ -58,7 +59,7 @@ do
     return fakeSug(over)
   end
   local function vinfo() return { name = "Vest", quality = 2, icon = "x", minLevel = 20, link = "|Hitem:9001|h[Vest]|h" } end
-  K5 = {}
+  local K5 = {}
   K5.vestA = sg(9001, { sortPct = 12, pct = 0.12, info = vinfo() })
   K5.vestB = sg(9001, { sortPct = 38, pct = 0.38, info = vinfo(), equipped = { name = "Old Vest", quality = 2 } })
   K5.vestO = sg(9001, { sortPct = 60, pct = 0.6, info = vinfo() })
@@ -68,11 +69,11 @@ do
   K5.ringF2 = sg(9003, { slot = 12, future = true, wearAt = 42, levelsToGo = 3, sortPct = 80, pct = 0.8, extra = nil,
     info = { name = "Future Ring", quality = 3, icon = "x", minLevel = 42 } })
   K5.mine = sg(9004, { sortPct = 99, pct = 0.99, info = { name = "My Gloves", quality = 2, icon = "x", minLevel = 20 } })
-  K5.bud = { key = "Bud Stone", online = true, class = "ROGUE", level = 39, prof = "Leatherworking", member = { items = {}, time = time(), source = "inspect" },
+  K5.bud = { key = "Bud Stone", online = true, class = "ROGUE", level = 39, prof = "Leatherworking", member = { items = {}, time = env.time(), source = "inspect" },
     suggestions = fakeSections({ [5] = { K5.vestA }, [6] = { K5.belt }, [11] = { K5.ringF, K5.ringF2 } }), best = K5.belt, knownCount = 3, state = "ok" }
-  K5.cara = { key = "Cara Field", online = true, class = "DRUID", level = 30, prof = "Leatherworking", member = { items = {}, time = time(), source = "inspect" },
+  K5.cara = { key = "Cara Field", online = true, class = "DRUID", level = 30, prof = "Leatherworking", member = { items = {}, time = env.time(), source = "inspect" },
     suggestions = fakeSections({ [5] = { K5.vestB } }), best = K5.vestB, knownCount = 1, state = "ok" }
-  K5.olga = { key = "Olga Field", online = false, class = "MAGE", level = 30, prof = "Leatherworking", member = { items = {}, time = time(), source = "relay" },
+  K5.olga = { key = "Olga Field", online = false, class = "MAGE", level = 30, prof = "Leatherworking", member = { items = {}, time = env.time(), source = "relay" },
     suggestions = fakeSections({ [5] = { K5.vestO } }), best = K5.vestO, knownCount = 1, state = "ok" }
   K5.me = { key = "Me Stone", isSelf = true, online = true, class = "ROGUE", level = 36, prof = "Leatherworking", member = { items = {} },
     suggestions = fakeSections({ [10] = { K5.mine } }), best = K5.mine, knownCount = 1, state = "ok" }
@@ -101,11 +102,11 @@ do
     and nc == 3 and nm == 2 and offN == 1 and #allE == 3 and data[1].n == 1,
     "NeedsRows: slot categories (Chest, Waist, Rings) each with its crafts, 2 members, 1 offline member with upgrades: " .. kinds(data))
   UIx.needsCollapsed[5] = true
+  local _
   data, nc, _, _, allE = UIx.NeedsRows(nd, "", false)
   check(kinds(data) == "#5,#6,Belt,#11,Future Ring" and nc == 3 and #allE == 3 and allE[1].group == crafts[1],
     "a collapsed category hides its crafts (still counted, still selectable): " .. kinds(data))
   UIx.needsCollapsed = {}
-  local _
   data, _, nm = UIx.NeedsRows(nd, "", true)
   check(#data[2].rows == 3 and nm == 3, "offline box on: Olga's row joins the vest group (3 members)")
   data, nc, nm = UIx.NeedsRows(nd, "  BELT ", false)
@@ -130,10 +131,10 @@ do
     "no pips; card '+12 pts' over '(empty slot)', Gildenbedarf '+7.0'")
 
   section("window opens on guild needs (grouped by craft); offline box; expand; click-through")
-  ITEM_QUALITY_COLORS = { [2] = { r = 0.12, g = 1, b = 0 }, [3] = { r = 0, g = 0.44, b = 0.87 } }
+  env.ITEM_QUALITY_COLORS = { [2] = { r = 0.12, g = 1, b = 0 }, [3] = { r = 0, g = 0.44, b = 0.87 } }
   local selected = {}
-  PanelTemplates_SelectTab = function(t) selected[t] = true end
-  PanelTemplates_DeselectTab = function(t) selected[t] = false end
+  env.PanelTemplates_SelectTab = function(t) selected[t] = true end
+  env.PanelTemplates_DeselectTab = function(t) selected[t] = false end
   local origML = GCA.GetMemberList
   local list = K5.list
   GCA.GetMemberList = function() return list end
@@ -214,13 +215,13 @@ do
   check(GCA:CraftedMark("Cara Field", "Leatherworking", 9001) ~= nil, "crafted box on a member row marks it for that member")
   GCA:SetCrafted("Cara Field", "Leatherworking", K5.vestB, false)
   local linked
-  HandleModifiedItemClick = function(l) linked = l end
-  IsShiftKeyDown = function() return true end
+  env.HandleModifiedItemClick = function(l) linked = l end
+  env.IsShiftKeyDown = function() return true end
   nl.pools.default[1]._scripts.OnClick(nl.pools.default[1])
   check(linked == "|Hitem:9001|h[Vest]|h" and UIx.needSel == "i9001", "shift-click on a craft row links the item (selection unchanged)")
   linked = nil
   nd.members.pools.default[2]._scripts.OnClick(nd.members.pools.default[2])
-  IsShiftKeyDown = function() return false end
+  env.IsShiftKeyDown = function() return false end
   check(linked == "|Hitem:9001|h[Vest]|h" and UIx.view == "needs", "shift-click on a member row links, stays on guild needs")
   nd.members.pools.default[2]._scripts.OnClick(nd.members.pools.default[2])
   check(UIx.view == "needs", "a plain click on a member row (their equipped item) does nothing")
@@ -272,7 +273,7 @@ do
   do
     local prices = { [2318] = 120, [4231] = 300, [9100] = 2000 }
     local vendor = { [2320] = 10 }
-    Auctionator = { Constants = { AfterAHCut = 0.95 }, API = { v1 = {
+    env.Auctionator = { Constants = { AfterAHCut = 0.95 }, API = { v1 = {
       GetAuctionPriceByItemID = function(caller, id) assert(type(caller) == "string"); return prices[id] end,
       GetVendorPriceByItemID = function(caller, id) return vendor[id] end,
     } } }
@@ -291,34 +292,34 @@ do
     UIx:UpdateCraftDetail(rentry)
     check(plain(nd.cost._text) :find("(1 without a price)", 1, true) and not plain(nd.cost._text):find("Profit", 1, true),
       "a reagent without a price is named; no item price -> no profit line: " .. plain(nd.cost._text))
-    Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function() error("renamed internals") end } } }
+    env.Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function() error("renamed internals") end } } }
     local ok = pcall(UIx.UpdateCraftDetail, UIx, rentry)
     check(ok and GCA.Auction.CraftCost({ { 2318, 1 } }) == 0, "Auctionator erroring: no Lua error")
-    Auctionator = nil
+    env.Auctionator = nil
     UIx:UpdateCraftDetail(rentry)
     check(not nd.cost._shown, "Auctionator gone again: lines hidden")
   end
   do
-    local opened, savedTS = {}, C_TradeSkillUI
-    C_TradeSkillUI = { OpenRecipe = function(id) opened[#opened + 1] = id end }
+    local opened, savedTS = {}, env.C_TradeSkillUI
+    env.C_TradeSkillUI = { OpenRecipe = function(id) opened[#opened + 1] = id end }
     rsug.known = true
     UIx:UpdateCraftDetail(rentry)
     nd.iconBtn._scripts.OnClick(nd.iconBtn, "LeftButton")
     check(opened[1] == 9100, "Gildenbedarf: click on the craft's icon opens recipe 9100")
     nd.members.pools.default[1]._scripts.OnClick(nd.members.pools.default[1], "LeftButton")
     check(#opened == 1, "Gildenbedarf: a click on a member row (their equipped item) opens nothing")
-    local linked, savedLink = {}, HandleModifiedItemClick
-    HandleModifiedItemClick = function(l) linked[#linked + 1] = l end
-    IsControlKeyDown = function() return true end
+    local linked, savedLink = {}, env.HandleModifiedItemClick
+    env.HandleModifiedItemClick = function(l) linked[#linked + 1] = l end
+    env.IsControlKeyDown = function() return true end
     nd.iconBtn._scripts.OnClick(nd.iconBtn, "LeftButton")
-    IsControlKeyDown = nil
+    env.IsControlKeyDown = nil
     nd.iconBtn._scripts.OnClick(nd.iconBtn, "RightButton")
-    HandleModifiedItemClick = savedLink
+    env.HandleModifiedItemClick = savedLink
     check(#opened == 1 and #linked == 1 and linked[1] == rsug.info.link,
       "Gildenbedarf: ctrl-click on the craft's icon links it (not opened); a right-click on a learned craft opens nothing")
     rsug.known = false
     UIx:UpdateCraftDetail(rentry)
-    C_TradeSkillUI = savedTS
+    env.C_TradeSkillUI = savedTS
   end
   UIx:RefreshNeeds()
   local sb = UIx.searchBox
@@ -388,9 +389,9 @@ do
   captureTip(); ml.pools.default[3]._scripts.OnEnter(ml.pools.default[3])
   check(tipText():find("1 upgrade · best: Chest", 1, true), "singular line (tooltip)")
   do
-    local L, lines, savedData, savedAdd = ns.L, {}, mb.data, GameTooltip.AddLine
-    GameTooltip.AddLine = function(_, t, r, g, b) lines[#lines + 1] = table.concat({ tostring(t), tostring(r), tostring(g), tostring(b) }, "/") end
-    local rec = { items = {}, time = time(), source = "inspect" }
+    local L, lines, savedData, savedAdd = ns.L, {}, mb.data, env.GameTooltip.AddLine
+    env.GameTooltip.AddLine = function(_, t, r, g, b) lines[#lines + 1] = table.concat({ tostring(t), tostring(r), tostring(g), tostring(b) }, "/") end
+    local rec = { items = {}, time = env.time(), source = "inspect" }
     local function member(over)
       local d = { key = "Tess Field", class = "MAGE", level = 30, online = true, prof = "Leatherworking", member = rec, spec = "FROST", specHow = "manual" }
       for k, v in pairs(over) do d[k] = v end
@@ -423,7 +424,7 @@ do
         bad[#bad + 1] = i .. ": " .. plain(text) .. " | " .. table.concat(lines, " | ")
       end
     end
-    GameTooltip.AddLine, mb.data = savedAdd, savedData
+    env.GameTooltip.AddLine, mb.data = savedAdd, savedData
     check(#bad == 0, "member line and tooltip per state (not inspected, browse, upgrades, no spec, no level, loading, none, yourself): "
       .. table.concat(bad, "; "))
   end
@@ -481,23 +482,23 @@ do
   pb2:SetSkill("Blacksmithing (browse)")
   check(pb2.bar._value == 0 and pb2.ratio == 0, "no rank (browse): empty bar")
   Frame.SetStatusBarTexture, Frame.SetStatusBarColor = nil, nil
-  GetFileIDFromPath = function() return nil end
+  env.GetFileIDFromPath = function() return nil end
   GCA.UI.frame:Hide(); GCA.UI.frame = nil; GCA.UI:Toggle(); advance(1)
   pb2 = GCA.UI.profButton
   pb2:SetSkill("x", 60, 300)
   check(pb2.barKind == "fill" and pb2.fill._SetColorTexture and math.abs(pb2.fill._w - (GCA.UI.PROF_BAR_W - 10) * 0.2) < 1e-9, "skill-bar file not there: plain fill in the skin colour, 20 %")
-  GetFileIDFromPath = nil
+  env.GetFileIDFromPath = nil
   local ic = GCA.UI.specButton.icon
-  CLASS_ICON_TCOORDS = { ROGUE = { 0.5, 0.75, 0, 0.25 } }
+  env.CLASS_ICON_TCOORDS = { ROGUE = { 0.5, 0.75, 0, 0.25 } }
   check(GCA.UI.SetClassIcon(ic, "ROGUE") == "file" and ic._tex == "Interface\\TargetingFrame\\UI-Classes-Circles" and ic._SetTexCoord[1] == 0.5,
     "class icon: the class-circles file + CLASS_ICON_TCOORDS where the atlas is missing")
   ATLASES["classicon-rogue"] = true
   check(GCA.UI.SetClassIcon(ic, "ROGUE") == "atlas" and ic._atlas == "classicon-rogue", "class icon: the atlas when GetAtlasInfo knows it")
   ATLASES["classicon-rogue"] = nil
-  GetFileIDFromPath = function() return nil end
+  env.GetFileIDFromPath = function() return nil end
   check(GCA.UI.SetClassIcon(ic, "MAGE") == nil and GCA.UI.SetClassIcon(ic, nil) == nil, "class icon: neither -> none (text only)")
-  GetFileIDFromPath = nil
-  CLASS_ICON_TCOORDS = nil
+  env.GetFileIDFromPath = nil
+  env.CLASS_ICON_TCOORDS = nil
   GCA.UI.specButton:SetClass("WARRIOR")
   check(not GCA.UI.specButton.icon._shown and GCA.UI.specButton.iconKind == nil and GCA.UI.specButton.dropdown._shown ~= false, "spec picker without an icon: just the dropdown")
   local tx = UIx.frame:CreateTexture()
@@ -573,8 +574,8 @@ do
   GCA.GetMemberList = origML
 
   section("K: fallbacks (no tab template, no texture files, slider template present)")
-  local origCF = CreateFrame
-  CreateFrame = function(otype, name, parent, template)
+  local origCF = env.CreateFrame
+  env.CreateFrame = function(otype, name, parent, template)
     if template == "PanelTabButtonTemplate" then error("Couldn't find inherited node 'PanelTabButtonTemplate'") end
     return origCF(otype, name, parent, template)
   end
@@ -590,8 +591,8 @@ do
   UIx.frame:SetSize(840, 560); UIx:Layout()
   layoutChecks(UIx, UIx.frame, "tab fallback 840x560")
   UIx.frame:Hide()
-  CreateFrame = origCF
-  GetFileIDFromPath = function() return nil end
+  env.CreateFrame = origCF
+  env.GetFileIDFromPath = function() return nil end
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
@@ -601,15 +602,15 @@ do
     "no files: the category's '–' text; K8 the detail icon falls back to the square reagent-slot icon (mask / ring files not confirmed)")
   check(UIx.infoIcon.kind == "text", "info icon file not confirmed: text '(i)'")
   UIx.frame:Hide()
-  GetFileIDFromPath = function(p) return 12345 end
+  env.GetFileIDFromPath = function(p) return 12345 end
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
   check(not UIx.needDetail.members.pools.default[1].offer.isIcon and UIx.infoIcon.kind == "file" and UIx.infoIcon.tex._tex == UIx.INFO_FILE, "files confirmed: info file; Offer still the button")
   UIx.frame:Hide()
-  GetFileIDFromPath = nil
-  for k in pairs(nativeMode) do nativeMode[k] = "fail" end
-  GetFileIDFromPath = function() return nil end
+  env.GetFileIDFromPath = nil
+  for k in pairs(H.nativeMode) do H.nativeMode[k] = "fail" end
+  env.GetFileIDFromPath = function() return nil end
   GCA.UI.frame = nil
   local errs4 = UIx.errorCount
   GCA.UI:Toggle(); advance(1)
@@ -667,8 +668,8 @@ do
   check(g1 and not g1.native and g1.text._text and g1.CollapseButton, "group header: the replicated category row (no template involved)")
   check(UIx.errorCount == errs4, "fallbacks: no error reported")
   UIx.frame:Hide()
-  for k in pairs(nativeMode) do nativeMode[k] = "ok" end
-  GetFileIDFromPath = nil
+  for k in pairs(H.nativeMode) do H.nativeMode[k] = "ok" end
+  env.GetFileIDFromPath = nil
   ATLASES[UIx.INFO_ATLAS] = true
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
@@ -677,8 +678,8 @@ do
   UIx.frame:Hide()
   ATLASES[UIx.INFO_ATLAS] = nil
   local made
-  MinimalSliderWithSteppersMixin = { Event = { OnValueChanged = "OnValueChanged" } }
-  CreateFrame = function(otype, name, parent, template)
+  env.MinimalSliderWithSteppersMixin = { Event = { OnValueChanged = "OnValueChanged" } }
+  env.CreateFrame = function(otype, name, parent, template)
     local fr = origCF(otype, name, parent, template)
     if template == "MinimalSliderWithSteppersTemplate" then
       made = fr
@@ -691,7 +692,7 @@ do
   end
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
-  CreateFrame = origCF
+  env.CreateFrame = origCF
   UIx = GCA.UI
   local hs = UIx.survival
   check(hs.templated and hs.slider == made and made.init[1] == 50 and made.init[2] == 0 and made.init[3] == 100 and made.init[4] == 20
@@ -709,24 +710,24 @@ do
   captureTip(); local okTip = pcall(made.Slider._scripts.OnEnter, made.Slider)
   check(okTip and tipText():find("Leveling bonus", 1, true), "template slider: our tooltip hooked onto its inner Slider")
   UIx.frame:Hide()
-  MinimalSliderWithSteppersMixin = nil
-  CreateFrame = function(otype, name, parent, template)
+  env.MinimalSliderWithSteppersMixin = nil
+  env.CreateFrame = function(otype, name, parent, template)
     local fr = origCF(otype, name, parent, template)
     if template == "MinimalSliderWithSteppersTemplate" then fr.Init = function() error("bad") end; fr.RegisterCallback = function() end end
     return fr
   end
-  MinimalSliderWithSteppersMixin = { Event = { OnValueChanged = 1 } }
+  env.MinimalSliderWithSteppersMixin = { Event = { OnValueChanged = 1 } }
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
-  CreateFrame = origCF
-  MinimalSliderWithSteppersMixin = nil
+  env.CreateFrame = origCF
+  env.MinimalSliderWithSteppersMixin = nil
   check(not GCA.UI.survival.templated and GCA.UI.survival.slider._type == "Slider" and GCA.UI.errorCount == errs,
     "a slider template whose Init fails: plain slider instead, no error")
   GCA.UI.frame:Hide()
   GCA.GetMemberList = origML
-  ITEM_QUALITY_COLORS = nil
-  PanelTemplates_SelectTab, PanelTemplates_DeselectTab = nil, nil
-  HandleModifiedItemClick = function() end
+  env.ITEM_QUALITY_COLORS = nil
+  env.PanelTemplates_SelectTab, env.PanelTemplates_DeselectTab = nil, nil
+  env.HandleModifiedItemClick = function() end
   GCA.UI.frame = nil
   H.templateMode, GCA.IsBrowse = savedTM, savedBrowse
 end

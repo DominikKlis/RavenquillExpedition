@@ -11,39 +11,39 @@ local units = {
 }
 local itemMeta = {}
 local sched = Kit.Scheduler()
-local me = Kit.Client(sched, nil, "Me", { env = _G, locale = "deDE", files = files, setup = function()
-  C_ChatInfo = nil
-  function UnitNameUnmodified(u) if u=="target" then return "Buddy","Stone" end return UnitName(u) end
-  RavenquillExpeditionCraftDB = { members = { ["Old-Timer"] = { time = 5, items = {} } } }
-  GameTooltip_Hide = function() end
-  C_SpellBook = { IsSpellKnown = function(id) return id == 2149 or id == 2160 or id == 3762 end }
-  RAID_CLASS_COLORS = { DRUID = {r=1,g=.49,b=.04}, ROGUE={r=1,g=.96,b=.41}, MAGE={r=.41,g=.8,b=.94} }
-  ITEM_QUALITY_COLORS = { [1]={r=1,g=1,b=1}, [2]={r=.1,g=1,b=.1}, [3]={r=0,g=.4,b=1} }
-  LOCALIZED_CLASS_NAMES_MALE = { DRUID="Druide", ROGUE="Schurke", MAGE="Magier" }
-  function InCombatLockdown() return false end
-  function IsInGuild() return true end
-  function IsInRaid() return false end
-  function GetNumSubgroupMembers() return 1 end
-  function GetNumGroupMembers() return 2 end
-  function GetRealmName() return "Realm" end
-  function Ambiguate(n) return (n:gsub("%-Realm$","")) end
-  function UnitName(u) local x=units[u]; return x and x.name end
-  function UnitClass(u) local x=units[u]; return x and x.class, x and x.class end
-  function UnitLevel(u) local x=units[u]; return x and x.level end
-  function UnitGUID(u) local x=units[u]; return x and x.guid end
-  function UnitIsPlayer(u) return units[u] ~= nil end
-  function UnitIsUnit(a,b) return units[a] and units[a]==units[b] end
-  function UnitIsInMyGuild(u) return units[u] ~= nil end
-  function UnitExists(u) return units[u] ~= nil end
-  function CanInspect() return true end
-  function NotifyInspect() end
-  function GetInventoryItemLink(u, slot) local x=units[u]; return x and x.items[slot] end
-  function GetInventorySlotInfo(t) return 1, "tex" end
-  function GetNumGuildMembers() return 2 end
-  function GetGuildRosterInfo(i) if i==1 then return "Buddy Stone",nil,nil,28,nil,nil,nil,nil,true,nil,"DRUID" else return "Offy-Realm",nil,nil,50,nil,nil,nil,nil,false,nil,"ROGUE" end end
-  function GetProfessions() return 1, nil end
-  function GetProfessionInfo(i) return "Lederverarbeitung", nil, 120, 150, nil, nil, 165 end
-  C_Item = {
+local me = Kit.Client(sched, nil, "Me", { locale = "deDE", files = files, setup = function(env)
+  env.C_ChatInfo = nil
+  function env.UnitNameUnmodified(u) if u=="target" then return "Buddy","Stone" end return env.UnitName(u) end
+  env.RavenquillExpeditionCraftDB = { members = { ["Old-Timer"] = { time = 5, items = {} } } }
+  env.GameTooltip_Hide = function() end
+  env.C_SpellBook = { IsSpellKnown = function(id) return id == 2149 or id == 2160 or id == 3762 end }
+  env.RAID_CLASS_COLORS = { DRUID = {r=1,g=.49,b=.04}, ROGUE={r=1,g=.96,b=.41}, MAGE={r=.41,g=.8,b=.94} }
+  env.ITEM_QUALITY_COLORS = { [1]={r=1,g=1,b=1}, [2]={r=.1,g=1,b=.1}, [3]={r=0,g=.4,b=1} }
+  env.LOCALIZED_CLASS_NAMES_MALE = { DRUID="Druide", ROGUE="Schurke", MAGE="Magier" }
+  function env.InCombatLockdown() return false end
+  function env.IsInGuild() return true end
+  function env.IsInRaid() return false end
+  function env.GetNumSubgroupMembers() return 1 end
+  function env.GetNumGroupMembers() return 2 end
+  function env.GetRealmName() return "Realm" end
+  function env.Ambiguate(n) return (n:gsub("%-Realm$","")) end
+  function env.UnitName(u) local x=units[u]; return x and x.name end
+  function env.UnitClass(u) local x=units[u]; return x and x.class, x and x.class end
+  function env.UnitLevel(u) local x=units[u]; return x and x.level end
+  function env.UnitGUID(u) local x=units[u]; return x and x.guid end
+  function env.UnitIsPlayer(u) return units[u] ~= nil end
+  function env.UnitIsUnit(a,b) return units[a] and units[a]==units[b] end
+  function env.UnitIsInMyGuild(u) return units[u] ~= nil end
+  function env.UnitExists(u) return units[u] ~= nil end
+  function env.CanInspect() return true end
+  function env.NotifyInspect() end
+  function env.GetInventoryItemLink(u, slot) local x=units[u]; return x and x.items[slot] end
+  function env.GetInventorySlotInfo(t) return 1, "tex" end
+  function env.GetNumGuildMembers() return 2 end
+  function env.GetGuildRosterInfo(i) if i==1 then return "Buddy Stone",nil,nil,28,nil,nil,nil,nil,true,nil,"DRUID" else return "Offy-Realm",nil,nil,50,nil,nil,nil,nil,false,nil,"ROGUE" end end
+  function env.GetProfessions() return 1, nil end
+  function env.GetProfessionInfo(i) return "Lederverarbeitung", nil, 120, 150, nil, nil, 165 end
+  env.C_Item = {
     GetItemInfoInstant = function(item) local id = type(item)=="number" and item or tonumber(tostring(item):match("item:(%d+)")); local m = itemMeta[id]; if not m then return id, "Misc","Misc","",1,15,0 end return id,"Armor","x",m.loc,1,4,m.sub end,
     GetItemInfo = function(item) local id = type(item)=="number" and item or tonumber(tostring(item):match("item:(%d+)")); local m = itemMeta[id] or {loc="",sub=0,lvl=1}; return "Item"..id, "|Hitem:"..id.."|h[Item"..id.."]|h", 2, 20, m.lvl, nil,nil,nil, m.loc, 1, nil, 4, m.sub, m.bind or 2 end,
     GetItemStats = function(link) local id = tonumber(link:match("item:(%d+)")); local m = itemMeta[id]; return m and m.stats or {} end,
@@ -52,8 +52,9 @@ local me = Kit.Client(sched, nil, "Me", { env = _G, locale = "deDE", files = fil
     GetItemCount = function() return 3 end,
   }
 end })
+local env = me.env
 local RQ, ns, fire = me.RQ, me.ns[CA], me.fire
-local okSy, errSy = pcall(function() Kit.loadchunk(ROOT .. "Sync.lua", _G)(CA, ns) end)
+local okSy, errSy = pcall(function() Kit.loadchunk(ROOT .. "Sync.lua", env)(CA, ns) end)
 io.write("Sync.lua loaded: ", tostring(okSy), " ", okSy and "" or tostring(errSy), "\n")
 local GCA = ns.GCA
 fire("ADDON_LOADED", "RavenquillExpedition")
@@ -63,9 +64,9 @@ fire("PLAYER_LOGIN"); sched:flush(200)
 io.write("== module registration\n")
 local mod = RQ:GetModule("Craft")
 check(mod and mod == GCA and mod.addon == "RavenquillExpedition_CraftAdvisor" and mod.slash == "craft" and mod.api == 2
-  and mod.loaded and GCA.db == RavenquillExpeditionCraftDB, "GCA is the core's module \"Craft\" (api 2, addon, slash, SavedVariables loaded)")
-check(SLASH_GUILDCRAFTADVISOR1 == nil and SLASH_GUILDCRAFTADVISOR2 == nil, "/gca and /guildcraft not registered on the core")
-check(SlashCmdList.GUILDCRAFTADVISOR == nil and GuildCraftAdvisor == nil and GuildCraftAdvisor_OnCompartmentClick == nil,
+  and mod.loaded and GCA.db == env.RavenquillExpeditionCraftDB, "GCA is the core's module \"Craft\" (api 2, addon, slash, SavedVariables loaded)")
+check(env.SLASH_GUILDCRAFTADVISOR1 == nil and env.SLASH_GUILDCRAFTADVISOR2 == nil, "/gca and /guildcraft not registered on the core")
+check(env.SlashCmdList.GUILDCRAFTADVISOR == nil and env.GuildCraftAdvisor == nil and env.GuildCraftAdvisor_OnCompartmentClick == nil,
   "no standalone path left: no GUILDCRAFTADVISOR slash handler, no GuildCraftAdvisor globals")
 check(type(mod.Open) == "function" and type(mod.OnSlash) == "function" and type(mod.OverviewStatus) == "function", "Open, OnSlash, OverviewStatus present")
 
@@ -144,9 +145,9 @@ check(toggleFor("showUnlearned", ns.L.FILTER_UNLEARNED) and toggleFor("lookahead
   and toggleFor("inspectTalents", ns.L.OPT_INSPECT_TALENTS), "toggles write the right db.settings keys")
 local mm = byLabel[ns.L.OPT_MINIMAP]
 mm.set(false)
-local hid = RavenquillExpeditionDB.launcher.hide == true and mm.get() == false and not RQ:LauncherShown()
+local hid = env.RavenquillExpeditionDB.launcher.hide == true and mm.get() == false and not RQ:LauncherShown()
 mm.set(true)
-check(hid and not RavenquillExpeditionDB.launcher.hide and mm.get() == true, "minimap toggle = the suite launcher (RavenquillExpeditionDB.launcher.hide)")
+check(hid and not env.RavenquillExpeditionDB.launcher.hide and mm.get() == true, "minimap toggle = the suite launcher (RavenquillExpeditionDB.launcher.hide)")
 
 io.write("== range = leveling bonus\n")
 local range

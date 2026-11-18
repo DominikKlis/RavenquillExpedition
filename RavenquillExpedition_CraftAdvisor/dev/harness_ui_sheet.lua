@@ -1,4 +1,5 @@
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "uikit.lua")
+local env = H.env
 local section = H.section
 local GCA, fakeSug, advance, menuOf, check, menuTexts = H.GCA, H.fakeSug, H.advance, H.menuOf, H.check, H.menuTexts
 local plain, captureTip, tipText, plainTip, ns = H.plain, H.captureTip, H.tipText, H.plainTip, H.ns
@@ -12,12 +13,12 @@ do
   local savedTM, savedBrowse = H.templateMode, GCA.IsBrowse
   H.templateMode = "ok"
   GCA.IsBrowse = function() return false end
-  ITEM_QUALITY_COLORS = { [1] = { r = 1, g = 1, b = 1 }, [2] = { r = 0.12, g = 1, b = 0 }, [3] = { r = 0, g = 0.44, b = 0.87 } }
+  env.ITEM_QUALITY_COLORS = { [1] = { r = 1, g = 1, b = 1 }, [2] = { r = 0.12, g = 1, b = 0 }, [3] = { r = 0, g = 0.44, b = 0.87 } }
   local printFn = GCA.Print
   local printed = {}
   GCA.Print = function(_, ...) printed[#printed + 1] = table.concat({ ... }, " ") end
   local linked
-  HandleModifiedItemClick = function(l) linked = l end
+  env.HandleModifiedItemClick = function(l) linked = l end
   local E = { key = "k4", set = { weights = { Agility = 1, Stamina = 0.5, Armor = 0.05, MeleeHit = 10, Strength = 0.8 }, source = {} },
     raw = { source = { kind = "sim", minLevel = 30, maxLevel = 40 } }, class = "ROGUE", spec = "COMBAT", level = 39, share = 0.5, t = 1 }
   local function eq(name, q, cstats) return { name = name, quality = q, icon = 134, link = "|Hitem:9|h[" .. name .. "]|h", cstats = cstats or {}, scores = {} } end
@@ -52,7 +53,7 @@ do
     table.sort(list, GCA.SuggestionOrder)
     list.sections = GCA:BuildSections(rowsBy, {}, items, eqInfo, {}, E)
     return { key = key, online = online ~= false, class = "ROGUE", level = 39, prof = "Leatherworking", state = "ok", weights = E,
-      member = { items = items, time = time(), source = "inspect" }, suggestions = list, best = list[1], knownCount = #list,
+      member = { items = items, time = env.time(), source = "inspect" }, suggestions = list, best = list[1], knownCount = #list,
       spec = "COMBAT", specHow = "manual" }
   end
   local bud = member("Bud Stone", { [5] = { s1, s2 }, [11] = { ring }, [10] = { glove }, [9] = { ench1, ench2 }, [3] = { sh1, sh2, sh3 } })
@@ -138,25 +139,25 @@ do
   captureTip(); c.alts[1]._scripts.OnEnter(c.alts[1])
   check(plainTip(), "alternative tooltip = the plain item tooltip (no click hint): " .. tipText())
   linked = nil
-  IsShiftKeyDown = function() return true end
+  env.IsShiftKeyDown = function() return true end
   c.alts[1]._scripts.OnClick(c.alts[1])
   sh.slots[11]._scripts.OnClick(sh.slots[11])
-  IsShiftKeyDown = function() return false end
+  env.IsShiftKeyDown = function() return false end
   check(linked == "|Hitem:9|h[Ring A]|h" and UIx.sheetSlot == 5 and c.featured == s2, "shift-click on a slot links the worn item (selection unchanged)")
   linked = nil
-  IsShiftKeyDown = function() return true end
+  env.IsShiftKeyDown = function() return true end
   c.best._scripts.OnClick(c.best, "LeftButton")
   local bestLinked = linked
   c.worn._scripts.OnClick(c.worn, "LeftButton")
-  IsShiftKeyDown = function() return false end
+  env.IsShiftKeyDown = function() return false end
   check(bestLinked == nil and linked == "|Hitem:9|h[Worn Vest]|h" and c.featured == s2,
     "shift-click on the compared card without a link does nothing; on the worn card it links the worn item")
   do
-    local opened, savedTS = {}, C_TradeSkillUI
-    C_TradeSkillUI = { OpenRecipe = function(id) opened[#opened + 1] = id end }
+    local opened, savedTS = {}, env.C_TradeSkillUI
+    env.C_TradeSkillUI = { OpenRecipe = function(id) opened[#opened + 1] = id end }
     c.worn._scripts.OnClick(c.worn, "LeftButton")
     c.best._scripts.OnClick(c.best, "LeftButton")
-    C_TradeSkillUI = savedTS
+    env.C_TradeSkillUI = savedTS
     check(#opened == 1 and opened[1] == 3763, "plain click: the worn card does nothing, the compared card opens its recipe")
   end
   sh.slots[9]._scripts.OnClick(sh.slots[9])
@@ -388,7 +389,7 @@ do
   check(#tooWide == 0, "German text fit at 840x560 (estimate): " .. table.concat(tooWide, "; "))
 
   section("fallbacks")
-  GetFileIDFromPath = function() return nil end
+  env.GetFileIDFromPath = function() return nil end
   UIx.frame:Hide(); GCA.UI.frame = nil; GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
   UIx.selected, UIx.autoKey = "Bud Stone", nil
@@ -399,21 +400,22 @@ do
   UIx:SetMemberMode("list")
   check(UIx.sugList.pools.default[1].frameArt == "atlas" and UIx.sugList.pools.default[1].slotBg and UIx.errorCount == errs, "no files: cards keep the reagent-slot atlas (no file needed)")
   UIx:SetMemberMode("sheet")
-  GetFileIDFromPath = nil
-  GameFontGreenLarge = {}
+  env.GetFileIDFromPath = nil
+  env.GameFontGreenLarge = {}
+  local fontSet
   Frame.SetFontObject = function(self, fo) self._font = fo; fontSet = true end
   UIx.frame:Hide(); GCA.UI.frame = nil; GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
-  check(fontSet and UIx.sheet.centre.best.gain._font == GameFontGreenLarge and UIx.sheet.centre.best.gain.nativeFont == "GameFontGreenLarge", "GameFontGreenLarge exists: the sheet's big gain uses it")
-  GameFontGreenLarge, Frame.SetFontObject = nil, nil
-  local origCF = CreateFrame
-  CreateFrame = function(otype, name, parent, template)
+  check(fontSet and UIx.sheet.centre.best.gain._font == env.GameFontGreenLarge and UIx.sheet.centre.best.gain.nativeFont == "GameFontGreenLarge", "GameFontGreenLarge exists: the sheet's big gain uses it")
+  env.GameFontGreenLarge, Frame.SetFontObject = nil, nil
+  local origCF = env.CreateFrame
+  env.CreateFrame = function(otype, name, parent, template)
     if template == "UIPanelButtonTemplate" or template == "UICheckButtonTemplate" or template == "MinimalCheckboxTemplate" then error("no " .. template) end
     return origCF(otype, name, parent, template)
   end
   local tb = UIx.NewTextButton(UIx.frame, 84, 22, "Offer")
   local cb = UIx.NewCheck(UIx.frame, 22)
-  CreateFrame = origCF
+  env.CreateFrame = origCF
   check(tb.plain and tb:GetText() == "Offer" and tb.label._text == "Offer" and tb._w == 84 and tb.edges and cb.plain and cb._w == 22 and cb.edges,
     "button / check-box templates missing: plain button with its own label, bordered box")
   check(UIx.StatDiff(fakeSug()) == nil and UIx.StatDiff(fakeSug({ info = { cstats = {} }, equipped = { name = "x" } })) == nil
@@ -425,19 +427,19 @@ do
     captureTip(); pcall(fr._scripts.OnEnter, fr); pcall(fr._scripts.OnClick, fr, "LeftButton")
   end
   check(UIx.errorCount == errs2, "sheet handlers before any data: no error")
-  check(UIx.errorCount == errs2 and badAtlas == 0, "no error reported (K4)")
+  check(UIx.errorCount == errs2 and H.badAtlas == 0, "no error reported (K4)")
   UIx.frame:Hide()
   GCA.GetMemberList = origML
   GCA.Print = printFn
-  HandleModifiedItemClick = function() end
-  IsShiftKeyDown = function() return false end
-  ITEM_QUALITY_COLORS = nil
+  env.HandleModifiedItemClick = function() end
+  env.IsShiftKeyDown = function() return false end
+  env.ITEM_QUALITY_COLORS = nil
   GCA.db.settings.memberView = nil
   GCA.UI.frame = nil
   H.templateMode, GCA.IsBrowse = savedTM, savedBrowse
 end
 
-check(badAtlas == 0, "SetAtlas was never called for an atlas the client lacks (" .. badAtlas .. ")")
+check(H.badAtlas == 0, "SetAtlas was never called for an atlas the client lacks (" .. H.badAtlas .. ")")
 do
   section("native look (no mockup gimmicks left, atlases from the probe, slot art, fallbacks)")
   local src = Files.source(Files.group("UI"))
@@ -495,22 +497,22 @@ do
   UIx.SKIN.detailBorder = { pieces = { { key = "TopLeftCorner", atlas = "UI-Frame-InnerTopLeft", w = 12, p = { "TOPLEFT", -2, 2 } },
     { key = "TopRightCorner", atlas = "UI-Frame-InnerTopRight", w = 12, p = { "TOPRIGHT", 2, 2 } },
     { key = "TopEdge", atlas = "_UI-Frame-InnerTopTile", h = 5, a = { "TOPLEFT", "TopLeftCorner", "TOPRIGHT" }, b = { "TOPRIGHT", "TopRightCorner", "TOPLEFT" }, horiz = true } } }
-  local pb = UIx.AddDetailBorder(CreateFrame("Frame", nil, UIParent))
+  local pb = UIx.AddDetailBorder(env.CreateFrame("Frame", nil, env.UIParent))
   check(pb.how == "pieces" and pb.role == "detailBorder" and pb.TopLeftCorner._w == 12 and pb.TopEdge._h == 5 and pb.TopLeftCorner._points[1][4] == -2,
     "detailBorder: a piece list from the skin (sizes / offsets per piece)")
   UIx.SKIN.detailBorder = { pieces = { { key = "TopLeftCorner", atlas = "NotAnAtlas-K8", p = { "TOPLEFT", 0, 0 } } } }
-  local pf = UIx.AddDetailBorder(CreateFrame("Frame", nil, UIParent))
+  local pf = UIx.AddDetailBorder(env.CreateFrame("Frame", nil, env.UIParent))
   check(pf.how == "atlas" and pf.role == "detailBorder" and pf.TopLeftCorner._atlas == "UI-Frame-InnerTopLeft", "detailBorder: a missing piece atlas -> the inner border")
-  NineSliceUtil = { ApplyLayoutByName = function(f, name) if name == "K8TestLayout" then f.TopLeftCorner = { layout = name } else error("no layout") end end }
+  env.NineSliceUtil = { ApplyLayoutByName = function(f, name) if name == "K8TestLayout" then f.TopLeftCorner = { layout = name } else error("no layout") end end }
   UIx.SKIN.detailBorder = { layout = "K8TestLayout" }
-  local pl = UIx.AddDetailBorder(CreateFrame("Frame", nil, UIParent))
+  local pl = UIx.AddDetailBorder(env.CreateFrame("Frame", nil, env.UIParent))
   check(pl.how == "layout" and pl.TopLeftCorner.layout == "K8TestLayout", "detailBorder: a NineSliceUtil layout name from the skin")
   UIx.SKIN.detailBorder = { layout = "Missing" }
-  local pm = UIx.AddDetailBorder(CreateFrame("Frame", nil, UIParent))
+  local pm = UIx.AddDetailBorder(env.CreateFrame("Frame", nil, env.UIParent))
   check(pm.how == "atlas" and pm.role == "detailBorder", "detailBorder: an unknown layout -> the inner border")
-  NineSliceUtil = nil
+  env.NineSliceUtil = nil
   UIx.SKIN.detailBorder = skinDB
-  local rf = CreateFrame("Button", nil, UIParent)
+  local rf = env.CreateFrame("Button", nil, env.UIParent)
   local masked
   rf.CreateMaskTexture = function(self) local m = Tex(); m._parent = self; return m end
   local origCT = Frame.CreateTexture
@@ -519,7 +521,7 @@ do
   Frame.CreateTexture = origCT
   check(rf.iconShape == "round" and masked == rf.mask and rf.mask._tex == "Interface\\CharacterFrame\\TempPortraitAlphaMask" and rf.ring._tex == "Interface\\Common\\GoldRing"
     and rf.ring._w == 57 and rf.icon._w == 46, "round icon: TempPortraitAlphaMask on the icon, GoldRing 57 px around 46 px (FDJ's 37/30)")
-  local sq = CreateFrame("Button", nil, UIParent)
+  local sq = env.CreateFrame("Button", nil, env.UIParent)
   UIx.AddRoundIcon(sq, 46)
   check(sq.iconShape == "square" and sq.iconBorder._atlas == "Professions-Slot-Frame", "round icon: no mask API -> the square reagent-slot icon")
   UIx.frame:Hide()

@@ -1,6 +1,7 @@
 local ROOT = (arg[0]:gsub("[^/\\]*$", "")) .. "../"
 local Kit = dofile(ROOT .. "../RavenquillExpedition/dev/testkit.lua")
 local H = {}
+local env = setmetatable({}, { __index = _G })
 local missing = {}
 local check = Kit.check
 local sched = Kit.Scheduler({ start = 1000 })
@@ -17,13 +18,13 @@ local function New(otype, parent, name)
     _shown = true, _w = 0, _h = 0, _points = {}, _level = parent and (parent._level or 0) + 1 or 0,
     _strata = parent and parent._strata or "MEDIUM", _scale = 1 }, FrameMT)
   if parent and parent._children then table.insert(parent._children, o) end
-  if name then _G[name] = o; o._name = name end
+  if name then env[name] = o; o._name = name end
   return o
 end
 local function Tex()
   local t = New("Texture")
   t.SetAtlas = function(self, a, useSize)
-    if not C_Texture.GetAtlasInfo(a) then badAtlas = badAtlas + 1 end
+    if not env.C_Texture.GetAtlasInfo(a) then H.badAtlas = H.badAtlas + 1 end
     self._atlas, self._atlasSize = a, useSize
   end
   return t
@@ -62,17 +63,17 @@ function Frame:StartSizing(point) self._sizingFrom = point end
 function Frame:SetResizeBounds(...) self._bounds = { ... } end
 function Frame:GetLeft()
   local p = self._points[1]
-  if self._parent == UIParent and p then
-    if p[1] == "CENTER" then return (UIParent._w - self._w) / 2 end
-    if p[1] == "TOPLEFT" and p[2] == UIParent and p[3] == "BOTTOMLEFT" then return p[4] end
+  if self._parent == env.UIParent and p then
+    if p[1] == "CENTER" then return (env.UIParent._w - self._w) / 2 end
+    if p[1] == "TOPLEFT" and p[2] == env.UIParent and p[3] == "BOTTOMLEFT" then return p[4] end
   end
   return self._left
 end
 function Frame:GetTop()
   local p = self._points[1]
-  if self._parent == UIParent and p then
-    if p[1] == "CENTER" then return (UIParent._h + self._h) / 2 end
-    if p[1] == "TOPLEFT" and p[2] == UIParent and p[3] == "BOTTOMLEFT" then return p[5] end
+  if self._parent == env.UIParent and p then
+    if p[1] == "CENTER" then return (env.UIParent._h + self._h) / 2 end
+    if p[1] == "TOPLEFT" and p[2] == env.UIParent and p[3] == "BOTTOMLEFT" then return p[5] end
   end
   return self._top
 end
@@ -99,7 +100,7 @@ function Frame:SetFrameLevel(l) self._level = l end
 function Frame:GetFrameLevel() return self._level end
 function Frame:GetName() return self._name end
 function Frame:GetObjectType() return self._type end
-function Frame:GetChildren() return unpack(self._children) end
+function Frame:GetChildren() return env.unpack(self._children) end
 function Frame:GetEffectiveScale() return self._scale end
 function Frame:GetCenter() return self._cx, self._cy end
 function Frame:IsForbidden() return self._forbidden or false end
@@ -109,7 +110,7 @@ function Frame:SetChecked(v) self._checked = v and true or false end
 function Frame:SetAlpha(a) self._alpha = a end
 function Frame:GetAlpha() return self._alpha or 1 end
 function Frame:GetParent() return self._parent end
-badAtlas = 0
+H.badAtlas = 0
 H.atlasMode = "ok"
 local ATLASES = { ["Profession-Background-Overview"] = true, ["Profession-Background-Template2"] = true,
   ["Professions-Slot-Frame"] = true, ["common-dropdown-bg"] = true,
@@ -122,17 +123,17 @@ local ATLASES = { ["Profession-Background-Overview"] = true, ["Profession-Backgr
   ["Skillbar_Fill_Flipbook_Leatherworking"] = true, ["Skillbar_Flare_Leatherworking"] = true,
   ["Professions_Recipe_Hover"] = true, ["Professions_Recipe_Active"] = true, ["common-button-list-collapseExpand"] = true, ["common-insideframe"] = true, ["Profession-background-card-"] = true, ["Profession-background-card-leatherworking"] = true,
   ["auctionhouse-ui-filter-redx"] = true }
-C_Texture = { GetAtlasInfo = function(name)
+env.C_Texture = { GetAtlasInfo = function(name)
   if H.atlasMode == "ok" and ATLASES[name] then return { width = 100, height = 100, file = 1 } end
   return nil
 end }
 
 H.templateMode = "ok"
-nativeMode = { dropdown = "ok", search = "ok", category = "ok", scroll = "ok", check = "ok" }
-ScrollUtil = { InitScrollFrameWithScrollBar = function(sf, bar) sf._linkedBar = bar end }
+H.nativeMode = { dropdown = "ok", search = "ok", category = "ok", scroll = "ok", check = "ok" }
+env.ScrollUtil = { InitScrollFrameWithScrollBar = function(sf, bar) sf._linkedBar = bar end }
 local function NewUIFrame(otype, name, parent, template)
   if otype == "DropdownButton" then
-    if nativeMode.dropdown == "fail" then error("Unknown frame type 'DropdownButton'") end
+    if H.nativeMode.dropdown == "fail" then error("Unknown frame type 'DropdownButton'") end
     local f = New(otype, parent, name)
     f._template = template
     function f:SetupMenu(gen) self._gen = gen end
@@ -142,10 +143,10 @@ local function NewUIFrame(otype, name, parent, template)
     f._scripts.OnLeave = function() end
     return f
   end
-  if template == "SearchBoxTemplate" and nativeMode.search == "fail" then error("Couldn't find inherited node 'SearchBoxTemplate'") end
-  if template == "ProfessionsRecipeListCategoryTemplate" and nativeMode.category == "fail" then error("Couldn't find inherited node") end
-  if template == "MinimalScrollBar" and nativeMode.scroll == "fail" then error("Couldn't find inherited node 'MinimalScrollBar'") end
-  if template == "MinimalCheckboxTemplate" and nativeMode.check == "fail" then error("Couldn't find inherited node 'MinimalCheckboxTemplate'") end
+  if template == "SearchBoxTemplate" and H.nativeMode.search == "fail" then error("Couldn't find inherited node 'SearchBoxTemplate'") end
+  if template == "ProfessionsRecipeListCategoryTemplate" and H.nativeMode.category == "fail" then error("Couldn't find inherited node") end
+  if template == "MinimalScrollBar" and H.nativeMode.scroll == "fail" then error("Couldn't find inherited node 'MinimalScrollBar'") end
+  if template == "MinimalCheckboxTemplate" and H.nativeMode.check == "fail" then error("Couldn't find inherited node 'MinimalCheckboxTemplate'") end
   if template == "SearchBoxTemplate" or template == "ProfessionsRecipeListCategoryTemplate" or template == "MinimalScrollBar" then
     local f = New(otype, parent, name)
     f._template = template
@@ -183,34 +184,34 @@ end
 
 local Files = dofile(ROOT .. "dev/files.lua")
 local files = Files.kitFiles(Files.list({ except = { "Sync.lua" } }))
-local client = Kit.Client(sched, nil, "Me Stone", { env = _G, epoch = 1800000000, files = files, setup = function(_, c)
+local client = Kit.Client(sched, nil, "Me Stone", { env = env, epoch = 1800000000, files = files, setup = function(_, c)
   c.newFrame = NewUIFrame
-  C_ChatInfo, C_GuildInfo = nil, nil
-  UIParent = New("Frame"); UIParent._w, UIParent._h = 1920, 1080; GameTooltip = New("GameTooltip"); GameTooltip_Hide = function() end
-  for _, m in ipairs({ "SetOwner", "AddLine", "AddDoubleLine", "SetHyperlink" }) do GameTooltip[m] = function() end end
-  function InCombatLockdown() return false end
-  function IsInGuild() return true end
-  function GetRealmName() return "Realm" end
-  function UnitName(u) if u == "player" then return "Me", "Stone" end end
-  function UnitNameUnmodified(u) return UnitName(u) end
-  function UnitClass(u) if u == "player" then return "Schurke", "ROGUE" end end
-  function UnitLevel(u) if u == "player" then return 36 end end
-  function UnitIsUnit(a, b) return a == b end
-  function UnitIsPlayer(u) return u == "player" end
-  function UnitGUID(u) if u == "player" then return "G-me" end end
-  function GetInventoryItemLink(u, slot) if u == "player" and slot == 5 then return "item:4244::::::::36:1488::11" end end
-  function GetInventorySlotInfo(t) return 1, "Interface\\PaperDoll\\UI-PaperDoll-Slot-" .. t end
-  function GetNumGuildMembers() return 0 end
-  function GetProfessions() return nil end
-  C_Item = {
+  env.C_ChatInfo, env.C_GuildInfo = nil, nil
+  env.UIParent = New("Frame"); env.UIParent._w, env.UIParent._h = 1920, 1080; env.GameTooltip = New("GameTooltip"); env.GameTooltip_Hide = function() end
+  for _, m in ipairs({ "SetOwner", "AddLine", "AddDoubleLine", "SetHyperlink" }) do env.GameTooltip[m] = function() end end
+  function env.InCombatLockdown() return false end
+  function env.IsInGuild() return true end
+  function env.GetRealmName() return "Realm" end
+  function env.UnitName(u) if u == "player" then return "Me", "Stone" end end
+  function env.UnitNameUnmodified(u) return env.UnitName(u) end
+  function env.UnitClass(u) if u == "player" then return "Schurke", "ROGUE" end end
+  function env.UnitLevel(u) if u == "player" then return 36 end end
+  function env.UnitIsUnit(a, b) return a == b end
+  function env.UnitIsPlayer(u) return u == "player" end
+  function env.UnitGUID(u) if u == "player" then return "G-me" end end
+  function env.GetInventoryItemLink(u, slot) if u == "player" and slot == 5 then return "item:4244::::::::36:1488::11" end end
+  function env.GetInventorySlotInfo(t) return 1, "Interface\\PaperDoll\\UI-PaperDoll-Slot-" .. t end
+  function env.GetNumGuildMembers() return 0 end
+  function env.GetProfessions() return nil end
+  env.C_Item = {
     GetItemInfoInstant = function(item) return 4244, "Armor", "x", "INVTYPE_CHEST", 134, 4, 2 end,
     GetItemInfo = function(item) return "Hillman's Vest", "|Hitem:4244|h[Hillman's Vest]|h", 2, 20, 20, nil, nil, nil, "INVTYPE_CHEST", 134, nil, 4, 2, 2 end,
     GetItemStats = function() return {} end,
   }
-  C_SpellBook = { IsSpellKnown = function() return false end }
+  env.C_SpellBook = { IsSpellKnown = function() return false end }
 
-  Minimap = New("Frame", nil, "Minimap")
-  Minimap._w, Minimap._h, Minimap._cx, Minimap._cy, Minimap._scale = 140, 140, 1000, 700, 1
+  env.Minimap = New("Frame", nil, "Minimap")
+  env.Minimap._w, env.Minimap._h, env.Minimap._cx, env.Minimap._cy, env.Minimap._scale = 140, 140, 1000, 700, 1
 end })
 
 local ns = client.ns.RavenquillExpedition_CraftAdvisor
@@ -218,7 +219,7 @@ local SOURCES = ns.Sources
 ns.Sources = nil
 local GCA = ns.GCA
 local fire = function(_, ev, ...) client.fire(ev, ...) end
-RavenquillExpeditionCraftDB = { settings = { minimapAngle = 200 } }
+env.RavenquillExpeditionCraftDB = { settings = { minimapAngle = 200 } }
 fire(GCA, "ADDON_LOADED", "RavenquillExpedition")
 fire(GCA, "ADDON_LOADED", "RavenquillExpedition_CraftAdvisor")
 fire(GCA, "PLAYER_LOGIN")
@@ -355,10 +356,10 @@ end
 H.tip, H.hyper = {}, {}
 local function captureTip()
   H.tip, H.hyper = {}, {}
-  GameTooltip.AddLine = function(_, t) H.tip[#H.tip + 1] = tostring(t) end
-  GameTooltip.AddDoubleLine = function(_, a, b) H.tip[#H.tip + 1] = tostring(a) .. " | " .. tostring(b) end
-  GameTooltip.SetText = function(_, t) H.tip[#H.tip + 1] = tostring(t) end
-  GameTooltip.SetHyperlink = function(_, l) H.hyper[#H.hyper + 1] = tostring(l) end
+  env.GameTooltip.AddLine = function(_, t) H.tip[#H.tip + 1] = tostring(t) end
+  env.GameTooltip.AddDoubleLine = function(_, a, b) H.tip[#H.tip + 1] = tostring(a) .. " | " .. tostring(b) end
+  env.GameTooltip.SetText = function(_, t) H.tip[#H.tip + 1] = tostring(t) end
+  env.GameTooltip.SetHyperlink = function(_, l) H.hyper[#H.hyper + 1] = tostring(l) end
 end
 local function tipText() return table.concat(H.tip, "\n") end
 local function onlyChanges()
@@ -521,14 +522,14 @@ local function layoutChecks(UIx, f, label)
 end
 
 function H.lateGlobals()
-  IsShiftKeyDown = function() return false end
-  HandleModifiedItemClick = function() end
-  GetNumSubgroupMembers = function() return 0 end
-  IsInRaid = function() return false end
+  env.IsShiftKeyDown = function() return false end
+  env.HandleModifiedItemClick = function() end
+  env.GetNumSubgroupMembers = function() return 0 end
+  env.IsInRaid = function() return false end
 end
 
 function H.finish(atlasCheck)
-  if atlasCheck then check(badAtlas == 0, "SetAtlas was never called for an atlas the client lacks (" .. badAtlas .. ")") end
+  if atlasCheck then check(H.badAtlas == 0, "SetAtlas was never called for an atlas the client lacks (" .. H.badAtlas .. ")") end
   Kit.section("Keys looked up that the mock lacks (nil here; fine if the addon checks for them):")
   local names = {}
   for k in pairs(missing) do names[#names + 1] = k end
@@ -549,6 +550,7 @@ H.advance = advance
 H.captureTip = captureTip
 H.check = check
 H.descendants = descendants
+H.env = env
 H.fakeSections = fakeSections
 H.fakeSug = fakeSug
 H.layoutChecks = layoutChecks

@@ -1,4 +1,5 @@
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "uikit.lua")
+local env = H.env
 local section = H.section
 local windowChecks, GCA, descendants, check, advance = H.windowChecks, H.GCA, H.descendants, H.check, H.advance
 local menuOf, menuTexts, fakeSug, plain, captureTip = H.menuOf, H.menuTexts, H.fakeSug, H.plain, H.captureTip
@@ -14,8 +15,8 @@ end
 
 do
   section("Window: profession selector (G3/G6.1/G7.11)")
-  GetProfessions = function() return 1, 2 end
-  GetProfessionInfo = function(i)
+  env.GetProfessions = function() return 1, 2 end
+  env.GetProfessionInfo = function(i)
     if i == 1 then return "Lederverarbeitung", nil, 120, 150, nil, nil, 165 end
     if i == 2 then return "Verzauberkunst", nil, 90, 150, nil, nil, 333 end
   end
@@ -40,16 +41,16 @@ do
   check(GCA:SelectedProfession() == "Enchanting" and not GCA:IsBrowse(), "picked Enchanting (yours)")
   menuOf(pb.drop)[1]:click(); GCA.UI:Refresh()
   check(GCA:SelectedProfession() == "Leatherworking" and f.PortraitContainer.portrait._tex == "Interface\\Icons\\Trade_LeatherWorking", "back to Leatherworking")
-  GetProfessions = function() return 2 end
+  env.GetProfessions = function() return 2 end
   GCA.UI:Refresh()
   local firstLabel, firstHeader = pb.label._text or "", GCA.UI.sugHeader._text or ""
   check(firstLabel:find("(browse)", 1, true) and firstHeader:find("browsing", 1, true),
     "a dropped profession shows as browse on the very first refresh, button and header alike: " .. firstLabel .. " / " .. firstHeader)
-  GetProfessions = function() return 1, 2 end
+  env.GetProfessions = function() return 1, 2 end
   GCA:RefreshKnown()
   GCA.UI:Refresh()
   f:Hide()
-  GetProfessions = function() return nil end
+  env.GetProfessions = function() return nil end
 end
 do
   section("Window: suggestion rows (L1, L6, H5.1, H5.2, U3)")
@@ -97,36 +98,36 @@ do
       t:Hide()
       return t
     end
-    ShoppingTooltip1, ShoppingTooltip2 = fakeCompare(), fakeCompare()
+    env.ShoppingTooltip1, env.ShoppingTooltip2 = fakeCompare(), fakeCompare()
     local ownerOf
-    local savedShown, savedOwner, savedRight = GameTooltip.IsShown, GameTooltip.GetOwner, GameTooltip.GetRight
-    GameTooltip.IsShown = function() return true end
-    GameTooltip.GetOwner = function() return ownerOf end
-    GameTooltip.GetRight = function() return 600 end
-    local savedSetOwner = GameTooltip.SetOwner
-    GameTooltip.SetOwner = function(self, o, ...) ownerOf = o; if savedSetOwner then return savedSetOwner(self, o, ...) end end
+    local savedShown, savedOwner, savedRight = env.GameTooltip.IsShown, env.GameTooltip.GetOwner, env.GameTooltip.GetRight
+    env.GameTooltip.IsShown = function() return true end
+    env.GameTooltip.GetOwner = function() return ownerOf end
+    env.GameTooltip.GetRight = function() return 600 end
+    local savedSetOwner = env.GameTooltip.SetOwner
+    env.GameTooltip.SetOwner = function(self, o, ...) ownerOf = o; if savedSetOwner then return savedSetOwner(self, o, ...) end end
     local wb = show(fakeSug({ equipped = { name = "Old Vest", link = "item:2105", quality = 1 } }))
     wb._scripts.OnEnter(wb)
-    local s1 = ShoppingTooltip1
-    check(s1._shown and s1.links[1] == "item:2105" and plain(s1.lines[#s1.lines]) == "Equipped by Bud Stone" and not ShoppingTooltip2._shown,
+    local s1 = env.ShoppingTooltip1
+    check(s1._shown and s1.links[1] == "item:2105" and plain(s1.lines[#s1.lines]) == "Equipped by Bud Stone" and not env.ShoppingTooltip2._shown,
       "hovering a craft: compare tooltip = the member's worn Old Vest, 'Equipped by Bud Stone': " .. table.concat(s1.lines, " | "))
     s1.links = {}
     UIx.FillCompare()
     check(s1.links[1] == "item:2105", "a later Blizzard compare is overwritten with the member's item")
-    ShoppingTooltip1, ShoppingTooltip2 = fakeCompare(), fakeCompare()
+    env.ShoppingTooltip1, env.ShoppingTooltip2 = fakeCompare(), fakeCompare()
     wb = show(fakeSug({ equipped = nil, status = "empty-slot" }))
     wb._scripts.OnEnter(wb)
-    check(ShoppingTooltip1._shown and #ShoppingTooltip1.links == 0 and ShoppingTooltip1.lines[1] == "Nothing equipped in this slot"
-      and plain(ShoppingTooltip1.lines[2]) == "Equipped by Bud Stone", "empty slot: the compare tooltip says nothing is equipped")
-    ShoppingTooltip1, ShoppingTooltip2 = fakeCompare(), fakeCompare()
+    check(env.ShoppingTooltip1._shown and #env.ShoppingTooltip1.links == 0 and env.ShoppingTooltip1.lines[1] == "Nothing equipped in this slot"
+      and plain(env.ShoppingTooltip1.lines[2]) == "Equipped by Bud Stone", "empty slot: the compare tooltip says nothing is equipped")
+    env.ShoppingTooltip1, env.ShoppingTooltip2 = fakeCompare(), fakeCompare()
     local pairInfo = { name = "Sword + Shield", pair = { { name = "Sword", link = "item:1" }, { name = "Shield", link = "item:2" } } }
     wb = show(fakeSug({ equipped = pairInfo, bothHands = true }))
     wb._scripts.OnEnter(wb)
-    check(ShoppingTooltip1.links[1] == "item:1" and ShoppingTooltip2.links[1] == "item:2" and ShoppingTooltip2._shown,
+    check(env.ShoppingTooltip1.links[1] == "item:1" and env.ShoppingTooltip2.links[1] == "item:2" and env.ShoppingTooltip2._shown,
       "a two-hander: both worn hands in the two compare tooltips")
     UIx.HideCompare()
-    ShoppingTooltip1, ShoppingTooltip2 = nil, nil
-    GameTooltip.IsShown, GameTooltip.GetOwner, GameTooltip.GetRight, GameTooltip.SetOwner = savedShown, savedOwner, savedRight, savedSetOwner
+    env.ShoppingTooltip1, env.ShoppingTooltip2 = nil, nil
+    env.GameTooltip.IsShown, env.GameTooltip.GetOwner, env.GameTooltip.GetRight, env.GameTooltip.SetOwner = savedShown, savedOwner, savedRight, savedSetOwner
     captureTip()
   end
   b = show(fakeSug({ known = false }), { key = "Bud Stone", online = true, prof = "Blacksmithing", browse = true, level = 39 })
@@ -134,49 +135,49 @@ do
     and not plain(b.sub._text):find("Not learned", 1, true),
     "browse: no Offer, no box, gain at the right edge, the source button (trainer) starts the second line: " .. plain(b.nl.text._text))
   do
-    local opened, savedTS, savedPrint = {}, C_TradeSkillUI, GCA.Print
+    local opened, savedTS, savedPrint = {}, env.C_TradeSkillUI, GCA.Print
     local said = {}
     GCA.Print = function(_, m) said[#said + 1] = tostring(m) end
-    C_TradeSkillUI = setmetatable({ OpenRecipe = function(id) opened[#opened + 1] = id end }, { __index = savedTS })
+    env.C_TradeSkillUI = setmetatable({ OpenRecipe = function(id) opened[#opened + 1] = id end }, { __index = savedTS })
     UIx.frame:Show()
     local kb = show(fakeSug())
     kb._scripts.OnClick(kb, "LeftButton")
     check(opened[1] == 3762 and UIx.frame._shown, "click on a known craft: C_TradeSkillUI.OpenRecipe(3762), our window stays open")
-    ProfessionsFrame = New("Frame"); ProfessionsFrame:Hide()
+    env.ProfessionsFrame = New("Frame"); env.ProfessionsFrame:Hide()
     UIx.StepBehindProfessions()
-    ProfessionsFrame:Show()
+    env.ProfessionsFrame:Show()
     local behind = UIx.frame._strata
-    ProfessionsFrame:Hide()
+    env.ProfessionsFrame:Hide()
     check(behind == "MEDIUM" and UIx.frame._strata == "HIGH",
       "while the profession window is open ours drops to MEDIUM (it can be on top), HIGH again when it closes: " .. tostring(behind))
-    ProfessionsFrame = nil
+    env.ProfessionsFrame = nil
     UIx.frame:Show()
     kb = show(fakeSug({ known = false }))
     kb._scripts.OnClick(kb, "LeftButton")
     check(#opened == 1 and said[#said] == ns.L.OPEN_NOT_KNOWN and UIx.frame._shown, "click on an unlearned craft: not opened, a chat line says why")
-    InCombatLockdown = function() return true end
+    env.InCombatLockdown = function() return true end
     kb = show(fakeSug())
     kb._scripts.OnClick(kb, "LeftButton")
     check(#opened == 1 and said[#said] == ns.L.OPEN_COMBAT, "in combat: not opened")
-    InCombatLockdown = nil
-    C_TradeSkillUI = { OpenRecipe = function() error("nope") end }
+    env.InCombatLockdown = nil
+    env.C_TradeSkillUI = { OpenRecipe = function() error("nope") end }
     kb._scripts.OnClick(kb, "LeftButton")
     check(said[#said] == ns.L.OPEN_FAIL and UIx.frame._shown, "OpenRecipe failing: no Lua error, a chat hint, window stays")
-    C_TradeSkillUI, GCA.Print = savedTS, savedPrint
+    env.C_TradeSkillUI, GCA.Print = savedTS, savedPrint
   end
   do
-    local opened, linked, savedTS, savedLink = {}, {}, C_TradeSkillUI, HandleModifiedItemClick
-    C_TradeSkillUI = { OpenRecipe = function(id) opened[#opened + 1] = id end }
-    HandleModifiedItemClick = function(l) linked[#linked + 1] = l end
+    local opened, linked, savedTS, savedLink = {}, {}, env.C_TradeSkillUI, env.HandleModifiedItemClick
+    env.C_TradeSkillUI = { OpenRecipe = function(id) opened[#opened + 1] = id end }
+    env.HandleModifiedItemClick = function(l) linked[#linked + 1] = l end
     UIx.frame:Show()
     local kb = show(fakeSug())
     kb._scripts.OnClick(kb, "RightButton")
-    IsControlKeyDown = function() return true end
+    env.IsControlKeyDown = function() return true end
     kb._scripts.OnClick(kb, "LeftButton")
     local eb = show(fakeSug({ kind = "enchant", info = { name = "Enchant Chest", quality = 1, icon = "x" } }))
     eb._scripts.OnClick(eb, "LeftButton")
-    IsControlKeyDown = nil
-    C_TradeSkillUI, HandleModifiedItemClick = savedTS, savedLink
+    env.IsControlKeyDown = nil
+    env.C_TradeSkillUI, env.HandleModifiedItemClick = savedTS, savedLink
     check(#opened == 0 and #linked == 1 and linked[1] == "|Hitem:4244|h[Hillman's Leather Vest]|h",
       "right-click on a learned craft opens nothing; ctrl-click links it; ctrl-click on an enchant (no link) does nothing")
   end
@@ -203,7 +204,7 @@ do
   b = show(d)
   b.crafted:SetChecked(true); b.crafted._scripts.OnClick(b.crafted)
   local mark = GCA:CraftedMark("Bud Stone", "Leatherworking", 3762)
-  check(mark and mark.item == 4244 and RavenquillExpeditionCraftDB.crafted[GCA.charKey]["Bud Stone"].Leatherworking[3762] == mark,
+  check(mark and mark.item == 4244 and env.RavenquillExpeditionCraftDB.crafted[GCA.charKey]["Bud Stone"].Leatherworking[3762] == mark,
     "ticking stores the mark in SavedVariables (per character)")
   b = show(d)
   check(b.crafted._checked == true, "box shows the mark after a refresh")
@@ -211,7 +212,7 @@ do
   check(H.tip[1] == "Crafted" and tipText():find("Crafted for Bud Stone", 1, true) and tipText():find("wearing it", 1, true),
     "box tooltip = the label as title + the explanation")
   b.crafted:SetChecked(false); b.crafted._scripts.OnClick(b.crafted)
-  check(GCA:CraftedMark("Bud Stone", "Leatherworking", 3762) == nil and RavenquillExpeditionCraftDB.crafted[GCA.charKey]["Bud Stone"] == nil,
+  check(GCA:CraftedMark("Bud Stone", "Leatherworking", 3762) == nil and env.RavenquillExpeditionCraftDB.crafted[GCA.charKey]["Bud Stone"] == nil,
     "unticking removes the mark (and empty tables)")
   b = show(fakeSug({ kind = "enchant", enchant = { enchant = 247, name = "Minor Agility" }, item = { name = "Bracers" }, slot = 9,
     cand = { spellID = 7779, enchant = true, recipe = { skill = 80, src = "trainer", r = {} } } }))
@@ -287,10 +288,10 @@ do
   check(UIx.filterButton.native and UIx.optionsButton == nil, "German window has the native Filter dropdown (its text is the template's own)")
   check(UIx.survival.label._text == "Levelbonus (Ausdauer/Willenskraft): 50%", "slider in German (our fallback words): " .. tostring(UIx.survival.label._text))
   check(plain(UIx.subText._text):find("^Stufe 36 "), "sub-line uses our 'Stufe' when LEVEL is missing: " .. plain(UIx.subText._text))
-  LEVEL, SPELL_STAT3_NAME = "StufeCL", "AusdauerCL"
+  env.LEVEL, env.SPELL_STAT3_NAME = "StufeCL", "AusdauerCL"
   UIx:Refresh()
   check(plain(UIx.subText._text):find("^StufeCL 36") and UIx.survival.label._text:find("AusdauerCL", 1, true), "client globals win where they exist")
-  LEVEL, SPELL_STAT3_NAME = nil, nil
+  env.LEVEL, env.SPELL_STAT3_NAME = nil, nil
   local d = fakeSug()
   UIx.current = { key = "Bud Stone", online = true, prof = "Leatherworking", level = 39 }
   UIx.sugList:SetData({ d })
@@ -367,13 +368,13 @@ do
   check(tipText():find("Rings", 1, true) and tipText():find("Ring 1: Ring A", 1, true) and tipText():find("Ring 2: Ring B", 1, true) or tipText():find("Finger", 1, true),
     "rings worn row tooltip lists both rings")
   local clicked
-  HandleModifiedItemClick = function(l) clicked = l end
+  env.HandleModifiedItemClick = function(l) clicked = l end
   h._scripts.OnClick(h)
   check(clicked == nil, "a plain click on the equipped item does nothing")
-  local savedShift = IsShiftKeyDown
-  IsShiftKeyDown = function() return true end
+  local savedShift = env.IsShiftKeyDown
+  env.IsShiftKeyDown = function() return true end
   h._scripts.OnClick(h)
-  IsShiftKeyDown = savedShift
+  env.IsShiftKeyDown = savedShift
   check(clicked == "|Hitem:4244|h[Worn Vest]|h", "worn row Shift-click links the real hyperlink")
   local saveData = sl.data
   sl:SetData(UIx.SectionRows(fakeSections({ [1] = { fakeSug({ slot = 1 }), fakeSug({ slot = 1 }), fakeSug({ slot = 1 }) },
@@ -390,7 +391,7 @@ do
     [10] = { fakeSug({ slot = 10 }), fakeSug({ slot = 10 }), fakeSug({ slot = 10 }) } })
   GCA.GetMemberList = function()
     return { { key = "Bud Stone", online = true, class = "ROGUE", level = 39, prof = "Leatherworking", state = "ok",
-      member = { items = {}, time = time(), source = "inspect" }, suggestions = long, best = long[1], knownCount = 1 } }
+      member = { items = {}, time = env.time(), source = "inspect" }, suggestions = long, best = long[1], knownCount = 1 } }
   end
   UIx.selected, UIx.autoKey = "Bud Stone", nil
   GCA.db.settings.memberView = "list"
@@ -410,7 +411,7 @@ do
   for _, x in ipairs(H) do if x._shown then shownH = shownH + 1 end end
   check(shownH == 1 and FP[1]._shown and sl.pools.default[1]._shown and not sl.pools.default[2]._shown and not sl.pools.default[3]._shown, "pools reused; unused rows hidden")
   check(UIx.errorCount == before, "no error reported")
-  HandleModifiedItemClick = function() end
+  env.HandleModifiedItemClick = function() end
 
   section("Window: slot sections in German (plan I)")
   ns.locale = "deDE"
@@ -502,7 +503,7 @@ do
   local win = GCA.db.settings.window
   check(win and win.w == 1200 and win.h == 800 and win.left == left0 and win.top == top0, "size and position saved after the drag")
   check(f._SetUserPlaced and f._SetUserPlaced[1] == false, "client layout cache not used (SetUserPlaced(false)): SavedVariables own the geometry")
-  f:ClearAllPoints(); f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 100, 900)
+  f:ClearAllPoints(); f:SetPoint("TOPLEFT", env.UIParent, "BOTTOMLEFT", 100, 900)
   UIx.dragBar._scripts.OnMouseDown(UIx.dragBar, "LeftButton")
   UIx.dragBar._scripts.OnMouseUp(UIx.dragBar, "LeftButton")
   check(GCA.db.settings.window.left == 100 and GCA.db.settings.window.top == 900 and GCA.db.settings.window.w == 1200, "moving saves the position")
@@ -514,7 +515,7 @@ do
   end
   f = reopen()
   local p = f._points[1]
-  check(f._w == 1200 and f._h == 800 and p[1] == "TOPLEFT" and p[2] == UIParent and p[3] == "BOTTOMLEFT" and p[4] == 100 and p[5] == 900
+  check(f._w == 1200 and f._h == 800 and p[1] == "TOPLEFT" and p[2] == env.UIParent and p[3] == "BOTTOMLEFT" and p[4] == 100 and p[5] == 900
     and GCA.UI.layoutW == 1200, "reopened (new session): 1200x800 at (100, 900), laid out")
   GCA.db.settings.window = { w = 5000, h = 3000, left = -500, top = 5000 }
   f:Hide(); f = reopen()

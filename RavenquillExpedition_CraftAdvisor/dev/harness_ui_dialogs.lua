@@ -1,4 +1,5 @@
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "uikit.lua")
+local env = H.env
 local section = H.section
 local ns, GCA, advance, fakeSections, fakeSug, menuOf = H.ns, H.GCA, H.advance, H.fakeSections, H.fakeSug, H.menuOf
 local descendants, captureTip, check, tipText, Files = H.descendants, H.captureTip, H.check, H.tipText, H.Files
@@ -16,7 +17,7 @@ local function sweep(locale)
   GCA.Print = function() end
   local function fill()
     UIx.current = { key = "Bud Stone", online = true, prof = "Leatherworking", level = 39, class = "ROGUE",
-      member = { items = {}, time = time(), source = "inspect" }, spec = "COMBAT", specHow = "manual" }
+      member = { items = {}, time = env.time(), source = "inspect" }, spec = "COMBAT", specHow = "manual" }
     local swList = fakeSections({ [5] = { fakeSug(), fakeSug({ future = true, wearAt = 42, levelsToGo = 3 }), fakeSug({ known = false }) },
       [9] = { fakeSug({ kind = "enchant", enchant = { enchant = 247, name = "Minor Agility" }, item = { name = "Bracers" }, slot = 9,
         cand = { spellID = 7779, enchant = true, recipe = { skill = 80, src = "trainer", r = {} } }, status = "weapon-enchant",
@@ -169,13 +170,13 @@ do
   local UIx, f = GCA.UI, GCA.UI.frame
   local function pressEsc()
     local found = false
-    for _, name in pairs(UISpecialFrames) do
-      local fr = _G[name]
+    for _, name in pairs(env.UISpecialFrames) do
+      local fr = env[name]
       if fr and fr:IsShown() then fr:Hide(); found = true end
     end
     return found
   end
-  local function listed(name) local n = 0 for _, v in ipairs(UISpecialFrames) do if v == name then n = n + 1 end end return n end
+  local function listed(name) local n = 0 for _, v in ipairs(env.UISpecialFrames) do if v == name then n = n + 1 end end return n end
   local printed = {}
   local printFn = GCA.Print
   GCA.Print = function(_, ...) printed[#printed + 1] = table.concat({ ... }, " ") end
@@ -254,8 +255,8 @@ do
 end
 
 H.templateMode = "fail"
-local origCF = CreateFrame
-CreateFrame = function(otype, name, parent, template)
+local origCF = env.CreateFrame
+env.CreateFrame = function(otype, name, parent, template)
   if template == "InsetFrameTemplate" then error("no InsetFrameTemplate") end
   return origCF(otype, name, parent, template)
 end
@@ -276,7 +277,7 @@ do
   check(#alphas == 2 and alphas[1] == 0.6 and alphas[2] == 0.6, "fallback look unchanged (panel alpha 0.6)")
   H.atlasMode = "ok"
 end
-CreateFrame = origCF
+env.CreateFrame = origCF
 
 do
   section("whisper to a name with a space; K0/L3: spec reasons + slash replies localized")
@@ -290,11 +291,11 @@ do
   function box:GetText() return self.text end
   function box:SetFocus() self.focus = true end
   local opened = {}
-  local savedCFU = ChatFrameUtil
-  ChatFrameUtil = { OpenChat = function(text) opened[#opened + 1] = text; return box end, GetActiveWindow = function() return box end }
+  local savedCFU = env.ChatFrameUtil
+  env.ChatFrameUtil = { OpenChat = function(text) opened[#opened + 1] = text; return box end, GetActiveWindow = function() return box end }
   local savedUI = GCA.UI
   local uiNs = { GCA = GCA, L = ns.L, G = ns.G, LGet = ns.LGet }
-  Files.loadUI(uiNs)
+  Files.loadUI(uiNs, env)
   local UIw = GCA.UI
   GCA.UI = savedUI
   UIw.OpenWhisper("Dora Field", "Hi Dora, I can craft X")
@@ -308,21 +309,21 @@ do
   function box2:SetText(t) self.text = t end
   function box2:GetText() return self.text end
   opened = {}
-  ChatFrameUtil = { OpenChat = function(text) opened[#opened + 1] = text; box2.text = text; return box2 end, GetActiveWindow = function() return box2 end }
+  env.ChatFrameUtil = { OpenChat = function(text) opened[#opened + 1] = text; box2.text = text; return box2 end, GetActiveWindow = function() return box2 end }
   uiNs = { GCA = GCA, L = ns.L, G = ns.G, LGet = ns.LGet }
-  Files.loadUI(uiNs)
+  Files.loadUI(uiNs, env)
   UIw = GCA.UI
   GCA.UI = savedUI
   UIw.OpenWhisper("Dora Field", "Hello")
   advance(1)
   check(opened[1] == "" and opened[2] == "/w Dora Field Hello", "unverified target: falls back to the '/w' route (" .. tostring(opened[2]) .. ")")
-  ChatFrameUtil = nil
+  env.ChatFrameUtil = nil
   uiNs = { GCA = GCA, L = ns.L, G = ns.G, LGet = ns.LGet }
-  Files.loadUI(uiNs)
+  Files.loadUI(uiNs, env)
   UIw = GCA.UI
   GCA.UI = savedUI
   check(pcall(UIw.OpenWhisper, "Dora Field", "Hello"), "no chat API: no error")
-  ChatFrameUtil = savedCFU
+  env.ChatFrameUtil = savedCFU
 
   ns.locale = "deDE"
   check(UIw.SpecWhyText("no-class") == "Klasse unbekannt" and UIw.SpecWhyText("tie") == "zwei Bäume gleich stark"
@@ -341,15 +342,15 @@ do
   check(me ~= nil and UIw.SpecWhyText(noClass) == "class unknown" and UIw.SpecWhyText(notRead) == "talents not read yet",
     "MemberSpec reasons reach the member tooltip as 'class unknown' / 'talents not read yet'")
   local printed = {}
-  local savedPrint = print
-  print = function(...) local t = {} for i = 1, select("#", ...) do t[i] = tostring(select(i, ...)) end printed[#printed + 1] = table.concat(t, " ") end
+  local savedPrint = env.print
+  env.print = function(...) local t = {} for i = 1, select("#", ...) do t[i] = tostring(select(i, ...)) end printed[#printed + 1] = table.concat(t, " ") end
   ns.locale = "deDE"
   GCA:InspectTarget()
   local reset
   for _, o in ipairs(GCA.options) do if o.label == ns.Locales.enUS.OPT_MM_RESET then reset = o end end
   if reset then reset.func() end
   ns.locale = "enUS"
-  print = savedPrint
+  env.print = savedPrint
   local all = table.concat(printed, "\n")
   check(all:find("Visiere zuerst ein Gildenmitglied an", 1, true) and all:find("Minimap-Knopf in die größte freie Lücke verschoben", 1, true)
     and not all:find("Target a guild member", 1, true), "chat replies in German: " .. all:gsub("\n", " | "))
