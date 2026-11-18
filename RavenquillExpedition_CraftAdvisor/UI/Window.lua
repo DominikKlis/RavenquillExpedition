@@ -543,21 +543,20 @@ local function SuggestionHeaderText(prof, count, browse)
   return text .. " " .. C.browse .. "– " .. string.format(L.HEAD_BROWSE, ProfName(prof)) .. "|r"
 end
 
-local function NoSuggestionsReason(current, prof, browse)
-  if (current.pending or 0) > 0 then return L.EMPTY_LOADING end
-  if browse then return string.format(L.EMPTY_BROWSE, ProfName(prof)) end
-  if GCA:KnownCount(prof) == 0 then return string.format(L.EMPTY_NOKNOWN, ProfName(prof), ProfName(prof)) end
-  return prof == "Enchanting" and L.EMPTY_ENCHANT or L.EMPTY_NONE
-end
+local EMPTY_TEXT = {
+  ["no-gear"] = function() return L.EMPTY_NOGEAR end,
+  ["no-spec"] = function() return L.EMPTY_NOSPEC end,
+  ["no-level"] = function() return L.EMPTY_NOLEVEL end,
+  ["no-weights"] = function() return L.EMPTY_NOWEIGHTS end,
+  loading = function() return L.EMPTY_LOADING end,
+  browse = function(prof) return string.format(L.EMPTY_BROWSE, ProfName(prof)) end,
+  ["no-known"] = function(prof) return string.format(L.EMPTY_NOKNOWN, ProfName(prof), ProfName(prof)) end,
+  none = function(prof) return prof == "Enchanting" and L.EMPTY_ENCHANT or L.EMPTY_NONE end,
+}
 
 local function EmptyReason(current, count, prof, browse)
-  if not current.member then return L.EMPTY_NOGEAR end
-  local state = current.state
-  if state == "no-spec" then return L.EMPTY_NOSPEC end
-  if state == "no-level" then return L.EMPTY_NOLEVEL end
-  if state == "no-weights" or state == "no-class" then return L.EMPTY_NOWEIGHTS end
-  if count > 0 then return "" end
-  return NoSuggestionsReason(current, prof, browse)
+  local reason = GCA:EmptyReason(current, count, prof, browse)
+  return reason and EMPTY_TEXT[reason](prof) or ""
 end
 
 local function ShowSuggestionSheet(self, current, list, prof, why)

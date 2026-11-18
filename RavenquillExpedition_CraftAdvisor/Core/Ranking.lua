@@ -110,3 +110,22 @@ function GCA.DefaultMember(members)
     if not e.isSelf and e.best then return e end
   end
 end
+
+local LISTED_STATE = { ["no-spec"] = "no-spec", ["no-level"] = "no-level", loading = "loading" }
+function GCA.MemberStatus(e)
+  if not e.member then return "uninspected" end
+  if e.browse then return "browse" end
+  if e.best then return "best" end
+  return LISTED_STATE[e.state] or "none"
+end
+
+local UNSCORED = { ["no-spec"] = "no-spec", ["no-level"] = "no-level", ["no-weights"] = "no-weights", ["no-class"] = "no-weights" }
+function GCA:EmptyReason(e, count, prof, browse)
+  if not e.member then return "no-gear" end
+  if UNSCORED[e.state] then return UNSCORED[e.state] end
+  if count > 0 then return nil end
+  if (e.pending or 0) > 0 then return "loading" end
+  if browse then return "browse" end
+  if self:KnownCount(prof) == 0 then return "no-known" end
+  return "none"
+end

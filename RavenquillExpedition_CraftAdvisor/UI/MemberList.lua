@@ -36,25 +36,19 @@ local MEMBER_STATE = {
     end,
     tip = function(d) return string.format(L.MEMBER_TIP_BEST, d.knownCount or 0, GainText(d.best)), 0.3, 1, 0.3 end,
   },
-  noSpec = {
+  ["no-spec"] = {
     line = function() return WarnText(L.MEMBER_LINE_NOSPEC) end,
     tip = function() return L.MEMBER_TIP_NOSPEC, 1, 0.5, 0.2 end,
   },
-  noLevel = {
+  ["no-level"] = {
     line = function() return WarnText(L.MEMBER_LINE_NOLEVEL) end,
     tip = function() return L.MEMBER_TIP_NOLEVEL, 1, 0.5, 0.2 end,
   },
   loading = { line = function() return DimText(L.MEMBER_LINE_LOADING) end, tip = NoneTip },
   none = { line = function() return DimText(L.MEMBER_LINE_NONE) end, tip = NoneTip },
 }
-local STATE_FROM_CORE = { ["no-spec"] = MEMBER_STATE.noSpec, ["no-level"] = MEMBER_STATE.noLevel, loading = MEMBER_STATE.loading }
 
-local function MemberState(d)
-  if not d.member then return MEMBER_STATE.uninspected end
-  if d.browse then return MEMBER_STATE.browse end
-  if d.best then return MEMBER_STATE.best end
-  return STATE_FROM_CORE[d.state] or MEMBER_STATE.none
-end
+local function MemberState(d) return MEMBER_STATE[GCA.MemberStatus(d)] end
 
 local function MemberLine(d) return MemberState(d).line(d) end
 UI.MemberLine = MemberLine

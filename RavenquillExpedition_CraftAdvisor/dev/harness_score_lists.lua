@@ -86,4 +86,47 @@ do
     "default pick: none when only you have an upgrade or nobody does")
 end
 
+
+section("Core: member status and why a member shows no suggestions (MemberStatus, EmptyReason)")
+do
+  local function entry(over)
+    local e = { key = "Tess Field", member = { items = {} }, state = "ok" }
+    for k, v in pairs(over) do e[k] = v end
+    return e
+  end
+  local best = { slot = 6, points = 12 }
+  local cases = {
+    { entry({ member = false, best = best }), "uninspected" }, { entry({ browse = true, best = best }), "browse" },
+    { entry({ best = best, state = "no-spec" }), "best" }, { entry({ state = "no-spec" }), "no-spec" },
+    { entry({ state = "no-level" }), "no-level" }, { entry({ state = "loading" }), "loading" },
+    { entry({ state = "no-weights" }), "none" }, { entry({ state = "no-class" }), "none" }, { entry({}), "none" },
+  }
+  local bad = {}
+  for i, c in ipairs(cases) do
+    if c[1].member == false then c[1].member = nil end
+    if GCA.MemberStatus(c[1]) ~= c[2] then bad[#bad + 1] = i .. ": " .. tostring(GCA.MemberStatus(c[1])) end
+  end
+  check(#bad == 0, "member status: no gear, browse, an upgrade, then the scoring state (no spec / no level / loading), else none: "
+    .. table.concat(bad, "; "))
+
+  H.professionMocks()
+  H.setProfs({ { "Lederverarbeitung", 300, 300, 165 } })
+  local spell = next(H.ns.Recipes.Leatherworking)
+  H.known[spell] = true
+  GCA:RefreshKnown()
+  local lw, tail = "Leatherworking", "Tailoring"
+  check(GCA:KnownCount(lw) > 0 and GCA:KnownCount(tail) == 0, "setup: a known Leatherworking recipe, no Tailoring")
+  local R = function(e, n, prof, browse) return GCA:EmptyReason(e, n, prof, browse) end
+  check(R(entry({ member = false }), 3, lw) == "no-gear" and R(entry({ state = "no-spec" }), 3, lw) == "no-spec"
+    and R(entry({ state = "no-level" }), 3, lw) == "no-level" and R(entry({ state = "no-weights" }), 3, lw) == "no-weights"
+    and R(entry({ state = "no-class" }), 3, lw) == "no-weights",
+    "no gear, then an unscored member (no spec, no level, no weights or class) explains even with rows")
+  check(R(entry({}), 3, lw) == nil and R(entry({ pending = 2 }), 1, lw) == nil, "rows shown: no reason")
+  check(R(entry({ pending = 2 }), 0, lw, true) == "loading" and R(entry({}), 0, tail, true) == "browse"
+    and R(entry({}), 0, tail) == "no-known" and R(entry({}), 0, lw) == "none",
+    "no rows: item data loading, then browsing, then no known recipe, else nothing to offer")
+  H.known[spell] = nil
+  GCA:RefreshKnown()
+end
+
 H.finish()
