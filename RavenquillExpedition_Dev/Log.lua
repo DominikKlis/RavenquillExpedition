@@ -137,6 +137,9 @@ mod.options = {
   { type = "toggle", label = "Also log all other chat lines", tooltip = "Every chat line, including whispers and guild chat, into the log file. Off by default.",
     get = function() return db and db.chatAll or false end, set = function(v) db.chatAll = v and true or false end },
   { type = "button", label = "Clear the log", func = function() Dev.Clear() end },
+  { type = "toggle", label = "Craft Advisor: verbose chat messages",
+    get = function() local c = RQ:GetModule("Craft"); return c and c.verbose and true or false end,
+    set = function(v) local c = RQ:GetModule("Craft"); if c then c.verbose = v and true or false end end },
   { type = "button", label = "Run all tests (then /reload to save)", func = function() if Dev.RunAll then Dev:RunAll() end end },
   { type = "text", label = "Last 50 entries", lines = function()
     local out, all = {}, Dev.Entries()

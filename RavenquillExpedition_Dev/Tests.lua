@@ -391,3 +391,148 @@ Dev:Register("highlights.smoke", function(t)
     t:done()
   end)
 end, 30)
+
+local INSPECT_FRAMES = { "ProfessionsFrame", "TradeSkillFrame", "CharacterFrame", "PlayerSpellsFrame", "SpellBookFrame",
+  "FriendsFrame", "CollectionsJournal", "EncounterJournal", "PVEFrame", "MerchantFrame", "QuestLogFrame", "WorldMapFrame" }
+local INSPECT_MAX_LINES = 3000
+
+local function Pack(...) return { n = select("#", ...), ... } end
+
+local function Call(obj, method, ...)
+  local fn = obj and obj[method]
+  if type(fn) ~= "function" then return nil end
+  local r = Pack(pcall(fn, obj, ...))
+  if not r[1] then return nil end
+  return unpack(r, 2, math.max(r.n, 2))
+end
+
+local function RegionName(r)
+  return tostring(Call(r, "GetDebugName") or Call(r, "GetName") or "?")
+end
+
+local function Points(r)
+  local out = {}
+  for i = 1, Call(r, "GetNumPoints") or 0 do
+    local p, rel, rp, x, y = Call(r, "GetPoint", i)
+    out[#out + 1] = ("%s>%s:%s(%.0f,%.0f)"):format(tostring(p), rel and RegionName(rel) or "parent", tostring(rp), x or 0, y or 0)
+  end
+  return table.concat(out, " ")
+end
+
+local function Color(r, method)
+  local cr, cg, cb, ca = Call(r, method)
+  if not cr then return "-" end
+  return ("%.2f,%.2f,%.2f,%.2f"):format(cr, cg or 0, cb or 0, ca or 1)
+end
+
+local function TextureLine(r, atlases)
+  local atlas = Call(r, "GetAtlas")
+  if atlas then atlases[atlas] = true end
+  local layer, sub = Call(r, "GetDrawLayer")
+  return (" layer=%s/%s atlas=%s file=%s tc=%s vc=%s blend=%s"):format(tostring(layer), tostring(sub), tostring(atlas),
+    tostring(Call(r, "GetTexture")), table.concat({ Call(r, "GetTexCoord") }, ","), Color(r, "GetVertexColor"),
+    tostring(Call(r, "GetBlendMode")))
+end
+
+local function FontLine(r)
+  local font = Call(r, "GetFontObject")
+  local text = tostring(Call(r, "GetText") or ""):sub(1, 40)
+  return (" font=%s color=%s justify=%s text=%q"):format(tostring(font and Call(font, "GetName")), Color(r, "GetTextColor"),
+    tostring(Call(r, "GetJustifyH")), text)
+end
+
+local function Describe(r, depth, atlases)
+  local kind = tostring(Call(r, "GetObjectType"))
+  local w, h = Call(r, "GetSize")
+  local line = ("%s%s %s %.0fx%.0f shown=%s"):format(("  "):rep(depth), kind, RegionName(r), w or 0, h or 0,
+    tostring(Call(r, "IsShown")))
+  if kind == "Texture" or kind == "MaskTexture" then line = line .. TextureLine(r, atlases)
+  elseif kind == "FontString" then line = line .. FontLine(r)
+  else line = line .. (" level=%s strata=%s"):format(tostring(Call(r, "GetFrameLevel")), tostring(Call(r, "GetFrameStrata"))) end
+  return line .. " @ " .. Points(r)
+end
+
+local function Walk(f, depth, out, atlases)
+  if #out >= INSPECT_MAX_LINES or Call(f, "IsForbidden") then return end
+  out[#out + 1] = Describe(f, depth, atlases)
+  for _, r in ipairs({ Call(f, "GetRegions") }) do out[#out + 1] = Describe(r, depth + 1, atlases) end
+  for _, c in ipairs({ Call(f, "GetChildren") }) do Walk(c, depth + 1, out, atlases) end
+end
+
+local function AtlasLines(atlases)
+  local out = {}
+  for atlas in pairs(atlases) do
+    local info = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas)
+    out[#out + 1] = info and ("%s file=%s %dx%d l=%.4f r=%.4f t=%.4f b=%.4f tilesH=%s tilesV=%s"):format(atlas,
+      tostring(info.file or info.filename), info.width or 0, info.height or 0, info.leftTexCoord or 0, info.rightTexCoord or 0,
+      info.topTexCoord or 0, info.bottomTexCoord or 0, tostring(info.tilesHorizontally), tostring(info.tilesVertically))
+      or (atlas .. " (no info)")
+  end
+  table.sort(out)
+  return out
+end
+
+function Dev:InspectFrame(name)
+  local f = rawget(_G, name)
+  if type(f) ~= "table" then return nil end
+  local out, atlases = {}, {}
+  Walk(f, 0, out, atlases)
+  self.db.inspect = type(self.db.inspect) == "table" and self.db.inspect or {}
+  self.db.inspect[name] = { t = time(), lines = out, atlases = AtlasLines(atlases) }
+  local shot = rawget(_G, "Screenshot")
+  if type(shot) == "function" then pcall(shot) end
+  return #out
+end
+
+Dev:Register("ui.inspect", function(t)
+  RQ.Print("Dev", "|cffffff00Open the Blizzard windows to copy (profession, character, spellbook ...). Each one is recorded and screenshotted. 2 minutes.|r")
+  local done, ticks = {}, 0
+  local function Poll()
+    ticks = ticks + 1
+    for _, name in ipairs(INSPECT_FRAMES) do
+      local f = rawget(_G, name)
+      if not done[name] and type(f) == "table" and Call(f, "IsShown") then
+        done[name] = true
+        t:after(0.6, function()
+          local n = Dev:InspectFrame(name)
+          t:ok(n and n > 0, ("%s recorded: %s regions"):format(name, tostring(n)))
+          RQ.Print("Dev", name .. " recorded.")
+        end)
+      end
+    end
+    if ticks < 115 then t:after(1, Poll) else t:done() end
+  end
+  t:after(1, Poll)
+end, 130, { manual = true })
+
+local function TakeScreenshot()
+  local shot = rawget(_G, "Screenshot")
+  if type(shot) == "function" then pcall(shot) end
+end
+
+Dev:Register("ui.capture", function(t)
+  if RQ:OverviewShown() then RQ:ToggleOverview() end
+  if RQ:OverviewShown() then RQ:ToggleOverview() end
+  RQ:ToggleOverview()
+  t:after(1.5, function()
+    local n = Dev:InspectFrame("RavenquillExpeditionOverview")
+    t:ok(n and n > 0, ("overview recorded: %s regions"):format(tostring(n)))
+    local tabs, i = { "Highlights", "Map", "Craft" }, 0
+    local function NextTab()
+      i = i + 1
+      local name = tabs[i]
+      if not name then
+        RQ:ToggleOverview()
+        RQ:ToggleOverview()
+        return t:done()
+      end
+      RQ:ShowModulePage(name)
+      t:after(1.5, function()
+        TakeScreenshot()
+        t:ok(select(2, RQ:OverviewShown()) == name, name .. " tab shown and screenshotted")
+        t:after(1.5, NextTab)
+      end)
+    end
+    t:after(2, NextTab)
+  end)
+end, 30, { manual = true })
