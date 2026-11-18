@@ -32,6 +32,10 @@ function GS:ReadRoster()
   rosterRead = GetTime()
 end
 
+function ns.ForgetRoster()
+  GS.roster, rosterCount, rosterOffline, onlineCountAt = {}, nil, nil, nil
+end
+
 function GS:IsGuildMember(key)
   if not key then return false end
   if self:IsMe(key) then return (SafeCall(IsInGuild)) and true or false end

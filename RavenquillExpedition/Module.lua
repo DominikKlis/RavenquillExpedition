@@ -254,6 +254,7 @@ local function OnGuildUpdate()
     if old then TellGuildChanged(new, old) end
   elseif not new and old and not inGuild then
     GS.guildKey = nil
+    ns.ForgetRoster()
     TellGuildChanged(nil, old)
   end
 end

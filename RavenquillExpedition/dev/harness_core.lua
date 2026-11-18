@@ -145,8 +145,20 @@ check(coreNS.PeerCount() == 2 and not RQ:IsPeer("Zed Other") and RQ:IsPeer("Bud 
 env.RavenquillExpeditionDB.peersByGuild["Andere Gilde@Forever"]["Zed Other"] = RQ:Now() - RQ.PEER_MAX_AGE - 5
 RQ:PrunePeers()
 check(env.RavenquillExpeditionDB.peersByGuild["Andere Gilde@Forever"] == nil, "PrunePeers drops old peers and empty guilds")
+local guildInfo = env.GetGuildInfo
 env.GetGuildInfo = function() end
 check(RQ:Peers() ~= nil, "guild unknown for a moment: the last known guild is used")
+env.GetGuildInfo = guildInfo
+me.guild = nil
+fire("PLAYER_GUILD_UPDATE")
+local left = 0
+for _ in RQ:EachMember() do left = left + 1 end
+check(left == 0 and not RQ:RosterComplete() and RQ:RosterEntry("Bud Stone") == nil and RQ:OnlineCount() == 0
+  and coreNS.PeerCount() == 0 and not RQ:IsPeer("Bud Stone") and RQ:OverviewPeersLine() == "0 Gildenmitglieder mit Ravenquill (0 online)",
+  "leaving the guild: the old guild's roster and peers are gone (" .. left .. " roster members left)")
+me.guild = "Die Gilde"
+fire("PLAYER_GUILD_UPDATE")
+fire("GUILD_ROSTER_UPDATE")
 check(RQ:MaxLevel() == 60, "MaxLevel")
 
 section("Wire helpers (byte-compatible with Map's and CraftAdvisor's own)")
