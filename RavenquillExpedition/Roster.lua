@@ -83,7 +83,7 @@ end
 
 GS.PEER_MAX_AGE = 14 * 86400
 
-local function FreshPeer(t, now, window) return now - t <= (window or GS.PEER_MAX_AGE) end
+local function FreshPeer(t, now, window) return type(t) == "number" and now - t <= (window or GS.PEER_MAX_AGE) end
 
 function GS:Peers()
   local db = self.db
@@ -111,7 +111,7 @@ function GS:PrunePeers()
   local now = self:Now()
   local function prune(peers)
     for key, t in pairs(peers) do
-      if type(t) ~= "number" or not FreshPeer(t, now) then peers[key] = nil end
+      if not FreshPeer(t, now) then peers[key] = nil end
     end
   end
   if type(db.peers) == "table" then prune(db.peers) end
@@ -127,14 +127,13 @@ end
 function GS:IsPeer(key)
   if key and self:IsMe(key) then return true end
   local peers = key and self:Peers()
-  local t = peers and peers[key]
-  return t and FreshPeer(t, self:Now()) or false
+  return FreshPeer(peers and peers[key], self:Now())
 end
 
 function ns.PeerCount(window)
   local n, now = 0, GS:Now()
   for _, t in pairs(GS:Peers() or {}) do
-    if type(t) == "number" and FreshPeer(t, now, window) then n = n + 1 end
+    if FreshPeer(t, now, window) then n = n + 1 end
   end
   return n
 end

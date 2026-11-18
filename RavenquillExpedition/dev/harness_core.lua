@@ -137,6 +137,14 @@ peersHere["Anna Muller-Lee"] = RQ:Now() - RQ.PEER_MAX_AGE - 5
 check(RQ:OverviewPeersLine() == "2 Gildenmitglieder mit Ravenquill (1 online)",
   "overview peers line: fresh peers on the roster, then the online ones (" .. RQ:OverviewPeersLine() .. ")")
 peersHere["Anna Muller-Lee"] = nil
+local caraSeen = peersHere["Cara Moss"]
+peersHere["Cara Moss"] = "soon"
+local peerOk, caraIsPeer = pcall(RQ.IsPeer, RQ, "Cara Moss")
+local lineOk, peersLine = pcall(RQ.OverviewPeersLine, RQ)
+check(peerOk and caraIsPeer == false and lineOk and peersLine == "1 Gildenmitglieder mit Ravenquill (1 online)",
+  "a peer time that is not a number (broken SavedVariables): not a peer, no Lua error (" .. tostring(caraIsPeer) .. ", "
+  .. tostring(peersLine) .. ")")
+peersHere["Cara Moss"] = caraSeen
 me.guild = "Andere Gilde"
 check(coreNS.PeerCount() == 0 and not RQ:IsPeer("Bud Stone"), "another guild: none of the first guild's peers count")
 RQ:NotePeer("Zed Other")
