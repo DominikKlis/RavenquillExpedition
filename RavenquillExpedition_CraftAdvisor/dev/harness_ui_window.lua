@@ -14,7 +14,6 @@ end
 
 do
   section("Window: profession selector (G3/G6.1/G7.11)")
-  local profs = { 165, 333 }
   GetProfessions = function() return 1, 2 end
   GetProfessionInfo = function(i)
     if i == 1 then return "Lederverarbeitung", nil, 120, 150, nil, nil, 165 end
@@ -343,7 +342,7 @@ do
   local r = H[2]
   check(r.name == nil and plain(r.wornName._text) == "Ring A  ·  Ring B" and r.count._text == "1 upgrade",
     "rings worn row: both rings named, '1 upgrade': " .. plain(r.wornName._text))
-  local c1, c2, c3 = sl.pools.default[1], sl.pools.default[2], sl.pools.default[3]
+  local c1 = sl.pools.default[1]
   check(c1.treeV == nil and c1.treeH == nil and c1.alt == nil and UIx.TREE_X == nil and c1.qual._points[1][4] == UIx.CARD_INDENT + 4 and UIx.CARD_INDENT == 16,
     "cards indented 16 px under their worn row, no tree lines / row shading")
   local g = FP[1]

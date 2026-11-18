@@ -101,9 +101,8 @@ local vier = pinFor(w, w.hbdWorld, "~fake4")
 check(vier and vier.bg.color[1] == 1 and vier.bg.color[2] == 0.82, "taxi pin has a gold ring")
 local drei = pinFor(w, w.hbdWorld, "~fake3")
 check(drei and drei.fg.color[1] == 0.55, "ghost pin is grey")
-for _, p in pairs(w.hbdWorld) do
-  check(p.mapID == 1429 and p.x >= 0.01 and p.x <= 0.99, "test pins placed by map ID within bounds"); break
-end
+local _, placed = next(w.hbdWorld)
+check(placed and placed.mapID == 1429 and placed.x >= 0.01 and placed.x <= 0.99, "test pins placed by map ID within bounds")
 local x0 = M.members["~fake1"].x
 w.advance(50)
 check(M.members["~fake1"].x ~= x0, "moving test pin moved")

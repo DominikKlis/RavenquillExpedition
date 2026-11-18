@@ -10,20 +10,19 @@ local sched = Kit.Scheduler({ start = 100 })
 local bus = Kit.Bus(sched)
 local me = Kit.Client(sched, bus, "Me Smith", { guild = "Die Gilde", realm = "Forever", class = "ROGUE", level = 30,
   epoch = EPOCH, random = Kit.Random(99), addons = { "RavenquillExpedition_Highlights" }, setup = function(env)
-    local _ENV = env
-    RAID_CLASS_COLORS = {}
-    Enum = { QuestTag = {} }
-    C_Item = { GetItemInfo = function() end, GetDetailedItemLevelInfo = function() end, RequestLoadItemDataByID = function() end }
-    C_Container = { GetContainerNumSlots = function() return 0 end, GetContainerItemInfo = function() end }
-    NUM_BAG_SLOTS, NUM_TOTAL_EQUIPPED_BAG_SLOTS, NUM_BANKBAGSLOTS, BANK_CONTAINER = 4, 4, 6, -1
-    C_AddOns = { IsAddOnLoaded = function() return false end, GetAddOnInfo = function(n) return n, nil, nil, false, "MISSING" end }
-    function GetInventoryItemLink() end
-    C_QuestLog = { GetNumQuestLogEntries = function() return 0 end }
-    LOOT_ITEM_SELF, LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %s.", "You receive loot: %sx%d."
-    LOOT_ITEM, LOOT_ITEM_MULTIPLE = "%s receives loot: %s.", "%s receives loot: %sx%d."
+    env.RAID_CLASS_COLORS = {}
+    env.Enum = { QuestTag = {} }
+    env.C_Item = { GetItemInfo = function() end, GetDetailedItemLevelInfo = function() end, RequestLoadItemDataByID = function() end }
+    env.C_Container = { GetContainerNumSlots = function() return 0 end, GetContainerItemInfo = function() end }
+    env.NUM_BAG_SLOTS, env.NUM_TOTAL_EQUIPPED_BAG_SLOTS, env.NUM_BANKBAGSLOTS, env.BANK_CONTAINER = 4, 4, 6, -1
+    env.C_AddOns = { IsAddOnLoaded = function() return false end, GetAddOnInfo = function(n) return n, nil, nil, false, "MISSING" end }
+    function env.GetInventoryItemLink() end
+    env.C_QuestLog = { GetNumQuestLogEntries = function() return 0 end }
+    env.LOOT_ITEM_SELF, env.LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %s.", "You receive loot: %sx%d."
+    env.LOOT_ITEM, env.LOOT_ITEM_MULTIPLE = "%s receives loot: %s.", "%s receives loot: %sx%d."
   end })
 local env, coreNS, fire = me.env, me.coreNs, me.fire
-local GS, H = me.RQ, me.ns.RavenquillExpedition_Highlights.H
+local H = me.ns.RavenquillExpedition_Highlights.H
 local function sentSince(mark)
   local out = {}
   for i = mark + 1, #me.sent do local s = me.sent[i]; out[#out + 1] = s.prefix .. "|" .. s.chat .. "|" .. s.msg end

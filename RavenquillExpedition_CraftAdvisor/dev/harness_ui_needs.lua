@@ -27,7 +27,6 @@ do
   me.suggestions = fakeSections({ [5] = { m1 } })
   local entries = { me, bud, olga, nobody }
   GCA.needsCache = nil
-  local n0 = GCA.needsBuilds or 0
   local needs = GCA:GuildNeeds(entries)
   local function names(rows) local t = {} for i, r in ipairs(rows) do t[i] = r.member.key .. ":" .. r.sug.info.name end return table.concat(t, ",") end
   check(names(needs.online) == "Bud Stone:Hillman's Leather Vest,Bud Stone:Craft Ring" and names(needs.offline) == "Olga Field:Olga Bracers",
@@ -106,11 +105,12 @@ do
   check(kinds(data) == "#5,#6,Belt,#11,Future Ring" and nc == 3 and #allE == 3 and allE[1].group == crafts[1],
     "a collapsed category hides its crafts (still counted, still selectable): " .. kinds(data))
   UIx.needsCollapsed = {}
-  data, nc, nm = UIx.NeedsRows(nd, "", true)
+  local _
+  data, _, nm = UIx.NeedsRows(nd, "", true)
   check(#data[2].rows == 3 and nm == 3, "offline box on: Olga's row joins the vest group (3 members)")
   data, nc, nm = UIx.NeedsRows(nd, "  BELT ", false)
   check(kinds(data) == "#6,Belt" and data[2].group == crafts[2] and nc == 1 and nm == 1, "search by item name (case-insensitive, trimmed): the whole craft")
-  data, nc, nm = UIx.NeedsRows(nd, "cara", false)
+  data, _, nm = UIx.NeedsRows(nd, "cara", false)
   check(kinds(data) == "#5,Vest" and #data[2].rows == 1 and data[2].rows[1].member.key == "Cara Field" and nm == 1, "search by member name: only that member's rows")
   check(#UIx.NeedsRows(nd, "olga", false) == 0 and #UIx.NeedsRows(nd, "olga", true) == 2, "an offline member is found only with the offline box")
   check(#UIx.NeedsRows(nd, "zzz", false) == 0 and #UIx.NeedsRows(nd, "50%", false) == 0, "no match: nothing; a '%' is plain text")
@@ -205,7 +205,7 @@ do
   check(UIx.needSel == "i9002" and nd.name._text == "Belt" and nl.pools.default[2].sel._shown and not nl.pools.default[1].sel._shown and #nd.members.data == 1,
     "a click on a craft shows it in the detail panel (selection moves)")
   nl.pools.default[1]._scripts.OnClick(nl.pools.default[1])
-  s1, s2 = nd.members.pools.default[1], nd.members.pools.default[2]
+  s1 = nd.members.pools.default[1]
   captureTip(); s1._scripts.OnEnter(s1)
   check(plainTip(), "member row under a craft: the craft's plain item tooltip: " .. tipText() .. " / " .. table.concat(H.hyper, ","))
   captureTip(); nl.pools.default[1]._scripts.OnEnter(nl.pools.default[1])
@@ -428,7 +428,7 @@ do
   gp[2]._scripts.OnClick(gp[2])
   local olgaRow
   for _, r in ipairs(ml.pools.default) do if r._shown and r.data == K5.olga then olgaRow = r end end
-  local r, g, b = UIx.OfflineColor(0.25, 0.78, 0.92)
+  local r, g = UIx.OfflineColor(0.25, 0.78, 0.92)
   check(olgaRow and olgaRow.offline and olgaRow.name._alpha == 1 and olgaRow.name._text:find("StatusIcon-Offline", 1, true)
     and UIx.MemberName({ key = "X", class = "MAGE", online = true }):find("StatusIcon-Online", 1, true)
     and r < 0.25 + 0.5 and math.abs(r - g) < math.abs(0.25 - 0.78),
@@ -512,7 +512,6 @@ do
     and #sk.collapseIcon.pairs >= 1 and sk.detailRing.file == "Interface\\Common\\GoldRing",
     "skin roles: detailBorder (pluggable), category / categoryHover, collapseIcon candidates, detailRing")
   GCA.UI.frame:Hide()
-  UIx = GCA.UI
 
   section("German texts on the new parts")
   ns.locale = "deDE"

@@ -90,7 +90,7 @@ local client = Kit.Client(sched, nil, "Me Stone", { class = "DRUID", level = 40,
         return ids
       end,
       GetNodeInfo = function(config, nodeID)
-        local tree, i = math.floor(nodeID / 1000), nodeID % 1000
+        local i = nodeID % 1000
         local list = config == talent.config and talent.nodes or (talent.inspect and talent.inspect.nodes) or {}
         local n = list[i]
         if not n then return nil end
@@ -129,7 +129,6 @@ local function rawOf(stats)
   return raw
 end
 
-local SUBCLASS = { cloth = 1, leather = 2, mail = 3 }
 local CRAFT = {}
 local recipeOf = {}
 for spellID, r in pairs(ns.Recipes.Leatherworking) do recipeOf[r.item] = spellID end

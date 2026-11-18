@@ -52,7 +52,7 @@ do
       if craftable and not W.itemSets[id] then missing = missing + 1 end
     end
   end
-  for id, set in pairs(W.itemSets) do
+  for _, set in pairs(W.itemSets) do
     local craftable = false
     for _, item in ipairs(set.items) do if recipeOf[item] then craftable = true end end
     if not craftable then extra = extra + 1 end
@@ -69,7 +69,7 @@ do
   for k in pairs(SGns.Stats.KEY_MAP) do keys[#keys + 1] = k end
   table.sort(keys)
   local diffs = 0
-  for trial = 1, 300 do
+  for _ = 1, 300 do
     local raw = {}
     for _ = 1, rnd(6) do raw[keys[rnd(#keys)]] = rnd(40) end
     if rnd(5) == 1 then raw.SOME_NEW_KEY = 3 end

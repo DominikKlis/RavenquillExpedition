@@ -196,7 +196,7 @@ do
   Files.loadUI(uiNs, env)
   local UIx = GCA.UI
   GCA.UI = savedUI
-  local SUPERIOR, GREATER, MINOR = 1248599, 1248500, 7779
+  local SUPERIOR, GREATER = 1248599, 1248500
   local function learn(...) for _, id in ipairs({ ... }) do known[id] = true end GCA:RefreshKnown() end
   local function unlearn(id) known[id] = nil; GCA.db.known[GCA.charKey].Enchanting[id] = nil; GCA:RefreshKnown() end
   learn(SUPERIOR, GREATER, 13419 , 23800 , 27837 , 20030 ,

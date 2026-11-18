@@ -77,7 +77,7 @@ do
   local e = GCA:WeightSetFor("ROGUE", "COMBAT", 40)
   local negSets = 0
   for _, class in ipairs(CLASSES) do
-    for spec, list in pairs(W.classes[class]) do
+    for _, list in pairs(W.classes[class]) do
       for _, s in ipairs(list) do
         for _, v in pairs(s.weights) do if v < 0 then negSets = negSets + 1; break end end
       end
@@ -136,7 +136,7 @@ do
   local items = { [7] = link(900001), [10] = link(900002), [5] = link(900003), [6] = link(900004) }
   GCA.db.members["Kat Paw"] = { class = "DRUID", level = 58, items = items, ts = 1, source = "inspect" }
   RQ.roster["Kat Paw"] = { class = "DRUID", level = 58, online = true }
-  local list, pending, state = GCA:ComputeSuggestions({ key = "Kat Paw", class = "DRUID", level = 58, items = items }, false)
+  local list, _, state = GCA:ComputeSuggestions({ key = "Kat Paw", class = "DRUID", level = 58, items = items }, false)
   check(#list == 0 and state == "no-spec", "spec unknown -> no suggestions (" .. state .. ")")
   list, pending, state = GCA:ComputeSuggestions({ key = "Kat Paw", class = "DRUID", items = items, spec = "FERAL_CAT" }, false)
   check(#list == 0 and state == "no-level", "level unknown -> no suggestions (" .. state .. ")")
@@ -243,9 +243,9 @@ do
   GCA.candidates = nil
   known[fakeSpell] = true
   check(GCA:RefreshKnown() == true, "RefreshKnown reports a changed known set")
-  local gen, before = GCA.knownGen, H.refreshes
+  local gen = GCA.knownGen
   advance(1)
-  before = H.refreshes
+  local before = H.refreshes
   check(GCA:RefreshKnown() == false and GCA.knownGen == gen, "RefreshKnown with the same set: knownGen unchanged (" .. gen .. ")")
   advance(1)
   check(H.refreshes == before, "... and no window refresh")
@@ -272,7 +272,7 @@ do
   local calls = 0
   GCA.UI.onRefresh = function() calls = calls + 1; GCA:MemberSuggestions(v, false) end
   H.refreshes = 0
-  local l0, p0, st0 = GCA:MemberSuggestions(v, false)
+  local _, p0, st0 = GCA:MemberSuggestions(v, false)
   check(st0 == "loading" and p0 > 0 and requests[ghost] == 1, "first look: loading, one request")
   advance(30)
   local l1, p1, st1 = GCA:MemberSuggestions(v, false)

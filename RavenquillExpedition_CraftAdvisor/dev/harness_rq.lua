@@ -9,7 +9,6 @@ local units = {
   target = { name="Buddy", class="DRUID", level=28, guid="G-buddy", items={ [5]="item:2300::::", [8]="item:2302::::" } },
   party1 = { name="Mage", class="MAGE", level=30, guid="G-mage", items={} },
 }
-local notified
 local itemMeta = {}
 local sched = Kit.Scheduler()
 local me = Kit.Client(sched, nil, "Me", { env = _G, locale = "deDE", files = files, setup = function()
@@ -37,7 +36,7 @@ local me = Kit.Client(sched, nil, "Me", { env = _G, locale = "deDE", files = fil
   function UnitIsInMyGuild(u) return units[u] ~= nil end
   function UnitExists(u) return units[u] ~= nil end
   function CanInspect() return true end
-  function NotifyInspect(u) notified = u end
+  function NotifyInspect() end
   function GetInventoryItemLink(u, slot) local x=units[u]; return x and x.items[slot] end
   function GetInventorySlotInfo(t) return 1, "tex" end
   function GetNumGuildMembers() return 2 end

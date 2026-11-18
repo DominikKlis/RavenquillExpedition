@@ -448,7 +448,6 @@ advance(300)
 local busyUntil = sched.t + 400
 local function busy() if sched.t < busyUntil then for _ = 1, 10 do E.RQ.Comm.heard[#E.RQ.Comm.heard + 1] = sched.t end; sched:at(sched.t + 10, busy) end end
 busy()
-local dropsBefore = 0
 E.gear[7] = GEAR[1][7] or GEAR[4][7]
 E.fire("PLAYER_EQUIPMENT_CHANGED")
 t0 = sched.t
@@ -462,7 +461,6 @@ local f, sn = "Gina", "Reed"
 A.units.target = { first = f, surname = sn, class = "SHAMAN", level = nil, guid = "G-Gina Reed", items = copy(GEAR[4]) }
 A.GCA.db.members["Gina Reed"].level = nil
 A.GCA:OnInspectReady("G-Gina Reed"); advance(2); A.units.target = nil
-t0 = sched.t
 advance(200)
 check(rec(B, "Gina Reed") and rec(B, "Gina Reed").level == 32 and sameGear(rec(B, "Gina Reed").items, GEAR[4], B.GCA),
   "relay without unit level used the roster level (32) and arrived")

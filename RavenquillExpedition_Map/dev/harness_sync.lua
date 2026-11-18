@@ -485,7 +485,7 @@ do
   local minSeen, staleTotal, activeMin, activeMax = math.huge, 0, math.huge, 0
   for _, w in ipairs(worlds) do
     local seen = 0
-    for key, m in pairs(w.M.members) do
+    for _, m in pairs(w.M.members) do
       if not m.fake and not m.isSelf then
         seen = seen + 1
         if w.M:State(m) == "stale" then staleTotal = staleTotal + 1 end

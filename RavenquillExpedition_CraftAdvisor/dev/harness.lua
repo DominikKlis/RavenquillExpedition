@@ -222,7 +222,6 @@ function box:GetText() return self.t end
 function box:SetText(t) self.t = t end
 ChatFrameUtil = { OpenChat = function(text) box.t = text:gsub("^/w %S+ ", "") end, GetActiveWindow = function() return box end }
 Files.loadUI(ns)
-local row = ns.GCA.UI
 
 Minimap = CreateFrame()
 rawset(Minimap, "GetWidth", function() return 140 end)

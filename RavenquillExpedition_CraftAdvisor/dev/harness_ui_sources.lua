@@ -354,7 +354,6 @@ do
   local de = ns.Locales.deDE
   check(string.format(de.SRC_LINE_VENDOR, "A", "B") == "Händler: A (B)" and string.format(de.SRC_LINE_TRAINER_HAVE, 170, 150) == "Lehrer (Fertigkeit 170, du hast 150)"
     and de.FILTER_UNLEARNED == "Fehlende Rezepte zeigen" and de.NOT_LEARNED == "Nicht erlernt", "German texts")
-  local inset = UIx.frame and (UIx.needsInset or nil)
   local nsf = UIx.AddInnerBorder(CreateFrame("Frame", nil, UIParent))
   check(nsf and nsf.how == "atlas" and nsf.TopLeftCorner._atlas == "UI-Frame-InnerTopLeft" and nsf.RightEdge._atlas == "!UI-Frame-InnerRightTile"
     and nsf.BottomLeftCorner._points[1][5] == -1 and nsf.TopEdge._h == 3 and nsf.LeftEdge._w == 3,

@@ -34,55 +34,54 @@ local sched = Kit.Scheduler({ start = 1000 })
 local me = Kit.Client(sched, nil, "Me Smith", { guild = "Die Gilde", realm = "Forever", locale = "deDE", class = "ROGUE",
   epoch = 1800000000, random = function() return 0.5 end, addons = { "RavenquillExpedition_Highlights" },
   setup = function(env, c)
-    local _ENV = env
     c.frameMethods.AddMessage = function(_, m) lines[#lines + 1] = m end
-    c.frameMethods.Clear = function() wipe(lines) end
+    c.frameMethods.Clear = function() env.wipe(lines) end
     c.frameMethods.Disable = function(s) s._disabled = true end
     c.frameMethods.Enable = function(s) s._disabled = false end
     c.frameMethods.IsEnabled = function(s) return not s._disabled end
     c.frameMethods.GetVerticalScroll = function() return 0 end
     c.frameMethods.GetHeight = function() return 0 end
-    local create = CreateFrame
-    function CreateFrame(otype, name, parent, template)
+    local create = env.CreateFrame
+    function env.CreateFrame(otype, name, parent, template)
       if template == "ButtonFrameTemplate" then error("no template in mock") end
       return create(otype, name, parent, template)
     end
-    function issecretvalue(v) return rawequal(v, SECRET) end
-    RAID_CLASS_COLORS = { ROGUE = { colorStr = "fffff569" }, DRUID = { colorStr = "ffff7d0a" }, MAGE = { colorStr = "ff3fc7eb" } }
-    Enum = { QuestTag = { Group = 1, Raid = 62, Dungeon = 81, Heroic = 85, Raid10 = 88, Raid25 = 89 } }
-    function UnitNameUnmodified(u)
+    function env.issecretvalue(v) return rawequal(v, SECRET) end
+    env.RAID_CLASS_COLORS = { ROGUE = { colorStr = "fffff569" }, DRUID = { colorStr = "ffff7d0a" }, MAGE = { colorStr = "ff3fc7eb" } }
+    env.Enum = { QuestTag = { Group = 1, Raid = 62, Dungeon = 81, Heroic = 85, Raid10 = 88, Raid25 = 89 } }
+    function env.UnitNameUnmodified(u)
       if u == "player" then return "Me", "Smith" end
       local g = G.group[u]
       if g then return g[1], g[2] end
     end
-    UnitName = UnitNameUnmodified
-    function UnitClass() return "Schurke", "ROGUE" end
-    function UnitLevel() return G.level end
-    function GetGuildInfo() return G.guild end
-    function IsInGuild() return true end
-    function IsInInstance() return G.inInstance, G.itype end
-    function GetInstanceInfo() return G.instName, G.itype end
-    function GetRealZoneText() return G.instName end
-    function InCombatLockdown() return G.inCombat end
-    function IsShiftKeyDown() return false end
-    function GetNumGuildMembers() return #G.roster end
-    function GetGuildRosterInfo(i) local r = G.roster[i]; return r[1], nil, nil, r[2], nil, nil, nil, nil, true, nil, r[3] end
-    C_GuildInfo = { GuildRoster = function() c.fire("GUILD_ROSTER_UPDATE") end }
-    function GetNumGroupMembers() local n = 0; for _ in pairs(G.group) do n = n + 1 end; return n end
-    function IsInRaid() return G.raid end
-    C_ChatInfo = {
+    env.UnitName = env.UnitNameUnmodified
+    function env.UnitClass() return "Schurke", "ROGUE" end
+    function env.UnitLevel() return G.level end
+    function env.GetGuildInfo() return G.guild end
+    function env.IsInGuild() return true end
+    function env.IsInInstance() return G.inInstance, G.itype end
+    function env.GetInstanceInfo() return G.instName, G.itype end
+    function env.GetRealZoneText() return G.instName end
+    function env.InCombatLockdown() return G.inCombat end
+    function env.IsShiftKeyDown() return false end
+    function env.GetNumGuildMembers() return #G.roster end
+    function env.GetGuildRosterInfo(i) local r = G.roster[i]; return r[1], nil, nil, r[2], nil, nil, nil, nil, true, nil, r[3] end
+    env.C_GuildInfo = { GuildRoster = function() c.fire("GUILD_ROSTER_UPDATE") end }
+    function env.GetNumGroupMembers() local n = 0; for _ in pairs(G.group) do n = n + 1 end; return n end
+    function env.IsInRaid() return G.raid end
+    env.C_ChatInfo = {
       RegisterAddonMessagePrefix = function() return true end,
       SendAddonMessage = function(prefix, msg, chan)
         if G.sendResult == 0 then G.sent[#G.sent + 1] = { prefix = prefix, msg = msg, chan = chan, t = sched.t } end
         return G.sendResult
       end,
     }
-    C_Item = {
+    env.C_Item = {
       GetItemInfo = function(x) local id = idOf(x); local it = G.items[id]; if not it or it.unloaded then return end; return it.name, link(id), it.q, it.il end,
       GetDetailedItemLevelInfo = function(x) local it = G.items[idOf(x)]; if not it or it.unloaded then return end; return it.il end,
       RequestLoadItemDataByID = function() end,
     }
-    C_Container = {
+    env.C_Container = {
       GetContainerNumSlots = function(bag) return container(bag) and 16 or 0 end,
       GetContainerItemInfo = function(bag, slot)
         local ct = container(bag); local id = ct and ct[slot]
@@ -90,25 +89,25 @@ local me = Kit.Client(sched, nil, "Me Smith", { guild = "Die Gilde", realm = "Fo
         return { itemID = id, quality = G.items[id].q, hyperlink = link(id) }
       end,
     }
-    NUM_BAG_SLOTS, NUM_TOTAL_EQUIPPED_BAG_SLOTS, NUM_BANKBAGSLOTS, BANK_CONTAINER = 4, 4, 6, -1
-    C_AddOns = {
+    env.NUM_BAG_SLOTS, env.NUM_TOTAL_EQUIPPED_BAG_SLOTS, env.NUM_BANKBAGSLOTS, env.BANK_CONTAINER = 4, 4, 6, -1
+    env.C_AddOns = {
       IsAddOnLoaded = function(name) return name == "RavenquillExpedition" or name == "RavenquillExpedition_Highlights" end,
       GetAddOnInfo = function(name)
         if name == "RavenquillExpedition_CraftAdvisor" then return name, "Guild Craft Advisor", "", false, "DISABLED" end
         return name, nil, nil, false, "MISSING"
       end,
     }
-    function GetInventoryItemLink(_, slot) local id = G.equipped[slot]; return id and link(id) end
-    C_QuestLog = {
+    function env.GetInventoryItemLink(_, slot) local id = G.equipped[slot]; return id and link(id) end
+    env.C_QuestLog = {
       GetNumQuestLogEntries = function() return #G.quests end,
       GetInfo = function(i) local q = G.quests[i]; return { title = q.title, level = q.level, suggestedGroup = q.group or 0, isHeader = q.header or false, questID = q.id } end,
       GetQuestTagInfo = function(id) return G.tags[id] end,
       IsEliteQuest = function() return false end,
     }
-    LOOT_ITEM_SELF = "Ihr erhaltet Beute: %s."
-    LOOT_ITEM_SELF_MULTIPLE = "Ihr erhaltet Beute: %sx%d."
-    LOOT_ITEM = "%1$s bekommt Beute: %2$s."
-    LOOT_ITEM_MULTIPLE = "%1$s bekommt Beute: %2$sx%3$d."
+    env.LOOT_ITEM_SELF = "Ihr erhaltet Beute: %s."
+    env.LOOT_ITEM_SELF_MULTIPLE = "Ihr erhaltet Beute: %sx%d."
+    env.LOOT_ITEM = "%1$s bekommt Beute: %2$s."
+    env.LOOT_ITEM_MULTIPLE = "%1$s bekommt Beute: %2$sx%3$d."
   end })
 local env, fire, printed, errors = me.env, me.fire, me.printed, me.errors
 local function advance(sec) sched:advance(sec) end

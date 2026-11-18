@@ -16,7 +16,8 @@ local function Send(c, text, cb)
 end
 
 section("Event lane: budget, order, echo results")
-local sched, bus, a, b = Kit.Two()
+local sched, bus, a = Kit.Two()
+local b
 local C = a.RQ.CommConst
 local PACE = 1 / C.RATE
 local CAP60 = C.BURST + 60 * C.RATE
@@ -82,7 +83,7 @@ sched:advance(120)
 check(r1 == "delivered" and r2 == "delivered", "two identical messages: both echoed (" .. tostring(r1) .. ", " .. tostring(r2) .. ")")
 
 section("Holds: instance, combat, throttled, busy guild")
-sched, bus, a, b = Kit.Two()
+sched, bus, a = Kit.Two()
 a.instance = true
 local deferred
 check(Send(a, "x", function(s) deferred = s end) == false, "inside an instance nothing is queued")
@@ -123,7 +124,7 @@ sched2:advance(90)
 check(#bus2:sentBy("Anna Stone") == 2, "and sends once it quiets down")
 
 section("A chatty other addon can't silence the suite (in game: War Effort sends every 5-50 s)")
-sched, bus, a, b = Kit.Two()
+sched, bus, a = Kit.Two()
 local every = PACE - 1
 sched:at(sched.t + 1, function() a.env.C_ChatInfo.SendAddonMessage("WEFF1", "x", "GUILD") end, every)
 sched:advance(60)
@@ -142,7 +143,7 @@ check(minGap >= PACE, ("our own messages stay >= %d s apart (closest %s s)"):for
 check(minTokens >= -1, ("the bucket never goes below -1 (lowest %.1f)"):format(minTokens))
 
 section("Slow mode: our messages never come back")
-sched, bus, a, b = Kit.Two()
+sched, bus, a = Kit.Two()
 bus.drop = function(sender) return sender == "Anna Stone" end
 local lost = 0
 for i = 1, 3 do Send(a, "lost" .. i, function(s) if s == "lost" then lost = lost + 1 end end) end
@@ -159,7 +160,7 @@ end
 bus.drop = function() return false end
 a.RQ:CommResume()
 check(not a.RQ:CommState().slow, "CommResume leaves slow mode")
-sched, bus, a, b = Kit.Two()
+sched, bus, a = Kit.Two()
 Send(a, "fine")
 sched:advance(40)
 check(a.RQ:CommState().delivered == 1 and not a.RQ:CommState().slow, "first message echoed")
@@ -215,7 +216,7 @@ sched:advance(20)
 Send(a, "q1"); Send(a, "q2"); Send(a, "q3")
 ok, why = sa:TrySend("P;3")
 check(not ok and why:find("waiting", 1, true), "a queued event goes first: " .. tostring(why))
-ok, why = sa:TrySend("P;4", { starving = true })
+ok = sa:TrySend("P;4", { starving = true })
 check(not ok, "even starving, a waiting event wins")
 sched:advance(200)
 for _ = 1, C.STATE_MAX_60 do a.env.C_ChatInfo.SendAddonMessage("OtherAddon", "x", "GUILD") end
@@ -259,7 +260,7 @@ check(m == C.INTAKE_PER_MIN + 3, "a minute later the same sender is read again")
 
 section("Registration rules and the foreign-send hook")
 local tm = a.newModule("Tags")
-check(not pcall(tm.NewChannel, tm, { tag = "~T" }) == false, "a free tag works")
+check((pcall(tm.NewChannel, tm, { tag = "~T" })), "a free tag works")
 check(not pcall(tm.NewChannel, tm, { tag = "~T" }), "the same tag twice: error")
 check(a.RQ.RegisterComm == nil and a.RQ.SendGuild == nil and a.RQ.CanSendGuild == nil, "the old sync API is gone (channels only)")
 check(pcall(tm.NewRawChannel, tm, { prefix = "TstDup" }) and not pcall(tm.NewRawChannel, tm, { prefix = "TstDup" }), "a prefix twice: error")

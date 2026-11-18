@@ -38,7 +38,7 @@ local opened = 0
 local craft = RQ:NewModule("Craft", { addon = "CraftTest", title = "Guild Craft Advisor", launcherRightClick = true })
 function craft:OverviewStatus() return "Guild sync: 2 guildies" end
 function craft:Open() opened = opened + 1 end
-local quiet = RQ:NewModule("Quiet", { addon = "QuietTest", title = "Quiet" })
+RQ:NewModule("Quiet", { addon = "QuietTest", title = "Quiet" })
 fire("ADDON_LOADED", "RavenquillExpedition")
 fire("ADDON_LOADED", "CraftTest")
 fire("ADDON_LOADED", "QuietTest")

@@ -25,7 +25,6 @@ local function sweep(locale)
     UIx.sugList:SetData(UIx.SectionRows(swList))
     UIx.sheetFor, UIx.sheetAuto = nil, true
     UIx:UpdateSheet(UIx.current, swList, "Leatherworking", "")
-    local bud = UIx.current
     local off = { key = "Olga Field", online = false, prof = "Leatherworking", level = 30, class = "MAGE", member = { items = {} } }
     UIx.collapsed.online, UIx.collapsed.offline = false, false
     local budE = { key = "Bud Stone", online = true, class = "ROGUE", level = 39, prof = "Leatherworking", member = { items = {} },
