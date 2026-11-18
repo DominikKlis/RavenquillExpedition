@@ -84,6 +84,9 @@ function Kit.Bus(sched)
     for _, r in ipairs(self.roster) do if r.name == name then return end end
     self.roster[#self.roster + 1] = { name = name, class = class, level = level, online = online ~= false }
   end
+  function b:setOnline(name, online)
+    for _, r in ipairs(self.roster) do if r.name == name then r.online = online end end
+  end
   function b:count(pred)
     local n = 0
     for _, e in ipairs(self.log) do if pred(e) then n = n + 1 end end

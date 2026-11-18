@@ -1,26 +1,19 @@
 local DIR = (arg and arg[0] or ""):gsub("[/\\]dev[/\\]harness_compat%.lua$", "")
 if DIR == "" or DIR == arg[0] then DIR = "." end
-package.path = DIR .. "/dev/?.lua;" .. package.path
-local Mock = require("mock")
+local MapKit = dofile(DIR .. "/dev/mapkit.lua")
+local Kit = MapKit.Kit
+local check = Kit.check
 local Golden = dofile(DIR .. "/../RavenquillExpedition/dev/golden.lua")
 local RECORD = arg[1] == "--record"
 local gold = Golden.open(DIR .. "/dev/fixtures/compat_golden.lua", RECORD)
-math.random = Golden.Random(4242)
+local random = Kit.Random(4242)
 
-local pass, fail = 0, 0
-local function check(cond, what)
-  if cond then pass = pass + 1; print("  ok   " .. what) else fail = fail + 1; print("  FAIL " .. what) end
-end
-
-local sched = Mock.Scheduler()
-local bus = Mock.Bus(sched)
+local sched, bus = Kit.Setup()
 local function Client(name, class, level, pos)
-  bus:member(name, class, level)
-  return Mock.NewWorld({ sched = sched, bus = bus, name = name, class = class, level = level, pos = pos,
-    dir = DIR })
+  return MapKit.Client(sched, bus, name, { class = class, level = level, pos = pos, random = random })
 end
 
-print("== Encoder layer")
+Kit.section("Encoder layer")
 local W = Client("Anna Stone", "ROGUE", 36, { 1429, 0.4, 0.4 })
 W.login()
 local M = W.M
@@ -42,7 +35,7 @@ encoded[#encoded + 1] = "L;" .. b36(1763100000)
 encoded[#encoded + 1] = "L;" .. b36(0)
 gold:compare("map.encode", encoded, check)
 
-print("== Decoder layer")
+Kit.section("Decoder layer")
 local goldEnc = RECORD and encoded or (gold.data["map.encode"] or {})
 local okDec = 0
 for i, c in ipairs(cases) do
@@ -57,7 +50,7 @@ for i, c in ipairs(cases) do
 end
 check(okDec == #cases, ("%d/%d golden positions decode to their inputs"):format(okDec, #cases))
 
-print("== Scenario layer")
+Kit.section("Scenario layer")
 local B = Client("Bert Hill", "DRUID", 35, { 1429, 0.6, 0.6 })
 B.login()
 local t0 = sched.t
@@ -65,8 +58,8 @@ W.moving = true
 sched:at(sched.t + 2, function()
   if W.moving and W.pos then
     local p = W.pos
-    W.pos = { p[1], math.min(0.9, math.max(0.1, p[2] + (math.random() - 0.5) * 0.004)),
-      math.min(0.9, math.max(0.1, p[3] + (math.random() - 0.5) * 0.004)) }
+    W.pos = { p[1], math.min(0.9, math.max(0.1, p[2] + (random() - 0.5) * 0.004)),
+      math.min(0.9, math.max(0.1, p[3] + (random() - 0.5) * 0.004)) }
   end
 end, 2)
 sched:advance(600)
@@ -84,7 +77,7 @@ end
 check(#lines > 3, ("scenario: %d map messages in 1000 s"):format(#lines))
 gold:compare("map.scenario", lines, check)
 
-print("== SavedVariables layer: old shapes load into the same tables as before")
+Kit.section("SavedVariables layer: old shapes load into the same tables as before")
 local function splitLines(s) local out = {} for l in (s .. "\n"):gmatch("(.-)\n") do out[#out + 1] = l end return out end
 local SV_CASES = {
   fresh = nil,
@@ -100,5 +93,4 @@ for _, name in ipairs({ "fresh", "v1", "badSize", "wrongTypes" }) do
 end
 
 gold:finish()
-print(("%d passed, %d failed, 0 skipped"):format(pass, fail))
-os.exit(fail == 0 and 0 or 1)
+Kit.finish()

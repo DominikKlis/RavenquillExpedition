@@ -1,28 +1,14 @@
 local DIR = (arg and arg[0] or ""):gsub("[/\\]dev[/\\]harness_sync%.lua$", "")
 if DIR == "" or DIR == arg[0] then DIR = "." end
-package.path = DIR .. "/dev/?.lua;" .. package.path
-local Mock = require("mock")
+local MapKit = dofile(DIR .. "/dev/mapkit.lua")
+local Kit = MapKit.Kit
+local check = Kit.check
 math.randomseed(1)
 
-local pass, fail = 0, 0
-local function check(cond, what)
-  if cond then pass = pass + 1 else fail = fail + 1; print("FAIL: " .. what) end
-end
 local function count(t) local n = 0; for _ in pairs(t) do n = n + 1 end; return n end
 local EPS = 2 / 46655
 
-local function Setup()
-  local sched = Mock.Scheduler()
-  local bus = Mock.Bus(sched)
-  return sched, bus
-end
-
-local function Client(sched, bus, name, opts)
-  opts = opts or {}
-  bus:member(name, opts.class or "SHAMAN", opts.level or 33)
-  return Mock.NewWorld({ sched = sched, bus = bus, name = name, class = opts.class, level = opts.level,
-    pos = opts.pos, dir = DIR })
-end
+local Setup, Client = Kit.Setup, MapKit.Client
 
 local function Walk(sched, w, step)
   step = step or 0.002
@@ -37,7 +23,12 @@ local function Walk(sched, w, step)
   end, 2)
 end
 
-local function MapSends(bus, sender, t0, t1, kind) return bus:count(t0, t1, sender, kind) end
+local function MapSends(bus, sender, t0, t1, kind)
+  return bus:count(function(e)
+    return e.prefix == "RQEMap1" and e.t >= t0 and e.t < t1 and (not sender or e.sender == sender)
+      and (not kind or e.msg:sub(1, 1) == kind)
+  end)
+end
 
 local function MaxPer60(bus, sender, t0, t1)
   local times = {}
@@ -79,7 +70,7 @@ do
   A.login(); B.login()
   A.moving = true; Walk(sched, A)
   sched:advance(25)
-  check(bus:count(0, 25) == 0, "nothing sent before the 30-90 s jitter")
+  check(MapSends(bus, nil, 0, 25) == 0, "nothing sent before the 30-90 s jitter")
   sched:advance(75)
   local firstA = nil
   for _, e in ipairs(bus.log) do if e.sender == "Anna Alpha" and e.prefix == "RQEMap1" then firstA = e.t; break end end
@@ -472,7 +463,7 @@ do
   for _, w in ipairs(worlds) do w.login() end
   sched:advance(1800)
   local peak = MaxPer60(bus, nil, 0, 1800)
-  local steady = bus:count(600, 1800) / 20
+  local steady = MapSends(bus, nil, 600, 1800) / 20
   local worstClient = 0
   for _, w in ipairs(worlds) do worstClient = math.max(worstClient, MaxPer60(bus, w.name, 0, 1800)) end
   local MC, CC = worlds[1].M.C, worlds[1].RQ.CommConst
@@ -524,5 +515,4 @@ do
   NoErrors({ dk, low }, "level/class gate: no Lua errors")
 end
 
-print(("%d passed, %d failed"):format(pass, fail))
-os.exit(fail == 0 and 0 or 1)
+Kit.finish()

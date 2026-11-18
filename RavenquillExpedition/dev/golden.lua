@@ -53,17 +53,6 @@ function Golden.open(path, record)
   return g
 end
 
-function Golden.Random(seed)
-  local s = seed or 12345
-  return function(a, b)
-    s = (s * 1103515245 + 12345) % 2147483648
-    local r = s / 2147483648
-    if a == nil then return r end
-    if b == nil then a, b = 1, a end
-    return a + math.floor(r * (b - a + 1))
-  end
-end
-
 function Golden.Serialize(v, indent)
   indent = indent or ""
   local t = type(v)

@@ -1,254 +1,67 @@
 local DIR = (arg and arg[0] or ""):gsub("[/\\]dev[/\\]harness%.lua$", "")
 if DIR == "" or DIR == arg[0] then DIR = "." end
 
-local pass, fail = 0, 0
-local function check(cond, what)
-  if cond then pass = pass + 1 else fail = fail + 1; print("FAIL: " .. what) end
+local MapKit = dofile(DIR .. "/dev/mapkit.lua")
+local Kit = MapKit.Kit
+local check = Kit.check
+
+local function AddWorldMap(c)
+  local canvas = c.newFrame()
+  canvas.w, canvas.h = 1000, 700
+  local calls = {}
+  local allowed = {
+    GetCanvas = function() return canvas end,
+    GetMapID = function(s) return s.mapID end,
+    GetCanvasScale = function(s) return s.scale end,
+    IsShown = function(s) return s.shown end,
+  }
+  local map = { canvas = canvas, mapID = 1429, scale = 1, shown = false, calls = calls, providers = {} }
+  map.pinPools = setmetatable({}, { __newindex = function(t, k, v) calls[#calls + 1] = "pinPools." .. tostring(k); rawset(t, k, v) end })
+  function map.blizzardShow()
+    map.shown, canvas.shown = true, true
+    local ran = 0
+    for provider in pairs(map.providers) do provider:RefreshAllData(true); ran = ran + 1 end
+    for _, f in ipairs(c.frames) do
+      local p = f.parent
+      while p and p ~= canvas do p = p.parent end
+      if p == canvas and f._scripts.OnShow then f._scripts.OnShow(f); ran = ran + 1 end
+    end
+    return ran
+  end
+  function map.renderFrame()
+    if not map.shown then return end
+    for _, f in ipairs(c.frames) do
+      if f.parent == canvas and f.shown and f._scripts.OnUpdate then f._scripts.OnUpdate(f, 0.016) end
+    end
+  end
+  setmetatable(map, {
+    __index = function(_, k)
+      if allowed[k] then return allowed[k] end
+      if type(k) == "string" and k:match("^%u") then
+        return function(_, a) calls[#calls + 1] = k; if k == "AddDataProvider" then map.providers[a] = true end end
+      end
+    end,
+    __newindex = function(t, k, v) calls[#calls + 1] = "write " .. tostring(k); rawset(t, k, v) end,
+  })
+  c.env.WorldMapFrame = map
+  return map
 end
 
 local function NewWorld(opts)
   opts = opts or {}
-  local env = setmetatable({}, { __index = _G })
-  env._G = env
-  env.unpack = table.unpack or unpack
-  local clock, timers = 0, {}
-  env.GetTime = function() return clock end
-  env.time = function() return 1763100000 + math.floor(clock) end
-  env.GetServerTime = env.time
-  env.C_Timer = {
-    After = function(t, fn) timers[#timers + 1] = { at = clock + t, fn = fn } end,
-    NewTicker = function(t, fn)
-      local tm = { at = clock + t, fn = fn, every = t }
-      timers[#timers + 1] = tm
-      return { Cancel = function() for i, x in ipairs(timers) do if x == tm then table.remove(timers, i) return end end end }
-    end,
-  }
-  local function advance(sec)
-    local target = clock + sec
-    while true do
-      local nextT, idx = nil, nil
-      for i, tm in ipairs(timers) do if tm.at <= target and (not nextT or tm.at < nextT) then nextT, idx = tm.at, i end end
-      if not idx then break end
-      local tm = timers[idx]
-      clock = tm.at
-      if tm.every then tm.at = tm.at + tm.every else table.remove(timers, idx) end
-      tm.fn()
-    end
-    clock = target
-  end
-
-  local printed, errors = {}, {}
-  env.print = function(...)
-    local t = {}
-    for i = 1, select("#", ...) do t[#t + 1] = tostring(select(i, ...)) end
-    printed[#printed + 1] = table.concat(t, " ")
-  end
-  env.geterrorhandler = function() return function(msg) errors[#errors + 1] = msg end end
-  env.debugstack = function() return "" end
-  env.GetBuildInfo = function() return "1.60.1", "99999", "Nov 2026", 16001 end
-  env.GetLocale = function() return opts.locale or "enUS" end
-  env.WOW_PROJECT_ID, env.WOW_PROJECT_CAMELOT, env.WOW_PROJECT_MAINLINE, env.WOW_PROJECT_CLASSIC = 15, 15, 1, 2
-  env.Constants = { CharacterNameSeparatorConsts = { CHARACTERNAME_SURNAME_SEPARATOR = " " } }
-  env.UNKNOWNOBJECT = "Unknown"
-  env.Ambiguate = function(n) return n end
-  env.UnitName = function() return "Ängis", "Waldbach" end
-  env.UnitNameUnmodified = env.UnitName
-  env.UnitClass = function() return "Shaman", "SHAMAN" end
-  env.UnitLevel = function() return 33 end
-  local dead, taxi, inInstance = false, false, false
-  env.UnitIsDeadOrGhost = function() return dead end
-  env.UnitOnTaxi = function() return taxi end
-  env.IsInInstance = function() return inInstance end
-  env.IsIndoors = function() return false end
-  env.C_CVar = { GetCVar = function() return "0" end }
-  env.RAID_CLASS_COLORS = setmetatable({}, { __index = function() return { r = 1, g = 0.5, b = 0 } end })
-  env.LOCALIZED_CLASS_NAMES_MALE = setmetatable({}, { __index = function(_, k) return k:lower() end })
-  local ownPos = { 1429, 0.5, 0.5 }
-  env.C_Map = {
-    GetBestMapForUnit = function() if ownPos then return ownPos[1] end end,
-    GetPlayerMapPosition = function()
-      if not ownPos then return nil end
-      return { GetXY = function() return ownPos[2], ownPos[3] end }
-    end,
-    GetMapInfo = function(id) return { name = "Map" .. id } end,
-  }
-
-  local frames = {}
-  local function NewFrame(kind)
-    local f = { shown = true, alpha = 1, scripts = {}, events = {} }
-    local methods = {
-      Hide = function(s) s.shown = false end, Show = function(s) s.shown = true end,
-      SetAlpha = function(s, a) s.alpha = a end, SetScript = function(s, k, fn) s.scripts[k] = fn end,
-      RegisterEvent = function(s, e) s.events[e] = true end,
-      SetSize = function(s, w, h) s.w, s.h = w, h end,
-      SetText = function(s, t) s.text = t end,
-      SetVertexColor = function(s, r, g, b, a) s.color = { r, g, b, a } end,
-      CreateTexture = function() return NewFrame("tex") end,
-      CreateFontString = function() return NewFrame("fs") end,
-      GetZoom = function() return 2 end,
-      SetParent = function(s, p) s.parent = p end,
-      SetPoint = function(s, ...) s.point = { ... }; s.points = (s.points or 0) + 1 end,
-      SetScale = function(s, v) s.scale = v end,
-      SetAllPoints = function(s, o) s.allPoints = o end,
-      GetWidth = function(s) return s.w or (s.allPoints and s.allPoints:GetWidth()) or 0 end,
-      GetHeight = function(s) return s.h or (s.allPoints and s.allPoints:GetHeight()) or 0 end,
-      GetFrameLevel = function(s) return s.level or 1 end,
-      SetFrameLevel = function(s, l) s.level = l end,
-      GetParent = function(s) return s.parent end,
-      GetChildren = function(s)
-        local out = {}
-        for _, x in ipairs(frames) do if x.parent == s then out[#out + 1] = x end end
-        return table.unpack(out)
-      end,
-      IsShown = function(s) return s.shown end,
-    }
-    return setmetatable(f, { __index = function(_, k) return methods[k] or (k:match("^%u") and function() end or nil) end })
-  end
-  env.CreateFrame = function(kind, _, parent)
-    local f = NewFrame(kind); f.parent = parent; frames[#frames + 1] = f; return f
-  end
-  env.UIParent, env.Minimap = NewFrame(), NewFrame()
-  local tip = { lines = {} }
-  env.GameTooltip = setmetatable(tip, { __index = function(_, k)
-    if k == "AddLine" then return function(_, t) tip.lines[#tip.lines + 1] = t end end
-    if k == "SetOwner" then return function() tip.lines = {} end end
-    return function() end
-  end })
-  local tells = {}
-  env.ChatFrameUtil = { SendTell = function(n) tells[#tells + 1] = n end }
-  env.SlashCmdList = {}
-
-  local hbdMini, hbdAdds, hbdWorldCalls = {}, 0, 0
-  local HBD = {
-    GetPlayerZone = function() return ownPos and ownPos[1], 3 end,
-    GetPlayerZonePosition = function() if ownPos then return ownPos[2] + 0.001, ownPos[3], ownPos[1], 3 end end,
-    mapData = { [1429] = { parent = 1415, mapType = 3 }, [1411] = { parent = 1415, mapType = 3 },
-      [1415] = { parent = 947, mapType = 2 } },
-    GetWorldCoordinatesFromZone = function(_, x, y, mapID)
-      if mapID ~= 1429 then return nil, nil, nil end
-      return x * 1000, y * 1000, 0
-    end,
-    GetZoneCoordinatesFromWorldInstance = function(_, wx, wy, inst, mapID)
-      if inst ~= 0 then return end
-      if mapID == 1429 then return wx / 1000, wy / 1000 end
-      if mapID == 1415 then return 0.4 + wx / 1000 * 0.2, 0.2 + wy / 1000 * 0.2 end
-    end,
-    GetAzerothWorldMapCoordinatesFromWorld = function(_, wx, wy, inst)
-      if inst == 0 then return 0.5 + wx / 1000 * 0.1, 0.5 + wy / 1000 * 0.1 end
-    end,
-  }
-  env.Enum = { UIMapType = { Cosmic = 0, World = 1, Continent = 2, Zone = 3, Dungeon = 4, Micro = 5, Orphan = 6 } }
-  local function add(store)
-    return function(_, ref, icon, mapID, x, y)
-      assert(ref and type(icon) == "table" and type(mapID) == "number" and type(x) == "number" and type(y) == "number",
-        "HBD would raise: bad args")
-      if mapID == 999999 then return false end
-      hbdAdds = hbdAdds + 1
-      store[icon] = { mapID = mapID, x = x, y = y }
-      icon.shown = true
-      return true
-    end
-  end
-  local Pins = {
-    AddMinimapIconMap = add(hbdMini),
-    AddWorldMapIconMap = function() hbdWorldCalls = hbdWorldCalls + 1 end,
-    AddWorldMapIconWorld = function() hbdWorldCalls = hbdWorldCalls + 1 end,
-    RemoveWorldMapIcon = function() hbdWorldCalls = hbdWorldCalls + 1 end,
-    RemoveAllWorldMapIcons = function() hbdWorldCalls = hbdWorldCalls + 1 end,
-    RemoveMinimapIcon = function(_, _, icon) hbdMini[icon] = nil; icon.shown = false end,
-  }
-  env.HBD_PINS_WORLDMAP_SHOW_WORLD = 3
-  env.LibStub = setmetatable({ minors = { ["HereBeDragons-2.0-RQE"] = 35, ["HereBeDragons-Pins-2.0-RQE"] = 17 } }, {
-    __call = function(_, name) return name == "HereBeDragons-2.0-RQE" and HBD or Pins end })
-
+  local sched = Kit.Scheduler()
   local map
-  if opts.worldMap then
-    local canvas = NewFrame("canvas")
-    canvas.w, canvas.h = 1000, 700
-    local calls = {}
-    local allowed = {
-      GetCanvas = function() return canvas end,
-      GetMapID = function(s) return s.mapID end,
-      GetCanvasScale = function(s) return s.scale end,
-      IsShown = function(s) return s.shown end,
-    }
-    map = { canvas = canvas, mapID = 1429, scale = 1, shown = false, calls = calls, providers = {} }
-    map.pinPools = setmetatable({}, { __newindex = function(t, k, v) calls[#calls + 1] = "pinPools." .. tostring(k); rawset(t, k, v) end })
-    function map.blizzardShow()
-      map.shown, canvas.shown = true, true
-      local ran = 0
-      for provider in pairs(map.providers) do provider:RefreshAllData(true); ran = ran + 1 end
-      for _, f in ipairs(frames) do
-        local p = f.parent
-        while p and p ~= canvas do p = p.parent end
-        if p == canvas and f.scripts.OnShow then f.scripts.OnShow(f); ran = ran + 1 end
-      end
-      return ran
-    end
-    function map.renderFrame()
-      if not map.shown then return end
-      for _, f in ipairs(frames) do
-        if f.parent == canvas and f.shown and f.scripts.OnUpdate then f.scripts.OnUpdate(f, 0.016) end
-      end
-    end
-    setmetatable(map, {
-      __index = function(_, k)
-        if allowed[k] then return allowed[k] end
-        if type(k) == "string" and k:match("^%u") then
-          return function(_, a) calls[#calls + 1] = k; if k == "AddDataProvider" then map.providers[a] = true end end
-        end
-      end,
-      __newindex = function(t, k, v) calls[#calls + 1] = "write " .. tostring(k); rawset(t, k, v) end,
-    })
-    env.WorldMapFrame = map
-  end
-
-  local frames0 = #frames
-  local coreDir = DIR .. "/../RavenquillExpedition"
-  local coreNs = {}
-  for _, file in ipairs(dofile(coreDir .. "/dev/toc.lua")(coreDir)) do
-    assert(loadfile(coreDir .. "/" .. file, "t", env))("RavenquillExpedition", coreNs)
-  end
-  local RQ = env.RavenquillExpedition
-  for i = frames0 + 1, #frames do
-    local f = frames[i]
-    if f.events.ADDON_LOADED and f.scripts.OnEvent then f.scripts.OnEvent(f, "ADDON_LOADED", "RavenquillExpedition") end
-  end
-
-  local ns = {}
-  for _, file in ipairs({ "Locale.lua", "Map.lua", "Pins.lua", "Sync.lua" }) do
-    local chunk = assert(loadfile(DIR .. "/" .. file, "t", env))
-    chunk("RavenquillExpedition_Map", ns)
-  end
-  local M = ns.Map
-  local hbdWorld = M.worldPlaced or {}
-  local function fire(event, arg1)
-    for _, f in ipairs(frames) do
-      if f.events[event] and f.scripts.OnEvent then f.scripts.OnEvent(f, event, arg1) end
-    end
-  end
-  local function count(t) local n = 0; for _ in pairs(t) do n = n + 1 end; return n end
-
-  return {
-    env = env, ns = ns, M = M, RQ = RQ, L = ns.L, fire = fire, advance = advance, printed = printed, errors = errors,
-    tip = tip, tells = tells, hbdWorld = hbdWorld, hbdMini = hbdMini, count = count,
-    setPos = function(p) ownPos = p end, setDead = function(v) dead = v end, setTaxi = function(v) taxi = v end,
-    set = function(id, v) local o = M:Option(id); assert(o and o.set, "no option " .. id); o.set(v) end,
-    diag = function() return table.concat(M:Option("diag").lines(), "\n") end,
-    adds = function() return hbdAdds end, hbdWorldCalls = function() return hbdWorldCalls end, map = map,
-    frames = frames,
-    maxCanvas = function()
-      local per, m = {}, 0
-      for f in pairs(hbdWorld) do per[f.key] = (per[f.key] or 0) + 1; m = math.max(m, per[f.key]) end
-      return m
-    end,
-  }
+  local w = MapKit.Client(sched, nil, "Ängis Waldbach", { guild = false, locale = opts.locale, setup = function(_, c)
+    if opts.worldMap then map = AddWorldMap(c) end
+  end })
+  w.fire("ADDON_LOADED", "RavenquillExpedition")
+  w.map = map
+  function w.advance(sec) sched:advance(sec) end
+  return w
 end
 
-local function anyPrinted(w, needle)
-  for _, line in ipairs(w.printed) do if line:find(needle, 1, true) then return true end end
-  return false
-end
+local function count(t) local n = 0; for _ in pairs(t) do n = n + 1 end; return n end
+local function anyPrinted(w, needle) return w.printedMatch(needle) ~= nil end
 
 local function pinFor(w, store, key)
   for icon in pairs(store) do if icon.key == key then return icon end end
@@ -279,9 +92,9 @@ w2.fire("ADDON_LOADED", "RavenquillExpedition_Map")
 check(w2.M.settings.share == true and w2.M.settings.size == 1, "bad saved values repaired")
 
 w.set("fake", true)
-check(w.count(M.members) == 7, "7 test pins")
-check(w.count(w.hbdWorld) == 7, "world: all 7 placed (stale one too)")
-check(w.count(w.hbdMini) == 6, "minimap: 6 (stale Fünf hidden), got " .. w.count(w.hbdMini))
+check(count(M.members) == 7, "7 test pins")
+check(count(w.hbdWorld) == 7, "world: all 7 placed (stale one too)")
+check(count(w.hbdMini) == 6, "minimap: 6 (stale Fünf hidden), got " .. count(w.hbdMini))
 local fuenf = pinFor(w, w.hbdWorld, "~fake5")
 check(fuenf and fuenf.alpha == 0.45, "stale pin is dimmed")
 local vier = pinFor(w, w.hbdWorld, "~fake4")
@@ -309,11 +122,11 @@ w.advance(100)
 check(M:State(M.members["~fake2"]) == "stale", "stationary fades at 1.5 x heartbeat")
 
 w.set("minimap", false)
-check(w.count(w.hbdMini) == 0, "minimap off removes minimap pins")
+check(count(w.hbdMini) == 0, "minimap off removes minimap pins")
 w.set("minimap", true)
-check(w.count(w.hbdMini) > 0, "minimap on restores")
+check(count(w.hbdMini) > 0, "minimap on restores")
 w.set("worldmap", false)
-check(w.count(w.hbdWorld) == 0, "worldmap off removes world pins")
+check(count(w.hbdWorld) == 0, "worldmap off removes world pins")
 w.set("worldmap", true)
 w.set("names", true)
 local any = next(w.hbdWorld)
@@ -323,41 +136,41 @@ check(M.settings.size == 2, "size is clamped to 0.5-2")
 w.set("size", 1.5)
 check(M.settings.size == 1.5 and any.w == 21, "size applied to existing pins")
 w.set("fake", false)
-check(w.count(M.members) == 0 and w.count(w.hbdWorld) == 0 and w.count(w.hbdMini) == 0, "fake off clears everything")
+check(count(M.members) == 0 and count(w.hbdWorld) == 0 and count(w.hbdMini) == 0, "fake off clears everything")
 
 w.set("selfPin", true)
 local me = M.members["@self"]
 check(me and me.mapID == 1429 and me.x == 0.5 and me.class == "SHAMAN" and me.level == 33, "self pin from C_Map")
 check(pinFor(w, w.hbdWorld, "@self") and pinFor(w, w.hbdMini, "@self"), "self pin on both maps")
 check(pinFor(w, w.hbdWorld, "@self").bg.color[1] == 1, "self pin has a white ring")
-w.setDead(true); w.advance(2)
+w.dead = true; w.advance(2)
 check(M.members["@self"].flags.g, "ghost flag read")
-w.setDead(false)
-w.setPos(nil); w.advance(2)
-check(M.members["@self"] == nil and w.count(w.hbdWorld) == 0, "no position -> self pin removed")
+w.dead = false
+w.pos = nil; w.advance(2)
+check(M.members["@self"] == nil and count(w.hbdWorld) == 0, "no position -> self pin removed")
 w.set("fake", true)
 check(anyPrinted(w, "isn't available here"), "fake without position explains")
-w.setPos({ 1429, 0, 0 }); w.advance(2)
+w.pos = { 1429, 0, 0 }; w.advance(2)
 check(M.members["@self"] == nil, "(0,0) counts as no position")
-w.setPos({ 1429, 0.4, 0.6 }); w.advance(2)
+w.pos = { 1429, 0.4, 0.6 }; w.advance(2)
 check(M.members["@self"] ~= nil, "position back -> self pin back")
 w.set("selfPin", false)
 
 w.set("fake", true)
 local f1 = pinFor(w, w.hbdWorld, "~fake1")
-f1.scripts.OnEnter(f1)
+f1._scripts.OnEnter(f1)
 local tipText = table.concat(w.tip.lines, "|")
 check(tipText:find("Test Eins", 1, true) and tipText:find("Test pin", 1, true) and tipText:find("Level 60", 1, true),
   "tooltip: name, level, test marker")
-f1.scripts.OnClick(f1)
+f1._scripts.OnClick(f1)
 check(#w.tells == 0, "clicking a test pin doesn't whisper")
 M.members["Hans Wurst"] = { key = "Hans Wurst", name = "Hans Wurst", mapID = 1429, x = 0.3, y = 0.3, level = 20,
   class = "MAGE", heard = w.env.GetTime(), flags = {} }
 M:Refresh()
 local hp = pinFor(w, w.hbdWorld, "Hans Wurst")
-hp.scripts.OnEnter(hp)
+hp._scripts.OnEnter(hp)
 check(table.concat(w.tip.lines, "|"):find("Click to whisper", 1, true), "real pin tooltip offers whisper")
-hp.scripts.OnClick(hp)
+hp._scripts.OnClick(hp)
 check(w.tells[1] == "Hans Wurst", "click whispers the real player")
 M.members["Weird Map"] = { key = "Weird Map", name = "Weird Map", mapID = 999999, x = 0.3, y = 0.3, heard = w.env.GetTime(), flags = {} }
 M.members["Bad Data"] = { key = "Bad Data", name = "Bad Data", mapID = "x", x = 2, y = 0.3, heard = w.env.GetTime(), flags = {} }
@@ -406,7 +219,7 @@ check(wc.M.members["@self"] and wc.M.members["@self"].name == wc.RQ:PlayerKey(),
 wc.set("selfPin", false)
 check(#mod.options >= 10 and mod.OnSlash == nil, "options handed to the core, no subcommands")
 wc.set("fake", true)
-check(wc.count(wc.M.members) == 7, "test dots via the option")
+check(count(wc.M.members) == 7, "test dots via the option")
 check(mod:OverviewStatus() == "On the map: 0 · sharing on", "overview: test pins don't count as guildmates ("
   .. tostring(mod:OverviewStatus()) .. ")")
 wc.M.members["Hans Wurst"] = { key = "Hans Wurst", name = "Hans Wurst", mapID = 1429, x = 0.3, y = 0.3, level = 20,
@@ -444,17 +257,17 @@ local wm = NewWorld({ worldMap = true })
 local map = wm.map
 wm.fire("ADDON_LOADED", "RavenquillExpedition_Map"); wm.fire("PLAYER_LOGIN")
 wm.set("fake", true)
-check(wm.count(wm.hbdWorld) == 7, "world map: 7 test pins placed")
-check(wm.hbdWorldCalls() == 0, "world map: HBD's world map API (a WorldMapFrame data provider) is never called")
+check(count(wm.hbdWorld) == 7, "world map: 7 test pins placed")
+check(wm.hbdWorldCalls == 0, "world map: HBD's world map API (a WorldMapFrame data provider) is never called")
 check(#map.calls == 0, "world map: only read methods on WorldMapFrame, nothing written (" .. tostring(map.calls[1]) .. ")")
 check(next(map.providers) == nil, "world map: no data provider registered")
 local lay = wm.M.worldLayer
 check(lay and lay.parent == map.canvas and lay.allPoints == map.canvas, "world map: our layer is a child of the canvas")
-check(lay and lay.scripts.OnShow == nil and lay.scripts.OnUpdate ~= nil, "world map: layer draws on OnUpdate, has no OnShow")
+check(lay and lay._scripts.OnShow == nil and lay._scripts.OnUpdate ~= nil, "world map: layer draws on OnUpdate, has no OnShow")
 local onShow = 0
 for f in pairs(wm.hbdWorld) do
   if f.parent ~= lay then onShow = onShow + 100 end
-  if f.scripts.OnShow then onShow = onShow + 1 end
+  if f._scripts.OnShow then onShow = onShow + 1 end
 end
 check(onShow == 0, "world map: every pin sits on the layer, none has an OnShow script")
 local p1 = pinFor(wm, wm.hbdWorld, "~fake1")
@@ -488,8 +301,8 @@ map.renderFrame()
 check(d2 and d2.x ~= x0w and math.abs(p1.point[4] - d2.x * 1000) < 1e-6, "world map: a moved pin is redrawn")
 check(wm.maxCanvas() == 1, "world map: still one pin per member after moves")
 wm.set("worldmap", false)
-check(wm.count(wm.hbdWorld) == 0 and not p1.shown, "world map: option off hides our pins")
-check(#map.calls == 0 and wm.hbdWorldCalls() == 0, "world map: still nothing written to WorldMapFrame")
+check(count(wm.hbdWorld) == 0 and not p1.shown, "world map: option off hides our pins")
+check(#map.calls == 0 and wm.hbdWorldCalls == 0, "world map: still nothing written to WorldMapFrame")
 check(#wm.errors == 0, "world map: no Lua errors (" .. tostring(wm.errors[1]) .. ")")
 
 local toggles = 0
@@ -631,5 +444,4 @@ do
   check(w4 and recorded:find("group read broke", 1, true), "a failing group read still shows the dot and is recorded as an error: " .. recorded)
 end
 
-print(("%d passed, %d failed"):format(pass, fail))
-os.exit(fail == 0 and 0 or 1)
+Kit.finish()
