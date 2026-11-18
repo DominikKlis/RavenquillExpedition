@@ -131,6 +131,14 @@ btn._scripts.OnClick(btn, "RightButton")
 btn._scripts.OnEnter(btn)
 check(toggled == 2 and opened == 1 and not table.concat(tip.lines, " | "):find("Right-click", 1, true),
   "no module claims the right-click: it opens the overview and the tooltip has no right-click line")
+local quiet = RQ:GetModule("Quiet")
+quiet.launcherRightClick = true
+function quiet:Open() end
+btn._scripts.OnEnter(btn)
+local rightLine
+for _, line in ipairs(tip.lines) do if tostring(line):find("^Right%-click") then rightLine = line end end
+check(rightLine == "Right-click: open Quiet", "the right-click line names the module that claims it: " .. tostring(rightLine))
+quiet.launcherRightClick, quiet.Open = nil, nil
 craft.launcherRightClick = true
 RQ.ToggleOverview = realToggle
 check(#me.errors == 0, "no Lua errors (" .. tostring(me.errors[1]) .. ")")

@@ -4,11 +4,11 @@ local SafeCall, Plain = GS.SafeCall, GS.Plain
 
 local L = GS.NewLocale({
   enUS = {
-    LEFT = "Left-click: overview (/rq)", RIGHT = "Right-click: Craft Advisor window", DRAG = "Drag: move this button",
+    LEFT = "Left-click: overview (/rq)", RIGHT = "Right-click: open %s", DRAG = "Drag: move this button",
     NO_STATUS = "no status",
   },
   deDE = {
-    LEFT = "Linksklick: Übersicht (/rq)", RIGHT = "Rechtsklick: Fenster des Craft Advisors", DRAG = "Ziehen: Knopf verschieben",
+    LEFT = "Linksklick: Übersicht (/rq)", RIGHT = "Rechtsklick: %s öffnen", DRAG = "Ziehen: Knopf verschieben",
     NO_STATUS = "kein Status",
   },
 })
@@ -167,7 +167,8 @@ local function LauncherTooltip(tip)
   end
   tip:AddLine(" ")
   tip:AddLine(L.LEFT, 0.8, 0.8, 0.8)
-  if RightClickModule() then tip:AddLine(L.RIGHT, 0.8, 0.8, 0.8) end
+  local right = RightClickModule()
+  if right then tip:AddLine(L.RIGHT:format(right.title or right.name), 0.8, 0.8, 0.8) end
   tip:AddLine(L.DRAG, 0.8, 0.8, 0.8)
 end
 
