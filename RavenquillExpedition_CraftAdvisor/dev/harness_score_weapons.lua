@@ -53,8 +53,15 @@ do
   check(dw("SHAMAN", "ENHANCEMENT", 60) == nil and dw("SHAMAN", "ENHANCEMENT_DW", 30) == 0 and dw("SHAMAN", "ELEMENTAL", 60) == nil,
     "Shaman: only as ENHANCEMENT_DW (one-hander seen in the off hand), at any level")
   check(dw("MAGE", "FIRE", 60) == nil and dw("PALADIN", "RETRIBUTION", 60) == nil and dw("DRUID", "FERAL_CAT", 60) == nil, "no dual wield for Mage/Paladin/Druid")
+  local classWeapons = W.classWeapons
+  classWeapons.TESTDW = { weapons = {}, dualWield = { BASE = true }, dualWieldFrom = 10, dualWieldSets = { BASE = "BASE_DW" } }
+  check(dw("TESTDW", "BASE", 5) == 10 and dw("TESTDW", "BASE_DW", 5) == 10 and dw("TESTDW", "OTHER", 5) == nil
+    and dw("ROGUE", nil, 5) == nil and dw(nil, "COMBAT", 5) == nil,
+    "a class that trains dual wield: a set's base spec dual-wields too; no spec or no class -> never")
+  classWeapons.TESTDW = nil
   known[674] = nil
-  check(dw("WARRIOR", "FURY", 30, true) == nil and dw("WARRIOR", "FURY", 18, true) == 20, "own Fury Warrior without spell 674: no (Lv30); Lv18 -> from 20 (look-ahead)")
+  check(dw("WARRIOR", "FURY", 30, true) == nil and dw("WARRIOR", "FURY", 18, true) == 20 and dw("WARRIOR", "FURY", nil, true) == 20,
+    "own Fury Warrior without spell 674: no (Lv30); Lv18 or level unknown -> from 20 (look-ahead)")
   known[674] = true
   check(dw("WARRIOR", "FURY", 30, true) == 0 and dw("ROGUE", "COMBAT", 8, true) == 0 and dw("WARRIOR", "ARMS", 30, true) == nil,
     "own character: Dual Wield known wins (any level); Arms still not")

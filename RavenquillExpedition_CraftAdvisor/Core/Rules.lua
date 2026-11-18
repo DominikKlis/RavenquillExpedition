@@ -60,21 +60,22 @@ function GCA:CanWear(class, level, cand)
 end
 
 GCA.DUAL_WIELD_SPELL = 674
+local function SpecDualWields(cw, spec)
+  local sets = cw.dualWieldSets or EMPTY
+  for _, variant in pairs(sets) do
+    if variant == spec then return true end
+  end
+  if sets[spec] and not cw.dualWieldFrom then return false end
+  return cw.dualWield[spec] == true
+end
+
 function GCA:DualWieldFrom(class, spec, level, isSelf)
   local cw = self:ClassWeapons(class)
-  if not (cw and spec) then return nil end
-  local dwSpec = cw.dualWield[spec] == true
-  for base, dw in pairs(cw.dualWieldSets or EMPTY) do
-    if dw == spec then dwSpec = true end
-    if base == spec and cw.dualWield[spec] and not cw.dualWieldFrom then dwSpec = false end
-  end
-  if not dwSpec then return nil end
-  if isSelf then
-    if self.SpellKnown(self.DUAL_WIELD_SPELL) then return 0 end
-    if cw.dualWieldFrom and (level or 0) < cw.dualWieldFrom then return cw.dualWieldFrom end
-    return nil
-  end
-  return cw.dualWieldFrom or 0
+  if not (cw and spec and SpecDualWields(cw, spec)) then return nil end
+  if not isSelf then return cw.dualWieldFrom or 0 end
+  if self.SpellKnown(self.DUAL_WIELD_SPELL) then return 0 end
+  if cw.dualWieldFrom and (level or 0) < cw.dualWieldFrom then return cw.dualWieldFrom end
+  return nil
 end
 
 local function FormatToPattern(fmt)
