@@ -283,6 +283,17 @@ do
   addItem(910006, "Club", "INVTYPE_WEAPON", 40, { ITEM_MOD_AGILITY_SHORT = 4 }, 4); itemDB[910006].classID = 2
   check(math.abs(GCA:EnchantStats(GCA:EnchantData().byEnchant[943], GCA:GetInfo(lnk(910006))).MainHandDps - 3 / 2.6) < 1e-9,
     "Striking on a one-hander = 3 ÷ 2.6 MainHandDps")
+  do
+    local rowStats = { Strength = 2, MainHandDps = 1 }
+    local mixed = GCA:EnchantStats({ kind = "damage", damage = 3, stats = rowStats }, { equipLoc = "INVTYPE_WEAPON", speed = 0 })
+    check(mixed.Strength == 2 and math.abs(mixed.MainHandDps - (1 + 3 / 2.6)) < 1e-9 and rowStats.MainHandDps == 1,
+      "damage enchant with stats: stats kept, DPS added to the row's own, speed 0 -> assumed 2.6, the row untouched")
+    local zero = GCA:EnchantStats({ kind = "damage", damage = 0, stats = { Agility = 1 } }, nil)
+    local plainRow = { kind = "stats", stats = { Agility = 3 } }
+    check(zero.Agility == 1 and zero.MainHandDps == nil and zero.TwoHandDps == nil and GCA:EnchantStats(plainRow, nil) == plainRow.stats
+      and next(GCA:EnchantStats({ kind = "stats" }, nil)) == nil,
+      "damage 0 adds no DPS; a stats enchant scores its own stats (none -> empty)")
+  end
   learn(27837, 23800)
   addItem(910010, "Tome", "INVTYPE_HOLDABLE", 40, { ITEM_MOD_INTELLECT_SHORT = 6 }, 0)
   addItem(910011, "Buckler", "INVTYPE_SHIELD", 40, { ITEM_MOD_STAMINA_SHORT = 6, RESISTANCE0_NAME = 600 }, 6)

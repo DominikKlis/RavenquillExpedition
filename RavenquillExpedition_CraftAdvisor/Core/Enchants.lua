@@ -49,15 +49,23 @@ function GCA:EnchantInfo(row)
 end
 
 GCA.ENCHANT_SPEED = { weapon = 2.6, twohand = 3.5 }
+local DPS_KEY = { weapon = "MainHandDps", twohand = "TwoHandDps" }
+
+local function DpsKeyAndSpeed(self, worn)
+  local hand = worn and worn.equipLoc == "INVTYPE_2HWEAPON" and "twohand" or "weapon"
+  local speed = worn and worn.speed
+  if not (type(speed) == "number" and speed > 0) then speed = self.ENCHANT_SPEED[hand] end
+  return DPS_KEY[hand], speed
+end
+
 function GCA:EnchantStats(row, worn)
   if row.kind ~= "damage" then return row.stats or EMPTY end
   local stats = {}
   for k, v in pairs(row.stats or EMPTY) do stats[k] = v end
-  local two = worn and worn.equipLoc == "INVTYPE_2HWEAPON"
-  local speed = worn and type(worn.speed) == "number" and worn.speed > 0 and worn.speed
-    or (two and self.ENCHANT_SPEED.twohand or self.ENCHANT_SPEED.weapon)
-  local key = two and "TwoHandDps" or "MainHandDps"
-  if row.damage and row.damage ~= 0 then stats[key] = (stats[key] or 0) + row.damage / speed end
+  if row.damage and row.damage ~= 0 then
+    local key, speed = DpsKeyAndSpeed(self, worn)
+    stats[key] = (stats[key] or 0) + row.damage / speed
+  end
   return stats
 end
 local SCORED_ENCHANT = { stats = true, damage = true }
