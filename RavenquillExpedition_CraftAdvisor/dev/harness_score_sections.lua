@@ -145,6 +145,17 @@ do
   GCA.db.crafted["Alt Char-Realm"] = { [who] = { Leatherworking = { [sHands] = { item = iHands, slot = 10, t = 1 } } } }
   GCA:StoreRecord(who, "DRUID", 43, { [10] = link(iHands) }, "inspect")
   check(GCA.db.crafted["Alt Char-Realm"][who] == nil, "an alt's mark for the same member is cleared as well")
+  GCA.db.crafted["Alt Char-Realm"] = { [who] = {
+    Leatherworking = { [sHands] = { item = iHands, slot = 10, t = 1 }, [990099] = { item = 990002, slot = 7, t = 1 } },
+    Enchanting = { [7779] = { enchant = 247, slot = 9, t = 1 } } } }
+  GCA:ClearWornCrafted(who, nil)
+  local alt = GCA.db.crafted["Alt Char-Realm"][who]
+  check(alt.Leatherworking[sHands] and alt.Leatherworking[990099] and alt.Enchanting[7779], "no gear read -> every mark kept")
+  GCA:StoreRecord(who, "DRUID", 43, { [10] = link(iHands) }, "inspect")
+  alt = GCA.db.crafted["Alt Char-Realm"][who]
+  check(alt and alt.Leatherworking[sHands] == nil and alt.Leatherworking[990099] and alt.Enchanting[7779],
+    "only the worn mark is cleared; the profession and the member stay while other marks remain")
+  GCA.db.crafted["Alt Char-Realm"] = nil
   GCA.db.members[who] = nil
 
   check(UIx.CanOffer({ key = who, online = true }, handRow) and not UIx.CanOffer({ key = who, online = false }, handRow)

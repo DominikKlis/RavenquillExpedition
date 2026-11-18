@@ -80,20 +80,22 @@ local function MarkWorn(self, mark, items)
   return n > (mark.count or 0)
 end
 
+local function ClearWornMarks(self, profs, items)
+  for prof, marks in pairs(profs) do
+    for spellID, mark in pairs(marks) do
+      if MarkWorn(self, mark, items) then marks[spellID] = nil end
+    end
+    if not next(marks) then profs[prof] = nil end
+  end
+end
+
 function GCA:ClearWornCrafted(member, items)
-  if not (self.db and self.db.crafted and member and type(items) == "table") then return 0 end
-  local n = 0
+  if not (self.db and self.db.crafted and member and type(items) == "table") then return end
   for _, byMember in pairs(self.db.crafted) do
     local profs = byMember[member]
     if profs then
-      for prof, marks in pairs(profs) do
-        for spellID, mark in pairs(marks) do
-          if MarkWorn(self, mark, items) then marks[spellID] = nil; n = n + 1 end
-        end
-        if not next(marks) then profs[prof] = nil end
-      end
+      ClearWornMarks(self, profs, items)
       if not next(profs) then byMember[member] = nil end
     end
   end
-  return n
 end
