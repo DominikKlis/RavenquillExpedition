@@ -113,7 +113,7 @@ local function ScrollToSlotSection(self, slot)
 end
 
 function UI:SelectMember(key, slot, pick)
-  self.selected, self.autoKey = key, nil
+  self:Select(key)
   if slot then self:FocusSheet(key, slot, pick) end
 end
 
@@ -239,7 +239,7 @@ end
 local Build = {}
 
 function Build.OnShow()
-  if UI.selected ~= nil and UI.selected == UI.autoKey then UI.selected = nil end
+  if UI.selected ~= nil and UI.selected == UI.autoKey then UI:Select(nil) end
   UI.view = "needs"
   UI.collapsed.online, UI.collapsed.offline = false, true
   UI.needsCollapsed, UI.needSel = {}, nil
@@ -488,8 +488,7 @@ local function SelectCurrentMember(self, members)
   local keepCurrent = current and current.best and not current.isSelf
   if auto and not keepCurrent then
     current = UI.PickDefault(members) or current or members[1]
-    self.selected = current and current.key
-    self.autoKey = self.selected
+    self:Select(current and current.key, true)
   end
   return current
 end

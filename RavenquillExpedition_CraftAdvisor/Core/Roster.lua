@@ -77,6 +77,10 @@ local function CollectSightings(db)
   return lastSeen, keys
 end
 
+function GCA:ForgetGear(key)
+  self.db.members[key] = nil
+end
+
 local function ForgetMember(db, key)
   db.members[key] = nil
   if db.specs then db.specs[key] = nil end

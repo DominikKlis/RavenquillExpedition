@@ -10,6 +10,10 @@ local SourceText, ProfName, GainFont = P.SourceText, P.ProfName, P.GainFont
 
 UI.collapsed = { online = false, offline = true }
 
+function UI:Select(key, auto)
+  self.selected, self.autoKey = key, auto and key or nil
+end
+
 local function DimText(text) return C.dim .. text .. "|r" end
 local function WarnText(text) return C.warn .. text .. "|r" end
 local function SugCount(d) return d.suggestions and #d.suggestions or 0 end
@@ -100,7 +104,7 @@ local function CreateMemberRow(parent)
   SingleLine(b.name)
   b:SetScript("OnClick", function(self, button)
     if button == "RightButton" and IsShiftKeyDown() and self.data.member and not self.data.isSelf then
-      GCA.db.members[self.data.key] = nil
+      GCA:ForgetGear(self.data.key)
       GCA:Print(string.format(L.FORGOT, self.data.key))
     else
       UI:SelectMember(self.data.key)

@@ -177,7 +177,7 @@ function GCA:OnInspectReady(guid)
         if self.verbose or self.announce == guid then
           self.announce = nil
           Print(string.format(L.MSG_RECORDED, key))
-          if self.UI then self.UI.selected = key end
+          if self.UI then self.UI:Select(key, key == self.UI.autoKey) end
         end
         self:Invalidate()
       end)
