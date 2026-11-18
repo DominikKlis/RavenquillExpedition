@@ -172,6 +172,15 @@ local function BuildHome(f, top)
   diag:SetScript("OnClick", function() GS:ShowCopyBox(L.TITLE .. " – " .. L.DIAG, GS:Call(GS.DiagLines, GS) or {}) end)
 end
 
+local function BuildLauncherOption(home)
+  home.options = ns.BuildPanel(home, {
+    { type = "toggle", label = L.SHOW_LAUNCHER,
+      get = function() return GS:LauncherShown() end, set = function(on) GS:SetLauncherShown(on) end },
+  })
+  home.options:SetPoint("BOTTOMLEFT", 10, -5)
+  home.options:Show()
+end
+
 local function BuildOptionsView(f, top)
   local opt = CreateFrame("Frame", nil, f)
   opt:SetAllPoints()
@@ -220,6 +229,7 @@ local function CreateWindow()
   tinsert(UISpecialFrames, "RavenquillExpeditionOverview")
   local top = native and -30 or -40
   BuildHome(f, top)
+  BuildLauncherOption(f.home)
   BuildOptionsView(f, top)
   f:SetScript("OnShow", function() GS:Call(GS.RefreshOverview, GS) end)
   f:Hide()
@@ -314,6 +324,7 @@ function GS:RefreshOverview()
   home.peers:SetText(self:OverviewPeersLine())
   RenderRows(home.rows, self:OverviewRows())
   RenderRecent(home.recent)
+  home.options.refreshAll()
 end
 
 local refreshTickPending = false

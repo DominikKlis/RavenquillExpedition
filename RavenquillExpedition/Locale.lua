@@ -26,7 +26,7 @@ GS.OverviewL = GS.NewLocale({
     SYNC_DETAIL = "%d delivered, %d waiting", PEERS = "%d guildies with Ravenquill (%d online)",
     NO_GUILD = "no guild", LEGACY = "older version – update it to get its options here", LOADED = "loaded",
     NO_OPTIONS = "This module has no options.", DIAG = "Diagnostics",
-    COPY_HINT = "Ctrl+A, then Ctrl+C to copy. Esc closes.",
+    COPY_HINT = "Ctrl+A, then Ctrl+C to copy. Esc closes.", SHOW_LAUNCHER = "Show the minimap button",
     API_TOO_OLD = "%s needs a newer Ravenquill Expedition core (API %d, this one has %d). Update the core addon.",
   },
   deDE = {
@@ -39,7 +39,7 @@ GS.OverviewL = GS.NewLocale({
     SYNC_DETAIL = "%d zugestellt, %d wartend", PEERS = "%d Gildenmitglieder mit Ravenquill (%d online)",
     NO_GUILD = "keine Gilde", LEGACY = "ältere Version – aktualisieren, dann erscheinen ihre Optionen hier", LOADED = "geladen",
     NO_OPTIONS = "Dieses Modul hat keine Optionen.", DIAG = "Diagnose",
-    COPY_HINT = "Strg+A, dann Strg+C zum Kopieren. Esc schließt.",
+    COPY_HINT = "Strg+A, dann Strg+C zum Kopieren. Esc schließt.", SHOW_LAUNCHER = "Minimap-Knopf zeigen",
     API_TOO_OLD = "%s braucht einen neueren Ravenquill-Expedition-Kern (API %d, dieser hat %d). Bitte den Kern aktualisieren.",
   },
 })

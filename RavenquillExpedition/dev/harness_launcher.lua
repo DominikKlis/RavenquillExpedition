@@ -19,6 +19,11 @@ local sched = Kit.Scheduler({ start = 100 })
 local me = Kit.Client(sched, nil, "Me Smith", { guild = "Die Gilde", epoch = 1800000000, setup = function(env, c)
   for k, fn in pairs(Geometry) do c.frameMethods[k] = fn end
   env.GetCursorPosition = function() return cursor[1], cursor[2] end
+  local create = env.CreateFrame
+  function env.CreateFrame(otype, name, parent, template)
+    if template == "ButtonFrameTemplate" then error("no template in mock") end
+    return create(otype, name, parent, template)
+  end
   env.RavenquillExpeditionCraftDB = { settings = { minimapAngle = 200 } }
 end })
 local env, coreNS, RQ, fire, tip = me.env, me.coreNs, me.RQ, me.fire, me.tip
@@ -141,6 +146,17 @@ check(rightLine == "Right-click: open Quiet", "the right-click line names the mo
 quiet.launcherRightClick, quiet.Open = nil, nil
 craft.launcherRightClick = true
 RQ.ToggleOverview = realToggle
+
+section("The /rq overview's minimap-button option")
+RQ:ToggleOverview()
+local overview = env.RavenquillExpeditionOverview
+local launcherBox = overview and overview.home.options and overview.home.options.controls[1]
+check(launcherBox and launcherBox:GetChecked() == true, "the overview has a 'show minimap button' checkbox, ticked while the button shows")
+if launcherBox then launcherBox:SetChecked(false); launcherBox._scripts.OnClick(launcherBox) end
+check(not btn._shown and s.hide == true and not RQ:LauncherShown(), "unticking it hides the button (the setting the Craft Advisor's toggle uses)")
+RQ:SetLauncherShown(true)
+RQ:RefreshOverview()
+check(btn._shown and launcherBox and launcherBox:GetChecked() == true, "shown again from elsewhere: the checkbox follows")
 check(#me.errors == 0, "no Lua errors (" .. tostring(me.errors[1]) .. ")")
 
 Kit.finish()
