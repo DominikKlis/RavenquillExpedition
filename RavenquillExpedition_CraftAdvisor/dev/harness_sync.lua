@@ -158,9 +158,9 @@ for _, s in ipairs(realSets) do
 end
 check(maxChunks <= 4 and maxLen <= 255, ("real sets: max %d chunks, longest message %d bytes"):format(maxChunks, maxLen))
 local longest = copy(allLinks); table.sort(longest, function(a, b) return #a > #b end)
-local worst = {}
-for i, slot in ipairs(GCA.SYNC_SLOTS) do worst[slot] = (longest[i] or longest[1]):gsub("item:(%d+):(%d*):", "item:%1:8483:") end
-local wc = GCA:EncodeRecord({ items = worst, class = "HUNTER", level = 35, ts = 1800000000 }, "Ängis Waldbach")
+local worstSet = {}
+for i, slot in ipairs(GCA.SYNC_SLOTS) do worstSet[slot] = (longest[i] or longest[1]):gsub("item:(%d+):(%d*):", "item:%1:8483:") end
+local wc = GCA:EncodeRecord({ items = worstSet, class = "HUNTER", level = 35, ts = 1800000000 }, "Ängis Waldbach")
 check(wc and #wc <= 6, "worst-case 17-slot set encodes in " .. (wc and #wc or "nil") .. " chunks (limit 6)")
 
 section("Login: first player alone sends only Q; no gear without listeners")
@@ -429,10 +429,10 @@ local D2 = Login("Cora Vale", copy(GEAR[3]), D.GCA.db)
 advance(90)
 check(busSince(t0, function(e) return e.sender == "Cora Vale" and e.msg:sub(1, 2) == "Q;" end) == 0, "/reload: no second Q")
 Logout(D2)
-local db = D2.GCA.db
+local sharedDB = D2.GCA.db
 t0 = sched.t
 GUILD[#GUILD + 1] = { name = "Cora Alt", class = "MAGE", level = 20 }; GUILD_BY["Cora Alt"] = GUILD[#GUILD]
-local E = Login("Cora Alt", copy(GEAR[2]), db)
+local E = Login("Cora Alt", copy(GEAR[2]), sharedDB)
 advance(90)
 check(busSince(t0, function(e) return e.sender == "Cora Alt" and e.msg:sub(1, 2) == "Q;" end) == 1, "alt on the same account sends its own Q")
 
@@ -501,18 +501,18 @@ check(J.GCA:MemberSpec("Ivy Lake", "ROGUE", {}) == "SUBTLETY" and J.GCA.db.specs
 I.GCA:SetManualSpec("Ivy Lake", "ROGUE", "ASSASSINATION")
 advance(200)
 check(J.GCA:MemberSpec("Ivy Lake", "ROGUE", {}) == "ASSASSINATION", "own manual pick is announced")
-local G = J.GCA
-local before = G.db.specs["Ivy Lake"].spec
-J.fire("CHAT_MSG_ADDON", "GCAdv1", "S;" .. G.b36(G.SPEC_INDEX["MAGE/FIRE"]) .. ";" .. G.b36(G:Now()), "GUILD", "Ivy Lake")
-check(G.db.specs["Ivy Lake"].spec == before, "spec of another class than the roster says: ignored")
+local JG = J.GCA
+local specBefore = JG.db.specs["Ivy Lake"].spec
+J.fire("CHAT_MSG_ADDON", "GCAdv1", "S;" .. JG.b36(JG.SPEC_INDEX["MAGE/FIRE"]) .. ";" .. JG.b36(JG:Now()), "GUILD", "Ivy Lake")
+check(JG.db.specs["Ivy Lake"].spec == specBefore, "spec of another class than the roster says: ignored")
 J.RQ.Comm.intake = {}
-J.fire("CHAT_MSG_ADDON", "GCAdv1", "S;" .. G.b36(G.SPEC_INDEX["ROGUE/COMBAT"]) .. ";" .. G.b36(G:Now() + 9999), "GUILD", "Ivy Lake")
-check(G.db.specs["Ivy Lake"].spec == before, "future timestamp: ignored")
-J.fire("CHAT_MSG_ADDON", "GCAdv1", "S;" .. G.b36(99) .. ";" .. G.b36(G:Now()), "GUILD", "Ivy Lake")
-check(G.db.specs["Ivy Lake"].spec == before, "unknown index: ignored")
-G:SetManualSpec("Ivy Lake", "ROGUE", "COMBAT")
-check(G:MemberSpec("Ivy Lake", "ROGUE", {}) == "COMBAT", "manual pick on the receiver wins over the synced spec")
-check(G.SPEC_INDEX["DRUID/BALANCE"] == 1 and G.SPEC_INDEX["SHAMAN/ENHANCEMENT_DW"] == 24 and G.SPEC_INDEX["WARRIOR/PROTECTION"] == 31 and #G.SPEC_LIST == 31,
+J.fire("CHAT_MSG_ADDON", "GCAdv1", "S;" .. JG.b36(JG.SPEC_INDEX["ROGUE/COMBAT"]) .. ";" .. JG.b36(JG:Now() + 9999), "GUILD", "Ivy Lake")
+check(JG.db.specs["Ivy Lake"].spec == specBefore, "future timestamp: ignored")
+J.fire("CHAT_MSG_ADDON", "GCAdv1", "S;" .. JG.b36(99) .. ";" .. JG.b36(JG:Now()), "GUILD", "Ivy Lake")
+check(JG.db.specs["Ivy Lake"].spec == specBefore, "unknown index: ignored")
+JG:SetManualSpec("Ivy Lake", "ROGUE", "COMBAT")
+check(JG:MemberSpec("Ivy Lake", "ROGUE", {}) == "COMBAT", "manual pick on the receiver wins over the synced spec")
+check(JG.SPEC_INDEX["DRUID/BALANCE"] == 1 and JG.SPEC_INDEX["SHAMAN/ENHANCEMENT_DW"] == 24 and JG.SPEC_INDEX["WARRIOR/PROTECTION"] == 31 and #JG.SPEC_LIST == 31,
   "spec index table unchanged (1 Balance, 24 Enh DW, 31 Warrior Prot)")
 
 section("one chatty sender can't hold everyone's sending; several busy senders still do")
@@ -529,22 +529,22 @@ do
   spam()
   A.gear[7] = GEAR[2][7] ~= A.gear[7] and GEAR[2][7] or GEAR[3][7]
   A.fire("PLAYER_EQUIPMENT_CHANGED")
-  local t1 = sched.t
+  local gearAt = sched.t
   advance(840)
-  local sent = busSince(t1, function(e) return e.sender == A.name and e.msg:match("^G;;") end)
+  local sent = busSince(gearAt, function(e) return e.sender == A.name and e.msg:match("^G;;") end)
   local recent = 0
   for _, t in ipairs(A.RQ.Comm.heard) do if sched.t - t <= 60 then recent = recent + 1 end end
   check(sent >= 1 and recent <= A.RQ.CommConst.HEARD_PER_SENDER,
     ("own gear goes out while one guildie sends 1 msg/s (%d chunk(s) sent, %d heard in the last 60 s)"):format(sent, recent))
   advance(200)
   local CC = A.RQ.CommConst
-  local busy = {}
-  for i = 1, math.ceil(CC.BUSY_HEARD / CC.HEARD_PER_SENDER) + 2 do busy[i] = "Busy" .. i .. " Guildie" end
+  local busyNames = {}
+  for i = 1, math.ceil(CC.BUSY_HEARD / CC.HEARD_PER_SENDER) + 2 do busyNames[i] = "Busy" .. i .. " Guildie" end
   A.RQ.Comm.heard = {}
   local busyUntil2 = sched.t + 300
   local function chatter()
     if sched.t < busyUntil2 then
-      for _, who in ipairs(busy) do
+      for _, who in ipairs(busyNames) do
         A.fire("CHAT_MSG_ADDON", "GCAdv1", "X;busy", "GUILD", who)
       end
       sched:at(sched.t + 15, chatter)
@@ -557,7 +557,7 @@ do
   local t2 = sched.t
   advance(200)
   check(busSince(t2, function(e) return e.sender == A.name and e.msg:match("^G;;") end) == 0,
-    ("%d busy senders (%d heard/min, hold at %d): our send is held (%d heard)"):format(#busy, #busy * 4, CC.BUSY_HEARD, #A.RQ.Comm.heard))
+    ("%d busy senders (%d heard/min, hold at %d): our send is held (%d heard)"):format(#busyNames, #busyNames * 4, CC.BUSY_HEARD, #A.RQ.Comm.heard))
   advance(600)
   check(busSince(t2, function(e) return e.sender == A.name and e.msg:match("^G;;") end) >= 1, "held send goes out once it is quiet")
 end
@@ -577,15 +577,15 @@ do
   G.StoreRecord = function(self, key, ...) stores[#stores + 1] = { t = sched.t, key = key }; return realStore(self, key, ...) end
   local function unit(token, uname, items)
     local g = GUILD_BY[uname]
-    local f, s = uname:match("^(%S+) (%S+)$")
-    A.units[token] = { first = f, surname = s, class = g.class, level = g.level, guid = "G-" .. uname, items = items }
+    local firstName, lastName = uname:match("^(%S+) (%S+)$")
+    A.units[token] = { first = firstName, surname = lastName, class = g.class, level = g.level, guid = "G-" .. uname, items = items }
   end
   unit("party1", "Dora Field", copy(GEAR[4])); unit("party2", "Emil Brook", copy(GEAR[1]))
   unit("party3", "Finn Moor", copy(GEAR[2])); unit("party4", "Gina Reed", copy(GEAR[3]))
   G.inspecting = nil; G.queue = {}; G.lastInspect = {}
   for _, u in ipairs({ "party1", "party2", "party3", "party4" }) do G:QueueInspect(u, true) end
   advance(30)
-  local function at(guid) for _, n in ipairs(notifies) do if n.guid == guid then return n.t end end end
+  local function at(guid) for _, note in ipairs(notifies) do if note.guid == guid then return note.t end end end
   local function storedAt(key) for _, s in ipairs(stores) do if s.key == key then return s.t end end end
   local tD, tE, tF, tG = at("G-Dora Field"), at("G-Emil Brook"), at("G-Finn Moor"), at("G-Gina Reed")
   local sD, sG = storedAt("Dora Field"), storedAt("Gina Reed")
@@ -620,8 +620,8 @@ do
   A.env.NotifyInspect = function(u) local x = A.units[u]; notified[#notified + 1] = x and x.guid end
   local function unit(token, uname, items)
     local g = GUILD_BY[uname]
-    local f, s = uname:match("^(%S+) (%S+)$")
-    A.units[token] = { first = f, surname = s, class = g.class, level = g.level, guid = "G-" .. uname, items = items }
+    local firstName, lastName = uname:match("^(%S+) (%S+)$")
+    A.units[token] = { first = firstName, surname = lastName, class = g.class, level = g.level, guid = "G-" .. uname, items = items }
   end
   unit("party1", "Dora Field", copy(GEAR[4])); unit("party2", "Emil Brook", copy(GEAR[1]))
   A.env.GetNumSubgroupMembers = function() return 2 end
@@ -706,7 +706,7 @@ do
   local r = rec(B, "Anna Stone")
   check(r and r.time and r.ts and r.time > r.ts and B.env.time() - r.time < 3600,
     "received record: time is our receive time (" .. tostring(r and r.time) .. "), ts kept (" .. tostring(r and r.ts) .. ")")
-  local function resumed() local n = 0 for _, p in ipairs(A.printed) do if p.text:find("Guild sync resumed", 1, true) then n = n + 1 end end return n end
+  local function resumed() local count = 0 for _, p in ipairs(A.printed) do if p.text:find("Guild sync resumed", 1, true) then count = count + 1 end end return count end
   local n0 = resumed()
   A.RQ:CommResume()
   A.GCA:SyncRetry()

@@ -81,40 +81,40 @@ do
   K5.list = { K5.me, K5.bud, K5.cara, K5.olga, K5.nobody }
   GCA.needsCache = nil
   local nb0 = GCA.needsBuilds or 0
-  local crafts, nd = GCA:GuildNeedsByCraft(K5.list)
+  local crafts, craftNeeds = GCA:GuildNeedsByCraft(K5.list)
   local function gnames(gs) local t = {} for i, g in ipairs(gs) do t[i] = g.sug.info.name .. "(" .. #g.rows .. ")" end return table.concat(t, ",") end
   local function rnames(g) local t = {} for i, r in ipairs(g.rows) do t[i] = r.member.key end return table.concat(t, ",") end
-  check(crafts == nd.crafts and gnames(crafts) == "Vest(2),Belt(1),Future Ring(1)" and crafts[1].rowKind == "craft",
+  check(crafts == craftNeeds.crafts and gnames(crafts) == "Vest(2),Belt(1),Future Ring(1)" and crafts[1].rowKind == "craft",
     "one group per craft, online members only by default, best gain first, the look-ahead-only craft last (90% but too high level): " .. gnames(crafts))
   check(rnames(crafts[1]) == "Cara Field,Bud Stone" and crafts[1].best.sug == K5.vestB and crafts[1].sug == K5.vestB and not crafts[1].future,
     "a craft's members best first (Cara +38% before Bud +12%); its best row / suggestion = Cara's")
   check(#crafts[3].rows == 1 and crafts[3].rows[1].sug == K5.ringF and crafts[3].future, "one row per member and craft (the better ring of Bud's two); look-ahead group flagged future")
   local all = GCA:GuildNeedsByCraft(K5.list, true)
-  check(all == nd.craftsAll and gnames(all) == "Vest(3),Belt(1),Future Ring(1)" and rnames(all[1]) == "Olga Field,Cara Field,Bud Stone",
+  check(all == craftNeeds.craftsAll and gnames(all) == "Vest(3),Belt(1),Future Ring(1)" and rnames(all[1]) == "Olga Field,Cara Field,Bud Stone",
     "with offline members: Olga (+60%) leads the vest group: " .. rnames(all[1]))
   check(not gnames(all):find("My Gloves", 1, true), "you get no guild-needs group (as K2)")
   local again = GCA:GuildNeedsByCraft(K5.list)
   check(again == crafts and GCA.needsBuilds == nb0 + 1, "groups cached with the rows (no rebuild for the same entries)")
   UIx.needsCollapsed = {}
   local function kinds(d) local t = {} for i, e in ipairs(d) do t[i] = e.rowKind == "cat" and ("#" .. e.cat) or e.group.sug.info.name end return table.concat(t, ",") end
-  local data, nc, nm, offN, allE = UIx.NeedsRows(nd, "", false)
+  local data, nc, nm, offN, allE = UIx.NeedsRows(craftNeeds, "", false)
   check(kinds(data) == "#5,Vest,#6,Belt,#11,Future Ring" and data[2].group == crafts[1] and #data[2].rows == 2 and data[2].cat == 5
     and nc == 3 and nm == 2 and offN == 1 and #allE == 3 and data[1].n == 1,
     "NeedsRows: slot categories (Chest, Waist, Rings) each with its crafts, 2 members, 1 offline member with upgrades: " .. kinds(data))
   UIx.needsCollapsed[5] = true
   local _
-  data, nc, _, _, allE = UIx.NeedsRows(nd, "", false)
+  data, nc, _, _, allE = UIx.NeedsRows(craftNeeds, "", false)
   check(kinds(data) == "#5,#6,Belt,#11,Future Ring" and nc == 3 and #allE == 3 and allE[1].group == crafts[1],
     "a collapsed category hides its crafts (still counted, still selectable): " .. kinds(data))
   UIx.needsCollapsed = {}
-  data, _, nm = UIx.NeedsRows(nd, "", true)
+  data, _, nm = UIx.NeedsRows(craftNeeds, "", true)
   check(#data[2].rows == 3 and nm == 3, "offline box on: Olga's row joins the vest group (3 members)")
-  data, nc, nm = UIx.NeedsRows(nd, "  BELT ", false)
+  data, nc, nm = UIx.NeedsRows(craftNeeds, "  BELT ", false)
   check(kinds(data) == "#6,Belt" and data[2].group == crafts[2] and nc == 1 and nm == 1, "search by item name (case-insensitive, trimmed): the whole craft")
-  data, _, nm = UIx.NeedsRows(nd, "cara", false)
+  data, _, nm = UIx.NeedsRows(craftNeeds, "cara", false)
   check(kinds(data) == "#5,Vest" and #data[2].rows == 1 and data[2].rows[1].member.key == "Cara Field" and nm == 1, "search by member name: only that member's rows")
-  check(#UIx.NeedsRows(nd, "olga", false) == 0 and #UIx.NeedsRows(nd, "olga", true) == 2, "an offline member is found only with the offline box")
-  check(#UIx.NeedsRows(nd, "zzz", false) == 0 and #UIx.NeedsRows(nd, "50%", false) == 0, "no match: nothing; a '%' is plain text")
+  check(#UIx.NeedsRows(craftNeeds, "olga", false) == 0 and #UIx.NeedsRows(craftNeeds, "olga", true) == 2, "an offline member is found only with the offline box")
+  check(#UIx.NeedsRows(craftNeeds, "zzz", false) == 0 and #UIx.NeedsRows(craftNeeds, "50%", false) == 0, "no match: nothing; a '%' is plain text")
 
   section("TagLine, pair slots, gain text")
   check(plain(UIx.TagLine({ { "a", "|cffff0000" }, { "b" }, { "c", "|cff00ff00" }, { "d", "|cff0000ff" } })) == "a  ·  b  ·  c  ·  d"
@@ -308,14 +308,14 @@ do
     check(opened[1] == 9100, "Gildenbedarf: click on the craft's icon opens recipe 9100")
     nd.members.pools.default[1]._scripts.OnClick(nd.members.pools.default[1], "LeftButton")
     check(#opened == 1, "Gildenbedarf: a click on a member row (their equipped item) opens nothing")
-    local linked, savedLink = {}, env.HandleModifiedItemClick
-    env.HandleModifiedItemClick = function(l) linked[#linked + 1] = l end
+    local links, savedLink = {}, env.HandleModifiedItemClick
+    env.HandleModifiedItemClick = function(l) links[#links + 1] = l end
     env.IsControlKeyDown = function() return true end
     nd.iconBtn._scripts.OnClick(nd.iconBtn, "LeftButton")
     env.IsControlKeyDown = nil
     nd.iconBtn._scripts.OnClick(nd.iconBtn, "RightButton")
     env.HandleModifiedItemClick = savedLink
-    check(#opened == 1 and #linked == 1 and linked[1] == rsug.info.link,
+    check(#opened == 1 and #links == 1 and links[1] == rsug.info.link,
       "Gildenbedarf: ctrl-click on the craft's icon links it (not opened); a right-click on a learned craft opens nothing")
     rsug.known = false
     UIx:UpdateCraftDetail(rentry)
@@ -365,10 +365,10 @@ do
   UIx.selected = "Bud Stone"
   UIx:Refresh()
   local ml = UIx.memberList
-  local kinds = {}
-  for i, d in ipairs(ml.data) do kinds[i] = d.rowKind and (d.group .. "(" .. d.count .. ")") or d.key end
-  check(table.concat(kinds, ",") == "online(3),Me Stone,Bud Stone,Cara Field,offline(1)",
-    "'Online 3' (you + recorded online), 'Offline 1' collapsed, nobody without gear: " .. table.concat(kinds, ","))
+  local rowKinds = {}
+  for i, d in ipairs(ml.data) do rowKinds[i] = d.rowKind and (d.group .. "(" .. d.count .. ")") or d.key end
+  check(table.concat(rowKinds, ",") == "online(3),Me Stone,Bud Stone,Cara Field,offline(1)",
+    "'Online 3' (you + recorded online), 'Offline 1' collapsed, nobody without gear: " .. table.concat(rowKinds, ","))
   check(ml.rowY[1][2] == 27 and ml.rowY[2][2] == 25 and ml.pools.default[1]._SetHeight[1] == 25, "recipe rows 25 px, category headers 25 (+2) px")
   local gp = ml.pools.group
   check(gp[1].text._text == "Online" and gp[2].text._text == "Offline" and gp[1].open == true and gp[2].open == false
@@ -440,9 +440,9 @@ do
   check(tipText():find("Offline (1)", 1, true), "group header tooltip")
   local ms = UIx.memberSearch
   ms:SetText("cara"); ms._scripts.OnTextChanged(ms)
-  kinds = {}
-  for i, d in ipairs(ml.data) do kinds[i] = d.rowKind and d.group or d.key end
-  check(table.concat(kinds, ",") == "online,Cara Field" and ms.native and ms._template == "SearchBoxTemplate", "member search 'cara': only Cara (K6: SearchBoxTemplate)")
+  rowKinds = {}
+  for i, d in ipairs(ml.data) do rowKinds[i] = d.rowKind and d.group or d.key end
+  check(table.concat(rowKinds, ",") == "online,Cara Field" and ms.native and ms._template == "SearchBoxTemplate", "member search 'cara': only Cara (K6: SearchBoxTemplate)")
   UIx:OpenMember("Bud Stone")
   check(ms._text == "" and UIx.selected == "Bud Stone", "opening a member hidden by the search clears the search")
   UIx.collapsed.offline = true

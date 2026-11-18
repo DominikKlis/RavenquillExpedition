@@ -325,22 +325,22 @@ do
   check(#UIx.SectionRows(fakeSections({})) == 0 and #UIx.SectionRows({}) == 0, "no suggestion at all: empty list (the empty-state text explains why)")
   local sl = UIx.sugList
   sl:SetData(data)
-  local H = sl.pools.section
+  local sectionRows = sl.pools.section
   local FP = sl.pools.fold
-  check(H and #H == 2 and FP and #FP == 1 and sl.pools.default[1].data == s1 and sl.pools.default[3].data == ring and (sl.pools.default[4] == nil or not sl.pools.default[4]._shown),
+  check(sectionRows and #sectionRows == 2 and FP and #FP == 1 and sl.pools.default[1].data == s1 and sl.pools.default[3].data == ring and (sl.pools.default[4] == nil or not sl.pools.default[4]._shown),
     "row kinds: 2 section rows + 1 folded line (own pools) + 3 suggestion rows")
   local foldH = sl.rowY[6][2]
-  check(sl.pools.default[1]._points[1][3] == -56 and sl.pools.default[2]._points[1][3] == -108 and H[2]._points[1][3] == -160 and FP[1]._points[1][3] == -268,
+  check(sl.pools.default[1]._points[1][3] == -56 and sl.pools.default[2]._points[1][3] == -108 and sectionRows[2]._points[1][3] == -160 and FP[1]._points[1][3] == -268,
     "rows stacked by kind height (worn row 56, card 52, then the folded box; K4 had a 30 px header)")
   check(sl.contentH == 2 * 56 + 3 * 52 + foldH and foldH >= 30, "content height = 2 worn rows + 3 cards + the folded box (" .. tostring(sl.contentH) .. ", box " .. foldH .. ")")
-  local h = H[1]
+  local h = sectionRows[1]
   check(h.name == nil and h.label == nil and plain(h.wornName._text) == "Worn Vest" and h.wornName._text:find("^|cff")
     and h.wornName._points[1][1] == "LEFT" and h.wornName._points[1][2] == h.box.qual and h.wornName._points[1][4] == 12
     and h.count._text == "2 upgrades" and not h.empty and h.box.bg == nil and h.box.edges == nil and h.box.line._SetColorTexture and h.box._points[1][5] == -6,
     "chest worn row: icon + the worn name only (centred, 12 px gap; no slot name, no 'Equipped'), '2 upgrades' on the right, a box 6 px below the row top: " .. plain(h.wornName._text))
   check(h.box.icon._tex == 134 and h.box.icon._w == 34 and h.box.iconBorder._SetVertexColor
     and h.wornName._SetWordWrap[1] == false, "worn row: 34 px item icon in its quality frame, single-line texts")
-  local r = H[2]
+  local r = sectionRows[2]
   check(r.name == nil and plain(r.wornName._text) == "Ring A  ·  Ring B" and r.count._text == "1 upgrade",
     "rings worn row: both rings named, '1 upgrade': " .. plain(r.wornName._text))
   local c1 = sl.pools.default[1]
@@ -408,7 +408,7 @@ do
   GCA.GetMemberList = origML
   sl:SetData(UIx.SectionRows(fakeSections({ [9] = { fakeSug({ slot = 9 }) } })))
   local shownH = 0
-  for _, x in ipairs(H) do if x._shown then shownH = shownH + 1 end end
+  for _, x in ipairs(sectionRows) do if x._shown then shownH = shownH + 1 end end
   check(shownH == 1 and FP[1]._shown and sl.pools.default[1]._shown and not sl.pools.default[2]._shown and not sl.pools.default[3]._shown, "pools reused; unused rows hidden")
   check(UIx.errorCount == before, "no error reported")
   env.HandleModifiedItemClick = function() end

@@ -423,12 +423,12 @@ do
     return world, mini
   end
   M2:RefreshPins()
-  local w1, m1 = pinsFor("Bert Beta")
-  check(not w1 and not m1, "a guildmate in my group: no world or minimap dot")
+  local world1, mini1 = pinsFor("Bert Beta")
+  check(not world1 and not mini1, "a guildmate in my group: no world or minimap dot")
   wg.set("hideGroup", false)
   M2:RefreshPins()
-  local w2, m2 = pinsFor("Bert Beta")
-  check(w2 and m2, "option off: the dots are back")
+  local world2, mini2 = pinsFor("Bert Beta")
+  check(world2 and mini2, "option off: the dots are back")
   wg.set("hideGroup", true)
   core.GroupGuildies = function() return {} end
   M2:RefreshPins()

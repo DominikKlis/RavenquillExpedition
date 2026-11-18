@@ -319,9 +319,9 @@ for _ in pairs(chb:Status().rejected) do keys = keys + 1 end
 check(keys <= 8 and chb:Status().rejected["version"] == 201, "400 malformed messages add no new keys (" .. keys .. " keys)")
 for what, bad in pairs({ ["item 0"] = { item = 0 }, ["item inf"] = { item = math.huge }, ["item NaN"] = { item = 0 / 0 },
   ["w above hi"] = { w = 46656 }, ["w inf"] = { w = math.huge }, ["class unknown"] = { cls = "PIRATE" } }) do
-  local m = { who = "Anna Stone", item = 1, note = "x", cls = "MAGE", t = now, big = false, kind = "fish", w = 1 }
-  for k, v in pairs(bad) do m[k] = v end
-  check(cha:Encode("catch", m) == nil, "encode refuses " .. what)
+  local msg = { who = "Anna Stone", item = 1, note = "x", cls = "MAGE", t = now, big = false, kind = "fish", w = 1 }
+  for k, v in pairs(bad) do msg[k] = v end
+  check(cha:Encode("catch", msg) == nil, "encode refuses " .. what)
 end
 check(a.RQ.Wire.b36(math.huge) == "0" and a.RQ.Wire.b36(0 / 0) == "0" and a.RQ.Wire.b36(-5) == "0"
   and a.RQ.Wire.b36(2 ^ 60) == "0" and a.RQ.Wire.b36(46655) == "zzz", "b36: NaN, infinity, negative, huge -> 0; normal unchanged")

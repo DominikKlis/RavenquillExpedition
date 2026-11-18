@@ -45,6 +45,6 @@ read_globals = {
   "strsplit", "time", "tinsert", "wipe",
 }
 
-files["**/dev/**"] = { std = "max", ignore = { "1", "4" } }
+files["**/dev/**"] = { std = "max", ignore = { "1" } }
 files["scripts/**"] = { std = "max" }
 files["templates/**"] = { std = "lua51" }

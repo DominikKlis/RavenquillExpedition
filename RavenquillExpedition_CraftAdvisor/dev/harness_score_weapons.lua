@@ -120,20 +120,20 @@ do
   for k, v in pairs(known) do savedKnown[k] = v end
   local savedLA, savedUn = GCA.db.settings.lookahead, GCA.db.settings.showUnlearned
   GCA.db.settings.lookahead, GCA.db.settings.showUnlearned = true, false
-  local function W(id, name, loc, lvl, raw, sub) addItem(id, name, loc, lvl, raw, sub); itemDB[id].classID = 2 end
-  W(994001, "Craft Sword", "INVTYPE_WEAPON", 30, { ITEM_MOD_STRENGTH_SHORT = 8, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 30 }, 7)
-  W(994002, "Craft Greatsword", "INVTYPE_2HWEAPON", 30, { ITEM_MOD_STRENGTH_SHORT = 20, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 45 }, 8)
-  W(994003, "Craft Polearm", "INVTYPE_2HWEAPON", 20, { ITEM_MOD_STRENGTH_SHORT = 25, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 40 }, 6)
-  W(994004, "Craft Dagger", "INVTYPE_WEAPON", 30, { ITEM_MOD_AGILITY_SHORT = 9, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 28 }, 15)
-  W(994005, "Craft Left Blade", "INVTYPE_WEAPONOFFHAND", 30, { ITEM_MOD_AGILITY_SHORT = 6, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 25 }, 7)
-  W(994006, "Craft Gun", "INVTYPE_RANGEDRIGHT", 30, { ITEM_MOD_AGILITY_SHORT = 5, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 30 }, 3)
-  W(994007, "Craft Wand", "INVTYPE_RANGEDRIGHT", 30, { ITEM_MOD_INTELLECT_SHORT = 6, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 25 }, 19)
+  local function Weapon(id, name, loc, lvl, raw, sub) addItem(id, name, loc, lvl, raw, sub); itemDB[id].classID = 2 end
+  Weapon(994001, "Craft Sword", "INVTYPE_WEAPON", 30, { ITEM_MOD_STRENGTH_SHORT = 8, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 30 }, 7)
+  Weapon(994002, "Craft Greatsword", "INVTYPE_2HWEAPON", 30, { ITEM_MOD_STRENGTH_SHORT = 20, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 45 }, 8)
+  Weapon(994003, "Craft Polearm", "INVTYPE_2HWEAPON", 20, { ITEM_MOD_STRENGTH_SHORT = 25, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 40 }, 6)
+  Weapon(994004, "Craft Dagger", "INVTYPE_WEAPON", 30, { ITEM_MOD_AGILITY_SHORT = 9, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 28 }, 15)
+  Weapon(994005, "Craft Left Blade", "INVTYPE_WEAPONOFFHAND", 30, { ITEM_MOD_AGILITY_SHORT = 6, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 25 }, 7)
+  Weapon(994006, "Craft Gun", "INVTYPE_RANGEDRIGHT", 30, { ITEM_MOD_AGILITY_SHORT = 5, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 30 }, 3)
+  Weapon(994007, "Craft Wand", "INVTYPE_RANGEDRIGHT", 30, { ITEM_MOD_INTELLECT_SHORT = 6, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 25 }, 19)
   addItem(994008, "Craft Shield", "INVTYPE_SHIELD", 30, { ITEM_MOD_STAMINA_SHORT = 8, RESISTANCE0_NAME = 900 }, 6)
-  W(994101, "Old 2H", "INVTYPE_2HWEAPON", 20, { ITEM_MOD_STRENGTH_SHORT = 5, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 20 }, 8)
-  W(994102, "Old Sword", "INVTYPE_WEAPON", 20, { ITEM_MOD_STRENGTH_SHORT = 2, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 15 }, 7)
-  W(994103, "Old Offhand Sword", "INVTYPE_WEAPON", 20, { ITEM_MOD_AGILITY_SHORT = 1, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 10 }, 7)
-  W(994104, "Old Dagger", "INVTYPE_WEAPON", 20, { ITEM_MOD_AGILITY_SHORT = 2, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 12 }, 15)
-  W(994105, "Old Wand", "INVTYPE_RANGEDRIGHT", 20, { ITEM_MOD_INTELLECT_SHORT = 1, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 8 }, 19)
+  Weapon(994101, "Old 2H", "INVTYPE_2HWEAPON", 20, { ITEM_MOD_STRENGTH_SHORT = 5, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 20 }, 8)
+  Weapon(994102, "Old Sword", "INVTYPE_WEAPON", 20, { ITEM_MOD_STRENGTH_SHORT = 2, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 15 }, 7)
+  Weapon(994103, "Old Offhand Sword", "INVTYPE_WEAPON", 20, { ITEM_MOD_AGILITY_SHORT = 1, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 10 }, 7)
+  Weapon(994104, "Old Dagger", "INVTYPE_WEAPON", 20, { ITEM_MOD_AGILITY_SHORT = 2, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 12 }, 15)
+  Weapon(994105, "Old Wand", "INVTYPE_RANGEDRIGHT", 20, { ITEM_MOD_INTELLECT_SHORT = 1, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 8 }, 19)
   local recipes = {}
   for i, id in ipairs({ 994001, 994002, 994003, 994004, 994005, 994006, 994007, 994008 }) do
     recipes[995000 + i] = { item = id, skill = 1, src = "trainer", name = itemDB[id].name, r = {} }
@@ -182,7 +182,7 @@ do
   check(g2 and g2.bothHands and g2.equipped and g2.equipped.name == "Old Sword + Old Offhand Sword" and g2.equipped.pair,
     "Fury with two swords: a two-hander says 'replaces both hands', compared against both: " .. tostring(g2 and g2.equipped and g2.equipped.name))
   check(by[994005] and by[994005].slot == 17, "Fury Lv40 (dual wield): the off-hand blade is offered for the off hand")
-  W(994106, "Strong Dagger", "INVTYPE_WEAPON", 20, { ITEM_MOD_AGILITY_SHORT = 25, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 45 }, 15)
+  Weapon(994106, "Strong Dagger", "INVTYPE_WEAPON", 20, { ITEM_MOD_AGILITY_SHORT = 25, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 45 }, 15)
   by = run("ROGUE", "COMBAT", 30, { [16] = link(994106), [17] = link(994104) })
   check(by[994004] and by[994004].hand == "off" and by[994004].slot == 17 and by[994004].equipped.name == "Old Dagger",
     "dual wield: a one-hander better in the off hand is offered for the off hand (hand 'off', section 17, replaces the off-hand dagger)")

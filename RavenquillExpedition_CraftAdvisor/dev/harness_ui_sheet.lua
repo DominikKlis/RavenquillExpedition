@@ -296,13 +296,13 @@ do
   local function sheetLayout(UIy, label)
     local fw = UIy.frame
     local R = function(fr) return rectOf(fr, fw) end
-    local sh3, c3 = UIy.sheet, UIy.sheet.centre
-    local si, sr, cr = R(UIy.sugInset), R(sh3), R(c3)
+    local sheetFrame, c3 = UIy.sheet, UIy.sheet.centre
+    local si, sr, cr = R(UIy.sugInset), R(sheetFrame), R(c3)
     local bad = {}
     local function inside(a, b) return a.l >= b.l and a.r <= b.r and a.t >= b.t and a.b <= b.b end
     if not inside(sr, si) then bad[#bad + 1] = "sheet outside the panel " .. rstr(sr) end
     local slots = {}
-    for slot, b in pairs(sh3.slots) do
+    for slot, b in pairs(sheetFrame.slots) do
       local r = R(b)
       slots[#slots + 1] = { slot, r }
       if not inside(r, sr) then bad[#bad + 1] = "slot " .. slot .. " outside " .. rstr(r) end

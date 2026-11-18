@@ -235,8 +235,8 @@ local function menuOf(dd)
     e.sub = {}
     function e:CreateRadio(t, i, s2, d)
       local r = { kind = "radio", text = t, isSel = i, set = s2, data = d }
-      function r:on() return r.isSel(r.data) and true or false end
-      function r:click() return r.set(r.data) end
+      function r.on() return r.isSel(r.data) and true or false end
+      function r.click() return r.set(r.data) end
       e.sub[#e.sub + 1] = r
       return r
     end
@@ -368,7 +368,6 @@ local function onlyChanges()
   return H.tip[1] == " " and (head:find("^Stat changes") or head:find("^Werteänderungen")) ~= nil and #H.tip >= 3
 end
 local function plainTip(frag) return onlyChanges() and #H.hyper == 1 and (frag == nil or H.hyper[1]:find(frag, 1, true) ~= nil) end
-local function plain(t) return (tostring(t or ""):gsub("|T.-|t ?", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
 local function fakeSug(over)
   local d = { kind = "item", cand = { spellID = 3762, itemID = 4244, recipe = { skill = 100, src = "trainer", r = {} } },
     info = { name = "Hillman's Leather Vest", link = "|Hitem:4244|h[Hillman's Leather Vest]|h", quality = 2, icon = "x", minLevel = 20 },
@@ -447,7 +446,7 @@ local function manyMembers()
 end
 
 local function layoutChecks(UIx, f, label)
-  local W, H = f._w, f._h
+  local winW, winH = f._w, f._h
   local R = function(fr) return rectOf(fr, f) end
   local common = {
     { "drag bar", UIx.dragBar }, { "profession selector", UIx.profButton }, { "sync dot", UIx.syncDot },
@@ -470,7 +469,7 @@ local function layoutChecks(UIx, f, label)
     local bad, outside = {}, {}
     for i, a in ipairs(named) do
       local ra = R(a[2])
-      if ra.l < 0 or ra.t < 0 or ra.r > W or ra.b > H then outside[#outside + 1] = a[1] .. rstr(ra) end
+      if ra.l < 0 or ra.t < 0 or ra.r > winW or ra.b > winH then outside[#outside + 1] = a[1] .. rstr(ra) end
       for j = i + 1, #named do
         local rb = R(named[j][2])
         if overlap(ra, rb) then bad[#bad + 1] = a[1] .. rstr(ra) .. " x " .. named[j][1] .. rstr(rb) end
@@ -480,15 +479,15 @@ local function layoutChecks(UIx, f, label)
     check(#outside == 0, label .. " (" .. vname .. " view): every control inside the window " .. table.concat(outside, "; "))
   end
   local pb, dot = R(UIx.profButton), R(UIx.syncDot)
-  check(pb.l + pb.r == W and pb.t == 27 and pb.b == 56 and pb.r + 10 <= dot.l and dot.r == W - 20 and dot.b <= 62,
+  check(pb.l + pb.r == winW and pb.t == 27 and pb.b == 56 and pb.r + 10 <= dot.l and dot.r == winW - 20 and dot.b <= 62,
     label .. ": rank bar centred under the title, sync label right of it, both above the panels (62) " .. rstr(pb) .. " " .. rstr(dot))
   if UIx.tabsTemplated then
     local t1, t2 = R(UIx.tabs[1]), R(UIx.tabs[2])
-    check(t1.t == H - 2 and t1.l == 12 and t2.l >= t1.r, label .. ": view tabs hang under the window's bottom edge, side by side")
+    check(t1.t == winH - 2 and t1.l == 12 and t2.l >= t1.r, label .. ": view tabs hang under the window's bottom edge, side by side")
   end
   local mi, md, si = R(UIx.memberInset), R(UIx.memberDetail), R(UIx.sugInset)
-  check(mi.l == 10 and mi.r - mi.l == 260 and mi.t == 62 and mi.b == H - 40, label .. ": member list panel 260 wide, 62..H-40 " .. rstr(mi))
-  check(md.l == 278 and md.r == W - 12 and md.t == 62 and md.b == H - 40, label .. ": member detail panel fills 278..W-12, 62..H-40 " .. rstr(md))
+  check(mi.l == 10 and mi.r - mi.l == 260 and mi.t == 62 and mi.b == winH - 40, label .. ": member list panel 260 wide, 62..H-40 " .. rstr(mi))
+  check(md.l == 278 and md.r == winW - 12 and md.t == 62 and md.b == winH - 40, label .. ": member detail panel fills 278..W-12, 62..H-40 " .. rstr(md))
   check(si.l == md.l + 6 and si.r == md.r - 6 and si.t == md.t + 76 and si.b == md.b - 6,
     label .. ": sheet / list area inside the detail panel, below its header (76) " .. rstr(si))
   local ml, sl = R(UIx.memberList), R(UIx.sugList)
@@ -498,13 +497,13 @@ local function layoutChecks(UIx, f, label)
     label .. ": scroll content as wide as the view (rows anchored to its right edge)")
   local nt, sb = R(UIx.nameText), R(UIx.specButton)
   local ic, hd0, tg = R(UIx.infoIcon), R(UIx.sugHeader), R(UIx.modeToggle)
-  check(nt.r < sb.l and R(UIx.subText).r == W - 12 - 224 and R(UIx.subText).r < sb.l and hd0.r == tg.l - 10 and tg.r == W - 24 and ic.r <= hd0.l
-    and UIx.emptyText._w == (W - 302) - 60 and nt.l == md.l + 14 and sb.r == md.r - 12,
+  check(nt.r < sb.l and R(UIx.subText).r == winW - 12 - 224 and R(UIx.subText).r < sb.l and hd0.r == tg.l - 10 and tg.r == winW - 24 and ic.r <= hd0.l
+    and UIx.emptyText._w == (winW - 302) - 60 and nt.l == md.l + 14 and sb.r == md.r - 12,
     label .. ": header texts span the detail panel, (i) icon left of the list header, K4 switch right of it")
   local ni, nl, sbx, cnt, nd = R(UIx.needsInset), R(UIx.needsList), R(UIx.searchBox), R(UIx.needsCount), R(UIx.needDetail)
-  check(ni.l == 10 and ni.r == 270 and ni.t == 62 and ni.b == H - 40 and nl.r == ni.r - 25 and nl.b == ni.b - 23 and nl.t == ni.t + 34,
+  check(ni.l == 10 and ni.r == 270 and ni.t == 62 and ni.b == winH - 40 and nl.r == ni.r - 25 and nl.b == ni.b - 23 and nl.t == ni.t + 34,
     label .. ": guild-needs list panel 10..270, 62..H-40, its list between the search and the count " .. rstr(ni) .. " " .. rstr(nl))
-  check(nd.l == 278 and nd.r == W - 12 and nd.t == 62 and nd.b == H - 40 and UIx.needDetail.w == W - 290 and UIx.needDetail.h == H - 102,
+  check(nd.l == 278 and nd.r == winW - 12 and nd.t == 62 and nd.b == winH - 40 and UIx.needDetail.w == winW - 290 and UIx.needDetail.h == winH - 102,
     label .. ": craft detail panel fills 278..W-12, 62..H-40 " .. rstr(nd))
   local obx = R(UIx.filterButton)
   check(sbx.l >= ni.l and sbx.t >= ni.t and sbx.b <= nl.t and obx.r == ni.r - 8 and obx.b <= nl.t and sbx.r < obx.l
@@ -515,10 +514,10 @@ local function layoutChecks(UIx, f, label)
   check(ms.l >= mi.l and ms.r <= mi.r and ms.t >= mi.t and ms.b <= ml.t, label .. ": member search inside the member panel, above the list " .. rstr(ms))
   local art = f.gcaArt
   local cv, hd = R(art.canvas), R(art.page)
-  check(cv.l == 2 and cv.t == 21 and cv.r == W - 2 and cv.b == H - 3 and hd.l == 3 and hd.r == W - 3 and hd.t == 21 and hd.b == H - 3,
+  check(cv.l == 2 and cv.t == 21 and cv.r == winW - 2 and cv.b == winH - 3 and hd.l == 3 and hd.r == winW - 3 and hd.t == 21 and hd.b == winH - 3,
     label .. ": art canvas (Overview, 2,-21) and the Template2 page (3,-21) fill the window at every size " .. rstr(cv) .. " " .. rstr(hd))
   local g = R(UIx.resizeGrip)
-  check(g.r == W - 4 and g.b == H - 4 and g.t >= md.b and g.t >= nd.b, label .. ": grip in the bottom-right corner, below the panels")
+  check(g.r == winW - 4 and g.b == winH - 4 and g.t >= md.b and g.t >= nd.b, label .. ": grip in the bottom-right corner, below the panels")
 end
 
 function H.lateGlobals()

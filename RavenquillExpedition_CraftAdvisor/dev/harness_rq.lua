@@ -208,7 +208,6 @@ local rqKeys = {}
 for _, t in pairs(ns.Locales) do for k in pairs(t) do if k:match("_RQ$") then rqKeys[#rqKeys + 1] = k end end end
 check(#rqKeys == 0 and ns.L.MSG_RECORDED == de.MSG_RECORDED, "no _RQ variants of the command texts left: " .. table.concat(rqKeys, ", "))
 do
-  local Files = dofile(ROOT .. "dev/files.lua")
   local list = {}
   for _, f in ipairs(Files.all()) do if not f:find("^Locales/") and not f:find("^Data/") then list[#list + 1] = f end end
   local src = Files.source(list)

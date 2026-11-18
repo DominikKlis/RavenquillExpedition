@@ -261,9 +261,9 @@ do
     local NO_FALLBACK = { [2740] = true, [2758] = true, [2787] = true }
     local function npc(id, where) if not REAL.npcs[id] then bad[#bad + 1] = where .. ">npc " .. tostring(id) end end
     for prof, list in pairs(REAL.trainers) do
-      for _, t in ipairs(list) do
-        npc(t[1], "trainer " .. prof)
-        if not (type(t[2]) == "number" and t[2] >= 1 and t[2] <= 15) then bad[#bad + 1] = "trainer " .. prof .. ">ranks " .. tostring(t[2]) end
+      for _, trainerRow in ipairs(list) do
+        npc(trainerRow[1], "trainer " .. prof)
+        if not (type(trainerRow[2]) == "number" and trainerRow[2] >= 1 and trainerRow[2] <= 15) then bad[#bad + 1] = "trainer " .. prof .. ">ranks " .. tostring(trainerRow[2]) end
       end
     end
     for id, r in pairs(REAL.recipes) do
@@ -285,9 +285,9 @@ do
   reset()
   do
     local dN = fakeSug({ known = false, cand = { spellID = 10550, recipe = { src = "pattern", skill = 205 } } })
-    local info = UIx.SourceInfo(dN, cur)
-    check(info and info.list[1] and info.list[1].kind == "drop" and info.list[1].extra and info.list[1].count == 2
-      and plain(UIx.SourceLine(dN, cur)):find("Bristleback Skullcrusher (Shen'dralas)", 1, true) and info.list[1].npc.level == "42-43",
+    local dropInfo = UIx.SourceInfo(dN, cur)
+    check(dropInfo and dropInfo.list[1] and dropInfo.list[1].kind == "drop" and dropInfo.list[1].extra and dropInfo.list[1].count == 2
+      and plain(UIx.SourceLine(dN, cur)):find("Bristleback Skullcrusher (Shen'dralas)", 1, true) and dropInfo.list[1].npc.level == "42-43",
       "extra sources: Nightscape Cloak's pattern drops from Bristleback Skullcrusher in Shen'dralas (+1 more): " .. plain(UIx.SourceLine(dN, cur) or "nil"))
     local dV = fakeSug({ known = false, cand = { spellID = 23636, recipe = { src = "pattern", skill = 295 } } })
     local iv = UIx.SourceInfo(dV, cur)
@@ -334,12 +334,12 @@ do
                { kind = "trainer", cost = 500 } } }
     captureTip()
     S.AddTooltip(vend, { click = "CLICK", right = "RIGHT" })
-    local t = plain(tipText())
-    local iPrice, iVend, iAH = t:find("\nPrice\n", 1, true), t:find("At the vendor | ", 1, true), t:find("In the auction house | ", 1, true)
-    check(t:find("Where to get it", 1, true) and t:find("Vendor: Androd | Arathi 40, 50", 1, true) and t:find("Trainer | Skill 100 (reached)", 1, true)
-      and iPrice and iVend and iAH and iPrice < iVend and iVend < iAH and t:find("At the trainer | ", 1, true)
-      and t:find("Pattern | ", 1, true) and t:find("CLICK\nRIGHT", 1, true),
-      "tooltip: sources with icons + where, then 'Price' (vendor / trainer / auction house), pattern, two hint lines: " .. t:gsub("\n", " / "))
+    local tooltip = plain(tipText())
+    local iPrice, iVend, iAH = tooltip:find("\nPrice\n", 1, true), tooltip:find("At the vendor | ", 1, true), tooltip:find("In the auction house | ", 1, true)
+    check(tooltip:find("Where to get it", 1, true) and tooltip:find("Vendor: Androd | Arathi 40, 50", 1, true) and tooltip:find("Trainer | Skill 100 (reached)", 1, true)
+      and iPrice and iVend and iAH and iPrice < iVend and iVend < iAH and tooltip:find("At the trainer | ", 1, true)
+      and tooltip:find("Pattern | ", 1, true) and tooltip:find("CLICK\nRIGHT", 1, true),
+      "tooltip: sources with icons + where, then 'Price' (vendor / trainer / auction house), pattern, two hint lines: " .. tooltip:gsub("\n", " / "))
     check(not plain(UIx.SourceBadge(fakeSug({ known = false }), cur) or ""):find("|", 1, true), "the source line itself has no prices any more")
     captureTip()
     S.AddTooltip({ cj = true, list = { { kind = "drop", npcs = { { name = "Bandit", level = 12, zone = "Westfall" } } } } })
@@ -391,7 +391,7 @@ do
           SetFlipBookFrames = function(_, v) anim.frames = v end, SetDuration = function(_, v) anim.dur = v end }
       end }
     local origCT2 = Frame.CreateTexture
-    Frame.CreateTexture = function(self, ...) local t = origCT2(self, ...); t.CreateAnimationGroup = function() return fakeAG end; return t end
+    Frame.CreateTexture = function(self, ...) local tex = origCT2(self, ...); tex.CreateAnimationGroup = function() return fakeAG end; return tex end
     local rb2 = UIx.CreateProfessionPicker(UIx.frame, UIx.frame)
     Frame.CreateTexture = origCT2
     rb2:SetSkill("x", 150, 300, "Leatherworking"); rb2:SetSkill("x", 150, 300, "Leatherworking")
