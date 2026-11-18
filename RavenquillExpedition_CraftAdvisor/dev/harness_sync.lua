@@ -716,6 +716,69 @@ do
   check(resumed() == n0 + 1 and not A.RQ:CommState().slow, "SyncRetry while paused: resumed + message, slow mode left")
 end
 
+section("Relay rules: our own inspect reads of guildies without the addon, not heard yet, never from an instance")
+do
+  local G, S, db = A.GCA, A.S, A.GCA.db
+  local key = "Finn Moor"
+  local savedFinn = db.members[key]
+  advance(300)
+  local function relays(t0)
+    return busSince(t0, function(e)
+      return e.sender == "Anna Stone" and e.msg:find("G;" .. key .. ";", 1, true) == 1 and e.msg:match(";1/%d;") ~= nil
+    end)
+  end
+  local function inspected(extra)
+    local r = { class = "PRIEST", level = 34, items = copy(GEAR[2]), ts = G:Now(), time = A.env.time(), source = "inspect" }
+    for k, v in pairs(extra or {}) do r[k] = v end
+    return r
+  end
+  local function try(r, setup)
+    db.members[key] = r
+    S.relayHeard[key], S.relayHeardSig[key], S.addonUsers[key] = nil, nil, nil
+    if setup then setup(r) end
+    local t0 = sched.t
+    G:RelayInspect(key)
+    advance(150)
+    return relays(t0)
+  end
+  local now = A.env.GetTime
+  check(try(inspected()) == 1, "control: our fresh inspect read of a guildie without the addon is relayed once")
+  check(try(inspected({ source = "sync" })) == 0 and try(inspected({ from = "Bert Hill" })) == 0,
+    "a record that came over sync, or one relayed to us, isn't relayed")
+  check(try(inspected(), function() S.addonUsers[key] = now() - 60 end) == 0
+    and try(inspected(), function() S.addonUsers[key] = now() - A.C.ADDON_USER_FRESH - 1 end) == 1,
+    "a guildie heard using the addon within the hour sends their own gear; one silent for longer is relayed")
+  check(try(inspected(), function(r) S.relayHeard[key] = r.ts end) == 0
+    and try(inspected(), function(r) S.relayHeardSig[key] = G:GearSignature(r.items) end) == 0,
+    "someone already relayed this read (same or newer stamp, or the same gear): not again")
+  A.instance = true
+  A.fire("PLAYER_ENTERING_WORLD", false, false)
+  local inInstance = try(inspected())
+  A.instance = false
+  A.fire("PLAYER_ENTERING_WORLD", false, false)
+  local t0 = sched.t
+  advance(150)
+  check(inInstance == 0 and relays(t0) == 1, "inside an instance the relay waits, and goes out after leaving")
+  local cs = db.sync[G.charKey]
+  local savedPeers, savedPeerAt = S.peers, cs.peerAt
+  S.peers, cs.peerAt = {}, nil
+  local noPeer = try(inspected())
+  S.peers, cs.peerAt = savedPeers, savedPeerAt
+  t0 = sched.t
+  advance(150)
+  check(noPeer == 0 and relays(t0) == 1, "with no other addon user known the relay waits for one")
+  db.members[key] = nil
+  for i = 1, A.C.RELAY_MAX do S.relayPending["Queued " .. i] = now() - 100 + i end
+  G:RelayInspect(key)
+  local kept = 0
+  for i = 2, A.C.RELAY_MAX do if S.relayPending["Queued " .. i] then kept = kept + 1 end end
+  check(S.relayPending["Queued 1"] == nil and kept == A.C.RELAY_MAX - 1 and S.relayPending[key] ~= nil,
+    "more than " .. A.C.RELAY_MAX .. " waiting relays: the oldest is dropped")
+  advance(300)
+  check(next(S.relayPending) == nil, "the queue drains (subjects without a record send nothing)")
+  db.members[key] = savedFinn
+end
+
 section("pruning characters that left the guild (conservative)")
 do
   local G, db = A.GCA, A.GCA.db

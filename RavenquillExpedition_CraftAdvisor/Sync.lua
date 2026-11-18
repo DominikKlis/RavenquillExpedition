@@ -233,16 +233,28 @@ end
 
 local DrainRelays
 
+local function OldestRelay()
+  local n, oldest, oldestT = 0, nil, math.huge
+  for k, t in pairs(S.relayPending) do
+    n = n + 1
+    if t < oldestT then oldest, oldestT = k, t end
+  end
+  return oldest, n
+end
+
 function GCA:RelayInspect(key)
   if not Enabled() or key == self.playerKey or not RQ:RosterEntry(key) then return end
   S.relayPending[key] = GetTime()
-  local n, oldestK, oldestT = 0, nil, math.huge
-  for k, t in pairs(S.relayPending) do
-    n = n + 1
-    if t < oldestT then oldestK, oldestT = k, t end
-  end
-  if n > C.RELAY_MAX then S.relayPending[oldestK] = nil end
+  local oldest, n = OldestRelay()
+  if n > C.RELAY_MAX then S.relayPending[oldest] = nil end
   DrainRelays()
+end
+
+local function ShouldRelay(key, m)
+  if not (m and m.source == "inspect" and not m.from) then return false end
+  local heardUser = S.addonUsers[key]
+  if heardUser and GetTime() - heardUser < C.ADDON_USER_FRESH then return false end
+  return (S.relayHeard[key] or -1) < Stamp(m) and S.relayHeardSig[key] ~= GCA:GearSignature(m.items)
 end
 
 function DrainRelays()
@@ -256,14 +268,11 @@ function DrainRelays()
       C_Timer.After(C.RELAY_SPACING, DrainRelays)
       return
     end
-    local key, t = nil, math.huge
-    for k, at in pairs(S.relayPending) do if at < t then key, t = k, at end end
+    local key = OldestRelay()
     if not key then return end
     S.relayPending[key] = nil
     local m = GCA.db.members[key]
-    local fresh = S.addonUsers[key] and GetTime() - S.addonUsers[key] < C.ADDON_USER_FRESH
-    local already = m and ((S.relayHeard[key] or -1) >= Stamp(m) or S.relayHeardSig[key] == GCA:GearSignature(m.items))
-    if m and m.source == "inspect" and not m.from and not fresh and not already then
+    if ShouldRelay(key, m) then
       S.lastRelay = GetTime()
       Enqueue("r:" .. key, GCA:EncodeRecord(m, key))
     end
