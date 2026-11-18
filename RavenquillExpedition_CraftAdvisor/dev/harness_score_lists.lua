@@ -129,4 +129,32 @@ do
   GCA:RefreshKnown()
 end
 
+
+section("Core: the rows and worn item of one sheet slot, the slot with the top upgrade (SlotRows, TopUpgradeSlot)")
+do
+  local r11a, r12, r11b, chest = { slot = 11, name = "a" }, { slot = 12, name = "b" }, { slot = 11, name = "c" }, { slot = 5, name = "d" }
+  local worn11, worn12, worn5 = { slot = 11 }, { slot = 12 }, { slot = 5 }
+  local rings = { key = 11, slots = { 11, 12 }, rows = { r11a, r12, r11b }, worn = { worn11, worn12 } }
+  local chestSec = { key = 5, slots = { 5 }, rows = { chest }, worn = { worn5 } }
+  local wrist = { key = 9, slots = { 9 }, rows = {}, worn = { { slot = 9 } } }
+  local list = { sections = { rings, chestSec, wrist } }
+  local function names(rows)
+    local out = {}
+    for i, r in ipairs(rows) do out[i] = r.name end
+    return table.concat(out, ",")
+  end
+  local rows, worn = GCA:SlotRows(list, 12)
+  check(names(rows) == "b" and worn == worn12, "a ring slot: only that ring's rows and the ring worn there: " .. names(rows))
+  rows, worn = GCA:SlotRows(list, 11)
+  check(names(rows) == "a,c" and worn == worn11, "the other ring slot: its two rows in order: " .. names(rows))
+  rows, worn = GCA:SlotRows(list, 5)
+  check(names(rows) == "d" and worn == worn5, "a one-slot section: all its rows")
+  rows, worn = GCA:SlotRows(list, 9)
+  local noRows, noWorn = GCA:SlotRows(nil, 5)
+  check(#rows == 0 and worn.slot == 9 and #noRows == 0 and noWorn == nil, "no upgrade: no rows, the worn item still; no list: nothing")
+  check(GCA.TopUpgradeSlot(list) == 11 and GCA.TopUpgradeSlot({ sections = { wrist, chestSec } }) == 5
+    and GCA.TopUpgradeSlot({ sections = { wrist } }) == nil and GCA.TopUpgradeSlot(nil) == nil,
+    "top upgrade: the slot of the first row of the first section with rows; none without rows")
+end
+
 H.finish()

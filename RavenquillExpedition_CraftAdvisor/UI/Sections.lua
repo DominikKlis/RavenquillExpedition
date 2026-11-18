@@ -210,28 +210,8 @@ function UI.MemberMode()
   return (s and s.memberView == "list") and "list" or "sheet"
 end
 
-local function SlotRowsOf(sec, slot)
-  local rows, worn = {}, nil
-  for _, r in ipairs(sec.rows) do
-    if #sec.slots < 2 or r.slot == slot then rows[#rows + 1] = r end
-  end
-  for _, x in ipairs(sec.worn) do if x.slot == slot then worn = x end end
-  return rows, sec, worn
-end
-
-function UI.SheetRows(list, slot)
-  local key = GCA.SECTION_OF[slot] or slot
-  for _, sec in ipairs(list and list.sections or {}) do
-    if sec.key == key then return SlotRowsOf(sec, slot) end
-  end
-  return {}, nil, nil
-end
-
 function UI.SheetDefaultSlot(list)
-  for _, sec in ipairs(list and list.sections or {}) do
-    if sec.rows[1] then return sec.rows[1].slot end
-  end
-  return UI.SHEET_LEFT[1]
+  return GCA.TopUpgradeSlot(list) or UI.SHEET_LEFT[1]
 end
 
 local function SheetCountText(n, enchanting)

@@ -129,3 +129,26 @@ function GCA:EmptyReason(e, count, prof, browse)
   if self:KnownCount(prof) == 0 then return "no-known" end
   return "none"
 end
+
+local function RowsOfSlot(sec, slot)
+  local rows, worn = {}, nil
+  for _, r in ipairs(sec.rows) do
+    if #sec.slots < 2 or r.slot == slot then rows[#rows + 1] = r end
+  end
+  for _, x in ipairs(sec.worn) do if x.slot == slot then worn = x end end
+  return rows, worn
+end
+
+function GCA:SlotRows(list, slot)
+  local key = self.SECTION_OF[slot] or slot
+  for _, sec in ipairs(list and list.sections or EMPTY) do
+    if sec.key == key then return RowsOfSlot(sec, slot) end
+  end
+  return {}, nil
+end
+
+function GCA.TopUpgradeSlot(list)
+  for _, sec in ipairs(list and list.sections or EMPTY) do
+    if sec.rows[1] then return sec.rows[1].slot end
+  end
+end

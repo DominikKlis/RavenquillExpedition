@@ -453,7 +453,7 @@ function Fill.SlotUpgrade(b, rows)
   b.gain:SetAlpha(alpha)
 end
 function Fill.SlotButton(b, list, slot, unit, selectedSlot)
-  local rows, _, worn = UI.SheetRows(list, slot)
+  local rows, worn = GCA:SlotRows(list, slot)
   b.worn, b.rows, b.unit = worn, rows, unit
   FillWornIcon(b, worn, slot)
   b.empty = not (worn and worn.link)
@@ -593,7 +593,7 @@ function UI:UpdateSheet(cur, list, prof, why)
   for slot, b in pairs(sh.slots) do Fill.SlotButton(b, list, slot, unit, self.sheetSlot) end
   local c = sh.centre
   local slot = self.sheetSlot
-  local rows, _, worn = UI.SheetRows(list, slot)
+  local rows, worn = GCA:SlotRows(list, slot)
   local d = Fill.FeaturedRow(rows, self.sheetPickSug)
   c.slot, c.rows, c.featured = slot, rows, d
   c.header:SetText(ShortSlotName(slot))
