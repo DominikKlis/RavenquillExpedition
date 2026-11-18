@@ -203,6 +203,20 @@ do
   check(by[994002] == nil and by[994003] == nil and by[994007] == nil, "Rogue: no two-handed swords, polearms or wands")
   by = run("MAGE", "FIRE", 40, { [18] = link(994105) })
   check(by[994007] and by[994007].slot == 18 and by[994006] == nil and by[994002] == nil, "Mage: the wand (ranged section), no gun, no 2H sword")
+  do
+    local saved674 = known[674]
+    local me = { key = "Me Rogue", class = "ROGUE", level = 30, items = { [16] = link(994102) }, spec = "COMBAT" }
+    local function offersBlade()
+      for _, s in ipairs(GCA:MemberSuggestions(me, true, "Blacksmithing")) do if s.cand.itemID == 994005 then return true end end
+      return false
+    end
+    GCA.sugCache = {}
+    known[674] = nil
+    local before = offersBlade()
+    known[674] = true
+    check(not before and offersBlade(), "own Rogue Lv30 learns Dual Wield: the off-hand blade appears (not the cached list from before)")
+    known[674] = saved674
+  end
   by = run("HUNTER", "MARKSMANSHIP", 40, {})
   check(by[994006] and by[994006].slot == 18 and by[994006].status == "empty-slot" and by[994008] == nil, "Hunter: the gun fills an empty ranged slot; no shield")
   GCA.loadState[994999] = { first = 0, tries = 99, failed = true }

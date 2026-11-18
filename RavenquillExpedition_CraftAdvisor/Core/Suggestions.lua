@@ -334,7 +334,7 @@ function GCA:MemberSuggestions(view, isSelf, prof)
   prof = prof or self:SelectedProfession()
   local sig = table.concat({ self:GearSignature(view.items), tostring(view.class), tostring(view.level), tostring(view.spec),
     s.showUnlearned and "u" or "", s.lookahead and "l" or "", tostring(self:SurvivalShare()), self.knownGen,
-    prof, self:IsBrowse(prof) and "b" or "" }, "|")
+    prof, self:IsBrowse(prof) and "b" or "", tostring(self:DualWieldFrom(view.class, view.spec, view.level, isSelf)) }, "|")
   local ck = tostring(view.key) .. "|" .. prof
   local c = self.sugCache[ck]
   if c and c.sig == sig then return c.list, c.pending, c.state, c.e end
