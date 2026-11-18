@@ -318,6 +318,10 @@ do
       "source icons: quest !, vendor bag, mob drop skull, world drop map, other = scroll")
     check(S.Money(1250305) == "125g 3s 5c" and S.Money(20000) == "2g" and S.Money(0) == nil,
       "money without GetCoinTextureString: '125g 3s 5c', zero parts left out, nothing for 0")
+    ns.locale = "deDE"
+    local german = S.Money(1250305)
+    ns.locale = "enUS"
+    check(german == "125G 3S 5K", "German money uses the German client's symbols G, S, K (Kupfer): " .. tostring(german))
     check(S.PatternPrice({ scroll = 5000 }) == nil, "no Auctionator: no pattern price")
     Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function(_, id) return id == 5000 and 125000 or nil end } } }
     local savedGet = GCA.GetInfo
