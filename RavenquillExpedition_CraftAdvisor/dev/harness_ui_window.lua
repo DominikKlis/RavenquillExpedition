@@ -288,6 +288,8 @@ do
   check(UIx.filterButton.native and UIx.optionsButton == nil, "German window has the native Filter dropdown (its text is the template's own)")
   check(UIx.survival.label._text == "Levelbonus (Ausdauer/Willenskraft): 50%", "slider in German (our fallback words): " .. tostring(UIx.survival.label._text))
   check(plain(UIx.subText._text):find("^Stufe 36 "), "sub-line uses our 'Stufe' when LEVEL is missing: " .. plain(UIx.subText._text))
+  check(plain(UIx.subText._text):find("Ausrüstung deine eigene, von deinem Charakter gelesen", 1, true),
+    "German sub-line for yourself: gear read from your own character: " .. plain(UIx.subText._text))
   env.LEVEL, env.SPELL_STAT3_NAME = "StufeCL", "AusdauerCL"
   UIx:Refresh()
   check(plain(UIx.subText._text):find("^StufeCL 36") and UIx.survival.label._text:find("AusdauerCL", 1, true), "client globals win where they exist")
@@ -404,6 +406,19 @@ do
   sl:ScrollTo(50)
   UIx:Refresh()
   check(sl:Offset() == 50, "a refresh of the same member keeps the scroll position")
+  check(plain(UIx.subText._text):find("gear inspected by you", 1, true), "a guildmate you inspected: 'inspected by you': " .. plain(UIx.subText._text))
+  local synced = { items = {}, time = env.time(), source = "self" }
+  GCA.GetMemberList = function()
+    return { { key = "Bud Stone", online = true, class = "ROGUE", level = 39, prof = "Leatherworking", state = "ok",
+      member = synced, suggestions = long, best = long[1], knownCount = 1 } }
+  end
+  UIx:Refresh()
+  check(plain(UIx.subText._text):find("gear shared by them over guild sync", 1, true),
+    "a guildmate's own synced gear: 'shared by them over guild sync': " .. plain(UIx.subText._text))
+  synced.source, synced.from = "inspect", "Anna Stone"
+  UIx:Refresh()
+  check(plain(UIx.subText._text):find("gear inspected by Anna Stone, shared over guild sync", 1, true),
+    "gear another guildmate inspected and shared names them: " .. plain(UIx.subText._text))
   GCA.db.settings.memberView = "sheet"
   GCA.GetMemberList = origML
   sl:SetData(UIx.SectionRows(fakeSections({ [9] = { fakeSug({ slot = 9 }) } })))

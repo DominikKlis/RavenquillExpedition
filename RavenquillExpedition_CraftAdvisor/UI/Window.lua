@@ -530,7 +530,7 @@ local function UpdateMemberHeader(self, current)
   local m = current.member
   local level, class, status = tostring(current.level or "?"), P.ClassName(current.class), MemberStatusText(current)
   if m then
-    self.subText:SetText(string.format(L.SUB_LINE, G("LEVEL"), level, class, status, P.SourceText(m), P.Ago(m.time)))
+    self.subText:SetText(string.format(L.SUB_LINE, G("LEVEL"), level, class, status, P.SourceText(m, current.isSelf), P.Ago(m.time)))
   else
     self.subText:SetText(string.format(L.SUB_LINE_NOGEAR, G("LEVEL"), level, class, status))
   end

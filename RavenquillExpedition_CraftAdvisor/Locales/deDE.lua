@@ -32,10 +32,11 @@ ns.Locales.deDE = {
   WHISPER_TEXT = "Flüstertext: %s",
   WHISPER_SENT = "Angebot an %s gesendet.",
 
-  SRC_VIA = "über %s",
-  SRC_SELF = "selbst gemeldet",
+  SRC_VIA = "von %s betrachtet, per Gilden-Sync geteilt",
+  SRC_SELF = "selbst per Gilden-Sync geteilt",
+  SRC_OWN = "deine eigene, von deinem Charakter gelesen",
   SRC_INSPECT = "von dir betrachtet",
-  SRC_RELAY = "weitergeleitet",
+  SRC_RELAY = "per Gilden-Sync weitergeleitet",
 
   SRCL_SIMMED = "simuliert",
   SRCL_MEASURED = "im Spiel gemessen",

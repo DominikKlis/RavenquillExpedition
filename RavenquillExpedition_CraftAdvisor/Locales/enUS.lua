@@ -64,10 +64,11 @@ ns.Locales.enUS = {
   WHISPER_TEXT = "Whisper text: %s",
   WHISPER_SENT = "Sent offer to %s.",
 
-  SRC_VIA = "via %s",
-  SRC_SELF = "self-reported",
+  SRC_VIA = "inspected by %s, shared over guild sync",
+  SRC_SELF = "shared by them over guild sync",
+  SRC_OWN = "your own, read from your character",
   SRC_INSPECT = "inspected by you",
-  SRC_RELAY = "relayed",
+  SRC_RELAY = "relayed over guild sync",
 
   SRCL_SIMMED = "simmed",
   SRCL_MEASURED = "measured in game",

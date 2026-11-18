@@ -313,7 +313,8 @@ local function windowChecks(label)
   local ins = GCA.UI.sugInset
   check(ins._points[1][5] == -76 and GCA.UI.sugHeader._points[1][5] == -54 and GCA.UI.infoIcon._points[1][5] == -52
     and GCA.UI.sourceText == nil, "header -54 beside the (i) icon, list area -76 inside the member detail panel")
-  check((GCA.UI.subText._text or ""):find("self%-reported"), "source line says self-reported: " .. tostring(GCA.UI.subText._text))
+  check((GCA.UI.subText._text or ""):find("gear your own, read from your character", 1, true),
+    "for yourself the sub-line says the gear is read from your own character: " .. tostring(GCA.UI.subText._text))
   local sb = GCA.UI.specButton
   GCA.db.specManual = {}; GCA:InvalidateScores(); GCA.UI:Refresh()
   local sdd = sb.dropdown

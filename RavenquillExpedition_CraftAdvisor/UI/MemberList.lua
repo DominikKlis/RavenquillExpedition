@@ -65,7 +65,7 @@ local function MemberTip(self)
   GameTooltip:AddLine(LevelLine(d), 1, 1, 1)
   GameTooltip:AddLine(MemberLine(d), SUB_TINT[1], SUB_TINT[2], SUB_TINT[3])
   if d.member then
-    GameTooltip:AddLine(string.format(L.MEMBER_TIP_GEAR, SourceText(d.member), Ago(d.member.time)), 0.7, 0.7, 0.7)
+    GameTooltip:AddLine(string.format(L.MEMBER_TIP_GEAR, SourceText(d.member, d.isSelf), Ago(d.member.time)), 0.7, 0.7, 0.7)
     GameTooltip:AddLine(string.format(L.MEMBER_TIP_SPEC, SpecHowText(d)), 1, 1, 1)
   end
   GameTooltip:AddLine(MemberState(d).tip(d))

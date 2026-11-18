@@ -159,8 +159,9 @@ local function Backdrop(f, bgAlpha)
   f:SetBackdropBorderColor(0.45, 0.4, 0.3, 1)
 end
 
-local function SourceText(m)
+local function SourceText(m, isSelf)
   if not m then return "" end
+  if isSelf then return L.SRC_OWN end
   if m.from then return string.format(L.SRC_VIA, m.from) end
   if m.source == "self" then return L.SRC_SELF end
   if m.source == "inspect" then return L.SRC_INSPECT end
