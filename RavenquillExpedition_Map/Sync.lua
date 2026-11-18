@@ -118,7 +118,8 @@ local function KnownLevelAndClass(pos)
 end
 
 local function SendPosition(self, pos, now, interval)
-  local starving = S.blockedSince and now - S.blockedSince >= math.max(C.STARVE, 2 * interval) or false
+  local waitingSince = S.blockedSince and math.max(S.last and S.last.t or 0, S.blockedSince - interval)
+  local starving = waitingSince and now - waitingSince >= math.max(C.STARVE, 2 * interval) or false
   local msg = self:EncodePosition(pos.mapID, pos.x, pos.y, pos.level, pos.class, GS:Now(), pos.flags, self:DirectSenders())
   local ok, why = raw:TrySend(msg, { starving = starving })
   if not ok then S.skip = why; S.blockedSince = S.blockedSince or now; return end

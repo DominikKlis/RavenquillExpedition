@@ -205,6 +205,7 @@ do
   end
   check(starved >= 600 / (2 * MC.STARVE) and starved <= 600 / MC.STARVE + 1 and sgap >= MC.STARVE,
     ("starvation guard: 1 per >= %d s despite a %d s neighbour (%d in 600 s, closest %s s)"):format(MC.STARVE, every, starved, tostring(sgap)))
+  check(starved >= 40, ("a moving dot still updates about every 10 s next to a chatty addon (%d in 600 s)"):format(starved))
   other = false
   local every2 = 60 / CC.STATE_MAX_60 + 1
   sched:at(sched.t + 1, function() A.env.C_ChatInfo.SendAddonMessage("OtherY", "hi", "GUILD") end, every2)
