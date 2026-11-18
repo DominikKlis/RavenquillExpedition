@@ -298,4 +298,43 @@ do
   store.Leatherworking, GCA.db.knownAuth = savedLW, savedAuth
   GCA:RefreshKnown()
 end
+do
+  local db, members = GCA.db, GCA.db.members
+  local function listed()
+    local byKey, keys = {}, {}
+    for _, en in ipairs(GCA:GetMemberList()) do byKey[en.key] = en; keys[#keys + 1] = en.key end
+    return byKey, table.concat(keys, ", ")
+  end
+  local savedHide = db.settings.hideOffline
+  db.settings.hideOffline = false
+  local list, keys = listed()
+  local offy = list["Offy"]
+  check(offy and offy.online == false and offy.member == nil and offy.class == "ROGUE" and offy.level == 50
+    and list["Old Timer"] and list["Old Timer"].online == false, "offline guildie without a record and an offline record outside the roster are both listed: " .. keys)
+  db.settings.hideOffline = true
+  list, keys = listed()
+  check(list["Offy"] == nil and list["Old Timer"] and list["Buddy Stone"] and list["Me"], "'hide offline' drops only offline guildies without a record: " .. keys)
+  members["Alt Char"] = { class = "MAGE", level = 12, source = "self", items = {} }
+  members["Gone Guildie"] = { class = "MAGE", level = 12, source = "inspect", items = {} }
+  list, keys = listed()
+  check(list["Alt Char"] == nil and list["Gone Guildie"] and list["Gone Guildie"].class == "MAGE" and list["Gone Guildie"].level == 12,
+    "a record of your own alt outside the roster is not listed, someone else's is (class and level from the record): " .. keys)
+  members["Alt Char"], members["Gone Guildie"] = nil, nil
+  local bud = members["Buddy Stone"]
+  local savedClass, savedLevel = bud.class, bud.level
+  bud.class, bud.level = "MAGE", 20
+  list = listed()
+  check(list["Buddy Stone"].class == "DRUID" and list["Buddy Stone"].level == 28, "the live roster's class and level win over a stale record")
+  bud.class, bud.level = savedClass, savedLevel
+  itemMeta[9001] = { loc = "INVTYPE_WEAPON", sub = 0, lvl = 1, stats = {} }
+  members["Wave Shammy"] = { class = "SHAMAN", level = 30, source = "inspect", items = { [17] = "item:9001::::" } }
+  db.specs["Wave Shammy"] = { class = "SHAMAN", tree = "ENHANCEMENT", src = "inspect", ts = 1 }
+  db.settings.inspectTalents = true
+  list = listed()
+  check(list["Wave Shammy"] and list["Wave Shammy"].spec == "ENHANCEMENT_DW" and list["Wave Shammy"].specAssumed,
+    "an inspected Enhancement tree with a one-hander in the stored off hand -> dual-wield spec, assumed")
+  db.settings.inspectTalents = false
+  members["Wave Shammy"], db.specs["Wave Shammy"] = nil, nil
+  db.settings.hideOffline = savedHide
+end
 Kit.finish()

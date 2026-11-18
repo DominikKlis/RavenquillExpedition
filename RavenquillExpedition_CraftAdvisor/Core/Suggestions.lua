@@ -370,17 +370,22 @@ local function AttachSuggestions(self, e, list)
   if list.browse then e.knownCount = 0 else e.knownCount, e.best = KnownOnly(e.suggestions) end
 end
 
+local function HiddenFromList(isSelf, r, m, hideOffline)
+  if isSelf then return false end
+  if not m then return not r or (hideOffline and not r.online) end
+  return not r and m.source == "self"
+end
+
 local function MemberEntry(self, key, list)
   local m, r = self.db.members[key], RQ:RosterEntry(key)
   local isSelf = key == self.playerKey
-  if not isSelf and not r and not (m and m.source ~= "self") then return nil end
-  local online = isSelf or (r and r.online) or false
-  if list.hideOffline and not online and not m then return nil end
+  if HiddenFromList(isSelf, r, m, list.hideOffline) then return nil end
+  local roster, record = r or EMPTY, m or EMPTY
   local e = {
-    key = key, isSelf = isSelf, online = online, member = m, browse = list.browse, prof = list.prof,
-    class = (r and r.class) or (m and m.class), level = ValidLevel((r and r.level) or (m and m.level)),
+    key = key, isSelf = isSelf, online = isSelf or roster.online or false, member = m, browse = list.browse, prof = list.prof,
+    class = roster.class or record.class, level = ValidLevel(roster.level or record.level),
   }
-  e.spec, e.specHow, e.specAssumed = self:MemberSpec(key, e.class, m and m.items)
+  e.spec, e.specHow, e.specAssumed = self:MemberSpec(key, e.class, record.items)
   if m then AttachSuggestions(self, e, list) end
   return e
 end
