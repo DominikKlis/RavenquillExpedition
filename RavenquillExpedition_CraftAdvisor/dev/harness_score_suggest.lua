@@ -170,6 +170,26 @@ do
   check(lose.sets and near(lose.setDelta, -bonus), "replacing a set piece subtracts the bonus")
   local p = Scoring.piecesOf({ legs, legs }, OURSETS)
   check(p[143] == 1, "two copies of the same piece count as one")
+  do
+    local two, four = { n = 2, stats = { Agility = 10 } }, { n = 4, stats = { Stamina = 20 } }
+    local pair = { n = 2, stats = { Strength = 5 } }
+    local sets = Scoring.buildSets({
+      [1] = { name = "Beta Set", items = { 11, 12, 13, 14 }, bonuses = { two, four } },
+      [2] = { name = "Alpha Set", items = { 21, 22 }, bonuses = { pair } },
+    })
+    local sta, str = Scoring.value(four.stats, e.set), Scoring.value(pair.stats, e.set)
+    local delta, changes = Scoring.setChanges({ 11, 12, 13 }, { 11, 12, 13, 14, 21, 22 }, sets, e.set)
+    local a, b = changes[1], changes[2]
+    check(#changes == 2 and near(delta, sta + str)
+      and a.id == 2 and a.name == "Alpha Set" and a.size == 2 and a.worn == 0 and a.after == 2 and a.gained[1] == pair and #a.lost == 0 and near(a.value, str)
+      and b.id == 1 and b.name == "Beta Set" and b.size == 4 and b.worn == 3 and b.after == 4 and #b.gained == 1 and b.gained[1] == four
+      and #b.lost == 0 and near(b.value, sta),
+      "setChanges: a set new after the change counts, a bonus already held isn't gained again, sorted by set name")
+    local lostDelta, lost = Scoring.setChanges({ 11, 12, 13, 14 }, { 11, 12 }, sets, e.set)
+    local noneDelta, none = Scoring.setChanges({ 11, 21 }, {}, sets, e.set)
+    check(#lost == 1 and lost[1].lost[1] == four and #lost[1].gained == 0 and near(lostDelta, -sta) and #none == 0 and noneDelta == 0,
+      "setChanges: dropping below a bonus loses it; losing pieces without crossing a bonus is no change")
+  end
   addItem(900006, "Pants+", "INVTYPE_LEGS", 40, { ITEM_MOD_AGILITY_SHORT = 10, RESISTANCE0_NAME = 101 })
   local tiny = Scoring.compare({ itemID = 900006, equipLoc = "INVTYPE_LEGS", stats = Scoring.normalize(itemDB[900006].raw) },
     { [7] = { itemID = 900001, equipLoc = "INVTYPE_LEGS", stats = Scoring.normalize(itemDB[900001].raw) } }, e.set, OURSETS)

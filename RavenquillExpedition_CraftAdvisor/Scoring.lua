@@ -308,6 +308,21 @@ local function piecesOf(ids, sets)
 end
 Scoring.piecesOf = piecesOf
 
+local function crossed(bonus, from, to) return from < bonus.n and to >= bonus.n end
+
+local function changeOfSet(setID, s, was, now, set)
+  local c = { id = setID, name = s.name, size = #(s.items or {}), worn = was, after = now, gained = {}, lost = {}, value = 0 }
+  for _, bonus in ipairs(s.bonuses or {}) do
+    local v = Scoring.value(bonus.stats, set)
+    if crossed(bonus, was, now) then
+      c.gained[#c.gained + 1], c.value = bonus, c.value + v
+    elseif crossed(bonus, now, was) then
+      c.lost[#c.lost + 1], c.value = bonus, c.value - v
+    end
+  end
+  if #c.gained + #c.lost > 0 then return c end
+end
+
 function Scoring.setChanges(before, after, sets, set)
   local a, b = piecesOf(before, sets), piecesOf(after, sets)
   local ids = {}
@@ -316,20 +331,10 @@ function Scoring.setChanges(before, after, sets, set)
   local delta, changes = 0, {}
   for setID in pairs(ids) do
     local s, was, now = sets.bySet[setID], a[setID] or 0, b[setID] or 0
-    if s and was ~= now then
-      local c = { id = setID, name = s.name, size = #(s.items or {}), worn = was, after = now, gained = {}, lost = {}, value = 0 }
-      for _, bonus in ipairs(s.bonuses or {}) do
-        local v = Scoring.value(bonus.stats, set)
-        if now >= bonus.n and was < bonus.n then
-          c.gained[#c.gained + 1], c.value = bonus, c.value + v
-        elseif was >= bonus.n and now < bonus.n then
-          c.lost[#c.lost + 1], c.value = bonus, c.value - v
-        end
-      end
-      if #c.gained + #c.lost > 0 then
-        changes[#changes + 1] = c
-        delta = delta + c.value
-      end
+    local c = s and was ~= now and changeOfSet(setID, s, was, now, set)
+    if c then
+      changes[#changes + 1] = c
+      delta = delta + c.value
     end
   end
   table.sort(changes, function(x, y) return x.name < y.name end)
