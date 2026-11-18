@@ -76,27 +76,32 @@ function GCA:IsPartialRead(old, fresh)
   return true
 end
 
+local function ReplacesGear(self, old, items, source)
+  if not old then return true end
+  if self:GearSignature(old) == self:GearSignature(items) then return false end
+  return not (source == "inspect" and self:IsPartialRead(old, items))
+end
+
+local function KeepNewestLinks(self, stored, items)
+  for slot, link in pairs(items) do
+    if self:NormItem(link) == self:NormItem(stored[slot]) then stored[slot] = link end
+  end
+end
+
 function GCA:StoreRecord(key, class, level, items, source)
   if not key then return false end
-  local m = self.db.members[key]
-  local isNew = m == nil
-  m = m or {}
+  local m = self.db.members[key] or {}
   if class then m.class = class end
   if type(level) == "number" and level > 0 then m.level = level end
   m.time = time()
-  local changed = isNew or not m.items or self:GearSignature(m.items) ~= self:GearSignature(items)
-  if changed and source == "inspect" and self:IsPartialRead(m.items, items) then changed = false end
+  local changed = ReplacesGear(self, m.items, items, source)
   if changed then
     m.items = items
     m.ts = self:Now()
     m.source = source
     m.from = nil
   else
-    if m.items then
-      for slot, link in pairs(items) do
-        if self:NormItem(link) == self:NormItem(m.items[slot]) then m.items[slot] = link end
-      end
-    end
+    KeepNewestLinks(self, m.items, items)
     if not m.ts then m.ts = self:Now() end
     if not m.source then m.source = source end
   end

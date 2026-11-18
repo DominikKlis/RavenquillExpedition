@@ -517,4 +517,36 @@ do
   GCA:RefreshKnown()
 end
 
+section("Stored records: what a new read of a member's gear changes")
+do
+  local members, key = GCA.db.members, "Rec Paw"
+  local viewer40 = "item:990001::::::::40:1488"
+  local full = { [7] = viewer40, [10] = link(990002), [9] = link(990003) }
+  check(GCA:StoreRecord(nil, "DRUID", 40, full, "inspect") == false, "no key -> nothing stored")
+  check(GCA:StoreRecord(key, "DRUID", 40, full, "inspect") == true, "first read of a member -> stored as a change")
+  local m = members[key]
+  local ts0 = m.ts
+  check(m.class == "DRUID" and m.level == 40 and m.items == full and m.source == "inspect" and ts0 == GCA:Now() and m.time == H.env.time(),
+    "new record: class, level, gear, source, change stamp and last-seen time")
+  H.advance(30)
+  local viewer41 = "item:990001::::::::41:1488"
+  local again = { [7] = viewer41, [10] = link(990002), [9] = link(990003) }
+  check(GCA:StoreRecord(key, nil, 0, again, "sync") == false and m.items == full and m.items[7] == viewer41 and m.ts == ts0
+    and m.time == H.env.time() and m.source == "inspect" and m.class == "DRUID" and m.level == 40,
+    "same gear again: not a change, newer link strings kept, stamp and source kept, last-seen moved, no class or level 0 kept")
+  check(GCA:StoreRecord(key, "DRUID", 41, { [7] = viewer41 }, "inspect") == false and m.items == full and m.level == 41,
+    "an inspect that read fewer slots of the same gear is a partial read, not a change")
+  local fewer = { [7] = viewer41 }
+  check(GCA:StoreRecord(key, "DRUID", 41, fewer, "self") == true and m.items == fewer and m.source == "self" and m.ts == GCA:Now(),
+    "fewer slots from the member's own record is a change")
+  members[key] = { class = "DRUID", level = 40, time = 5 }
+  local empty = {}
+  check(GCA:StoreRecord(key, "DRUID", 40, empty, "inspect") == true and members[key].items == empty,
+    "a record that never had gear takes the first read, even an empty one")
+  members[key] = { class = "DRUID", level = 40, time = 5, items = { [7] = viewer40 } }
+  check(GCA:StoreRecord(key, "DRUID", 40, { [7] = viewer40 }, "inspect") == false and members[key].ts == GCA:Now()
+    and members[key].source == "inspect", "an old record without stamp or source gets both from an unchanged read")
+  members[key] = nil
+end
+
 H.finish()
