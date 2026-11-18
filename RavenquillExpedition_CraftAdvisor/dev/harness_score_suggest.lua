@@ -490,6 +490,29 @@ do
   check(ok, "/gca spec debug runs without error")
 end
 
+section("Stored specs: which record wins")
+do
+  local specs, settings = GCA.db.specs, GCA.db.settings
+  local savedInspect = settings.inspectTalents
+  settings.inspectTalents = true
+  local function store(key, class, rec) GCA:StoreSpec(key, class, rec); return specs[key] == rec end
+  local t = GCA:Now()
+  store("Wins Paw", "MAGE", { spec = "FIRE", src = "sync", ts = t })
+  check(store("Wins Paw", "HUNTER", { spec = "MARKSMANSHIP", src = "sync", ts = t - 100 }),
+    "a record of another class replaces the stored one even when older")
+  check(store("Wins Paw", "HUNTER", { spec = "SURVIVAL", src = "sync", ts = t - 100 }), "the same stamp: the new record wins")
+  specs["Wins Paw"].ts = nil
+  check(store("Wins Paw", "HUNTER", { spec = "MARKSMANSHIP", src = "sync" }), "no stamp on either side: the new record wins")
+  store("Self Paw", "DRUID", { spec = "BALANCE", src = "self", ts = t - 500 })
+  check(not store("Self Paw", "DRUID", { tree = "BALANCE", src = "inspect", ts = t }),
+    "the member's own announced spec isn't replaced by a newer inspect of the same tree")
+  store("Tree Paw", "DRUID", { tree = "FERAL", src = "inspect", ts = t })
+  check(not store("Tree Paw", "DRUID", { spec = "BALANCE", src = "sync", ts = t - 500 }),
+    "an older synced spec of another tree doesn't replace a newer inspect")
+  specs["Wins Paw"], specs["Self Paw"], specs["Tree Paw"] = nil, nil, nil
+  settings.inspectTalents = savedInspect
+end
+
 section("Debug: /gca stats <item link>")
 do
   addItem(900020, "Hit Ring", "INVTYPE_FINGER", 30, { ITEM_MOD_HIT_RATING_SHORT = 10, ITEM_MOD_STRANGE_SHORT = 1 })

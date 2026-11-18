@@ -258,14 +258,17 @@ end
 
 local SYNCED_SOURCES = { sync = true, self = true }
 
+local function TreeOf(self, rec) return rec.tree or self:TreeOfSpec(rec.spec) end
+local function SyncedOverInspect(a, b) return SYNCED_SOURCES[a.src] and b.src == "inspect" end
+
 local function KeepsCurrentSpec(self, cur, rec, class)
   if not (cur and cur.class == class) then return false end
   if cur.src == "inspect" and not self:InspectTalentsOn() then return false end
-  local sameTree = (cur.tree or self:TreeOfSpec(cur.spec)) == (rec.tree or self:TreeOfSpec(rec.spec))
-  local curSync, recSync = SYNCED_SOURCES[cur.src] == true, SYNCED_SOURCES[rec.src] == true
-  if sameTree and curSync and rec.src == "inspect" then return true end
-  local inspectGivesWayToSync = sameTree and cur.src == "inspect" and recSync
-  return not inspectGivesWayToSync and (cur.ts or 0) > (rec.ts or 0)
+  if TreeOf(self, cur) == TreeOf(self, rec) then
+    if SyncedOverInspect(cur, rec) then return true end
+    if SyncedOverInspect(rec, cur) then return false end
+  end
+  return (cur.ts or 0) > (rec.ts or 0)
 end
 
 function GCA:StoreSpec(key, class, rec)
