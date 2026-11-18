@@ -262,9 +262,16 @@ do
   ns.Recipes.Leatherworking[fakeSpell] = { item = fakeItem, skill = 1, src = "trainer", name = "Faint Bracers", r = {} }
   GCA.candidates = nil
   known[fakeSpell] = true
+  advance(1)
+  local refreshed = H.refreshes
   check(GCA:RefreshKnown() == true, "RefreshKnown reports a changed known set")
   local gen = GCA.knownGen
   advance(1)
+  check(H.refreshes > refreshed and GCA.db.known[GCA.charKey].Leatherworking[fakeSpell] == true,
+    "a newly known recipe refreshes the window and is saved")
+  known[fakeSpell] = nil
+  check(GCA:RefreshKnown() == false and GCA:IsKnown(fakeSpell, "Leatherworking"), "a saved recipe stays known when the spellbook stops reporting it")
+  known[fakeSpell] = true
   local before = H.refreshes
   check(GCA:RefreshKnown() == false and GCA.knownGen == gen, "RefreshKnown with the same set: knownGen unchanged (" .. gen .. ")")
   advance(1)

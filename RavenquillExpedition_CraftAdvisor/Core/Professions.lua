@@ -137,26 +137,31 @@ local function SameSet(a, b)
   return true
 end
 
+local function CollectKnown(self, store, prof, auth)
+  local saved = store[prof] or {}
+  store[prof] = saved
+  local now, n = {}, 0
+  for spellID in pairs(self:KnowableSpells(prof)) do
+    if saved[spellID] or (not auth and SpellKnown(spellID)) then
+      now[spellID] = true
+      saved[spellID] = true
+      n = n + 1
+    end
+  end
+  return now, n
+end
+
 function GCA:RefreshKnown()
   local store = self:KnownStore()
   local own, trusted = self:ReadProfessions()
+  local auths = (self.db.knownAuth or EMPTY)[self.charKey] or EMPTY
   local changed = false
   for _, p in ipairs(self.PROFESSIONS) do
     local now, n = {}, 0
     if trusted and not own[p.key] then
       store[p.key] = nil
     else
-      local saved = store[p.key] or {}
-      store[p.key] = saved
-      local knowable = self:KnowableSpells(p.key)
-      local auth = self.db.knownAuth and self.db.knownAuth[self.charKey] and self.db.knownAuth[self.charKey][p.key]
-      for spellID in pairs(knowable) do
-        if saved[spellID] or (not auth and SpellKnown(spellID)) then
-          now[spellID] = true
-          saved[spellID] = true
-          n = n + 1
-        end
-      end
+      now, n = CollectKnown(self, store, p.key, auths[p.key])
     end
     if not SameSet(now, self.knownNow[p.key] or EMPTY) then changed = true end
     self.knownNow[p.key], self.knownCounts[p.key] = now, n
