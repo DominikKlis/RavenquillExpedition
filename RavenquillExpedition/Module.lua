@@ -251,7 +251,10 @@ local function OnGuildUpdate()
   local inGuild = GS.Plain(GS.SafeCall(IsInGuild))
   if new and new ~= old then
     GS.guildKey = new
-    if old then TellGuildChanged(new, old) end
+    if old then
+      ns.ForgetRoster()
+      TellGuildChanged(new, old)
+    end
   elseif not new and old and not inGuild then
     GS.guildKey = nil
     ns.ForgetRoster()

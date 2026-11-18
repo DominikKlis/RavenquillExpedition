@@ -159,6 +159,17 @@ check(left == 0 and not RQ:RosterComplete() and RQ:RosterEntry("Bud Stone") == n
 me.guild = "Die Gilde"
 fire("PLAYER_GUILD_UPDATE")
 fire("GUILD_ROSTER_UPDATE")
+check(RQ:RosterEntry("Bud Stone") and RQ:IsPeer("Bud Stone"), "precondition: back in the first guild with its roster and peers")
+me.guild = "Andere Gilde"
+fire("PLAYER_GUILD_UPDATE")
+local carried = 0
+for _ in RQ:EachMember() do carried = carried + 1 end
+check(carried == 0 and not RQ:RosterComplete() and RQ:RosterEntry("Bud Stone") == nil and RQ:OnlineCount() == 0
+  and not RQ:IsPeer("Bud Stone") and RQ:IsGuildMember("Bud Stone") == nil,
+  "switching straight to another guild: the old guild's roster and peers are gone (" .. carried .. " roster members left)")
+me.guild = "Die Gilde"
+fire("PLAYER_GUILD_UPDATE")
+fire("GUILD_ROSTER_UPDATE")
 check(RQ:MaxLevel() == 60, "MaxLevel")
 
 section("Wire helpers (byte-compatible with Map's and CraftAdvisor's own)")
