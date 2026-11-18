@@ -89,26 +89,37 @@ local function ActiveEditBox()
   return eb
 end
 
+local function OpenChatBox()
+  local eb = CFU.OpenChat("", DEFAULT_CHAT_FRAME)
+  if not eb and type(CFU.ChooseBoxForSend) == "function" then eb = CFU.ChooseBoxForSend(DEFAULT_CHAT_FRAME) end
+  if not eb then eb = ActiveEditBox() end
+  if eb and eb.SetChatType and eb.SetTellTarget and eb.SetText then return eb end
+end
+
+local function WhispersTo(eb, name)
+  local kind = eb.GetChatType and eb:GetChatType()
+  local target = eb.GetTellTarget and eb:GetTellTarget()
+  return not (GCA.IsSecret(kind) or GCA.IsSecret(target)) and kind == "WHISPER" and target == name
+end
+
+local function FillWhisper(name, msg)
+  local eb = OpenChatBox()
+  if not eb then return false end
+  eb:SetChatType("WHISPER")
+  eb:SetTellTarget(name)
+  if eb.UpdateHeader then eb:UpdateHeader() end
+  if not WhispersTo(eb, name) then
+    eb:SetText("")
+    return false
+  end
+  eb:SetText(msg)
+  if eb.SetFocus then eb:SetFocus() end
+  return true
+end
+
 local function NativeWhisper(name, msg)
   if not (CFU and type(CFU.OpenChat) == "function") then return false end
-  local ok, done = pcall(function()
-    local eb = CFU.OpenChat("", DEFAULT_CHAT_FRAME)
-    if not eb and type(CFU.ChooseBoxForSend) == "function" then eb = CFU.ChooseBoxForSend(DEFAULT_CHAT_FRAME) end
-    if not eb then eb = ActiveEditBox() end
-    if not (eb and eb.SetChatType and eb.SetTellTarget and eb.SetText) then return false end
-    eb:SetChatType("WHISPER")
-    eb:SetTellTarget(name)
-    if eb.UpdateHeader then eb:UpdateHeader() end
-    local kind = eb.GetChatType and eb:GetChatType()
-    local target = eb.GetTellTarget and eb:GetTellTarget()
-    if GCA.IsSecret(kind) or GCA.IsSecret(target) or kind ~= "WHISPER" or target ~= name then
-      eb:SetText("")
-      return false
-    end
-    eb:SetText(msg)
-    if eb.SetFocus then eb:SetFocus() end
-    return true
-  end)
+  local ok, done = pcall(FillWhisper, name, msg)
   return ok and done == true
 end
 UI.NativeWhisper = NativeWhisper

@@ -294,42 +294,53 @@ function UI.UpdateDetailCards()
     end
   end
 end
+local function NewNine(p)
+  local nine = CreateFrame("Frame", nil, p)
+  nine:SetAllPoints()
+  return nine
+end
+
+local DetailBorder = {}
+
+function DetailBorder.Atlas(p, def)
+  if not (def.atlas and HasAtlas(def.atlas)) then return nil end
+  p.cardBg = p:CreateTexture(nil, "BACKGROUND")
+  p.cardBg:SetAllPoints()
+  p.cardBg:Hide()
+  local nine = NewNine(p)
+  local t = nine:CreateTexture(nil, "BORDER")
+  t:SetAllPoints()
+  if not SetAtlasSafe(t, def.atlas) then nine:Hide(); return nil end
+  nine.frameTex = t
+  UI.detailPanels[#UI.detailPanels + 1] = p
+  RavenquillExpedition:Call(UI.UpdateDetailCards)
+  return nine, "atlas1"
+end
+
+function DetailBorder.Layout(p, def)
+  if not (def.layout and NineSliceUtil and type(NineSliceUtil.ApplyLayoutByName) == "function") then return nil end
+  local nine = NewNine(p)
+  if pcall(NineSliceUtil.ApplyLayoutByName, nine, def.layout) and type(nine.TopLeftCorner) == "table" then return nine, "layout" end
+  nine:Hide()
+end
+
+function DetailBorder.Pieces(p, def)
+  if not (type(def.pieces) == "table" and #def.pieces > 0) then return nil end
+  local nine = NewNine(p)
+  if UI.DrawBorderPieces(nine, def.pieces) then return nine, "pieces" end
+  nine:Hide()
+end
+
+DetailBorder.ORDER = { DetailBorder.Atlas, DetailBorder.Layout, DetailBorder.Pieces }
+
 function UI.AddDetailBorder(p)
   local def = UI.SKIN.detailBorder or {}
-  if def.atlas and HasAtlas(def.atlas) then
-    p.cardBg = p:CreateTexture(nil, "BACKGROUND")
-    p.cardBg:SetAllPoints()
-    p.cardBg:Hide()
-    local nine = CreateFrame("Frame", nil, p)
-    nine:SetAllPoints()
-    local t = nine:CreateTexture(nil, "BORDER")
-    t:SetAllPoints()
-    if SetAtlasSafe(t, def.atlas) then
-      nine.frameTex = t
-      p.NineSlice, nine.how, nine.role = nine, "atlas1", "detailBorder"
-      UI.detailPanels[#UI.detailPanels + 1] = p
-      RavenquillExpedition:Call(UI.UpdateDetailCards)
+  for _, try in ipairs(DetailBorder.ORDER) do
+    local nine, how = try(p, def)
+    if nine then
+      p.NineSlice, nine.how, nine.role = nine, how, "detailBorder"
       return nine
     end
-    nine:Hide()
-  end
-  if def.layout and NineSliceUtil and type(NineSliceUtil.ApplyLayoutByName) == "function" then
-    local nine = CreateFrame("Frame", nil, p)
-    nine:SetAllPoints()
-    if pcall(NineSliceUtil.ApplyLayoutByName, nine, def.layout) and type(nine.TopLeftCorner) == "table" then
-      p.NineSlice, nine.how, nine.role = nine, "layout", "detailBorder"
-      return nine
-    end
-    nine:Hide()
-  end
-  if type(def.pieces) == "table" and #def.pieces > 0 then
-    local nine = CreateFrame("Frame", nil, p)
-    nine:SetAllPoints()
-    if UI.DrawBorderPieces(nine, def.pieces) then
-      p.NineSlice, nine.how, nine.role = nine, "pieces", "detailBorder"
-      return nine
-    end
-    nine:Hide()
   end
   local nine = UI.AddInnerBorder(p)
   if nine then nine.role = "detailBorder" end

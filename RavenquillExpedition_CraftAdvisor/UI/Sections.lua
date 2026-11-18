@@ -96,33 +96,38 @@ local function CreateSectionRow(parent)
   return b
 end
 
-local function UpdateSectionRow(b, d, listW)
-  local sec = d.sec
-  local parts, first = {}, nil
-  for _, wx in ipairs(sec.worn) do
-    if wx.info then
-      parts[#parts + 1] = ColoredItemName(wx.info)
-    elseif wx.link then
-      parts[#parts + 1] = C.dim .. "?|r"
-    else
-      parts[#parts + 1] = C.dim .. L.CARDS_EMPTY .. "|r"
-    end
-    if wx.link and not first then first = wx end
-  end
+local function WornPart(wx)
+  if wx.info then return ColoredItemName(wx.info) end
+  if wx.link then return C.dim .. "?|r" end
+  return C.dim .. L.CARDS_EMPTY .. "|r"
+end
+
+local function WornSummary(sec, first)
+  if not first then return C.dim .. string.format(L.SECTION_EMPTY_NAMED, SectionTitle(sec)) .. "|r" end
+  local parts = {}
+  for _, wx in ipairs(sec.worn) do parts[#parts + 1] = WornPart(wx) end
+  return table.concat(parts, C.muted .. "  ·  |r")
+end
+
+local function PaintSectionIcon(box, sec, first)
   local empty = first == nil
-  b.wornName:SetText(empty and (C.dim .. string.format(L.SECTION_EMPTY_NAMED, SectionTitle(sec)) .. "|r")
-    or table.concat(parts, C.muted .. "  ·  |r"))
-  local box = b.box
   box.icon:SetTexture(first and ItemIcon(first.link) or SlotTexture(sec.key))
   box.icon:SetDesaturated(empty)
   box.icon:SetAlpha(empty and 0.45 or 1)
   if empty then SetIconQuality(box, nil, 0.35, 0.31, 0.26) else SetIconQuality(box, first.info and first.info.quality) end
+end
+
+local function UpdateSectionRow(b, d, listW)
+  local sec = d.sec
+  local first = FirstWorn(sec)
+  b.wornName:SetText(WornSummary(sec, first))
+  PaintSectionIcon(b.box, sec, first)
   local n = #sec.rows
   b.count:SetText(n == 1 and string.format(L.CARDS_COUNT_1, n) or string.format(L.CARDS_COUNT, n))
   local countW = TextWidth(b.count)
   b.textW = math.max(40, listW - (8 + WORN_ICON + 4 + 12) - countW - 14 - 12)
   b.wornName:SetWidth(b.textW)
-  b.empty = empty
+  b.empty = first == nil
 end
 local function FoldText(secs)
   local names = {}
