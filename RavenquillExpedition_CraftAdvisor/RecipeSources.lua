@@ -48,17 +48,20 @@ local NpcInfo = W.NpcInfo
 
 local function Usable(n, side) return n.side == "" or (side ~= nil and n.side == side) end
 
+local function WorldPosition(n)
+  if not (n.map and C_Map and C_Map.GetWorldPosFromMapPos and G.CreateVector2D) then return false end
+  local ok, inst, x, y = pcall(function()
+    local i, pos = C_Map.GetWorldPosFromMapPos(n.map, G.CreateVector2D(n.x, n.y))
+    return i, pos:GetXY()
+  end)
+  if ok and inst and x and y then return { inst, x, y } end
+  return false
+end
+
 function W.Distance(n)
   local w = W.world[n.id]
   if w == nil then
-    w = false
-    if n.map and C_Map and C_Map.GetWorldPosFromMapPos and G.CreateVector2D then
-      local ok, inst, x, y = pcall(function()
-        local i, pos = C_Map.GetWorldPosFromMapPos(n.map, G.CreateVector2D(n.x, n.y))
-        return i, pos:GetXY()
-      end)
-      if ok and inst and x and y then w = { inst, x, y } end
-    end
+    w = WorldPosition(n)
     W.world[n.id] = w
   end
   if not (w and G.UnitPosition) then return math.huge end
