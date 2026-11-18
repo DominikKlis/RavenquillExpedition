@@ -66,11 +66,12 @@ jobs:
             --arg type "${{ steps.meta.outputs.type }}" \
             --argjson gv "$gv" \
             '{changelog: $changelog, changelogType: "markdown", displayName: $name, gameVersions: $gv, releaseType: $type}')
-          curl -fsS -H "X-Api-Token: ${CF_API_KEY}" \
+          code=$(curl -sS -o upload.json -w '%{http_code}' -H "X-Api-Token: ${CF_API_KEY}" \
             -F "metadata=${metadata}" \
             -F "file=@${{ steps.meta.outputs.zip }}" \
-            "$api/projects/${CF_PROJECT_ID}/upload-file"
-          echo
+            "$api/projects/${CF_PROJECT_ID}/upload-file")
+          cat upload.json; echo
+          if [ "$code" != "200" ]; then echo "::error::CurseForge upload failed with HTTP $code: $(cat upload.json)"; exit 1; fi
 
       - name: GitHub release
         env:
