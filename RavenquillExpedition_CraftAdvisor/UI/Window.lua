@@ -16,7 +16,7 @@ local Num = P.Num
 local CreateSearchBox = P.CreateSearchBox
 local ViewKey = P.ViewKey
 
-UI.VIEWS = { { "needs", "VIEW_NEEDS" }, { "member", "VIEW_MEMBER" } }
+UI.VIEWS = { { "member", "VIEW_MEMBER" }, { "needs", "VIEW_NEEDS" } }
 local function CreateTemplatedTabs(f)
   local tabs = {}
   for i in ipairs(UI.VIEWS) do
@@ -239,7 +239,7 @@ local Build = {}
 
 function Build.OnShow()
   if UI.selected ~= nil and UI.selected == UI.autoKey then UI:Select(nil) end
-  UI.view = "needs"
+  UI.view = "member"
   UI.collapsed.online, UI.collapsed.offline = false, true
   UI.needsCollapsed, UI.needSel = {}, nil
   UI:ApplyView()
@@ -413,7 +413,7 @@ end
 
 function UI:Create()
   local f, c = Build.Window(self)
-  self.view = "needs"
+  self.view = "member"
   f:SetScript("OnShow", Build.OnShow)
   if type(f.CloseButton) == "table" and f.CloseButton.SetScript then
     f.CloseButton:SetScript("OnClick", function() f:Hide() end)

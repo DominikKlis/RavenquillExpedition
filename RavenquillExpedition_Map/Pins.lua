@@ -87,6 +87,10 @@ local function AddFooterLines(m)
   GameTooltip:AddLine(L.TT_CLICK, 0.5, 1, 0.5)
 end
 
+local function AddZoomOutLine(f)
+  if f.kind == "world" then GameTooltip:AddLine(L.TT_RIGHT_CLICK, 0.7, 0.7, 0.7) end
+end
+
 local function OnEnter(self)
   local m = M.members[self.key]
   if not m then return end
@@ -94,12 +98,19 @@ local function OnEnter(self)
   AddIdentityLines(m)
   AddFlagLines(m.flags or {})
   AddFooterLines(m)
+  AddZoomOutLine(self)
   GameTooltip:Show()
 end
 
 local function OnLeave() GameTooltip:Hide() end
 
-local function OnClick(self)
+local function ZoomOut()
+  local map = WorldMapFrame
+  if map and map.NavigateToParentMap then SafeCall(map.NavigateToParentMap, map) end
+end
+
+local function OnClick(self, button)
+  if button == "RightButton" then return ZoomOut() end
   local m = M.members[self.key]
   if not m or m.fake or m.isSelf or type(m.name) ~= "string" then return end
   local tell = (ChatFrameUtil and ChatFrameUtil.SendTell) or ChatFrame_SendTell
@@ -233,7 +244,7 @@ local function NewPin(kind)
     f.label:SetPoint("TOP", f, "BOTTOM", 0, -1)
   end
   f:EnableMouse(true)
-  f:RegisterForClicks("LeftButtonUp")
+  if kind == "world" then f:RegisterForClicks("LeftButtonUp", "RightButtonUp") else f:RegisterForClicks("LeftButtonUp") end
   f:SetScript("OnEnter", OnEnter)
   f:SetScript("OnLeave", OnLeave)
   f:SetScript("OnClick", OnClick)
@@ -350,3 +361,97 @@ function M:CountPins()
   end
   return w, mm
 end
+
+local Page = { ROWS = 18, ROW_H = 22 }
+function Page.Columns()
+  Page.columns = Page.columns or { { "COL_NAME", 8, 170 }, { "COL_LEVEL", 186, 44 }, { "COL_ZONE", 238, 190 }, { "COL_SEEN", 436, 170 } }
+  return Page.columns
+end
+
+function Page.Cell(parent, font, col)
+  local fs = parent:CreateFontString(nil, "OVERLAY", font)
+  fs:SetPoint("LEFT", col[2], 0)
+  fs:SetWidth(col[3])
+  fs:SetJustifyH("LEFT")
+  return fs
+end
+
+function Page.PageRow(page, i)
+  local r = CreateFrame("Button", nil, page)
+  r:SetHeight(Page.ROW_H)
+  r:SetPoint("TOPLEFT", 0, -24 - (i - 1) * Page.ROW_H)
+  r:SetPoint("RIGHT", page, "RIGHT", 0, 0)
+  local hover = r:CreateTexture(nil, "HIGHLIGHT")
+  hover:SetAllPoints()
+  hover:SetColorTexture(1, 1, 1, 0.08)
+  r.cells = {}
+  for c, col in ipairs(Page.Columns()) do r.cells[c] = Page.Cell(r, "GameFontHighlightSmall", col) end
+  r:SetScript("OnClick", OnClick)
+  r:SetScript("OnEnter", OnEnter)
+  r:SetScript("OnLeave", OnLeave)
+  r:Hide()
+  return r
+end
+
+function M:BuildPage(parent)
+  local head = CreateFrame("Frame", nil, parent)
+  head:SetHeight(20)
+  head:SetPoint("TOPLEFT")
+  head:SetPoint("RIGHT", parent, "RIGHT", 0, 0)
+  for _, col in ipairs(Page.Columns()) do Page.Cell(head, "GameFontNormalSmall", col):SetText(L[col[1]]) end
+  parent.rows = {}
+  for i = 1, Page.ROWS do parent.rows[i] = Page.PageRow(parent, i) end
+  parent.note = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  parent.note:SetPoint("BOTTOMLEFT", 8, 6)
+  parent:SetScript("OnShow", function() GS:Call(M.RenderPage, M) end)
+  self.page = parent
+end
+
+function Page.ZoneName(m)
+  local info = m.mapID and SafeCall(C_Map.GetMapInfo, m.mapID)
+  if info and type(info.name) == "string" and not IsSecret(info.name) then return info.name end
+  return "?"
+end
+
+function Page.SeenText(m)
+  local f, text = m.flags or {}, AgeText(M:Age(m))
+  local flag = (f.g and L.TT_GHOST) or (f.t and L.TT_TAXI) or (f.s and L.TT_STATIONARY)
+  return flag and (text .. " · " .. flag) or text
+end
+
+function Page.ListedMembers()
+  local list = {}
+  for _, m in pairs(M.members) do
+    if not m.isSelf and M:State(m) ~= "gone" then list[#list + 1] = m end
+  end
+  table.sort(list, function(a, b)
+    local fa, fb = M:State(a) == "fresh", M:State(b) == "fresh"
+    if fa ~= fb then return fa end
+    return tostring(a.name) < tostring(b.name)
+  end)
+  return list
+end
+
+function Page.RenderRow(r, m)
+  r.key = m.key
+  r.cells[1]:SetText(tostring(m.name) .. (m.fake and (" (" .. L.TEST_MARK .. ")") or ""))
+  r.cells[1]:SetTextColor(ClassColor(m.class))
+  r.cells[2]:SetText((type(m.level) == "number" and m.level > 0) and tostring(m.level) or "")
+  r.cells[3]:SetText(Page.ZoneName(m))
+  r.cells[4]:SetText(Page.SeenText(m))
+  r:SetAlpha(M:State(m) == "stale" and 0.5 or 1)
+  r:Show()
+end
+
+function M:RenderPage()
+  local page = self.page
+  if not (page and page:IsVisible()) then return end
+  local list = Page.ListedMembers()
+  for i, r in ipairs(page.rows) do
+    if list[i] then Page.RenderRow(r, list[i]) else r:Hide() end
+  end
+  local more = #list - #page.rows
+  page.note:SetText(#list == 0 and L.PAGE_EMPTY or (more > 0 and L.PAGE_MORE:format(more) or ""))
+end
+
+function M:RefreshPage() self:RenderPage() end

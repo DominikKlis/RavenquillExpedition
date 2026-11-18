@@ -71,6 +71,12 @@ end
 function GCA:BuildOptions()
   local a, b = ns.G("SPELL_STAT3_NAME"), ns.G("SPELL_STAT5_NAME")
   return {
+    { type = "header", label = L.OPT_H_SYNC },
+    SettingToggle("sync", "OPT_SHARE_GEAR", "FILTER_SYNC_TIP"),
+    { type = "button", label = L.OPT_SYNC_RETRY, tooltip = L.OPT_SYNC_RETRY_TIP,
+      disabled = function() return not (GCA.SyncState and GCA:SyncState() == "paused") end,
+      func = function() if GCA.SyncRetry then GCA:SyncRetry() end; GCA:RefreshUI() end },
+
     { type = "header", label = L.OPT_H_SUGGEST },
     SettingToggle("showUnlearned", "FILTER_UNLEARNED", "FILTER_UNLEARNED_TIP"),
     SettingToggle("lookahead", "FILTER_LOOKAHEAD", "FILTER_LOOKAHEAD_TIP"),
@@ -86,7 +92,11 @@ function GCA:BuildOptions()
       func = function() if GCA.db then GCA:InspectTarget() end end },
     { type = "button", label = L.OPT_SCAN_NOW, tooltip = L.OPT_SCAN_NOW_TIP,
       func = function() if GCA.db then GCA:ScanGroup() end end },
-    { type = "button", label = L.OPT_RESET, tooltip = L.OPT_RESET_TIP,
+    { type = "button", label = L.EDIT_WHISPER, tooltip = L.EDIT_WHISPER_TIP,
+      func = function() if GCA.UI and GCA.UI.OpenWhisperEditor then GCA.UI:OpenWhisperEditor() end end },
+
+    { type = "header", label = L.OPT_H_RESET },
+    { type = "button", label = L.OPT_RESET, tooltip = L.OPT_RESET_TIP, confirm = RQ.OverviewL.CONFIRM,
       func = function()
         if not GCA.db then return end
         wipe(GCA.db.members)
@@ -94,54 +104,41 @@ function GCA:BuildOptions()
         Print(L.CMD_RESET)
         GCA:RefreshUI()
       end },
-
-    { type = "header", label = L.OPT_H_SYNC },
-    SettingToggle("sync", "FILTER_SYNC", "FILTER_SYNC_TIP"),
-    { type = "button", label = L.OPT_SYNC_RETRY, tooltip = L.OPT_SYNC_RETRY_TIP,
-      disabled = function() return not (GCA.SyncState and GCA:SyncState() == "paused") end,
-      func = function() if GCA.SyncRetry then GCA:SyncRetry() end; GCA:RefreshUI() end },
-    { type = "text", label = L.OPT_SYNC_STATUS,
-      lines = function()
-        if not GCA.SyncStatus then return { L.CMD_SYNC_NOT_LOADED } end
-        return Lines(GCA.SyncStatus, GCA)
-      end },
-
-    { type = "header", label = L.OPT_H_WINDOW },
-    { type = "button", label = L.OPT_OPEN, func = function() GCA:OpenWindow() end },
-    { type = "toggle", label = L.OPT_MINIMAP,
-      get = function() return RQ.LauncherShown and RQ:LauncherShown() or false end,
-      set = function(v) if RQ.SetLauncherShown then RQ:SetLauncherShown(v and true or false) end end },
-    { type = "button", label = L.OPT_MM_RESET, tooltip = L.OPT_MM_RESET_TIP,
-      disabled = function() return not (RQ.LauncherShown and RQ:LauncherShown()) end,
-      func = function()
-        if not RQ.LauncherReplace then return end
-        Print(string.format(L.CMD_MM_MOVED, RQ:LauncherReplace() or 0))
-      end },
-    { type = "button", label = L.EDIT_WHISPER, tooltip = L.EDIT_WHISPER_TIP,
-      func = function() if GCA.UI and GCA.UI.OpenWhisperEditor then GCA.UI:OpenWhisperEditor() end end },
-
-    { type = "header", label = L.OPT_H_DIAG },
-    { type = "toggle", label = L.OPT_VERBOSE, tooltip = L.OPT_VERBOSE_TIP,
-      get = function() return GCA.verbose and true or false end,
-      set = function(v) GCA.verbose = v and true or false end },
-    { type = "text", label = L.OPT_DIAG_SPEC, lines = function() return Lines(GCA.SpecDebug, GCA) end },
-    { type = "text", label = L.OPT_DIAG_KNOWN, lines = function() return Lines(GCA.KnownDebug, GCA) end },
-    { type = "text", label = L.OPT_DIAG_MINIMAP, lines = function() return Lines(RQ.LauncherDebug, RQ) end },
-    { type = "text", label = L.OPT_DIAG_ERROR,
-      lines = function()
-        local e = GCA.db and GCA.db.diag and GCA.db.diag.lastError
-        if type(e) ~= "table" then return { L.OPT_NO_ERROR } end
-        local out = { tostring(e.at or "?") .. "  " .. tostring(e.where or "?") }
-        for line in (tostring(e.msg or "") .. "\n"):gmatch("([^\n]*)\n") do out[#out + 1] = PlainLine(line) end
-        return out
-      end },
   }
 end
 
+local function LastErrorLines()
+  local e = GCA.db and GCA.db.diag and GCA.db.diag.lastError
+  if type(e) ~= "table" then return { L.OPT_NO_ERROR } end
+  local out = { tostring(e.at or "?") .. "  " .. tostring(e.where or "?") }
+  for line in (tostring(e.msg or "") .. "\n"):gmatch("([^\n]*)\n") do out[#out + 1] = PlainLine(line) end
+  return out
+end
+
+local DIAG_SECTIONS = {
+  { "OPT_SYNC_STATUS", function() return GCA.SyncStatus and Lines(GCA.SyncStatus, GCA) or { L.CMD_SYNC_NOT_LOADED } end },
+  { "OPT_DIAG_SPEC", function() return Lines(GCA.SpecDebug, GCA) end },
+  { "OPT_DIAG_KNOWN", function() return Lines(GCA.KnownDebug, GCA) end },
+  { "OPT_DIAG_ERROR", LastErrorLines },
+}
+
+function GCA:OverviewDiagnostics()
+  local out = {}
+  for _, section in ipairs(DIAG_SECTIONS) do
+    out[#out + 1] = "-- " .. L[section[1]]
+    for _, line in ipairs(section[2]() or {}) do out[#out + 1] = line end
+  end
+  return out
+end
+
+GCA.openLabel = L.OPEN_LABEL
 function GCA:Open() self:OpenWindow() end
 function GCA:OverviewStatus()
-  local v = self.SyncStatusLine and self:SyncStatusLine()
-  return RQ.Plain(v, "string")
+  if not self.db then return end
+  local recorded = 0
+  for key in pairs(self.db.members) do if key ~= self.playerKey then recorded = recorded + 1 end end
+  local s = self:Settings()
+  return string.format(L.OV_STATUS, recorded, s and s.sync and L.OV_ON or L.OV_OFF)
 end
 
 GCA:SetOptions(GCA:BuildOptions())

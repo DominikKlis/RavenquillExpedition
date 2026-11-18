@@ -18,13 +18,20 @@ local function AddonState(name)
   return "disabled"
 end
 
+local function TitleAndIcon(mod, k)
+  k = k or {}
+  return mod.title or k.title or mod.name, mod.icon or k.icon or "Interface\\Icons\\INV_Misc_QuestionMark"
+end
+
 local function ModuleRow(mod, k)
-  local row = { name = mod.name, title = mod.title or (k and k.title) or mod.name, icon = mod.icon or (k and k.icon)
-    or "Interface\\Icons\\INV_Misc_QuestionMark", slash = "/rq " .. ns.SlashWord(mod), state = "loaded" }
+  local title, icon = TitleAndIcon(mod, k)
+  local row = { name = mod.name, title = title, icon = icon, slash = "/rq " .. ns.SlashWord(mod), state = "loaded" }
   row.status = mod.OverviewStatus and GS:Call(mod.OverviewStatus, mod) or L.LOADED
   if type(row.status) ~= "string" then row.status = "" end
   if mod.Open then row.open = function() GS:Call(mod.Open, mod) end end
+  row.openLabel = mod.openLabel
   if ns.ModuleOptions(mod) then row.options = true end
+  if type(mod.BuildPage) == "function" then row.page = true end
   return row
 end
 
@@ -54,187 +61,317 @@ function GS:OverviewRows()
   return rows
 end
 
+local SYNC_STATES = {
+  ok = { label = "SYNC_OK" }, paused = { label = "SYNC_PAUSED" }, slow = { label = "SYNC_SLOW" }, idle = { label = "SYNC_IDLE" },
+}
+
+function GS:OverviewSyncState()
+  local st = self:CommState()
+  if self:InInstance() then return "paused" end
+  if st.slow then return "slow" end
+  if st.sent == 0 then return "idle" end
+  return "ok"
+end
+
 function GS:OverviewSyncLine()
-  local st, state = self:CommState(), L.SYNC_OK
+  local st = self:CommState()
   local waiting = st.queued + st.chunks + st.inflight
-  if self:InInstance() then state = L.SYNC_PAUSED
-  elseif st.slow then state = L.SYNC_SLOW
-  elseif st.sent == 0 then state = L.SYNC_IDLE end
-  local line = L.SYNC:format(state)
+  local line = L.SYNC:format(L[SYNC_STATES[self:OverviewSyncState()].label])
   if st.sent > 0 or waiting > 0 then line = line .. "  ·  " .. L.SYNC_DETAIL:format(st.delivered, waiting) end
   return line
 end
 
 function GS:OverviewPeersLine() return L.PEERS:format(ns.PeersOnRoster()) end
 
+local function PlainText(text) return (tostring(text):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
+
+local function PeerList(peers)
+  local out = {}
+  for k, t in pairs(peers or {}) do out[#out + 1] = k .. " (" .. date("%d.%m. %H:%M", t) .. ")" end
+  table.sort(out)
+  return out[1] and table.concat(out, ", ") or "-"
+end
+
+local function AppendLastError(out, e)
+  if not e then return end
+  out[#out + 1] = "last error: " .. date("%d.%m. %H:%M", e.t or 0) .. " " .. tostring(e.msg)
+  if e.trace then out[#out + 1] = tostring(e.trace) end
+end
+
 function GS:DiagLines()
-  local db = self.db or {}
   local out = {
     "Ravenquill Expedition v" .. self.version .. "  build " .. tostring((select(4, GetBuildInfo()))),
     "player: " .. tostring(self:PlayerKey()) .. "  guild: " .. tostring(self:GuildKey()),
-    "sync: " .. self:CommStatus():gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""),
+    "sync: " .. PlainText(self:CommStatus()),
     "roster members: " .. (function() local n = 0; for _ in pairs(self.roster) do n = n + 1 end; return n end)(),
   }
-  local peers = {}
-  for k, t in pairs(self:Peers() or {}) do peers[#peers + 1] = k .. " (" .. date("%d.%m. %H:%M", t) .. ")" end
-  table.sort(peers)
-  out[#out + 1] = "peers: " .. (peers[1] and table.concat(peers, ", ") or "-")
+  out[#out + 1] = "peers: " .. PeerList(self:Peers())
   local names = {}
   for _, name in ipairs(self.moduleOrder) do names[#names + 1] = name .. "=" .. tostring(self.modules[name].addon) end
   out[#out + 1] = "modules: " .. table.concat(names, ", ")
-  if db.lastError then
-    out[#out + 1] = "last error: " .. date("%d.%m. %H:%M", db.lastError.t or 0) .. " " .. tostring(db.lastError.msg)
-    if db.lastError.trace then out[#out + 1] = tostring(db.lastError.trace) end
-  end
+  AppendLastError(out, (self.db or {}).lastError)
+  out[#out + 1] = ""
+  out[#out + 1] = "== minimap button"
+  self:Call(self.LauncherDebug, self, function(line) out[#out + 1] = PlainText(line) end)
+  for _, name in ipairs(self.moduleOrder) do self:AppendModuleDiagnostics(out, self.modules[name]) end
   return out
 end
 
-local win
-local ROW_H, MAX_ROWS = 52, 6
-
-local function BuildHome(f, top)
-  local home = CreateFrame("Frame", nil, f)
-  home:SetAllPoints()
-  f.home = home
-  home.guild = home:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  home.guild:SetPoint("TOPLEFT", 18, top)
-  home.sync = home:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  home.sync:SetPoint("TOPLEFT", home.guild, "BOTTOMLEFT", 0, -4)
-  home.sync:SetPoint("RIGHT", f, "RIGHT", -18, 0)
-  home.sync:SetJustifyH("LEFT")
-  home.peers = home:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  home.peers:SetPoint("TOPLEFT", home.sync, "BOTTOMLEFT", 0, -2)
-
-  local head = home:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  head:SetPoint("TOPLEFT", home.peers, "BOTTOMLEFT", 0, -10)
-  head:SetText(L.MODULES)
-
-  home.rows = {}
-  for i = 1, MAX_ROWS do
-    local r = CreateFrame("Frame", nil, home)
-    r:SetHeight(ROW_H - 4)
-    r:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -4 - (i - 1) * ROW_H)
-    r:SetPoint("RIGHT", f, "RIGHT", -16, 0)
-    local bg = r:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(1, 1, 1, i % 2 == 0 and 0.03 or 0.06)
-    r.icon = r:CreateTexture(nil, "ARTWORK")
-    r.icon:SetSize(36, 36)
-    r.icon:SetPoint("LEFT", 6, 0)
-    r.title = r:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    r.title:SetPoint("TOPLEFT", r.icon, "TOPRIGHT", 8, -1)
-    r.cmd = r:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    r.cmd:SetPoint("LEFT", r.title, "RIGHT", 8, 0)
-    r.status = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    r.status:SetPoint("TOPLEFT", r.title, "BOTTOMLEFT", 0, -3)
-    r.status:SetPoint("RIGHT", r, "RIGHT", -176, 0)
-    r.status:SetJustifyH("LEFT")
-    if r.status.SetMaxLines then pcall(r.status.SetMaxLines, r.status, 2) end
-    r.opt = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
-    r.opt:SetSize(80, 22)
-    r.opt:SetPoint("RIGHT", -6, 0)
-    r.opt:SetText(L.OPTIONS)
-    r.button = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
-    r.button:SetSize(76, 22)
-    r.button:SetPoint("RIGHT", r.opt, "LEFT", -4, 0)
-    r.button:SetText(L.OPEN)
-    r.note = r:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    r.note:SetPoint("RIGHT", -10, 0)
-    home.rows[i] = r
-  end
-
-  local recentHead = home:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  recentHead:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -10 - MAX_ROWS * ROW_H)
-  recentHead:SetText(L.RECENT)
-  local msg = CreateFrame("ScrollingMessageFrame", nil, home)
-  msg:SetPoint("TOPLEFT", recentHead, "BOTTOMLEFT", 0, -4)
-  msg:SetPoint("BOTTOMRIGHT", -18, 34)
-  msg:SetFontObject(GameFontHighlightSmall)
-  msg:SetJustifyH("LEFT")
-  msg:SetFading(false)
-  msg:SetMaxLines(50)
-  msg:SetHyperlinksEnabled(true)
-  msg:SetScript("OnHyperlinkClick", function(_, link, text, button) if SetItemRef then pcall(SetItemRef, link, text, button) end end)
-  msg:SetScript("OnHyperlinkEnter", function(self, link)
-    if type(link) == "string" and link:match("^item:") then
-      GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
-      pcall(GameTooltip.SetHyperlink, GameTooltip, link)
-      GameTooltip:Show()
-    end
-  end)
-  msg:SetScript("OnHyperlinkLeave", function() GameTooltip:Hide() end)
-  home.recent = msg
-
-  local diag = CreateFrame("Button", nil, home, "UIPanelButtonTemplate")
-  diag:SetSize(110, 22)
-  diag:SetPoint("BOTTOMRIGHT", -16, 8)
-  diag:SetText(L.DIAG)
-  diag:SetScript("OnClick", function() GS:ShowCopyBox(L.TITLE .. " – " .. L.DIAG, GS:Call(GS.DiagLines, GS) or {}) end)
+function GS:AppendModuleDiagnostics(out, mod)
+  if not mod.OverviewDiagnostics then return end
+  local lines = self:Call(mod.OverviewDiagnostics, mod)
+  if type(lines) ~= "table" then return end
+  out[#out + 1] = ""
+  out[#out + 1] = "== " .. tostring(mod.title or mod.name)
+  for _, line in ipairs(lines) do out[#out + 1] = tostring(line) end
 end
 
-local function BuildLauncherOption(home)
-  home.options = ns.BuildPanel(home, {
+
+local win
+local WIDTH, HEIGHT, MAX_TABS = 673, 594, 7
+local SUITE_ICON = "Interface\\Icons\\INV_Misc_Book_09"
+local GEAR_ICON = "Interface\\Icons\\INV_Misc_Gear_01"
+local WIDE_CARD, WIDE_W, WIDE_H = "Profession-overview-Card", 664, 142
+local CARD_EDGE = 24
+local Text = ns.Text
+
+local function OpenPage(page)
+  if page == "home" then GS:ShowHome() else GS:ShowModulePage(page) end
+end
+
+local function BuildTabs(f)
+  f.tabs = {}
+  local prev
+  for i = 1, MAX_TABS do
+    prev = ns.SideTab(f, prev, function(self) OpenPage(self.page) end)
+    local tab = prev
+    ns.Tip(tab, function() return tab.title or "" end, function() return { tab.status } end)
+    f.tabs[i] = prev
+  end
+end
+
+local function BuildGuildCard(home)
+  local card = ns.Card(home, WIDE_CARD, WIDE_W, WIDE_H)
+  card:SetPoint("TOPLEFT", 5, -41)
+  home.guild = Text(card, "GameFontNormal")
+  home.guild:SetPoint("TOPLEFT", 20, -24)
+  home.version = Text(card, "GameFontDisableSmall", "RIGHT")
+  home.version:SetPoint("TOPRIGHT", -24, -26)
+  home.syncEntry = ns.IconEntry(card)
+  home.syncEntry:SetPoint("TOPLEFT", 17, -52)
+  home.syncEntry.icon:SetTexture(SUITE_ICON)
+  home.syncEntry.name:SetText(L.SYNC_TITLE)
+  home.sync = home.syncEntry.sub
+  ns.Tip(home.syncEntry, L.SYNC_TITLE, function() return { GS:OverviewSyncLine(), GS:OverviewPeersLine() } end)
+  home.peersBar = ns.ProgressBar(card, 441)
+  home.peersBar:SetPoint("RIGHT", -40, 0)
+  home.options = ns.BuildPanel(card, {
     { type = "toggle", label = L.SHOW_LAUNCHER,
       get = function() return GS:LauncherShown() end, set = function(on) GS:SetLauncherShown(on) end },
   })
-  home.options:SetPoint("BOTTOMLEFT", 10, -5)
+  home.options:SetPoint("TOPLEFT", card, "BOTTOMLEFT", 10, 38)
   home.options:Show()
+  local diag = CreateFrame("Button", nil, card, "UIPanelButtonTemplate")
+  diag:SetSize(120, 22)
+  diag:SetPoint("BOTTOMRIGHT", -40, 14)
+  diag:SetText(L.DIAG)
+  diag:SetScript("OnClick", function() GS:ShowCopyBox(L.TITLE .. " – " .. L.DIAG, GS:Call(GS.DiagLines, GS) or {}) end)
+  home.replace = CreateFrame("Button", nil, card, "UIPanelButtonTemplate")
+  home.replace:SetSize(190, 22)
+  home.replace:SetPoint("RIGHT", diag, "LEFT", -8, 0)
+  home.replace:SetText(L.REPLACE_LAUNCHER)
+  home.replace:SetScript("OnClick", function() GS.Print(nil, L.LAUNCHER_MOVED:format(GS:LauncherReplace() or 0)) end)
+  return card
 end
 
-local function BuildOptionsView(f, top)
+local function BuildRecentCard(home, above)
+  local card = ns.SlicedCard(home, WIDE_CARD, CARD_EDGE)
+  card:SetPoint("TOPLEFT", above, "BOTTOMLEFT", 0, 5)
+  card:SetPoint("BOTTOMRIGHT", -4, 5)
+  home.recentHead = Text(card, "GameFontNormal")
+  home.recentHead:SetPoint("TOPLEFT", 20, -24)
+  home.recentHead:SetText(L.RECENT)
+  local msg = CreateFrame("ScrollingMessageFrame", nil, card)
+  msg:SetPoint("TOPLEFT", 20, -44)
+  msg:SetPoint("BOTTOMRIGHT", -24, 16)
+  msg:SetFontObject(GameFontHighlightSmall)
+  msg:SetJustifyH("LEFT")
+  msg:SetFading(false)
+  msg:SetMaxLines(100)
+  msg:SetHyperlinksEnabled(true)
+  msg:SetScript("OnHyperlinkClick", function(_, link, text, button) if SetItemRef then pcall(SetItemRef, link, text, button) end end)
+  msg:SetScript("OnHyperlinkEnter", ns.ShowItemTooltip)
+  msg:SetScript("OnHyperlinkLeave", function() GameTooltip:Hide() end)
+  msg:EnableMouseWheel(true)
+  msg:SetScript("OnMouseWheel", ns.WheelLines)
+  home.recent = msg
+  return card
+end
+
+local function BuildHome(f)
+  local home = CreateFrame("Frame", nil, f)
+  home:SetAllPoints()
+  BuildRecentCard(home, BuildGuildCard(home))
+  return home
+end
+
+local function BuildOptionsView(f)
   local opt = CreateFrame("Frame", nil, f)
   opt:SetAllPoints()
   opt:Hide()
-  f.optView = opt
-  local back = CreateFrame("Button", nil, opt, "UIPanelButtonTemplate")
-  back:SetSize(90, 22)
-  back:SetPoint("TOPLEFT", 14, top + 2)
-  back:SetText(L.BACK)
-  back:SetScript("OnClick", function() GS:ShowHome() end)
-  opt.title = opt:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  opt.title:SetPoint("LEFT", back, "RIGHT", 12, 0)
-  local sf = CreateFrame("ScrollFrame", nil, opt)
-  sf:SetPoint("TOPLEFT", 14, top - 30)
-  sf:SetPoint("BOTTOMRIGHT", -16, 14)
+  local inset = ns.SlicedCard(opt, WIDE_CARD, CARD_EDGE)
+  inset:SetPoint("TOPLEFT", 5, -41)
+  inset:SetPoint("BOTTOMRIGHT", -4, 5)
+  opt.title = Text(inset, "GameFontNormal")
+  opt.title:SetPoint("TOPLEFT", 20, -18)
+  opt.status = Text(inset, "GameFontHighlightSmall")
+  opt.status:SetPoint("TOPLEFT", opt.title, "BOTTOMLEFT", 0, -4)
+  opt.status:SetPoint("RIGHT", inset, "RIGHT", -60, 0)
+  opt.status:SetTextColor(0.8, 0.8, 0.8)
+  opt.gear = ns.SmallIconButton(inset, 26)
+  opt.gear:SetPoint("TOPRIGHT", -22, -16)
+  opt.gear.icon:SetTexture(GEAR_ICON)
+  ns.Tip(opt.gear, L.SETTINGS)
+  opt.openWindow = ns.SmallIconButton(inset, 26)
+  opt.openWindow:SetPoint("TOPRIGHT", -22, -16)
+  ns.Tip(opt.openWindow, function() return opt.openWindow.label or "" end)
+  local line = ns.Rule(inset, opt.title, -30)
+  opt.body = CreateFrame("Frame", nil, inset)
+  opt.body:SetPoint("TOPLEFT", line, "BOTTOMLEFT", -4, -8)
+  opt.body:SetPoint("BOTTOMRIGHT", -16, 10)
+  local sf = CreateFrame("ScrollFrame", nil, opt.body)
+  sf:SetAllPoints()
   ns.WheelScroll(sf)
   opt.scroll = sf
-  opt.panels = {}
+  opt.panels, opt.pages = {}, {}
+  return opt
 end
 
 local function CreateWindow()
-  local ok, f = pcall(CreateFrame, "Frame", "RavenquillExpeditionOverview", UIParent, "ButtonFrameTemplate")
-  local native = ok and f
-  if not native then
-    f = CreateFrame("Frame", "RavenquillExpeditionOverview", UIParent, "BackdropTemplate")
-    ns.DialogBackdrop(f)
-    local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", -4, -4)
-  end
-  f:SetSize(500, 170 + MAX_ROWS * ROW_H)
+  local f = ns.PortraitWindow("RavenquillExpeditionOverview", L.TITLE, SUITE_ICON)
+  f:SetSize(WIDTH, HEIGHT)
   f:SetPoint("CENTER")
   f:SetFrameStrata("HIGH")
   f:SetToplevel(true)
   f:SetClampedToScreen(true)
   ns.DragToMove(f)
-  if native then
-    if ButtonFrameTemplate_HidePortrait then pcall(ButtonFrameTemplate_HidePortrait, f) end
-    if ButtonFrameTemplate_HideButtonBar then pcall(ButtonFrameTemplate_HideButtonBar, f) end
-    if f.CloseButton then f.CloseButton:SetScript("OnClick", function() f:Hide() end) end
-  end
-  if f.SetTitle then pcall(f.SetTitle, f, L.TITLE) else
-    local t = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    t:SetPoint("TOP", 0, native and -5 or -16)
-    t:SetText(L.TITLE)
-  end
   tinsert(UISpecialFrames, "RavenquillExpeditionOverview")
-  local top = native and -30 or -40
-  BuildHome(f, top)
-  BuildLauncherOption(f.home)
-  BuildOptionsView(f, top)
+  BuildTabs(f)
+  f.home = BuildHome(f)
+  f.optView = BuildOptionsView(f)
   f:SetScript("OnShow", function() GS:Call(GS.RefreshOverview, GS) end)
   f:Hide()
   return f
 end
+
+local function TabItems(rows)
+  local items = { { page = "home", title = L.OVERVIEW, icon = SUITE_ICON, status = GS:OverviewPeersLine() } }
+  for _, d in ipairs(rows) do
+    if d.options or d.page then items[#items + 1] = { page = d.name, title = d.title, icon = d.icon, status = d.status } end
+  end
+  return items
+end
+
+local function RenderTabs(f, rows, current)
+  local items = TabItems(rows)
+  for i, tab in ipairs(f.tabs) do
+    local it = items[i]
+    if it then
+      tab.page, tab.title, tab.status = it.page, it.title, it.status
+      tab.icon:SetTexture(it.icon)
+      tab.selected:SetShown(it.page == current)
+      tab.isSelected = it.page == current
+      tab:Show()
+      if it.page == current then
+        ns.SetWindowTitle(f, it.page == "home" and L.TITLE or it.title)
+        ns.SetPortrait(f, it.icon)
+      end
+    else
+      tab:Hide()
+    end
+  end
+end
+
+local function RowFor(rows, name)
+  for _, d in ipairs(rows) do if d.name == name then return d end end
+end
+
+local function RenderGear(gear, d, settings)
+  gear:SetShown((d.page and d.options) and true or false)
+  gear:SetAlpha(settings and 0.5 or 1)
+  gear:SetScript("OnClick", function() if not GS.moduleSettings then GS:ShowModuleOptions(d.name) end end)
+end
+
+local function RenderModuleHeader(opt, d, settings)
+  opt.title:SetText(d.title)
+  opt.status:SetText(d.status)
+  RenderGear(opt.gear, d, settings)
+  local openWindow = opt.openWindow
+  local windowOnly = not d.page and d.open
+  openWindow:SetShown(windowOnly and true or false)
+  if windowOnly then
+    openWindow.icon:SetTexture(d.icon)
+    openWindow.label = d.openLabel or L.OPEN
+    openWindow:SetScript("OnClick", d.open)
+  end
+end
+
+local function OptionsPanel(opt, name, mod)
+  local p = opt.panels[name]
+  if not p then
+    p = ns.BuildPanel(opt.scroll, ns.ModuleOptions(mod))
+    opt.panels[name] = p
+  end
+  return p
+end
+
+local function ModulePage(opt, name, mod)
+  local page = opt.pages[name]
+  if not page then
+    page = CreateFrame("Frame", nil, opt.body)
+    page:SetAllPoints()
+    GS:Call(mod.BuildPage, mod, page)
+    opt.pages[name] = page
+  end
+  return page
+end
+
+local function HideModuleBodies(opt)
+  for _, p in pairs(opt.panels) do p:Hide() end
+  for _, page in pairs(opt.pages) do page:Hide() end
+end
+
+local function ShowSettings(opt, name, mod)
+  local p = OptionsPanel(opt, name, mod)
+  opt.scroll:SetScrollChild(p)
+  opt.scroll:SetVerticalScroll(0)
+  opt.scroll:Show()
+  p:Show()
+end
+
+local function ShowModuleView(name, settings)
+  if not win then win = CreateWindow() end
+  local mod = GS.modules[name]
+  if not mod then return GS:ShowHome() end
+  settings = settings or type(mod.BuildPage) ~= "function"
+  if not win:IsShown() then win:Show() end
+  win.home:Hide()
+  local opt = win.optView
+  HideModuleBodies(opt)
+  if settings and ns.ModuleOptions(mod) then
+    ShowSettings(opt, name, mod)
+  else
+    settings = false
+    opt.scroll:Hide()
+    ModulePage(opt, name, mod):Show()
+  end
+  opt:Show()
+  GS.optionsModule, GS.moduleSettings = name, settings
+  GS:RefreshOverview()
+end
+
+function GS:ShowModuleOptions(name) ShowModuleView(name, true) end
+function GS:ShowModulePage(name) ShowModuleView(name, false) end
 
 function GS:ShowHome()
   if not win then win = CreateWindow() end
@@ -244,87 +381,59 @@ function GS:ShowHome()
   if win:IsShown() then self:RefreshOverview() end
 end
 
-function GS:ShowModuleOptions(name)
-  if not win then win = CreateWindow() end
-  local mod = self.modules[name]
-  if not mod then return self:ShowHome() end
-  if not win:IsShown() then win:Show() end
-  win.home:Hide()
-  local opt = win.optView
-  for _, p in pairs(opt.panels) do p:Hide() end
-  local p = opt.panels[name]
-  if not p then
-    p = ns.BuildPanel(opt.scroll, ns.ModuleOptions(mod))
-    opt.panels[name] = p
-  end
-  opt.title:SetText(mod.title or name)
-  opt.scroll:SetScrollChild(p)
-  opt.scroll:SetVerticalScroll(0)
-  p:Show()
-  opt:Show()
-  self.optionsModule = name
-  p.refreshAll()
-end
-
-local function ShowButton(b, onClick)
-  if not onClick then return b:Hide() end
-  b:Show()
-  b:SetScript("OnClick", onClick)
-end
-
-local function RenderRow(r, d)
-  r:Show()
-  r.icon:SetTexture(d.icon)
-  r.icon:SetDesaturated(d.state ~= "loaded")
-  r.title:SetText(d.title)
-  r.cmd:SetText(d.slash)
-  r.status:SetText(d.status)
-  ShowButton(r.button, d.open and function() d.open(); GS:Call(GS.RefreshOverview, GS) end)
-  ShowButton(r.opt, d.options and function() GS:ShowModuleOptions(d.name) end)
-  if d.note then
-    r.note:SetText(d.note)
-    r.note:Show()
-  else
-    r.note:Hide()
-  end
-end
-
-local function RenderRows(widgets, rows)
-  for i, r in ipairs(widgets) do
-    if rows[i] then RenderRow(r, rows[i]) else r:Hide() end
+local function RecentLines()
+  for _, name in ipairs(GS.moduleOrder) do
+    local mod = GS.modules[name]
+    if mod.OverviewRecent then return GS:Call(mod.OverviewRecent, mod, 12) end
   end
 end
 
 local function RenderRecent(m)
+  local lines = RecentLines()
+  local has = type(lines) == "table" and lines[1] ~= nil
+  local key = has and table.concat(lines, "\n") or ""
+  if m.shownKey == key then return end
+  m.shownKey = key
   m:Clear()
-  local lines
-  for _, name in ipairs(GS.moduleOrder) do
-    local mod = GS.modules[name]
-    if mod.OverviewRecent then lines = GS:Call(mod.OverviewRecent, mod, 8) break end
-  end
-  if type(lines) == "table" and lines[1] then
-    for _, line in ipairs(lines) do m:AddMessage(line) end
-  else
-    m:AddMessage(L.NO_RECENT, 0.6, 0.6, 0.6)
-  end
+  if not has then m:AddMessage(L.NO_RECENT, 0.6, 0.6, 0.6) end
+  for _, line in ipairs(has and lines or {}) do m:AddMessage(line) end
   if m.ScrollToBottom then m:ScrollToBottom() end
+end
+
+local function RenderGuildCard(home)
+  local g = Plain(SafeCall(GetGuildInfo, "player"), "string")
+  home.guild:SetText(g or L.NO_GUILD)
+  home.version:SetText("v" .. GS.version)
+  home.sync:SetText(L[SYNC_STATES[GS:OverviewSyncState()].label])
+  local known, online = ns.PeersOnRoster()
+  home.peersBar:SetMinMaxValues(0, math.max(1, known))
+  home.peersBar:SetValue(online)
+  home.peersBar.text:SetText(GS:OverviewPeersLine())
 end
 
 function GS:RefreshOverview()
   if not (win and win:IsShown()) then return end
-  if self.optionsModule then
-    local p = win.optView.panels[self.optionsModule]
-    if p then p.refreshAll() end
-    return
-  end
+  local rows = self:OverviewRows()
+  RenderTabs(win, rows, self.optionsModule or "home")
+  if self.optionsModule then return self:RefreshModuleView(rows) end
   local home = win.home
-  local g = Plain(SafeCall(GetGuildInfo, "player"), "string")
-  home.guild:SetText((g and ("<" .. g .. ">") or L.NO_GUILD) .. "  |cff888888v" .. self.version .. "|r")
-  home.sync:SetText(self:OverviewSyncLine())
-  home.peers:SetText(self:OverviewPeersLine())
-  RenderRows(home.rows, self:OverviewRows())
+  RenderGuildCard(home)
   RenderRecent(home.recent)
   home.options.refreshAll()
+  if GS:LauncherShown() then home.replace:Enable() else home.replace:Disable() end
+end
+
+function GS:RefreshModuleView(rows)
+  local name, opt = self.optionsModule, win.optView
+  local d = RowFor(rows, name)
+  if d then RenderModuleHeader(opt, d, self.moduleSettings) end
+  local mod = self.modules[name]
+  if self.moduleSettings then
+    local p = opt.panels[name]
+    if p then p.refreshAll() end
+  elseif mod and mod.RefreshPage then
+    self:Call(mod.RefreshPage, mod)
+  end
 end
 
 local refreshTickPending = false

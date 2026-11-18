@@ -69,6 +69,14 @@ check(env.SLASH_GUILDCRAFTADVISOR1 == nil and env.SLASH_GUILDCRAFTADVISOR2 == ni
 check(env.SlashCmdList.GUILDCRAFTADVISOR == nil and env.GuildCraftAdvisor == nil and env.GuildCraftAdvisor_OnCompartmentClick == nil,
   "no standalone path left: no GUILDCRAFTADVISOR slash handler, no GuildCraftAdvisor globals")
 check(type(mod.Open) == "function" and type(mod.OnSlash) == "function" and type(mod.OverviewStatus) == "function", "Open, OnSlash, OverviewStatus present")
+do
+  local members, sync = mod.db.members, mod.db.settings.sync
+  mod.db.members = { [mod.playerKey or "Me"] = {}, ["Anna Stone"] = {}, ["Bert Hill"] = {} }
+  mod.db.settings.sync = true
+  local line = mod:OverviewStatus()
+  mod.db.members, mod.db.settings.sync = members, sync
+  check(line == "2 Gildenmitglieder erfasst · Teilen an", "the overview card counts the recorded guildmates (not you) and the sharing state: " .. tostring(line))
+end
 
 io.write("== Migrations: numbered, each once (core API 2)\n")
 local db = GCA.db
@@ -110,15 +118,17 @@ for i, o in ipairs(opts or {}) do
   end
 end
 check(#bad == 0, "every entry has a known type and its fields (" .. table.concat(bad, "; ") .. ")")
-check(counts.header == 5 and counts.toggle == 7 and counts.range == 1 and counts.button == 7 and counts.text == 5,
-  string.format("5 headers, 7 toggles, 1 range, 7 buttons, 5 text boxes (%s/%s/%s/%s/%s)", tostring(counts.header), tostring(counts.toggle),
+check(counts.header == 4 and counts.toggle == 5 and counts.range == 1 and counts.button == 5 and counts.text == nil,
+  string.format("4 headers, 5 toggles, 1 range, 5 buttons, no text boxes (%s/%s/%s/%s/%s)", tostring(counts.header), tostring(counts.toggle),
   tostring(counts.range), tostring(counts.button), tostring(counts.text)))
 local missingOpt = {}
 for k in pairs(ns.missingL) do if k:match("^OPT_") then missingOpt[#missingOpt + 1] = k end end
 check(#missingOpt == 0, "no missing OPT_ locale key (" .. table.concat(missingOpt, ", ") .. ")")
-check(opts[1].label == "Vorschläge" and byLabel["Ziel jetzt betrachten"] and byLabel["Gruppe jetzt einlesen"]
-  and byLabel["Sync erneut versuchen"] and byLabel["Ravenquill-Minimap-Knopf neu platzieren"] and byLabel["Gespeicherte Ausrüstung vergessen"],
-  "German labels (deDE client)")
+check(opts[1].label == "Teilen" and opts[2].label == "Meine Ausrüstung mit der Gilde teilen" and byLabel["Ziel jetzt betrachten"]
+  and byLabel["Gruppe jetzt einlesen"] and byLabel["Sync erneut versuchen"] and byLabel["Flüstertext bearbeiten…"]
+  and byLabel["Gespeicherte Ausrüstung vergessen"] and not byLabel["Ravenquill-Minimap-Knopf neu platzieren"]
+  and not byLabel["Fenster öffnen"] and GCA.openLabel == "Berater",
+  "German labels (deDE client): sharing first, no window or minimap duplicates, the card opens the 'Berater'")
 for _, o in ipairs(opts) do if o.disabled then local ok = pcall(o.disabled); check(ok, "disabled() runs: " .. o.label) end end
 
 io.write("== toggles round-trip on db.settings\n")
@@ -141,13 +151,13 @@ local function toggleFor(key, label)
   return ok and (s[key] and true or false) == before
 end
 check(toggleFor("showUnlearned", ns.L.FILTER_UNLEARNED) and toggleFor("lookahead", ns.L.FILTER_LOOKAHEAD)
-  and toggleFor("autoInspect", ns.L.FILTER_AUTOINSPECT) and toggleFor("sync", ns.L.FILTER_SYNC)
+  and toggleFor("autoInspect", ns.L.FILTER_AUTOINSPECT) and toggleFor("sync", ns.L.OPT_SHARE_GEAR)
   and toggleFor("inspectTalents", ns.L.OPT_INSPECT_TALENTS), "toggles write the right db.settings keys")
-local mm = byLabel[ns.L.OPT_MINIMAP]
-mm.set(false)
-local hid = env.RavenquillExpeditionDB.launcher.hide == true and mm.get() == false and not RQ:LauncherShown()
-mm.set(true)
-check(hid and not env.RavenquillExpeditionDB.launcher.hide and mm.get() == true, "minimap toggle = the suite launcher (RavenquillExpeditionDB.launcher.hide)")
+local forget = byLabel[ns.L.OPT_RESET]
+GCA.db.members["Probe Person"] = { items = {} }
+check(forget.confirm == RQ.OverviewL.CONFIRM and GCA.db.members["Probe Person"] ~= nil,
+  "'forget stored gear' asks for a second click before it wipes anything")
+GCA.db.members["Probe Person"] = nil
 
 io.write("== range = leveling bonus\n")
 local range
@@ -178,8 +188,9 @@ local cap = GCA.DiagLines(function(P) P("|cffff0000red|r line\nsecond"); error("
 check(print == wrapper and GCA.Capture == nil and cap[1] == "red line" and cap[2] == "second" and cap[3] and cap[3]:find("boom", 1, true) ~= nil,
   "diagnostic lines through a sink (no print swap): colours stripped, lines split, an error kept as the last line")
 GCA:Diag().lastError = { where = "UI:Refresh", msg = "x.lua:1: oops\nstack", at = "2026-11-14 12:00:00" }
-local le = byLabel[ns.L.OPT_DIAG_ERROR].lines()
-check(le[1] == "2026-11-14 12:00:00  UI:Refresh" and le[2] == "x.lua:1: oops", "last error box shows db.lastError")
+local diag = table.concat(GCA:OverviewDiagnostics(), "\n")
+check(diag:find("2026-11-14 12:00:00  UI:Refresh\nx.lua:1: oops", 1, true) and diag:find("-- " .. ns.L.OPT_SYNC_STATUS, 1, true),
+  "the overview's diagnostics carry the sync status and db.lastError")
 
 io.write("== OnSlash routing\n")
 local calls = {}

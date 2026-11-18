@@ -134,14 +134,14 @@ check(env.RavenquillExpeditionDB.peers == nil and env.RavenquillExpeditionDB.pee
   "the old peers table moved into the current guild")
 local peersHere = env.RavenquillExpeditionDB.peersByGuild["Die Gilde@Forever"]
 peersHere["Anna Muller-Lee"] = RQ:Now() - RQ.PEER_MAX_AGE - 5
-check(RQ:OverviewPeersLine() == "2 Gildenmitglieder mit Ravenquill (1 online)",
+check(RQ:OverviewPeersLine() == "Mit Ravenquill: 2 in der Gilde, 1 online",
   "overview peers line: fresh peers on the roster, then the online ones (" .. RQ:OverviewPeersLine() .. ")")
 peersHere["Anna Muller-Lee"] = nil
 local caraSeen = peersHere["Cara Moss"]
 peersHere["Cara Moss"] = "soon"
 local peerOk, caraIsPeer = pcall(RQ.IsPeer, RQ, "Cara Moss")
 local lineOk, peersLine = pcall(RQ.OverviewPeersLine, RQ)
-check(peerOk and caraIsPeer == false and lineOk and peersLine == "1 Gildenmitglieder mit Ravenquill (1 online)",
+check(peerOk and caraIsPeer == false and lineOk and peersLine == "Mit Ravenquill: 1 in der Gilde, 1 online",
   "a peer time that is not a number (broken SavedVariables): not a peer, no Lua error (" .. tostring(caraIsPeer) .. ", "
   .. tostring(peersLine) .. ")")
 peersHere["Cara Moss"] = caraSeen
@@ -162,7 +162,7 @@ fire("PLAYER_GUILD_UPDATE")
 local left = 0
 for _ in RQ:EachMember() do left = left + 1 end
 check(left == 0 and not RQ:RosterComplete() and RQ:RosterEntry("Bud Stone") == nil and RQ:OnlineCount() == 0
-  and coreNS.PeerCount() == 0 and not RQ:IsPeer("Bud Stone") and RQ:OverviewPeersLine() == "0 Gildenmitglieder mit Ravenquill (0 online)",
+  and coreNS.PeerCount() == 0 and not RQ:IsPeer("Bud Stone") and RQ:OverviewPeersLine() == "Mit Ravenquill: 0 in der Gilde, 0 online",
   "leaving the guild: the old guild's roster and peers are gone (" .. left .. " roster members left)")
 me.guild = "Die Gilde"
 fire("PLAYER_GUILD_UPDATE")

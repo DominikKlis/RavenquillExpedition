@@ -171,6 +171,34 @@ hp._scripts.OnEnter(hp)
 check(table.concat(w.tip.lines, "|"):find("Click to whisper", 1, true), "real pin tooltip offers whisper")
 hp._scripts.OnClick(hp)
 check(w.tells[1] == "Hans Wurst", "click whispers the real player")
+do
+  local page = w.env.CreateFrame("Frame")
+  M:BuildPage(page)
+  page:Show()
+  M:RenderPage()
+  local shown, hansRow, fakeRow = 0, nil, nil
+  for _, r in ipairs(page.rows) do
+    if r.shown then shown = shown + 1 end
+    if r.key == "Hans Wurst" then hansRow = r elseif r.key == "~fake1" then fakeRow = r end
+  end
+  check(shown >= 7 and hansRow and hansRow.cells[1]:GetText() == "Hans Wurst" and hansRow.cells[2]:GetText() == "20",
+    "the map tab lists the guildmates on the map with name and level (" .. shown .. " rows)")
+  check(fakeRow and fakeRow.cells[1]:GetText() == "Test Eins (test)", "test dots are marked as tests in the list")
+  local tells = #w.tells
+  rawget(hansRow, "_scripts").OnClick(hansRow)
+  rawget(fakeRow, "_scripts").OnClick(fakeRow)
+  check(#w.tells == tells + 1 and w.tells[#w.tells] == "Hans Wurst", "clicking a guildmate in the list whispers them; a test dot does not")
+  page:Hide()
+end
+do
+  local zoomedOut, tells, oldMap = 0, #w.tells, w.env.WorldMapFrame
+  w.env.WorldMapFrame = { NavigateToParentMap = function() zoomedOut = zoomedOut + 1 end }
+  hp._scripts.OnClick(hp, "RightButton")
+  w.env.WorldMapFrame = oldMap
+  check(zoomedOut == 1 and #w.tells == tells, "right-clicking a world-map dot zooms the map out, like the map itself")
+  hp._scripts.OnEnter(hp)
+  check(table.concat(w.tip.lines, "|"):find("Right-click: zoom out", 1, true), "the world-map dot's tooltip says so")
+end
 M.members["Weird Map"] = { key = "Weird Map", name = "Weird Map", mapID = 999999, x = 0.3, y = 0.3, heard = w.env.GetTime(), flags = {} }
 M.members["Bad Data"] = { key = "Bad Data", name = "Bad Data", mapID = "x", x = 2, y = 0.3, heard = w.env.GetTime(), flags = {} }
 M:Refresh()
@@ -189,6 +217,11 @@ for _, o in ipairs(mod1.options) do
   if o.type == "text" and not o.lines then okShape = false end
 end
 check(okShape, "options: every entry has a label and its functions")
+local untipped = {}
+for _, o in ipairs(mod1.options) do
+  if o.type ~= "header" and not o.tooltip then untipped[#untipped + 1] = o.key or o.id or o.label end
+end
+check(#untipped == 0, "every map option explains itself on hover (" .. table.concat(untipped, ", ") .. ")")
 w.set("worldmap", false)
 check(mod1:Option("names").disabled() == true, "names option greyed out while the world map is off")
 w.set("worldmap", true)
@@ -247,8 +280,9 @@ check(#wt.errors == 0, "ticker: no Lua errors (" .. tostring(wt.errors[1]) .. ")
 local wd = NewWorld({ locale = "deDE" })
 wd.fire("ADDON_LOADED", "RavenquillExpedition_Map"); wd.fire("PLAYER_LOGIN"); wd.advance(10)
 check(wd.L.TITLE == "Gildenkarte" and anyPrinted(wd, "teilt deine Position"), "German strings")
-check(wd.M:Option("share").label == "Meine Position mit der Gilde teilen" and wd.M:Option("diag").label == "Diagnose",
-  "German option labels")
+check(wd.M:Option("share").label == "Meine Position mit der Gilde teilen" and wd.M.openLabel == "Weltkarte"
+  and wd.M:Option("diag") == nil and wd.M:OverviewDiagnostics()[1] ~= nil,
+  "German option labels; the card opens the 'Weltkarte'; diagnostics live in the overview, not in the options")
 check(anyPrinted(wd, "unter /rq", true) or anyPrinted(wd, "/rq|r", true), "German notice points to /rq")
 check(#wd.errors == 0, "German client: no Lua errors")
 

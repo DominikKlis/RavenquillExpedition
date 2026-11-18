@@ -26,6 +26,233 @@ function ns.WheelScroll(sf)
   end)
 end
 
+local GOLD = { 1, 0.82, 0 }
+ns.GOLD = GOLD
+
+function ns.Fill(parent, layer, r, g, b, a)
+  local t = parent:CreateTexture(nil, layer)
+  t:SetAllPoints()
+  t:SetColorTexture(r, g, b, a)
+  return t
+end
+
+function ns.Rule(parent, anchor, y)
+  local t = parent:CreateTexture(nil, "ARTWORK")
+  t:SetHeight(1)
+  t:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, y)
+  t:SetPoint("RIGHT", parent, "RIGHT", 0, 0)
+  t:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.25)
+  return t
+end
+
+function ns.Icon(parent, size, path)
+  local t = parent:CreateTexture(nil, "ARTWORK")
+  t:SetSize(size, size)
+  t:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+  if path then t:SetTexture(path) end
+  return t
+end
+
+function ns.Text(parent, font, justify)
+  local fs = parent:CreateFontString(nil, "OVERLAY", font)
+  fs:SetJustifyH(justify or "LEFT")
+  return fs
+end
+
+function ns.Tip(frame, title, lines)
+  frame:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(type(title) == "function" and title() or title, GOLD[1], GOLD[2], GOLD[3])
+    for _, line in ipairs(lines and lines() or {}) do GameTooltip:AddLine(line, 1, 1, 1, true) end
+    GameTooltip:Show()
+  end)
+  frame:SetScript("OnLeave", function() GameTooltip:Hide() end)
+end
+
+function ns.ShowItemTooltip(self, link)
+  if type(link) ~= "string" or not link:match("^item:") then return end
+  GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+  pcall(GameTooltip.SetHyperlink, GameTooltip, link)
+  GameTooltip:Show()
+end
+
+function ns.WheelLines(self, delta)
+  if delta > 0 then self:ScrollUp() else self:ScrollDown() end
+end
+
+function ns.SetAtlas(tex, atlas)
+  local info = C_Texture and C_Texture.GetAtlasInfo and GS.SafeCall(C_Texture.GetAtlasInfo, atlas)
+  if type(info) ~= "table" or type(tex.SetAtlas) ~= "function" then return false end
+  return (pcall(tex.SetAtlas, tex, atlas))
+end
+
+local function AtlasOr(tex, atlas, r, g, b, a)
+  if not ns.SetAtlas(tex, atlas) then tex:SetColorTexture(r, g, b, a) end
+end
+
+function ns.SetPortrait(f, icon)
+  if type(f.SetPortraitToAsset) == "function" then pcall(f.SetPortraitToAsset, f, icon) end
+end
+
+function ns.SetWindowTitle(f, title)
+  if type(f.SetTitle) == "function" then pcall(f.SetTitle, f, title) elseif f.fallbackTitle then f.fallbackTitle:SetText(title) end
+end
+
+function ns.PortraitWindow(name, title, icon)
+  local ok, f = pcall(CreateFrame, "Frame", name, UIParent, "PortraitFrameTemplate")
+  if not (ok and f and type(f.SetTitle) == "function") then
+    f = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
+    ns.DialogBackdrop(f)
+    local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", -4, -4)
+    f.fallbackTitle = ns.Text(f, "GameFontNormal", "CENTER")
+    f.fallbackTitle:SetPoint("TOP", 0, -16)
+  end
+  if type(f.CloseButton) == "table" then f.CloseButton:SetScript("OnClick", function() f:Hide() end) end
+  local art = f:CreateTexture(nil, "BACKGROUND", nil, -6)
+  art:SetPoint("TOPLEFT", 2, -21)
+  art:SetPoint("BOTTOMRIGHT", -2, 2)
+  if ns.SetAtlas(art, "Profession-Background-Overview") then
+    if type(f.Bg) == "table" and f.Bg.Hide then f.Bg:Hide() end
+  else
+    art:Hide()
+  end
+  ns.SetWindowTitle(f, title)
+  ns.SetPortrait(f, icon)
+  return f
+end
+
+function ns.Card(parent, atlas, w, h)
+  local c = CreateFrame("Frame", nil, parent)
+  c:SetSize(w, h)
+  local bg = c:CreateTexture(nil, "BACKGROUND")
+  bg:SetAllPoints()
+  AtlasOr(bg, atlas, 0, 0, 0, 0.4)
+  return c
+end
+
+local SLICE_X = { { "LEFT", 0 }, { "LEFT", 1 }, { "RIGHT", -1 } }
+local SLICE_X_END = { { "LEFT", 1 }, { "RIGHT", -1 }, { "RIGHT", 0 } }
+local SLICE_Y = { { "TOP", 0 }, { "TOP", -1 }, { "BOTTOM", 1 } }
+local SLICE_Y_END = { { "TOP", -1 }, { "BOTTOM", 1 }, { "BOTTOM", 0 } }
+
+local function SliceCoords(info, x0, x1, y0, y1)
+  local du = (info.rightTexCoord - info.leftTexCoord) / info.width
+  local dv = (info.bottomTexCoord - info.topTexCoord) / info.height
+  return info.leftTexCoord + x0 * du, info.leftTexCoord + x1 * du, info.topTexCoord + y0 * dv, info.topTexCoord + y1 * dv
+end
+
+local function PlaceSlice(t, c, col, row, edge)
+  local x0, x1, y0, y1 = SLICE_X[col], SLICE_X_END[col], SLICE_Y[row], SLICE_Y_END[row]
+  t:SetPoint("TOPLEFT", c, y0[1] .. x0[1], x0[2] * edge, y0[2] * edge)
+  t:SetPoint("BOTTOMRIGHT", c, y1[1] .. x1[1], x1[2] * edge, y1[2] * edge)
+end
+
+function ns.SlicedCard(parent, atlas, edge)
+  local c = CreateFrame("Frame", nil, parent)
+  local info = C_Texture and C_Texture.GetAtlasInfo and GS.SafeCall(C_Texture.GetAtlasInfo, atlas)
+  local file = type(info) == "table" and (info.file or info.filename)
+  if not (file and info.width and info.height) then
+    ns.Fill(c, "BACKGROUND", 0, 0, 0, 0.4)
+    return c
+  end
+  local xs, ys = { 0, edge, info.width - edge, info.width }, { 0, edge, info.height - edge, info.height }
+  for row = 1, 3 do
+    for col = 1, 3 do
+      local t = c:CreateTexture(nil, "BACKGROUND")
+      t:SetTexture(file)
+      t:SetTexCoord(SliceCoords(info, xs[col], xs[col + 1], ys[row], ys[row + 1]))
+      PlaceSlice(t, c, col, row, edge)
+    end
+  end
+  return c
+end
+
+local SIDETAB_W, SIDETAB_H, SIDETAB_ART_H = 55, 55, 60
+
+local function SideTabTexture(b, layer, atlas, r, g, bl, a)
+  local t = b:CreateTexture(nil, layer)
+  t:SetSize(SIDETAB_W, SIDETAB_ART_H)
+  t:SetPoint("CENTER")
+  AtlasOr(t, atlas, r, g, bl, a)
+  return t
+end
+
+local function MaskIcon(b)
+  local mask = b.CreateMaskTexture and b:CreateMaskTexture()
+  if not mask then return end
+  mask:SetSize(SIDETAB_W, SIDETAB_ART_H)
+  mask:SetPoint("CENTER")
+  if ns.SetAtlas(mask, "common-sidetab-mask") and b.icon.AddMaskTexture then b.icon:AddMaskTexture(mask) end
+end
+
+function ns.SideTab(f, prev, onClick)
+  local b = CreateFrame("Button", nil, f)
+  b:SetSize(SIDETAB_W, SIDETAB_H)
+  if prev then b:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", 0, -2) else b:SetPoint("TOPLEFT", f, "TOPRIGHT", 0, -60) end
+  SideTabTexture(b, "BACKGROUND", "common-sidetab", 0, 0, 0, 0.6)
+  b.icon = b:CreateTexture(nil, "ARTWORK")
+  b.icon:SetSize(50, 50)
+  b.icon:SetPoint("CENTER", -4, 0)
+  b.icon:SetTexCoord(0.03125, 0.96875, 0.03125, 0.96875)
+  MaskIcon(b)
+  b.selected = SideTabTexture(b, "OVERLAY", "common-sidetab-selected", GOLD[1], GOLD[2], GOLD[3], 0.3)
+  SideTabTexture(b, "HIGHLIGHT", "common-sidetab-hover", 1, 1, 1, 0.15)
+  b:SetScript("OnClick", onClick)
+  ns.Tip(b, function() return b.title or "" end)
+  return b
+end
+
+function ns.ProgressBar(parent, w)
+  local bar = CreateFrame("StatusBar", nil, parent)
+  bar:SetSize(w, 18)
+  bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+  bar:SetStatusBarColor(0.25, 0.45, 0.75)
+  local bg = bar:CreateTexture(nil, "BACKGROUND")
+  bg:SetAllPoints()
+  AtlasOr(bg, "Profession-ProgressBar-BG", 0, 0, 0, 0.6)
+  local border = bar:CreateTexture(nil, "OVERLAY")
+  border:SetPoint("TOPLEFT", -3, 3)
+  border:SetPoint("BOTTOMRIGHT", 3, -2)
+  if not ns.SetAtlas(border, "Profession-ProgressBar-frame") then border:Hide() end
+  bar.text = ns.Text(bar, "GameFontHighlightSmall", "CENTER")
+  bar.text:SetPoint("CENTER")
+  return bar
+end
+
+function ns.IconEntry(parent, onClick)
+  local b = CreateFrame("Button", nil, parent)
+  b:SetSize(37, 37)
+  b.icon = b:CreateTexture(nil, "ARTWORK")
+  b.icon:SetAllPoints()
+  local frame = b:CreateTexture(nil, "OVERLAY")
+  frame:SetPoint("TOPLEFT", -1, 1)
+  frame:SetPoint("BOTTOMRIGHT", 1, -1)
+  if not ns.SetAtlas(frame, "UI-HUD-ActionBar-IconFrame") then frame:Hide() end
+  local hover = b:CreateTexture(nil, "HIGHLIGHT")
+  hover:SetAllPoints()
+  hover:SetColorTexture(1, 1, 1, 0.2)
+  b.name = ns.Text(b, "GameFontNormal")
+  b.name:SetPoint("TOPLEFT", b, "TOPRIGHT", 8, -4)
+  b.sub = ns.Text(b, "GameFontHighlightSmall")
+  b.sub:SetPoint("TOPLEFT", b.name, "BOTTOMLEFT", 0, -2)
+  b.sub:SetTextColor(0.75, 0.75, 0.75)
+  if onClick then b:SetScript("OnClick", onClick) end
+  return b
+end
+
+function ns.SmallIconButton(parent, size)
+  local b = CreateFrame("Button", nil, parent)
+  b:SetSize(size, size)
+  b.icon = b:CreateTexture(nil, "ARTWORK")
+  b.icon:SetAllPoints()
+  b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+  local hover = b:CreateTexture(nil, "HIGHLIGHT")
+  hover:SetAllPoints()
+  hover:SetColorTexture(1, 1, 1, 0.25)
+  return b
+end
+
 local copy
 local function CopyBox()
   if copy then return copy end
@@ -124,6 +351,12 @@ function Build.toggle(parent, o, y, refreshAll)
   end, cb
 end
 
+local function RangeText(o, v)
+  if not v then return "?" end
+  if o.display then return GS:Call(o.display, v) or "?" end
+  return (o.format or "%d"):format(v)
+end
+
 function Build.range(parent, o, y, refreshAll)
   local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   fs:SetPoint("TOPLEFT", 12, y - 5)
@@ -134,7 +367,7 @@ function Build.range(parent, o, y, refreshAll)
   plus:SetText("+")
   local val = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   val:SetPoint("RIGHT", plus, "LEFT", -6, 0)
-  val:SetWidth(44)
+  val:SetWidth(o.valueWidth or 44)
   val:SetJustifyH("CENTER")
   local minus = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
   minus:SetSize(26, 22)
@@ -157,12 +390,12 @@ function Build.range(parent, o, y, refreshAll)
   Tooltip(plus, o.label, o.tooltip)
   return 28, function()
     local v = tonumber(Get(o))
-    val:SetText(v and (o.format or "%d"):format(v) or "?")
+    val:SetText(RangeText(o, v))
     local off = IsDisabled(o)
     if off or not v or v <= (o.min or -math.huge) then minus:Disable() else minus:Enable() end
     if off or not v or v >= (o.max or math.huge) then plus:Disable() else plus:Enable() end
     SetLabelEnabled(fs, not off)
-  end, { minus = minus, plus = plus }
+  end, { minus = minus, plus = plus, value = val }
 end
 
 local function ButtonWidget(parent, o, y, onClick)
@@ -170,13 +403,30 @@ local function ButtonWidget(parent, o, y, onClick)
   b:SetSize(220, 22)
   b:SetPoint("TOPLEFT", 10, y)
   b:SetText(o.label or "")
-  b:SetScript("OnClick", onClick)
+  b:SetScript("OnClick", function() onClick(b) end)
   Tooltip(b, o.label, o.tooltip)
   return 28, function() if IsDisabled(o) then b:Disable() else b:Enable() end end, b
 end
 
+local CONFIRM_SECONDS = 5
+
+local function ConfirmedClick(o, refreshAll)
+  return function(b)
+    if o.confirm and not b.armed then
+      b.armed = true
+      b:SetText(o.confirm)
+      C_Timer.After(CONFIRM_SECONDS, function() b.armed = nil; b:SetText(o.label or "") end)
+      return
+    end
+    b.armed = nil
+    b:SetText(o.label or "")
+    GS:Call(o.func)
+    refreshAll()
+  end
+end
+
 function Build.button(parent, o, y, refreshAll)
-  return ButtonWidget(parent, o, y, function() GS:Call(o.func); refreshAll() end)
+  return ButtonWidget(parent, o, y, ConfirmedClick(o, refreshAll))
 end
 
 function Build.text(parent, o, y)

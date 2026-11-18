@@ -6,7 +6,7 @@ local FILES = {}
 for i, f in ipairs({ "Locale.lua", "Map.lua", "Pins.lua", "Sync.lua" }) do FILES[i] = { MapKit.DIR .. f, ADDON } end
 
 local NOOP = { ClearAllPoints = true, EnableMouse = true, RegisterForClicks = true, SetTexture = true, SetTextColor = true,
-  SetFrameStrata = true, UnregisterEvent = true }
+  SetFrameStrata = true, UnregisterEvent = true, SetHeight = true, SetWidth = true, SetJustifyH = true, SetColorTexture = true }
 
 local function FrameFactory(c)
   local methods = {
@@ -14,7 +14,8 @@ local function FrameFactory(c)
     SetAlpha = function(s, a) s.alpha = a end, SetScript = function(s, k, fn) s._scripts[k] = fn end,
     RegisterEvent = function(s, e) s._events[e] = true end,
     SetSize = function(s, w, h) s.w, s.h = w, h end,
-    SetText = function(s, t) s.text = t end,
+    SetText = function(s, t) s.text = t end, GetText = function(s) return s.text end,
+    IsVisible = function(s) return s.shown end,
     SetVertexColor = function(s, r, g, b, a) s.color = { r, g, b, a } end,
     GetZoom = function() return 2 end,
     SetParent = function(s, p) s.parent = p end,
@@ -126,7 +127,7 @@ function MapKit.Client(sched, bus, name, opts)
     assert(o and o.set, "no option " .. tostring(id))
     o.set(v)
   end
-  function c.diag() return table.concat(c.M:Option("diag").lines(), "\n") end
+  function c.diag() return table.concat(c.M:OverviewDiagnostics(), "\n") end
   function c.maxCanvas()
     local per, m = {}, 0
     for f in pairs(c.hbdWorld) do per[f.key] = (per[f.key] or 0) + 1; m = math.max(m, per[f.key]) end

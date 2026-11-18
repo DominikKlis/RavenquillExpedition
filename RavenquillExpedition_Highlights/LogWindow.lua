@@ -4,6 +4,9 @@ local H = ns.H
 local L = ns.L
 
 local win, refreshArmed
+local views = {}
+local WINDOW_INSETS = { 16, -32, -16, 32 }
+local PAGE_INSETS = { 4, -2, -4, 30 }
 
 local function Chrome(f, native)
   f:SetSize(560, 420)
@@ -31,10 +34,10 @@ local function Chrome(f, native)
   tinsert(UISpecialFrames, "RavenquillExpeditionHighlightsFrame")
 end
 
-local function MessageArea(f)
+local function MessageArea(f, insets)
   local msg = CreateFrame("ScrollingMessageFrame", nil, f)
-  msg:SetPoint("TOPLEFT", 16, -32)
-  msg:SetPoint("BOTTOMRIGHT", -16, 32)
+  msg:SetPoint("TOPLEFT", insets[1], insets[2])
+  msg:SetPoint("BOTTOMRIGHT", insets[3], insets[4])
   msg:SetFontObject(GameFontHighlightSmall)
   msg:SetJustifyH("LEFT")
   msg:SetFading(false)
@@ -63,16 +66,16 @@ local function MessageArea(f)
   f.msg = msg
 end
 
-local function Footer(f)
+local function Footer(f, inPage)
   local footer = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  footer:SetPoint("BOTTOMLEFT", 18, 12)
-  footer:SetPoint("BOTTOMRIGHT", -170, 12)
+  footer:SetPoint("BOTTOMLEFT", inPage and 6 or 18, inPage and 6 or 12)
+  footer:SetPoint("BOTTOMRIGHT", -170, inPage and 6 or 12)
   footer:SetJustifyH("LEFT")
   f.footer = footer
 
   local cb = CreateFrame("CheckButton", nil, f)
   cb:SetSize(22, 22)
-  cb:SetPoint("BOTTOMRIGHT", -130, 6)
+  cb:SetPoint("BOTTOMRIGHT", -130, inPage and 0 or 6)
   cb:SetNormalTexture("Interface\\Buttons\\UI-CheckBox-Up")
   cb:SetPushedTexture("Interface\\Buttons\\UI-CheckBox-Down")
   cb:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight", "ADD")
@@ -100,12 +103,22 @@ local function CreateWindow()
     close:SetPoint("TOPRIGHT", -4, -4)
   end
   Chrome(f, native)
-  MessageArea(f)
-  Footer(f)
+  MessageArea(f, WINDOW_INSETS)
+  Footer(f, false)
   f:SetScript("OnShow", function() GS:Call(H.Refresh, H) end)
+  views[#views + 1] = f
   f:Hide()
   return f
 end
+
+function H:BuildPage(parent)
+  MessageArea(parent, PAGE_INSETS)
+  Footer(parent, true)
+  parent:SetScript("OnShow", function() GS:Call(H.Refresh, H) end)
+  views[#views + 1] = parent
+end
+
+function H:RefreshPage() self:Refresh() end
 
 local SHOW_MAX = 1500
 local HL_MARK = "|cffffd100»|r "
@@ -123,17 +136,35 @@ function H:LogLines()
   return out, #events, #act
 end
 
-local function AddDayHeader(m, e, lastDay)
-  local day = date("%Y-%m-%d", e.t)
-  if day == lastDay then return lastDay end
-  m:AddMessage(" ")
-  m:AddMessage(date(L.FMT_DAY, e.t), 1, 0.82, 0)
-  return day
+local function LogMessages(self, list)
+  local out, lastDay = {}, nil
+  for k = math.max(1, #list - SHOW_MAX + 1), #list do
+    local e = list[k]
+    local day = date("%Y-%m-%d", e.t)
+    if day ~= lastDay then
+      out[#out + 1] = { text = " " }
+      out[#out + 1] = { text = date(L.FMT_DAY, e.t), color = { 1, 0.82, 0 } }
+      lastDay = day
+    end
+    local line = "|cff888888" .. date("%H:%M", e.t) .. "|r  " .. (e.act and ACT_MARK or HL_MARK) .. self:Format(e)
+    out[#out + 1] = { text = line, color = e.act and { 0.75, 0.75, 0.75 } or nil, entry = e }
+  end
+  return out
 end
 
-local function AddEventLine(self, m, e)
-  local line = "|cff888888" .. date("%H:%M", e.t) .. "|r  " .. (e.act and ACT_MARK or HL_MARK) .. self:Format(e)
-  if e.act then m:AddMessage(line, 0.75, 0.75, 0.75) else m:AddMessage(line) end
+local function LinesAfter(messages, entry)
+  if not entry then return nil end
+  for i = #messages, 1, -1 do
+    if messages[i].entry == entry then return #messages - i end
+  end
+end
+
+local function KeepReadingPosition(m, offset, newLines)
+  if offset > 0 and newLines and m.SetScrollOffset then
+    m:SetScrollOffset(offset + newLines)
+  else
+    m:ScrollToBottom()
+  end
 end
 
 local function FooterText(self, nHL, nAct)
@@ -142,25 +173,36 @@ local function FooterText(self, nHL, nAct)
     .. (nAct > 0 and ("  ·  " .. L.FOOTER_ACT:format(nAct)) or "") .. "  ·  " .. (gkey ~= "-" and gkey or L.NO_GUILD)
 end
 
-function H:Refresh()
-  if not (win and win:IsShown() and self.db) then return end
-  local list, nHL, nAct = self:LogLines()
-  local m = win.msg
+local function RenderLog(self, view, list, nHL, nAct)
+  local m = view.msg
+  local offset = m.GetScrollOffset and m:GetScrollOffset() or 0
+  local messages = LogMessages(self, list)
   m:Clear()
-  win.onlyHL:SetChecked(self:Settings().logOnlyHighlights and true or false)
-  if not list[1] then m:AddMessage(L.EMPTY, 0.7, 0.7, 0.7) end
-  local lastDay
-  for k = math.max(1, #list - SHOW_MAX + 1), #list do
-    local e = list[k]
-    lastDay = AddDayHeader(m, e, lastDay)
-    AddEventLine(self, m, e)
+  view.onlyHL:SetChecked(self:Settings().logOnlyHighlights and true or false)
+  if not list[1] then m:AddMessage(self:EmptyText(), 0.7, 0.7, 0.7) end
+  for _, line in ipairs(messages) do
+    if line.color then m:AddMessage(line.text, line.color[1], line.color[2], line.color[3]) else m:AddMessage(line.text) end
   end
-  m:ScrollToBottom()
-  win.footer:SetText(FooterText(self, nHL, nAct))
+  KeepReadingPosition(m, offset, LinesAfter(messages, view.newest))
+  view.newest = list[#list]
+  view.footer:SetText(FooterText(self, nHL, nAct))
+end
+
+local function AnyViewShown()
+  for _, view in ipairs(views) do if view:IsVisible() then return true end end
+  return false
+end
+
+function H:Refresh()
+  if not (self.db and AnyViewShown()) then return end
+  local list, nHL, nAct = self:LogLines()
+  for _, view in ipairs(views) do
+    if view:IsVisible() then RenderLog(self, view, list, nHL, nAct) end
+  end
 end
 
 function H:RefreshSoon()
-  if refreshArmed or not (win and win:IsShown()) then return end
+  if refreshArmed or not AnyViewShown() then return end
   refreshArmed = true
   C_Timer.After(0.5, function() refreshArmed = false; GS:Call(H.Refresh, H) end)
 end

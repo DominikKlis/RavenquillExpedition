@@ -14,6 +14,7 @@ local L = {
   TT_TEST = "Test pin (not a real player)",
   TT_YOU = "You (test pin)",
   TT_CLICK = "Click to whisper",
+  TT_RIGHT_CLICK = "Right-click: zoom out",
 
   ON = "on", OFF = "off",
   FAKE_NOPOS = "Your position isn't available here (instance?), so no test pins.",
@@ -29,16 +30,20 @@ local L = {
   SETTING_WORLDMAP = "Show guildmates on the world map",
   SETTING_MINIMAP = "Show guildmates on the minimap",
   TT_MINIMAP = "Only positions under 45 seconds old, or of guildmates standing still – older ones would be in the wrong place.",
+  TT_WORLDMAP = "A class-coloured dot for each guildmate who runs this addon. Hover for details.",
   SETTING_NAMES = "Names under the dots",
+  TT_NAMES = "Only on the world map; the minimap has no room for them.",
   SETTING_HIDE_GROUP = "Hide guildmates in my group",
   TT_HIDE_GROUP = "No dot for guildmates in your party or raid: the game already shows them on the map and minimap.",
   SETTING_SIZE = "Dot size",
+  TT_SIZE = "Scales the dots on the world map and the minimap. 1.0 is the normal size.",
   SETTING_SELF = "Test dot at my own position",
   TT_SELF = "A white-ringed dot where you are, to check that dots land in the right place.",
   SETTING_FAKE = "Test dots around me",
   TT_FAKE = "Seven pretend guildmates around you, only on your screen – nothing is sent.",
-  SETTING_DIAG = "Diagnostics",
-  TT_DIAG = "Technical details to copy and send to whoever helps you with the addon.",
+  OPEN_LABEL = "World map",
+  COL_NAME = "Name", COL_LEVEL = "Level", COL_ZONE = "Zone", COL_SEEN = "Last update", TEST_MARK = "test",
+  PAGE_EMPTY = "No guildmate is sharing a position right now.", PAGE_MORE = "+%d more",
 }
 
 local deDE = {
@@ -55,6 +60,7 @@ local deDE = {
   TT_TEST = "Testpunkt (kein echter Spieler)",
   TT_YOU = "Du (Testpunkt)",
   TT_CLICK = "Klicken zum Anflüstern",
+  TT_RIGHT_CLICK = "Rechtsklick: herauszoomen",
 
   ON = "an", OFF = "aus",
   FAKE_NOPOS = "Deine Position ist hier nicht verfügbar (Instanz?), daher keine Testpunkte.",
@@ -70,16 +76,20 @@ local deDE = {
   SETTING_WORLDMAP = "Gildenmitglieder auf der Weltkarte zeigen",
   SETTING_MINIMAP = "Gildenmitglieder auf der Minikarte zeigen",
   TT_MINIMAP = "Nur Positionen, die jünger als 45 Sekunden sind, oder von Gildenmitgliedern, die stillstehen – ältere wären an der falschen Stelle.",
+  TT_WORLDMAP = "Ein Punkt in Klassenfarbe für jedes Gildenmitglied, das dieses Addon nutzt. Mit der Maus drüber für Details.",
   SETTING_NAMES = "Namen unter den Punkten",
+  TT_NAMES = "Nur auf der Weltkarte; auf der Minikarte ist dafür kein Platz.",
   SETTING_HIDE_GROUP = "Gildenmitglieder in meiner Gruppe ausblenden",
   TT_HIDE_GROUP = "Kein Punkt für Gildenmitglieder in deiner Gruppe oder deinem Schlachtzug: das Spiel zeigt sie schon auf Karte und Minikarte.",
   SETTING_SIZE = "Punktgröße",
+  TT_SIZE = "Skaliert die Punkte auf Weltkarte und Minikarte. 1.0 ist die normale Größe.",
   SETTING_SELF = "Testpunkt an meiner Position",
   TT_SELF = "Ein weiß umrandeter Punkt, wo du stehst – um zu prüfen, ob die Punkte an der richtigen Stelle landen.",
   SETTING_FAKE = "Testpunkte um mich herum",
   TT_FAKE = "Sieben gespielte Gildenmitglieder um dich herum, nur auf deinem Bildschirm – nichts wird gesendet.",
-  SETTING_DIAG = "Diagnose",
-  TT_DIAG = "Technische Angaben zum Kopieren für alle, die dir beim Addon helfen.",
+  OPEN_LABEL = "Weltkarte",
+  COL_NAME = "Name", COL_LEVEL = "Stufe", COL_ZONE = "Gebiet", COL_SEEN = "Zuletzt", TEST_MARK = "Test",
+  PAGE_EMPTY = "Gerade teilt niemand aus der Gilde seine Position.", PAGE_MORE = "+%d weitere",
 }
 
 ns.Locales = { enUS = L, deDE = deDE }

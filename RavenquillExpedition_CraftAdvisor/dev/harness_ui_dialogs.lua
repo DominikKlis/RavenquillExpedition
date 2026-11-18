@@ -346,14 +346,11 @@ do
   env.print = function(...) local t = {} for i = 1, select("#", ...) do t[i] = tostring(select(i, ...)) end printed[#printed + 1] = table.concat(t, " ") end
   ns.locale = "deDE"
   GCA:InspectTarget()
-  local reset
-  for _, o in ipairs(GCA.options) do if o.label == ns.Locales.enUS.OPT_MM_RESET then reset = o end end
-  if reset then reset.func() end
   ns.locale = "enUS"
   env.print = savedPrint
   local all = table.concat(printed, "\n")
-  check(all:find("Visiere zuerst ein Gildenmitglied an", 1, true) and all:find("Minimap-Knopf in die größte freie Lücke verschoben", 1, true)
-    and not all:find("Target a guild member", 1, true), "chat replies in German: " .. all:gsub("\n", " | "))
+  check(all:find("Visiere zuerst ein Gildenmitglied an", 1, true) and not all:find("Target a guild member", 1, true),
+    "chat replies in German: " .. all:gsub("\n", " | "))
 end
 
 do
@@ -378,7 +375,7 @@ do
   s.sync = false
   UIx.ToggleSetting("sync")
   local rqSync
-  for _, o in ipairs(GCA.options) do if o.label == ns.Locales.enUS.FILTER_SYNC then rqSync = o end end
+  for _, o in ipairs(GCA.options) do if o.label == ns.Locales.enUS.OPT_SHARE_GEAR then rqSync = o end end
   rqSync.set(false); rqSync.set(true)
   check(s.sync == true and owed == 2, "sync back on from the Filter menu and from /rq: own gear checked both times (" .. owed .. ")")
   GCA.CheckOwn, s.survival, s.sync = savedCheckOwn, savedSurvival, savedSync

@@ -454,6 +454,7 @@ for _ = 1, 9 do rawget(panel.controls[iRed].plus, "_scripts").OnClick() end
 check(H:Settings().questRedLevels == 10 and not panel.controls[iRed].plus:IsEnabled(), "a range stops at its maximum")
 for _ = 1, 10 do rawget(panel.controls[iRed].minus, "_scripts").OnClick() end
 check(H:Settings().questRedLevels == 0 and not panel.controls[iRed].minus:IsEnabled(), "and at its minimum")
+check(panel.controls[iRed].value:GetText() == "aus", "a hard-quest threshold of 0 reads 'aus', not a bare 0")
 local iChat, iAll = opt(L.OPT_CHAT), opt(L.OPT_CHAT_ALL)
 local chat = panel.controls[iChat]
 chat:SetChecked(false); rawget(chat, "_scripts").OnClick(chat)
@@ -464,14 +465,21 @@ all:SetChecked(true); rawget(all, "_scripts").OnClick(all)
 check(H:Settings().chatAll and all:IsEnabled(), "chat all")
 rawget(panel.controls[opt(L.OPT_TEST)], "_scripts").OnClick()
 check(lastPrinted():find("6 Testeinträge", 1, true), "test button adds 6 test entries")
-rawget(panel.controls[opt(L.OPT_OPEN_LOG)], "_scripts").OnClick()
-check(env.RavenquillExpeditionHighlightsFrame:IsShown() and lines[#lines]:find("Höchststufe 60", 1, true), "log button opens the window, test entry last")
+H:Open()
+check(H.openLabel == "Protokoll" and env.RavenquillExpeditionHighlightsFrame:IsShown() and lines[#lines]:find("Höchststufe 60", 1, true),
+  "the card's 'Protokoll' entry opens the log window, test entry last")
+local noClutter = true
+for _, o in ipairs(H.options) do
+  if o.type == "text" or o.key == "logOnlyHighlights" or o.label == "Protokoll öffnen" then noClutter = false end
+end
+check(noClutter, "the options hold no log-window duplicates and no diagnostics")
 rawget(panel.controls[opt(L.OPT_CLEARTEST)], "_scripts").OnClick()
 check(lastPrinted():find("6 Testeinträge entfernt", 1, true), "test entries removed")
-rawget(panel.controls[opt(L.OPT_DIAG)], "_scripts").OnClick()
+GS:ShowCopyBox("Diagnose", GS:DiagLines())
 local box = env.RavenquillExpeditionCopyBox
-check(box and box:IsShown() and box.text:find("events seen", 1, true) and box.text:find("last QUEST_TURNED_IN", 1, true),
-  "diagnostics open in the copy box")
+check(box and box:IsShown() and box.text:find("== " .. H.title, 1, true) and box.text:find("events seen", 1, true)
+  and box.text:find("last QUEST_TURNED_IN", 1, true) and box.text:find("== minimap button", 1, true),
+  "the overview's one Diagnose text holds every module's section, Highlights included")
 local text = box.text
 box.eb:SetText("typed over")
 rawget(box.eb, "_scripts").OnTextChanged(box.eb, true)
@@ -489,13 +497,27 @@ check(rows[1].title == H.title and rows[1].state == "loaded" and rows[1].open an
 check(rows[2].state == "missing" and rows[2].slash == "/rq map", "Map row: not installed")
 check(rows[3].state == "disabled" and rows[3].slash == "/rq craft" and rows[3].title == "Guild Craft Advisor", "Craft row: disabled")
 check(#rows == 3, "three known rows, no duplicates")
-env.RavenquillExpeditionHighlightsFrame:Hide()
-rawget(ov.home.rows[1].button, "_scripts").OnClick()
-check(env.RavenquillExpeditionHighlightsFrame:IsShown(), "Open button shows the Highlights window")
-rawget(ov.home.rows[1].opt, "_scripts").OnClick()
-check(GS.optionsModule == "Highlights" and ov.optView:IsShown() and not ov.home:IsShown(), "Options button switches to the options view")
+GS:ShowModulePage("Highlights")
+local hlPage = ov.optView.pages.Highlights
+check(GS.optionsModule == "Highlights" and not GS.moduleSettings and hlPage and hlPage:IsShown() and not ov.optView.scroll:IsShown()
+  and hlPage.footer:GetText():find("Highlights", 1, true), "the Highlights tab opens on its log, not on its settings")
+local gear, openWindow = ov.optView.gear, ov.optView.openWindow
+check(rawget(gear, "_shown") and not rawget(openWindow, "_shown") and gear.name == nil,
+  "a module page shows only a small gear at the top right, no labelled entries")
+rawget(gear, "_scripts").OnEnter(gear)
+check(env.GameTooltip:GetText() == "Einstellungen", "hovering the gear names it: 'Einstellungen'")
+rawget(gear, "_scripts").OnClick(gear)
+check(GS.moduleSettings and ov.optView.panels.Highlights:IsShown() and not hlPage:IsShown(), "the gear shows the settings")
+rawget(gear, "_scripts").OnClick(gear)
+check(GS.moduleSettings and ov.optView.panels.Highlights:IsShown(), "a second click on the gear does not toggle back")
+local hlSideTab
+for _, tab in ipairs(ov.tabs) do if tab.page == "Highlights" then hlSideTab = tab end end
+rawget(hlSideTab, "_scripts").OnClick(hlSideTab)
+check(not GS.moduleSettings and hlPage:IsShown(), "the module's side tab goes back to the log")
 GS:ShowHome()
-check(rawget(ov.home.rows[2].button, "_shown") == false and rawget(ov.home.rows[2].opt, "_shown") == false, "no buttons for a missing module")
+local mapTab = false
+for _, tab in ipairs(ov.tabs) do if rawget(tab, "_shown") and tab.page == "Map" then mapTab = true end end
+check(not mapTab, "no tab for a module that is not installed")
 local recent = H:OverviewRecent(8)
 check(type(recent) == "table" and #recent == 8 and recent[8]:find("Stufe 50", 1, true), "recent highlights for the overview")
 local craft = GS:NewModule("Craft", { addon = "GuildCraftAdvisor", slash = "craft", title = "Guild Craft Advisor", icon = "Interface\\Icons\\Trade_LeatherWorking" })
@@ -525,9 +547,14 @@ rows = GS:OverviewRows()
 check(rows[2].title == "Karte" and rows[2].state == "loaded" and rows[2].status == "Auf der Karte: 2 · Teilen an" and rows[2].open and rows[2].options,
   "Map row uses the module's title, status, Open and options")
 check(#rows == 4, "a registered Map is not listed twice")
+GS:ShowModulePage("Map")
+check(GS.moduleSettings and rawget(ov.optView.openWindow, "_shown") and not rawget(ov.optView.gear, "_shown"),
+  "a module without a page opens on its settings; a small icon button opens its window, no gear")
+rawget(ov.optView.openWindow, "_scripts").OnEnter(ov.optView.openWindow)
+check(env.GameTooltip:GetText() == "Öffnen", "hovering the icon button says what it opens")
+rawget(ov.optView.openWindow, "_scripts").OnClick(ov.optView.openWindow)
+check(opened and GS.moduleSettings, "the icon button calls mod:Open() and leaves the settings shown")
 GS:ShowHome()
-rawget(ov.home.rows[2].button, "_scripts").OnClick()
-check(opened, "Map's Open button calls mod:Open()")
 env.SlashCmdList.RAVENQUILL("map")
 check(GS.optionsModule == "Map" and ov.optView.panels.Map, "/rq map opens the map's options")
 local sizePlus = ov.optView.panels.Map.controls[2].plus
@@ -600,6 +627,172 @@ do
   check(cachedLast == arrived and cachedFooter:find("  ·  Die Gilde@Forever$") and noGuildFooter:find("  ·  (keine Gilde)", 1, true),
     "GetGuildInfo empty for a moment: the footer names the cached guild whose log it shows; out of a guild '(keine Gilde)' ("
     .. cachedFooter .. " / " .. noGuildFooter .. ")")
+end
+
+do
+  local fm = me.frameMethods
+  fm.SetTitle = function(f, title) f._title = title end
+  fm.SetPortraitToAsset = function(f, icon) f._portrait = icon end
+  env.SlashCmdList.RAVENQUILL("")
+  local tabs, shownTitles, hlTab = ov.tabs, {}, nil
+  for _, tab in ipairs(tabs) do
+    if rawget(tab, "_shown") then shownTitles[#shownTitles + 1] = tab.title end
+    if tab.page == "Highlights" then hlTab = tab end
+  end
+  local titles = table.concat(shownTitles, ",")
+  check(shownTitles[1] == "Übersicht" and titles:find(H.title, 1, true) and titles:find("Karte", 1, true),
+    "the side tabs are the overview and every module with options, in order (" .. titles .. ")")
+  check(rawget(tabs[1].selected, "_shown") and hlTab and not rawget(hlTab.selected, "_shown")
+    and ov._title == "Ravenquill Expedition", "the overview tab is selected and the window carries the suite's title")
+  rawget(hlTab, "_scripts").OnClick(hlTab)
+  check(GS.optionsModule == "Highlights" and ov.optView:IsShown() and rawget(hlTab.selected, "_shown")
+    and not rawget(tabs[1].selected, "_shown") and ov._title == H.title and ov._portrait == H.icon
+    and ov.optView.title:GetText() == H.title,
+    "a module's side tab opens that module, and the window takes its title and portrait")
+  rawget(tabs[1], "_scripts").OnClick(tabs[1])
+  check(GS.optionsModule == nil and ov.home:IsShown() and ov._title == "Ravenquill Expedition",
+    "the overview tab goes back to the overview")
+  check(ov.home.rows == nil and ov.home.recent ~= nil, "the overview has no module cards; the highlights feed takes the page")
+  check(hlTab.status == H:OverviewStatus(), "a side tab's tooltip carries the module's status line")
+  fm.SetTitle, fm.SetPortraitToAsset = nil, nil
+  local clears = 0
+  local clear = fm.Clear
+  fm.Clear = function(...) clears = clears + 1; return clear(...) end
+  GS:RefreshOverview()
+  GS:RefreshOverview()
+  local quiet = clears
+  H:AddTests()
+  GS:RefreshOverview()
+  H:ClearTests()
+  fm.Clear = clear
+  check(quiet == 0 and clears >= 1, "the highlights feed is only redrawn when it changed, so it keeps its scroll position ("
+    .. quiet .. " / " .. clears .. ")")
+  env.SlashCmdList.RAVENQUILL("")
+end
+
+do
+  env.ITEM_QUALITY3_DESC, env.ITEM_QUALITY4_DESC = "Selten", "Episch"
+  env.SlashCmdList.RAVENQUILL("hl")
+  local s = H:Settings()
+  s.minGearQuality, s.minLootQuality = 3, 4
+  panel.refreshAll()
+  local gearText = panel.controls[opt(L.OPT_GEARQ)].value:GetText()
+  local lootText = panel.controls[opt(L.OPT_LOOTQ)].value:GetText()
+  check(gearText == "|cff0070ddSelten|r" and lootText == "|cffa335eeEpisch|r",
+    "quality options show the coloured quality name, not a number (" .. gearText .. " / " .. lootText .. ")")
+  env.SlashCmdList.RAVENQUILL("")
+  env.SlashCmdList.RAVENQUILL("")
+end
+
+do
+  local RANGE_LABEL_ROOM, AVERAGE_GLYPH_WIDTH, DEFAULT_VALUE_WIDTH = 348, 6.5, 44
+  local tooLong = {}
+  for _, o in ipairs(H.options) do
+    for key, deText in pairs(H.locale.deDE) do
+      if o.type == "range" and deText == o.label then
+        for locale, t in pairs(H.locale) do
+          local label = t[key] or H.locale.enUS[key]
+          if utf8.len(label) * AVERAGE_GLYPH_WIDTH > RANGE_LABEL_ROOM - (o.valueWidth or DEFAULT_VALUE_WIDTH) then
+            tooLong[#tooLong + 1] = locale .. ":" .. key
+          end
+        end
+      end
+    end
+  end
+  check(#tooLong == 0, "range labels fit beside their -/+ buttons in every locale (" .. table.concat(tooLong, ", ") .. ")")
+end
+
+do
+  local s = H:Settings()
+  local gain = s.minGain
+  s.minGain = 13
+  local emptyText = H:EmptyText()
+  s.minGain = gain
+  check(emptyText:find("mindestens 13 Gegenstandsstufen", 1, true) and emptyText:find("Ausrüstung ab Qualität |cff0070ddSelten|r", 1, true),
+    "the empty log explains what counts with the player's own settings")
+  check(H.locale.enUS.TEST_DEADMINES == "The Deadmines" and L.TEST_DEADMINES == "Die Todesminen",
+    "test entries name their dungeon in the player's language")
+end
+
+do
+  local fm = me.frameMethods
+  fm.ScrollToBottom = function(f) f._offset = 0 end
+  fm.GetScrollOffset = function(f) return f._offset or 0 end
+  fm.SetScrollOffset = function(f, v) f._offset = v end
+  local s = H:Settings()
+  local onlyHL = s.logOnlyHighlights
+  s.logOnlyHighlights = false
+  H:ShowWindow()
+  H:Refresh()
+  local msg = env.RavenquillExpeditionHighlightsFrame.msg
+  msg._offset = 5
+  local reading = lines[#lines - 5]
+  H:Activity({ k = "loot", item = 300, q = 2 })
+  advance(1)
+  check(msg._offset > 5 and lines[#lines - msg._offset] == reading,
+    "scrolled up in the log, a new entry keeps the lines being read in place (offset " .. tostring(msg._offset) .. ")")
+  msg._offset = 0
+  H:Activity({ k = "loot", item = 300, q = 2 })
+  advance(1)
+  check(msg._offset == 0 and lines[#lines]:find("Grünes Ding", 1, true), "at the bottom the log follows new entries")
+  s.logOnlyHighlights = onlyHL
+  fm.ScrollToBottom, fm.GetScrollOffset, fm.SetScrollOffset = nil, nil, nil
+  env.RavenquillExpeditionHighlightsFrame:Hide()
+end
+
+do
+  local fm, coreNS = me.frameMethods, me.ns.RavenquillExpedition
+  local slices = {}
+  fm.SetTexCoord = function(t, l, r, top, b) t._tc = { l, r, top, b }; slices[#slices + 1] = t end
+  env.C_Texture = { GetAtlasInfo = function()
+    return { file = 42, width = 664, height = 142, leftTexCoord = 0.1, rightTexCoord = 0.6, topTexCoord = 0.2, bottomTexCoord = 0.5 }
+  end }
+  coreNS.SlicedCard(ov, "Profession-overview-Card", 24)
+  env.C_Texture, fm.SetTexCoord = nil, nil
+  local function near(a, b) return math.abs(a - b) < 1e-9 end
+  local corner, farCorner = slices[1] and slices[1]._tc, slices[9] and slices[9]._tc
+  check(#slices == 9 and near(corner[1], 0.1) and near(corner[2], 0.1 + 24 * 0.5 / 664) and near(corner[3], 0.2)
+    and near(corner[4], 0.2 + 24 * 0.3 / 142) and near(farCorner[2], 0.6) and near(farCorner[4], 0.5),
+    "a stretched card keeps the atlas corners pixel for pixel, so its border looks like Blizzard's at any size")
+end
+
+do
+  local coreNS, ran = me.ns.RavenquillExpedition, 0
+  local p = coreNS.BuildPanel(ov, { { type = "button", label = "Vergessen", confirm = GS.OverviewL.CONFIRM, func = function() ran = ran + 1 end } })
+  local b = p.controls[1]
+  rawget(b, "_scripts").OnClick()
+  check(ran == 0 and b:GetText() == "Zum Bestätigen erneut klicken", "a destructive button only arms on the first click and says so")
+  rawget(b, "_scripts").OnClick()
+  check(ran == 1 and b:GetText() == "Vergessen", "the second click runs it")
+  rawget(b, "_scripts").OnClick()
+  advance(6)
+  rawget(b, "_scripts").OnClick()
+  check(ran == 1 and b:GetText() == "Zum Bestätigen erneut klicken", "an armed button disarms after 5 seconds, so a late click only re-arms it")
+end
+
+do
+  env.SlashCmdList.RAVENQUILL("")
+  local home = ov.home
+  GS:ShowModulePage("Highlights")
+  check(ov.optView.open == nil and ov.optView.switch == nil and ov.optView.pageEntry == nil and ov.optView.settingsEntry == nil,
+    "a module's header has no labelled Open / switch entries")
+  GS:ShowModuleOptions("Highlights")
+  check(GS.moduleSettings and ov.optView.panels.Highlights:IsShown(), "/rq hl and friends still open the settings directly")
+  GS:ShowHome()
+  local moved = 0
+  local replace = GS.LauncherReplace
+  GS.LauncherReplace = function() moved = moved + 1; return 135 end
+  rawget(home.replace, "_scripts").OnClick()
+  GS.LauncherReplace = replace
+  check(moved == 1 and lastPrinted():find("Minimap-Knopf in die größte freie Lücke verschoben (135°)", 1, true),
+    "the overview re-places the minimap button and says where it went")
+  GS:SetLauncherShown(false)
+  GS:RefreshOverview()
+  local offWhileHidden = not home.replace:IsEnabled()
+  GS:SetLauncherShown(true)
+  GS:RefreshOverview()
+  check(offWhileHidden and home.replace:IsEnabled(), "re-placing is greyed out while the minimap button is hidden")
+  env.SlashCmdList.RAVENQUILL("")
 end
 
 local probe = me.newModule("Probe")

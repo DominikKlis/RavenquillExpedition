@@ -234,6 +234,17 @@ end
 
 local QUALITY_HEX = { [0] = "9d9d9d", "ffffff", "1eff00", "0070dd", "a335ee", "ff8000", "e6cc80", "00ccff" }
 
+function H.QualityName(q)
+  local name = Plain(_G["ITEM_QUALITY" .. tostring(q) .. "_DESC"], "string") or tostring(q)
+  local hex = QUALITY_HEX[q]
+  return hex and ("|cff" .. hex .. name .. "|r") or name
+end
+
+function H:EmptyText()
+  local s = self:Settings()
+  return L.EMPTY:format(self.QualityName(s.minLootQuality), self.QualityName(s.minGearQuality), s.minGain)
+end
+
 function H.ItemInfo(item) return SafeCall((C_Item and C_Item.GetItemInfo) or GetItemInfo, item) end
 
 function H.RequestItemData(id)
@@ -366,9 +377,9 @@ function H:AddTests()
   local list = {
     E("gear", { item = 6084, il = 30, oil = 18, q = 3, slot = 15 }),
     E("loot", { item = 869, q = 4 }),
-    E("boss", { enc = 1144, boss = "Edwin VanCleef", inst = "Die Todesminen", first = true }),
-    E("boss", { enc = 663, boss = "Lucifron", inst = "Geschmolzener Kern", grp = true, n = 12, raid = true }),
-    E("quest", { qid = 166, title = "The Defias Brotherhood", tag = "dungeon", ql = 22 }),
+    E("boss", { enc = 1144, boss = "Edwin VanCleef", inst = L.TEST_DEADMINES, first = true }),
+    E("boss", { enc = 663, boss = "Lucifron", inst = L.TEST_MOLTEN_CORE, grp = true, n = 12, raid = true }),
+    E("quest", { qid = 166, title = L.TEST_DEFIAS_QUEST, tag = "dungeon", ql = 22 }),
     E("level", { lvl = 60 }),
   }
   local n = 0
@@ -380,6 +391,8 @@ function H:OnOptionChanged(key, v)
   if key == "share" and v then self:OutboxPump() end
   self:Refresh()
 end
+
+local QUALITY_VALUE_WIDTH = 96
 
 local function ShareOff() return not H:Settings().share end
 local function ChatOff() return not H:Settings().chat end
@@ -394,16 +407,17 @@ H:SetOptions({
   { type = "toggle", key = "echoOwn", label = L.OPT_ECHO, disabled = ChatOff },
   { type = "header", label = L.OPT_RULES_H },
   { type = "range", key = "minGain", label = L.OPT_GAIN, tooltip = L.OPT_GAIN_TIP, min = 1, max = 40, step = 1 },
-  { type = "range", key = "minGearQuality", label = L.OPT_GEARQ, tooltip = L.OPT_QUALITY_TIP, min = 2, max = 4, step = 1 },
-  { type = "range", key = "minLootQuality", label = L.OPT_LOOTQ, tooltip = L.OPT_QUALITY_TIP, min = 3, max = 5, step = 1 },
-  { type = "range", key = "levelStep", label = L.OPT_LEVEL, tooltip = L.OPT_LEVEL_TIP, min = 0, max = 20, step = 1 },
-  { type = "range", key = "questRedLevels", label = L.OPT_RED, tooltip = L.OPT_RED_TIP, min = 0, max = 10, step = 1 },
-  { type = "header", label = L.OPT_LOG_H },
-  { type = "toggle", key = "logOnlyHighlights", label = L.OPT_ONLY_HL, tooltip = L.OPT_ONLY_HL_TIP },
-  { type = "button", label = L.OPT_OPEN_LOG, func = function() H:Open() end },
+  { type = "range", key = "minGearQuality", label = L.OPT_GEARQ, tooltip = L.OPT_QUALITY_TIP, min = 2, max = 4, step = 1,
+    display = H.QualityName, valueWidth = QUALITY_VALUE_WIDTH },
+  { type = "range", key = "minLootQuality", label = L.OPT_LOOTQ, tooltip = L.OPT_QUALITY_TIP, min = 3, max = 5, step = 1,
+    display = H.QualityName, valueWidth = QUALITY_VALUE_WIDTH },
+  { type = "range", key = "levelStep", label = L.OPT_LEVEL, tooltip = L.OPT_LEVEL_TIP, min = 0, max = 20, step = 1,
+    display = function(v) return v == 0 and L.MAX_ONLY or tostring(v) end, valueWidth = QUALITY_VALUE_WIDTH },
+  { type = "range", key = "questRedLevels", label = L.OPT_RED, tooltip = L.OPT_RED_TIP, min = 0, max = 10, step = 1,
+    display = function(v) return v == 0 and L.OFF or tostring(v) end, valueWidth = QUALITY_VALUE_WIDTH },
+  { type = "header", label = L.OPT_TEST_H },
   { type = "button", label = L.OPT_TEST, tooltip = L.OPT_TEST_TIP, func = function() H:Print(L.TEST_ADDED:format(H:AddTests())) end },
   { type = "button", label = L.OPT_CLEARTEST, func = function() H:Print(L.TEST_CLEARED:format(H:ClearTests())) end },
-  { type = "text", label = L.OPT_DIAG, tooltip = L.OPT_DIAG_TIP, lines = function() return H:DiagLines() end },
 })
 
 local function SortedAssignments(t)
@@ -442,6 +456,9 @@ function H:DiagLines()
   AddLastEventLines(out, d.last)
   return out
 end
+
+H.openLabel = L.OPEN_LABEL
+function H:OverviewDiagnostics() return self:DiagLines() end
 
 function H:Open()
   self:ShowWindow()

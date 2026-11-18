@@ -128,12 +128,14 @@ do
     and (GCA.UI.errorCount or 0) == 0 and GCA:Diag().lastError == nil,
     "real refresh -> chest section first with the vest row, the 14 others folded into one last line, no reported error ("
     .. shownSecs .. " sections, " .. (fold and #fold.data.secs or 0) .. " folded)")
+  check(GCA.UI.view == "member", "the window opens on 'By member'")
+  GCA.UI:SetView("needs")
   local nl = GCA.UI.needsList
   check(GCA.UI.view == "needs" and nl.data[1] and nl.data[1].rowKind == "cat" and nl.data[1].cat == 5 and nl.data[2] and nl.data[2].group
     and nl.data[2].rows[1].member.key == "Buddy Stone"
     and nl.data[2].group.sug == first.data.sec.rows[1] and nl.data[2].group == GCA:GuildNeedsByCraft(GCA.UI.lastMembers)[1]
     and GCA.UI.needDetail.entry == nl.data[2] and GCA.UI.needDetail.members.pools.default[1].data.member.key == "Buddy Stone",
-    "opens on guild needs; 'Chest' category, first craft = Buddy's vest, shown in the detail panel (real Core GuildNeedsByCraft)")
+    "guild needs: 'Chest' category, first craft = Buddy's vest, shown in the detail panel (real Core GuildNeedsByCraft)")
   local mrow
   for _, r in ipairs(rawget(GCA.UI.memberList, "pools").default) do if r.data and r.data.key == "Buddy Stone" then mrow = r end end
   local line = mrow and GCA.UI.MemberLine(mrow.data) or ""
@@ -238,12 +240,13 @@ local okTip = mmEnter and pcall(mmEnter, b)
 local tipText = table.concat(tipLines, " | ")
 check(okTip and tipText:find("Guild Craft Advisor: " .. (GCA:OverviewStatus() or client.coreNs.LauncherL.NO_STATUS), 1, true) and tipText:find("Right-click", 1, true),
   "launcher tooltip: the Craft Advisor's status line, right-click opens our window: " .. tipText)
-local showOpt
-for _, o in ipairs(GCA.options) do if o.label == ns.L.OPT_MINIMAP then showOpt = o end end
-showOpt.set(false)
-check(showOpt.get() == false and env.RavenquillExpeditionDB.launcher.hide == true and not b:IsShown(), "option 'show minimap button' off hides the launcher")
-showOpt.set(true)
-check(showOpt.get() == true and not env.RavenquillExpeditionDB.launcher.hide and b:IsShown(), "and on shows it again")
+local minimapOpt
+for _, o in ipairs(GCA.options) do if tostring(o.label):lower():find("minimap", 1, true) then minimapOpt = o end end
+RQ:SetLauncherShown(false)
+check(minimapOpt == nil and env.RavenquillExpeditionDB.launcher.hide == true and not b:IsShown(),
+  "the minimap button is the suite's, switched in the /rq overview, not in the Craft Advisor's options")
+RQ:SetLauncherShown(true)
+check(not env.RavenquillExpeditionDB.launcher.hide and b:IsShown(), "and on shows it again")
 do
   local F = GCA.FormatToPattern
   local p = F("Benötigt %1$s")

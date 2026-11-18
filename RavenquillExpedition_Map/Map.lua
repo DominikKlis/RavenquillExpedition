@@ -164,6 +164,7 @@ function M:Refresh()
     if self:State(m) == "gone" then self.members[key] = nil end
   end
   self:RefreshPins()
+  if self.RenderPage then self:RenderPage() end
 end
 
 function M:NeedsTick()
@@ -208,20 +209,21 @@ M:SetOptions({
   { type = "header", label = L.SEC_SHARING },
   { type = "toggle", key = "share", label = L.SETTING_SHARE, tooltip = L.TT_SHARE },
   { type = "header", label = L.SEC_DISPLAY },
-  { type = "toggle", key = "worldmap", label = L.SETTING_WORLDMAP },
+  { type = "toggle", key = "worldmap", label = L.SETTING_WORLDMAP, tooltip = L.TT_WORLDMAP },
   { type = "toggle", key = "minimap", label = L.SETTING_MINIMAP, tooltip = L.TT_MINIMAP },
-  { type = "toggle", key = "names", label = L.SETTING_NAMES,
+  { type = "toggle", key = "names", label = L.SETTING_NAMES, tooltip = L.TT_NAMES,
     disabled = function() return not (M.settings and M.settings.worldmap) end },
   { type = "toggle", key = "hideGroup", label = L.SETTING_HIDE_GROUP, tooltip = L.TT_HIDE_GROUP },
-  { type = "range", key = "size", label = L.SETTING_SIZE, min = 0.5, max = 2, step = 0.1, format = "%.1f" },
+  { type = "range", key = "size", label = L.SETTING_SIZE, tooltip = L.TT_SIZE, min = 0.5, max = 2, step = 0.1, format = "%.1f" },
   { type = "header", label = L.SEC_TESTING },
   { type = "toggle", key = "selfPin", label = L.SETTING_SELF, tooltip = L.TT_SELF },
   { id = "fake", type = "toggle", label = L.SETTING_FAKE, tooltip = L.TT_FAKE,
     get = function() return M.fakeOn and true or false end,
     set = function(v) M:Fake(v) end },
-  { id = "diag", type = "text", label = L.SETTING_DIAG, tooltip = L.TT_DIAG,
-    lines = function() return M:DebugLines() end },
 })
+
+M.openLabel = L.OPEN_LABEL
+function M:OverviewDiagnostics() return self:DebugLines() end
 
 function M:Open()
   if InCombatLockdown and InCombatLockdown() then self:Print(L.MAP_COMBAT); return end

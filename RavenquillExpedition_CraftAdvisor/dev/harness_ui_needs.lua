@@ -146,9 +146,10 @@ do
   UIx = GCA.UI
   local f = UIx.frame
   local before = UIx.errorCount
-  check(UIx.view == "needs" and UIx.needsView._shown and not UIx.memberView._shown, "opens on guild needs (member view hidden)")
-  check(UIx.tabsTemplated and #UIx.tabs == 2 and UIx.tabs[1]._text == "Guild needs" and UIx.tabs[2]._text == "By member"
-    and selected[UIx.tabs[1]] == true and selected[UIx.tabs[2]] == false, "two PanelTabButtonTemplate tabs, 'Guild needs' selected")
+  check(UIx.view == "member" and UIx.memberView._shown and not UIx.needsView._shown, "opens on 'By member' (guild needs hidden)")
+  check(UIx.tabsTemplated and #UIx.tabs == 2 and UIx.tabs[1]._text == "By member" and UIx.tabs[2]._text == "Guild needs"
+    and selected[UIx.tabs[1]] == true and selected[UIx.tabs[2]] == false, "two PanelTabButtonTemplate tabs, 'By member' first and selected")
+  UIx:SetView("needs")
   check(UIx.inspectButton == nil and UIx.scanButton == nil and UIx.optionsButton == nil and UIx.survival._points[1][1] == "BOTTOMLEFT",
     "no 'Inspect target' / 'Scan group' buttons; K6: no Options button, the slider in the bottom-left corner")
   local nl, nd = UIx.needsList, UIx.needDetail
@@ -227,7 +228,7 @@ do
   check(UIx.view == "needs", "a plain click on a member row (their equipped item) does nothing")
   local mrow = nd.members.pools.default[2].data
   UIx:OpenMember(mrow.member.key, mrow.sug.slot, mrow.sug)
-  check(UIx.view == "member" and UIx.selected == "Bud Stone" and UIx.autoKey == nil and UIx.memberView._shown and selected[UIx.tabs[2]] == true
+  check(UIx.view == "member" and UIx.selected == "Bud Stone" and UIx.autoKey == nil and UIx.memberView._shown and selected[UIx.tabs[1]] == true
     and UIx.current == K5.bud, "OpenMember still opens Bud in 'By member' (tab follows)")
   check(UIx.MemberMode() == "sheet" and UIx.sheet._shown and UIx.sheetSlot == 5 and UIx.sheet.centre.featured == K5.vestA,
     "sheet: that slot selected, that craft compared (" .. tostring(UIx.sheetSlot) .. ")")
@@ -347,12 +348,14 @@ do
   check(UIx.collapsed.offline == false and UIx.selected == "Olga Field" and UIx.current == K5.olga, "opening an offline member expands the offline group")
   UIx.needsCollapsed[6] = true
   f:Hide(); GCA.UI:Toggle(); advance(1)
-  check(UIx.view == "needs" and UIx.needsView._shown and next(UIx.needsCollapsed) == nil and UIx.needSel == "i9001" and UIx.collapsed.offline == true
-    and UIx.collapsed.online == false, "reopened: guild needs, every category open, the best craft selected, offline group collapsed (not saved)")
+  check(UIx.view == "member" and UIx.memberView._shown, "reopened: back on 'By member'")
   UIx.tabs[2]._scripts.OnClick(UIx.tabs[2])
-  check(UIx.view == "member" and UIx.memberView._shown, "tab 2 switches to the member view")
+  check(UIx.view == "needs" and UIx.needsView._shown and next(UIx.needsCollapsed) == nil and UIx.needSel == "i9001" and UIx.collapsed.offline == true
+    and UIx.collapsed.online == false, "tab 2: guild needs, every category open, the best craft selected, offline group collapsed (not saved)")
   UIx.tabs[1]._scripts.OnClick(UIx.tabs[1])
-  check(UIx.view == "needs", "tab 1 back to guild needs")
+  check(UIx.view == "member" and UIx.memberView._shown, "tab 1 switches to the member view")
+  UIx.tabs[2]._scripts.OnClick(UIx.tabs[2])
+  check(UIx.view == "needs", "tab 2 back to guild needs")
   local nbB = GCA.needsBuilds
   f:SetSize(1300, 900); advance(0.1); UIx:Layout(); UIx:Refresh(); UIx:Refresh()
   sb:SetText("vest"); sb._scripts.OnTextChanged(sb); sb:SetText(""); sb._scripts.OnTextChanged(sb)
@@ -522,7 +525,8 @@ do
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
-  check(UIx.tabs[1]._text == "Gildenbedarf" and UIx.tabs[2]._text == "Nach Mitglied", "German tabs")
+  check(UIx.tabs[1]._text == "Nach Mitglied" and UIx.tabs[2]._text == "Gildenbedarf", "German tabs")
+  UIx:SetView("needs")
   check(plain(UIx.needsCount._text) == "3 Herstellungen lohnen für 2 Mitglieder" and UIx.searchBox.placeholder._text == "Suchen"
     and plain(menuOf(UIx.filterButton)[5].text) == "Offline-Mitglieder einbeziehen (1)" and plain(menuOf(UIx.filterButton)[7].text):find("^Levelbonus") and plain(menuOf(UIx.filterButton)[8].text):find("^Flüstertext"),
     "German count, search instructions; K6 Filter menu entries: " .. plain(UIx.needsCount._text))
@@ -542,7 +546,7 @@ do
     and UIx.modeToggle._override == "Ansicht: Charakterbogen" and UIx.syncDot.text._text == "Gilden-Sync · 3 erfasst" and UIx.memberSearch.placeholder._text == "Mitglied suchen"
     and menuTexts(menuOf(UIx.modeToggle)) == "Charakterbogen|Liste",
     "German: 'Online' header, member row, 'Ansicht: Charakterbogen' (radios Charakterbogen|Liste), 'Gilden-Sync · 3 erfasst', 'Mitglied suchen'")
-  check(UIx.MemberRows(list)[1].group == "online" and ns.L.OPT_OPEN == "Fenster öffnen", "German: groups, 'Fenster öffnen'")
+  check(UIx.MemberRows(list)[1].group == "online" and ns.L.OPT_INSPECT_NOW == "Ziel jetzt betrachten", "German: groups, 'Ziel jetzt betrachten'")
   for _, sz in ipairs({ { 840, 560 }, { 980, 640 } }) do
     UIx.frame:SetSize(sz[1], sz[2]); UIx:Layout()
     layoutChecks(UIx, UIx.frame, "German " .. sz[1] .. "x" .. sz[2])
@@ -584,10 +588,10 @@ do
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
   local errs = UIx.errorCount
-  check(not UIx.tabsTemplated and #UIx.tabs == 2 and UIx.tabs[1]._parent == UIx.frame.content and UIx.tabs[1]._text == "Guild needs",
+  check(not UIx.tabsTemplated and #UIx.tabs == 2 and UIx.tabs[1]._parent == UIx.frame.content and UIx.tabs[1]._text == "By member",
     "no tab template: two plain buttons in the header strip")
   UIx.tabs[2]._scripts.OnClick(UIx.tabs[2])
-  check(UIx.view == "member" and UIx.errorCount == errs, "fallback buttons switch the view")
+  check(UIx.view == "needs" and UIx.errorCount == errs, "fallback buttons switch the view")
   UIx.frame:SetSize(840, 560); UIx:Layout()
   layoutChecks(UIx, UIx.frame, "tab fallback 840x560")
   UIx.frame:Hide()
@@ -596,6 +600,7 @@ do
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
+  UIx:SetView("needs")
   local ns1 = UIx.needDetail.members.pools.default[1]
   check(ns1.offer._shown and not ns1.offer.isIcon and ns1.offer._text == "Offer" and ns1.offer._w == UIx.OFFER_SMALL_W, "Offer = the red text button 'Offer' (no file needed)")
   check(UIx.needsList.pools.cat[1].CollapseButton.text._text == "–" and UIx.needDetail.iconBtn.iconShape == "square",
@@ -606,6 +611,7 @@ do
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
+  UIx:SetView("needs")
   check(not UIx.needDetail.members.pools.default[1].offer.isIcon and UIx.infoIcon.kind == "file" and UIx.infoIcon.tex._tex == UIx.INFO_FILE, "files confirmed: info file; Offer still the button")
   UIx.frame:Hide()
   env.GetFileIDFromPath = nil
