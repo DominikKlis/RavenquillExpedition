@@ -91,8 +91,11 @@ end
 
 function H.WitnessID(who, item, t) return ("W#%s#%d#%d"):format(who, item or 0, t) end
 
+H.NOTABLE_QUEST_TAGS = { special = true, legend = true, raid = true }
+
 local function Valid(e)
   if type(e) ~= "table" or not H.KINDS[e.k] then return false end
+  if e.k == "quest" and not H.NOTABLE_QUEST_TAGS[e.tag] then return false end
   if type(e.id) ~= "string" or type(e.who) ~= "string" or e.who == "" then return false end
   if type(e.t) ~= "number" then return false end
   return true
@@ -288,7 +291,7 @@ H:RegisterEvent("GET_ITEM_INFO_RECEIVED", function(self)
 end)
 
 H.QUEST_TAGS = { elite = "TAG_ELITE", group = "TAG_GROUP", dungeon = "TAG_DUNGEON", raid = "TAG_RAID", red = "TAG_RED",
-  hard = "TAG_HARD" }
+  hard = "TAG_HARD", special = "TAG_SPECIAL", legend = "TAG_LEGEND" }
 
 local function Gold(text) return "|cffffd100" .. text .. "|r" end
 local function NonEmpty(s, fallback) return (s and s ~= "") and s or fallback end
@@ -309,7 +312,8 @@ H.KINDS = {
     code = "l", chat = true, icon = "INV_Misc_Bag_08",
     format = function(self, e)
       local count = (e.n or 1) > 1 and ("x" .. e.n) or ""
-      return (e.src == "bag" and L.LOOT_GOT or L.LOOT):format(self:ItemText(e) .. count)
+      local text = (e.src == "bag" and L.LOOT_GOT) or (e.src == "craft" and L.LOOT_CRAFTED) or L.LOOT
+      return text:format(self:ItemText(e) .. count)
     end,
   },
   boss = {
@@ -342,6 +346,32 @@ H.KINDS = {
       local max = Plain(SafeCall(GetMaxPlayerLevel), "number")
       return ((max and e.lvl == max) and L.LEVEL_MAX or L.LEVEL):format(e.lvl or 0)
     end,
+  },
+  mount = {
+    code = "m", chat = true, icon = "Ability_Mount_RidingHorse",
+    format = function(_, e) return e.epic and L.MOUNT_EPIC or L.MOUNT end,
+  },
+  rep = {
+    code = "f", chat = true, icon = "INV_Scroll_03",
+    format = function(_, e)
+      local standing = Plain(_G["FACTION_STANDING_LABEL" .. tostring(e.st)], "string") or tostring(e.st)
+      return L.REP:format(standing, Gold(NonEmpty(e.fac, "?")))
+    end,
+  },
+  skill = {
+    code = "s", chat = false, icon = "Trade_BlackSmithing",
+    format = function(_, e) return L.SKILL:format(Gold(NonEmpty(e.skill, "?")), e.rank or 0) end,
+  },
+  pvp = {
+    code = "p", chat = true, icon = "INV_BannerPVP_02",
+    format = function(_, e)
+      if e.pk == "rank" then return L.PVP_RANK:format(e.pr or 0, NonEmpty(e.name, "?")) end
+      return L.PVP_WIN:format(Gold(NonEmpty(e.name, "?")))
+    end,
+  },
+  duel = {
+    code = "u", chat = true, icon = "Ability_Dualwield",
+    format = function(_, e) return L.DUEL:format(NonEmpty(e.foe, "?")) end,
   },
 }
 
@@ -396,7 +426,12 @@ function H:AddTests()
     E("loot", { item = 869, q = 4 }),
     E("run", { inst = L.TEST_DEADMINES, boss = "Edwin VanCleef", n = 6, nf = 6, first = true }),
     E("boss", { enc = 663, boss = "Lucifron", inst = L.TEST_MOLTEN_CORE, grp = true, n = 12, raid = true }),
-    E("quest", { qid = 166, title = L.TEST_DEFIAS_QUEST, tag = "dungeon", ql = 22 }),
+    E("quest", { qid = 7848, title = L.TEST_QUEST, tag = "special", ql = 60 }),
+    E("mount", { epic = true }),
+    E("rep", { st = 8, fac = L.TEST_FACTION }),
+    E("skill", { skill = L.TEST_SKILL, rank = 300 }),
+    E("pvp", { pk = "win", name = L.TEST_BATTLEGROUND }),
+    E("duel", { foe = "Bud Stone" }),
     E("level", { lvl = 60 }),
   }
   local n = 0
@@ -430,8 +465,6 @@ H:SetOptions({
     display = H.QualityName, valueWidth = QUALITY_VALUE_WIDTH },
   { type = "range", key = "levelStep", label = L.OPT_LEVEL, tooltip = L.OPT_LEVEL_TIP, min = 0, max = 20, step = 1,
     display = function(v) return v == 0 and L.MAX_ONLY or tostring(v) end, valueWidth = QUALITY_VALUE_WIDTH },
-  { type = "range", key = "questRedLevels", label = L.OPT_RED, tooltip = L.OPT_RED_TIP, min = 0, max = 10, step = 1,
-    display = function(v) return v == 0 and L.OFF or tostring(v) end, valueWidth = QUALITY_VALUE_WIDTH },
   { type = "header", label = L.OPT_TEST_H },
   { type = "button", label = L.OPT_TEST, tooltip = L.OPT_TEST_TIP, func = function() H:Print(L.TEST_ADDED:format(H:AddTests())) end },
   { type = "button", label = L.OPT_CLEARTEST, func = function() H:Print(L.TEST_CLEARED:format(H:ClearTests())) end },

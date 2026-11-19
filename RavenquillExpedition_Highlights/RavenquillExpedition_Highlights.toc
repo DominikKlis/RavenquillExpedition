@@ -13,5 +13,6 @@ Highlights.lua
 Wire.lua
 Catchup.lua
 Detectors.lua
+Milestones.lua
 Runs.lua
 LogWindow.lua

@@ -60,7 +60,7 @@ local me = Kit.Client(sched, nil, "Me Smith", { guild = "Die Gilde", realm = "Fo
     function env.GetGuildInfo() return G.guild end
     function env.IsInGuild() return true end
     function env.IsInInstance() return G.inInstance, G.itype end
-    function env.GetInstanceInfo() return G.instName, G.itype end
+    function env.GetInstanceInfo() return G.instName, G.itype, nil, nil, nil, nil, nil, G.instID end
     function env.GetRealZoneText() return G.instName end
     function env.InCombatLockdown() return G.inCombat end
     function env.IsShiftKeyDown() return false end
@@ -108,6 +108,12 @@ local me = Kit.Client(sched, nil, "Me Smith", { guild = "Die Gilde", realm = "Fo
     env.LOOT_ITEM_SELF_MULTIPLE = "Ihr erhaltet Beute: %sx%d."
     env.LOOT_ITEM = "%1$s bekommt Beute: %2$s."
     env.LOOT_ITEM_MULTIPLE = "%1$s bekommt Beute: %2$sx%3$d."
+    env.LOOT_ITEM_CREATED_SELF = "Ihr stellt her: %s."
+    env.FACTION_STANDING_CHANGED = "Ihr seid jetzt %s bei %s."
+    env.FACTION_STANDING_LABEL6, env.FACTION_STANDING_LABEL7, env.FACTION_STANDING_LABEL8 = "Wohlwollend", "Respektvoll", "Ehrfürchtig"
+    env.DUEL_WINNER = "%1$s hat %2$s in einem Duell besiegt."
+    env.DUEL_WINNER_RETREAT = "%2$s ist vor %1$s aus einem Duell geflohen."
+    env.SKILL_RANK_UP = "Eure Fertigkeit in %s hat sich auf %d erhöht."
   end })
 local env, fire, printed, errors = me.env, me.fire, me.printed, me.errors
 local function advance(sec) sched:advance(sec) end
@@ -266,13 +272,22 @@ local _, idx = H:Log()
 check(idx[luci.id] == nil and H.cdb.outbox[luci.id] == nil and idx[mag.id] ~= nil, "my Lucifron replaced by Cara's report, Magmadar kept")
 echoAll(); advance(5)
 G.level = 60
-G.inInstance, G.itype, G.instName = true, "party", "Stratholme"
+G.inInstance, G.itype, G.instName, G.instID = true, "party", "Stratholme", 329
+fire("PLAYER_ENTERING_WORLD")
 n = count()
 fire("BOSS_KILL", 456, "Baron Rivendare")
-G.level = 30
-G.inInstance, G.itype, G.instName = false, "none", "Westfall"
+G.inInstance, G.itype, G.instName, G.instID = false, "none", "Westfall", nil
 fire("PLAYER_ENTERING_WORLD"); advance(H.RUN_GRACE + 5)
-check(count() == n and H.cdb.run == nil, "a run whose first kills came at max level is not logged")
+check(count() == n + 1 and last().k == "run" and last().inst == "Stratholme" and last().first and H.cdb.run == nil,
+  "a first run through an endgame dungeon at max level is a highlight")
+G.inInstance, G.itype, G.instName, G.instID = true, "party", "Das Scharlachrote Kloster", 189
+fire("PLAYER_ENTERING_WORLD")
+fire("BOSS_KILL", 344, "Hochinquisitor Weißsträhne")
+G.level = 30
+G.inInstance, G.itype, G.instName, G.instID = false, "none", "Westfall", nil
+fire("PLAYER_ENTERING_WORLD"); advance(H.RUN_GRACE + 5)
+check(count() == n + 1 and H.cdb.run == nil, "a levelling dungeon first cleared at max level is not logged")
+n = count()
 G.inInstance, G.itype, G.instName = true, "party", "Die Todesminen"
 fire("PLAYER_ENTERING_WORLD")
 fire("BOSS_KILL", 1144, "Edwin VanCleef")
@@ -296,24 +311,27 @@ G.quests = {
   { title = "Der Elitekampf", level = 30, id = 77 },
   { title = "Zu schwer", level = 35, id = 78 },
   { title = "Ins Verlies", level = 28, id = 79 },
+  { title = "Einstimmung auf den Kern", level = 60, id = 7848 },
+  { title = "Der Segen des Windsuchers", level = 60, id = 90 },
+  { title = "Der Kopf von Onyxia", level = 60, id = 91 },
 }
 G.tags[77] = { tagID = 1 }
 G.tags[79] = { tagID = 81 }
+G.tags[90] = { tagID = 83 }
+G.tags[91] = { tagID = 62 }
 fire("QUEST_LOG_UPDATE"); advance(2)
-fire("QUEST_TURNED_IN", 166, 1000, 500)
-check(last().k == "quest" and last().tag == "group" and last().title == "Die Bruderschaft der Defias", "group quest logged")
 n = count()
-fire("QUEST_TURNED_IN", 166, 1000, 500)
-check(count() == n, "the same quest is logged once per character (repeatables)")
-fire("QUEST_TURNED_IN", 9, 100, 10)
-check(count() == n, "normal quest not logged")
-fire("QUEST_TURNED_IN", 77, 100, 10)
-check(last().tag == "elite", "tag 1 = elite")
-fire("QUEST_TURNED_IN", 79, 100, 10)
-check(last().tag == "dungeon", "dungeon tag")
-n = count()
-fire("QUEST_TURNED_IN", 78, 100, 10)
-check(count() == n, "quest 5 levels above: off by default")
+for _, qid in ipairs({ 166, 9, 77, 78, 79 }) do fire("QUEST_TURNED_IN", qid, 100, 10) end
+check(count() == n, "group, elite, dungeon, far-above and normal quests are no highlights")
+fire("QUEST_TURNED_IN", 7848, 1000, 500)
+check(count() == n + 1 and last().tag == "special" and last().title == "Einstimmung auf den Kern",
+  "a quest from the notable list is a highlight")
+fire("QUEST_TURNED_IN", 7848, 1000, 500)
+check(count() == n + 1, "the same quest is logged once per character")
+fire("QUEST_TURNED_IN", 90, 100, 10)
+check(count() == n + 2 and last().tag == "legend", "a legendary quest is a highlight")
+fire("QUEST_TURNED_IN", 91, 100, 10)
+check(count() == n + 3 and last().tag == "raid", "a raid quest is a highlight")
 
 n = count()
 G.level = 39; fire("PLAYER_LEVEL_UP", 39)
@@ -328,6 +346,7 @@ n = count()
 fire("CHAT_MSG_LOOT", "Ihr erhaltet Beute: " .. link(300) .. ".", "Me Smith")
 check(count() == n, "own green loot not logged")
 G.group = { party1 = { "Bud", "Stone" }, party2 = { "Dora", "Dunn" } }
+env.wipe(H.cdb.shareLog)
 local sentLoot = sentKind("l")
 fire("CHAT_MSG_LOOT", "Bud Stone bekommt Beute: " .. link(302) .. ".", "Bud Stone")
 check(last().who == "Bud Stone" and last().by == "Me Smith" and last().item == 302, "guildie's epic loot logged as seen by me")
@@ -358,7 +377,8 @@ check(actOf("gear", function(a) return a.item == 102 end) == 1 and actOf("gear",
 check(actOf("loot", function(a) return a.item == 300 and a.q == 2 end) == 1, "own green loot goes to the activity log")
 check(actOf("loot", function(a) return a.item == 303 end) == 0, "others' loot is not my activity")
 check(actOf("quest", function(a) return a.qid == 9 and a.title == "Gemüse sammeln" end) == 1, "a normal quest goes to the activity log")
-check(actOf("quest", function(a) return a.qid == 166 and a.tag == "group" end) == 1, "a repeated group quest goes to the activity log")
+check(actOf("quest", function(a) return a.qid == 166 and a.tag == nil end) == 1, "a group quest goes to the activity log")
+check(actOf("quest", function(a) return a.qid == 7848 and a.tag == "special" end) == 1, "a repeated notable quest goes to the activity log")
 check(actOf("level", function(a) return a.lvl == 39 end) == 1, "a level that isn't a milestone goes to the activity log")
 check(actOf("boss", function(a) return a.boss == "Edwin VanCleef" and not a.first end) == 1, "a repeat dungeon kill goes to the activity log")
 check(actOf("boss", function(a) return a.boss == "Baron Rivendare" and a.first end) == 1, "a first kill at max level goes to the activity log")
@@ -392,8 +412,11 @@ recv("Cara Moss", ("2;v;%d;9;Cara Moss;60;7"):format(t0))
 check(count() == n + 1, "unknown version ignored")
 recv("Cara Moss", ("1;l;%d;w;Stranger X;60;1;303;4;"):format(t0))
 check(count() == n + 1, "witnessed loot of a non-guildie rejected")
-recv("Cara Moss", ("1;q;%d;10;Cara Moss;31;7;166;22;dungeon;Böse|nZeile|cffff0000rot"):format(t0))
+recv("Cara Moss", ("1;q;%d;10;Cara Moss;31;7;166;22;special;Böse|nZeile|cffff0000rot"):format(t0))
 check(last().k == "quest" and last().title == "BösenZeilerot", "escape codes stripped from received texts")
+n = count()
+recv("Cara Moss", ("1;q;%d;14;Cara Moss;31;7;79;28;dungeon;Ins Verlies"):format(t0))
+check(count() == n, "a dungeon quest sent by an older version is not stored")
 G.inInstance = true
 n = count()
 recv("Cara Moss", ("1;v;%d;11;Cara Moss;40;7"):format(t0))
@@ -487,14 +510,16 @@ G.level = 50; fire("PLAYER_LEVEL_UP", 50); advance(100)
 check(sendsOf(";Me Smith;50;") == 0 and last().lvl == 50, "logged but not sent while sharing is off")
 share:SetChecked(true); rawget(share, "_scripts").OnClick(share)
 check(H:Settings().share and panel.controls[iCap].plus:IsEnabled(), "sharing back on, cap enabled again")
-local iRed = opt(L.OPT_RED)
-for _ = 1, 4 do rawget(panel.controls[iRed].plus, "_scripts").OnClick() end
-check(H:Settings().questRedLevels == 4, "the + button raises a range setting")
-for _ = 1, 9 do rawget(panel.controls[iRed].plus, "_scripts").OnClick() end
-check(H:Settings().questRedLevels == 10 and not panel.controls[iRed].plus:IsEnabled(), "a range stops at its maximum")
-for _ = 1, 10 do rawget(panel.controls[iRed].minus, "_scripts").OnClick() end
-check(H:Settings().questRedLevels == 0 and not panel.controls[iRed].minus:IsEnabled(), "and at its minimum")
-check(panel.controls[iRed].value:GetText() == "aus", "a hard-quest threshold of 0 reads 'aus', not a bare 0")
+local iStep = opt(L.OPT_LEVEL)
+for _ = 1, 4 do rawget(panel.controls[iStep].plus, "_scripts").OnClick() end
+check(H:Settings().levelStep == 14, "the + button raises a range setting")
+for _ = 1, 9 do rawget(panel.controls[iStep].plus, "_scripts").OnClick() end
+check(H:Settings().levelStep == 20 and not panel.controls[iStep].plus:IsEnabled(), "a range stops at its maximum")
+for _ = 1, 20 do rawget(panel.controls[iStep].minus, "_scripts").OnClick() end
+check(H:Settings().levelStep == 0 and not panel.controls[iStep].minus:IsEnabled(), "and at its minimum")
+check(panel.controls[iStep].value:GetText() == "nur Höchste", "a level step of 0 reads 'nur Höchste', not a bare 0")
+H:Settings().levelStep = 10
+check(H:Option("questRedLevels") == nil, "the hard-quest option is gone: only notable quests count")
 local iChat, iAll = opt(L.OPT_CHAT), opt(L.OPT_CHAT_ALL)
 local chat = panel.controls[iChat]
 chat:SetChecked(false); rawget(chat, "_scripts").OnClick(chat)
@@ -504,7 +529,7 @@ local all = panel.controls[iAll]
 all:SetChecked(true); rawget(all, "_scripts").OnClick(all)
 check(H:Settings().chatAll and all:IsEnabled(), "chat all")
 rawget(panel.controls[opt(L.OPT_TEST)], "_scripts").OnClick()
-check(lastPrinted():find("6 Testeinträge", 1, true), "test button adds 6 test entries")
+check(lastPrinted():find("11 Testeinträge", 1, true), "test button adds 11 test entries")
 H:Open()
 check(H.openLabel == "Protokoll" and env.RavenquillExpeditionHighlightsFrame:IsShown() and lines[#lines]:find("Stufe 60 – Höchststufe!", 1, true),
   "the card's 'Protokoll' entry opens the log window, test entry last")
@@ -514,7 +539,7 @@ for _, o in ipairs(H.options) do
 end
 check(noClutter, "the options hold no log-window duplicates and no diagnostics")
 rawget(panel.controls[opt(L.OPT_CLEARTEST)], "_scripts").OnClick()
-check(lastPrinted():find("6 Testeinträge entfernt", 1, true), "test entries removed")
+check(lastPrinted():find("11 Testeinträge entfernt", 1, true), "test entries removed")
 GS:ShowCopyBox("Diagnose", GS:DiagLines())
 local box = env.RavenquillExpeditionCopyBox
 check(box and box:IsShown() and box.text:find("== " .. H.title, 1, true) and box.text:find("events seen", 1, true)
@@ -638,7 +663,7 @@ end
 
 do
   local shareOpt = H:Option("share")
-  check(shareOpt and shareOpt.get() == true and H:Option("questRedLevels"), "options are found by their settings key")
+  check(shareOpt and shareOpt.get() == true and H:Option("levelStep"), "options are found by their settings key")
   fire("PLAYER_LEVEL_UP", 90)
   shareOpt.set(false)
   advance(30)
@@ -851,5 +876,138 @@ GS:PrunePeers()
 check(peers.Old == nil and peers.Broken == nil and peers.Fresh,
   "PrunePeers drops peers older than PEER_MAX_AGE and broken entries")
 check(type(GS.version) == "string" and GS.version ~= "", "core version comes from the .toc metadata (or 'dev')")
+
+Kit.section("Crafted epics and world bosses")
+do
+  local before = count()
+  G.items[310] = { name = "Lila Robe", q = 4, il = 45 }
+  fire("CHAT_MSG_LOOT", "Ihr stellt her: " .. link(310) .. ".", "Me Smith")
+  local craftedEntry = last()
+  check(count() == before + 1 and craftedEntry.item == 310 and craftedEntry.src == "craft"
+    and H:Format(craftedEntry):find("(hergestellt)", 1, true), "a crafted epic is logged as crafted, not as received")
+  local back = H.Decode("Me Smith", H.Encode(craftedEntry))
+  check(back and back.src == "craft", "the crafted source survives the wire")
+  G.level, G.instName = 60, "Azshara"
+  fire("ENCOUNTER_END", 1100, "Azuregos", 0, 40, 1)
+  check(count() == before + 2 and last().k == "boss" and last().first and last().boss == "Azuregos",
+    "a first world boss kill at max level is a highlight")
+  G.level = 30
+end
+
+Kit.section("Mounts, reputation, professions, PvP and duels")
+local function newest() return events()[count()] end
+do
+  local mounted, runSpeed = false, 7
+  env.IsMounted = function() return mounted end
+  env.UnitOnTaxi = function() return false end
+  env.GetUnitSpeed = function() return 0, runSpeed end
+  local before = count()
+  check(H.cdb.mount and H.cdb.mount.tier == 0 and H.cdb.mount.base == 30, "the mount record starts at the login level")
+  mounted, runSpeed = true, 11.2
+  fire("UNIT_AURA", "player"); advance(2)
+  check(count() == before + 1 and newest().k == "mount" and not newest().epic, "the first mount is a highlight")
+  fire("UNIT_AURA", "player"); advance(2)
+  check(count() == before + 1, "mounting again is not news")
+  runSpeed = 14
+  fire("UNIT_AURA", "target"); advance(2)
+  check(count() == before + 1, "auras on other units are ignored")
+  fire("UNIT_AURA", "player"); advance(2)
+  check(count() == before + 2 and newest().epic, "the first epic mount is a highlight")
+  H.cdb.mount = { tier = 0, base = 60 }
+  runSpeed = 11.2
+  fire("UNIT_AURA", "player"); advance(2)
+  check(count() == before + 2 and H.cdb.mount.tier == 1, "a mount the character had before the addon was installed is not news")
+  runSpeed = 14
+  fire("UNIT_AURA", "player"); advance(2)
+  check(count() == before + 3 and newest().epic, "the epic mount bought after the install is")
+  mounted = false
+end
+
+do
+  local before = count()
+  fire("CHAT_MSG_SYSTEM", "Ihr seid jetzt Wohlwollend bei Argentumdämmerung.")
+  check(count() == before, "honored is no reputation highlight")
+  fire("CHAT_MSG_COMBAT_FACTION_CHANGE", "Ihr seid jetzt Respektvoll bei Argentumdämmerung.")
+  local rep = newest()
+  check(count() == before + 1 and rep.k == "rep" and rep.st == 7 and rep.fac == "Argentumdämmerung", "revered is a highlight")
+  check(H:Format(rep):find("Respektvoll bei", 1, true), "the reputation line names the standing and the faction")
+  fire("CHAT_MSG_SYSTEM", "Ihr seid jetzt Respektvoll bei Argentumdämmerung.")
+  fire("CHAT_MSG_SYSTEM", "Ihr seid jetzt Ehrfürchtig bei Argentumdämmerung.")
+  check(count() == before + 2 and newest().st == 8, "the same standing counts once, exalted counts again")
+end
+
+do
+  local skillLines = { { "Berufe", true }, { "Schmiedekunst", false, 8 }, { "Waffenfertigkeiten", true }, { "Schwerter", false },
+    { "Sekundäre Fertigkeiten", true }, { "Kochkunst", false } }
+  env.GetNumSkillLines = function() return #skillLines end
+  env.GetSkillLineInfo = function(i)
+    local l = skillLines[i]
+    return l[1], l[2], true, 150, 0, 0, 300, l[3] and 1 or nil
+  end
+  env.GetSpellInfo = function(spellID) return ({ [2550] = "Kochkunst", [3273] = "Erste Hilfe", [7620] = "Angeln" })[spellID] end
+  local before = count()
+  fire("CHAT_MSG_SKILL", "Eure Fertigkeit in Schmiedekunst hat sich auf 149 erhöht.")
+  check(count() == before, "a skill-up that is no milestone is not logged")
+  fire("CHAT_MSG_SKILL", "Eure Fertigkeit in Schmiedekunst hat sich auf 150 erhöht.")
+  check(count() == before + 1 and newest().k == "skill" and newest().skill == "Schmiedekunst" and newest().rank == 150,
+    "a profession at 150 is a highlight")
+  fire("CHAT_MSG_SKILL", "Eure Fertigkeit in Schwerter hat sich auf 150 erhöht.")
+  check(count() == before + 1, "weapon skills are no professions")
+  fire("CHAT_MSG_SKILL", "Eure Fertigkeit in Kochkunst hat sich auf 225 erhöht.")
+  check(count() == before + 2 and newest().skill == "Kochkunst", "secondary skills count too")
+end
+
+do
+  local rankID, winner = 6, nil
+  env.UnitPVPRank = function() return rankID end
+  env.GetPVPRankInfo = function(rankIndex) return "Rang " .. (rankIndex - 4), rankIndex - 4 end
+  env.UnitFactionGroup = function() return "Alliance" end
+  env.GetBattlefieldWinner = function() return winner end
+  local before = count()
+  fire("PLAYER_PVP_RANK_CHANGED")
+  check(count() == before and H.cdb.pvp.rank == 2, "the first rank seen is only recorded")
+  rankID = 7
+  fire("PLAYER_PVP_RANK_CHANGED")
+  check(count() == before + 1 and newest().pk == "rank" and newest().pr == 3, "a new PvP rank is a highlight")
+  rankID = 6
+  fire("PLAYER_PVP_RANK_CHANGED")
+  check(count() == before + 1, "a rank lost to decay is not news")
+  G.instName = "Kriegshymnenschlucht"
+  fire("UPDATE_BATTLEFIELD_SCORE")
+  winner = 1
+  fire("UPDATE_BATTLEFIELD_SCORE"); fire("UPDATE_BATTLEFIELD_SCORE")
+  check(count() == before + 2 and newest().pk == "win" and newest().name == "Kriegshymnenschlucht",
+    "the first win in a battleground is a highlight, reported once")
+  winner = nil; fire("UPDATE_BATTLEFIELD_SCORE"); winner = 1; fire("UPDATE_BATTLEFIELD_SCORE")
+  winner = nil; fire("UPDATE_BATTLEFIELD_SCORE"); winner = 0; fire("UPDATE_BATTLEFIELD_SCORE")
+  check(count() == before + 2 and H.cdb.bgWins["Kriegshymnenschlucht"] == 2, "later wins and losses are no highlights")
+  G.instName = "Westfall"
+end
+
+do
+  local before = count()
+  fire("CHAT_MSG_SYSTEM", "Me Smith hat Bud Stone in einem Duell besiegt.")
+  check(count() == before + 1 and newest().k == "duel" and newest().foe == "Bud Stone", "winning a duel against a guildie is a highlight")
+  fire("CHAT_MSG_SYSTEM", "Me Smith hat Bud Stone in einem Duell besiegt.")
+  fire("CHAT_MSG_SYSTEM", "Bud Stone hat Me Smith in einem Duell besiegt.")
+  fire("CHAT_MSG_SYSTEM", "Rando Pug ist vor Me Smith aus einem Duell geflohen.")
+  check(count() == before + 1, "a rematch the same day, a lost duel and a duel against a stranger are no highlights")
+  fire("CHAT_MSG_SYSTEM", "Cara Moss ist vor Me Smith aus einem Duell geflohen.")
+  check(count() == before + 2 and newest().foe == "Cara Moss", "a guildie fleeing from a duel counts as a win")
+end
+
+do
+  local now = T()
+  for i, e in ipairs({ { k = "mount", epic = true }, { k = "rep", st = 8, fac = "Argentumdämmerung" },
+    { k = "skill", skill = "Schmiedekunst", rank = 300 }, { k = "pvp", pk = "rank", pr = 5, name = "Feldwebel" },
+    { k = "pvp", pk = "win", name = "Arathibecken" }, { k = "duel", foe = "Bud Stone" } }) do
+    e.t, e.id, e.who, e.lvl, e.cls = now, "Me Smith#" .. now .. "#" .. (60 + i), "Me Smith", 30, "ROGUE"
+    local x = H.Decode("Me Smith", H.Encode(e))
+    local same = x ~= nil
+    for key, v in pairs(e) do if x and x[key] ~= v then same = false end end
+    check(same, "round trip " .. e.k .. (e.pk and (" " .. e.pk) or ""))
+  end
+end
+check(#errors == 0, "no Lua errors after the new kinds (" .. #errors .. ")")
 
 Kit.finish()

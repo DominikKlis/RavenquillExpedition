@@ -392,7 +392,37 @@ Dev:Register("highlights.smoke", function(t)
   end)
 end, 30)
 
-local INSPECT_FRAMES = { "ProfessionsFrame", "TradeSkillFrame", "CharacterFrame", "PlayerSpellsFrame", "SpellBookFrame",
+local MILESTONE_APIS = { "IsMounted", "GetUnitSpeed", "UnitOnTaxi", "UnitPVPRank", "GetPVPRankInfo", "GetBattlefieldWinner",
+  "UnitFactionGroup", "GetNumSkillLines", "GetSkillLineInfo", "GetSpellInfo" }
+local MILESTONE_STRINGS = { "LOOT_ITEM_CREATED_SELF", "FACTION_STANDING_CHANGED", "FACTION_STANDING_LABEL7",
+  "FACTION_STANDING_LABEL8", "DUEL_WINNER", "DUEL_WINNER_RETREAT", "SKILL_RANK_UP" }
+
+local function NoteSkillLines(t)
+  if type(GetNumSkillLines) ~= "function" then return end
+  for i = 1, GetNumSkillLines() do
+    local name, header, _, rank, _, _, maxRank, abandonable = GetSkillLineInfo(i)
+    t:note(("skill %d: %s header=%s rank=%s/%s abandonable=%s"):format(i, tostring(name), tostring(header), tostring(rank),
+      tostring(maxRank), tostring(abandonable)))
+  end
+end
+
+Dev:Register("highlights.milestones", function(t)
+  local H = RQ:GetModule("Highlights")
+  if not (H and H.db) then t:note("Highlights not loaded") t:done() return end
+  for _, name in ipairs(MILESTONE_APIS) do t:ok(type(_G[name]) == "function", name .. " is " .. type(_G[name])) end
+  for _, name in ipairs(MILESTONE_STRINGS) do t:ok(type(_G[name]) == "string", name .. " = " .. tostring(_G[name])) end
+  if type(GetUnitSpeed) == "function" then
+    local _, run = GetUnitSpeed("player")
+    t:note(("mounted %s, run speed %s"):format(tostring(IsMounted and IsMounted()), tostring(run)))
+  end
+  if type(UnitPVPRank) == "function" then t:note("pvp rank id " .. tostring(UnitPVPRank("player"))) end
+  NoteSkillLines(t)
+  local rec = H.cdb.mount
+  t:ok(type(rec) == "table", ("mount record: tier %s, base level %s"):format(tostring(rec and rec.tier), tostring(rec and rec.base)))
+  t:done()
+end, 10)
+
+local INSPECT_FRAMES ={ "ProfessionsFrame", "TradeSkillFrame", "CharacterFrame", "PlayerSpellsFrame", "SpellBookFrame",
   "FriendsFrame", "CollectionsJournal", "EncounterJournal", "PVEFrame", "MerchantFrame", "QuestLogFrame", "WorldMapFrame" }
 local INSPECT_MAX_LINES = 3000
 

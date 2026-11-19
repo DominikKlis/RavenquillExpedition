@@ -31,6 +31,11 @@ local KIND_FIELDS = {
   d = Fields({ { "first", "flag" }, { "n", "int", 1, 99 }, { "nf", "int", 1, 99 }, { "boss", "text", 48 }, { "inst", "text", 48 } }),
   q = Fields({ { "qid", "int", 1, 9999999 }, { "ql", "int", 0, 200, opt = true }, { "tag", "word", 8 }, { "title", "text", 64 } }),
   v = Fields({}),
+  m = Fields({ { "epic", "flag" } }),
+  f = Fields({ { "st", "int", 1, 8 }, { "fac", "text", 48 } }),
+  s = Fields({ { "rank", "int", 1, 999 }, { "skill", "text", 48 } }),
+  p = Fields({ { "pk", "enum", { "rank", "win" } }, { "pr", "int", 0, 30, opt = true }, { "name", "text", 48 } }),
+  u = Fields({ { "foe", "key" } }),
 }
 for code, fields in pairs(KIND_FIELDS) do
   ch:Define(code, { from = "guild", fields = fields })
@@ -42,16 +47,22 @@ local function Num(v) return (type(v) == "number" and v == v) and math.floor(v) 
 
 local function Flag(v) return v and true or false end
 local function WireQuestTag(tag) return QUEST_TAGS[tag or ""] and tag or "hard" end
+local LOOT_SRC_CODE, LOOT_SRC = { bag = "bag", craft = "cr" }, { bag = "bag", cr = "craft" }
 
 local MessageFields = {
   gear = function(m, e) m.item, m.il, m.q, m.oil, m.slot = Num(e.item), Num(e.il), Num(e.q), Num(e.oil), Num(e.slot) end,
-  loot = function(m, e) m.item, m.q, m.src = Num(e.item), Num(e.q), e.src == "bag" and "bag" or "" end,
+  loot = function(m, e) m.item, m.q, m.src = Num(e.item), Num(e.q), LOOT_SRC_CODE[e.src or ""] or "" end,
   boss = function(m, e)
     m.enc, m.first, m.raid, m.boss, m.inst = Num(e.enc), Flag(e.first), Flag(e.raid), e.boss or "", e.inst or ""
     m.n = e.grp and Num(e.n or 1) or nil
   end,
   run = function(m, e) m.first, m.n, m.nf, m.boss, m.inst = Flag(e.first), Num(e.n), Num(e.nf), e.boss or "", e.inst or "" end,
   quest = function(m, e) m.qid, m.ql, m.tag, m.title = Num(e.qid), Num(e.ql), WireQuestTag(e.tag), e.title or "" end,
+  mount = function(m, e) m.epic = Flag(e.epic) end,
+  rep = function(m, e) m.st, m.fac = Num(e.st), e.fac or "" end,
+  skill = function(m, e) m.rank, m.skill = Num(e.rank), e.skill or "" end,
+  pvp = function(m, e) m.pk, m.pr, m.name = e.pk, Num(e.pr), e.name or "" end,
+  duel = function(m, e) m.foe = e.foe end,
 }
 
 local function WireSeq(e)
@@ -88,13 +99,18 @@ local function Str(v) return (v ~= nil and v ~= "") and v or nil end
 
 local EntryFields = {
   gear = function(e, m) e.item, e.il, e.q, e.oil, e.slot = m.item, m.il, m.q, m.oil, m.slot end,
-  loot = function(e, m) e.item, e.q, e.src = m.item, m.q, m.src == "bag" and "bag" or nil end,
+  loot = function(e, m) e.item, e.q, e.src = m.item, m.q, LOOT_SRC[m.src] end,
   boss = function(e, m)
     e.enc, e.first, e.raid, e.boss, e.inst = m.enc, m.first or nil, m.raid or nil, Str(m.boss), Str(m.inst)
     if m.n then e.grp, e.n = true, m.n end
   end,
   run = function(e, m) e.first, e.n, e.nf, e.boss, e.inst = m.first or nil, m.n, m.nf, Str(m.boss), Str(m.inst) end,
   quest = function(e, m) e.qid, e.ql, e.tag, e.title = m.qid, m.ql, WireQuestTag(m.tag), Str(m.title) end,
+  mount = function(e, m) e.epic = m.epic or nil end,
+  rep = function(e, m) e.st, e.fac = m.st, Str(m.fac) end,
+  skill = function(e, m) e.rank, e.skill = m.rank, Str(m.skill) end,
+  pvp = function(e, m) e.pk, e.pr, e.name = m.pk, m.pr, Str(m.name) end,
+  duel = function(e, m) e.foe = m.foe end,
 }
 
 local function OwnEntryId(m)

@@ -22,6 +22,8 @@ local function Act(k, fields)
   for key, v in pairs(fields) do e[key] = v end
   return e
 end
+ns.Act = Act
+ns.MyLevel = MyLevel
 
 local function ItemID(link) return type(link) == "string" and tonumber(link:match("item:(%d+)")) or nil end
 
@@ -61,6 +63,7 @@ local function Diag(event, ...)
   end
   d.last[event] = table.concat(parts, " | ")
 end
+ns.Diag = Diag
 
 local CC = C_Container
 local function NumSlots(bag) return Plain(SafeCall((CC and CC.GetContainerNumSlots) or GetContainerNumSlots, bag), "number") or 0 end
@@ -202,16 +205,19 @@ do
   local function KilledWithinMinute(key, now) return key and recentKill[key] and now - recentKill[key] < 60 end
 
   local function KillPlace()
-    local inst, itype = SafeCall(GetInstanceInfo)
+    local inst, itype, _, _, _, _, _, instID = SafeCall(GetInstanceInfo)
     inst, itype = Plain(inst, "string"), Plain(itype, "string")
     if not inst or itype == "none" then inst = Plain(SafeCall(GetRealZoneText), "string") or inst end
-    return inst, itype
+    return inst, itype, Plain(instID, "number")
   end
 
   local function StillLevelling()
     local lvl, max = MyLevel(), MaxLevel()
     return not (lvl and max and lvl >= max)
   end
+
+  local ENDGAME_DUNGEONS = { [229] = true, [230] = true, [289] = true, [329] = true, [429] = true }
+  local function CountsAsNew(first, instID) return first and (StillLevelling() or ENDGAME_DUNGEONS[instID or 0]) end
 
   local function ReportRaidKill(fields, first)
     local guildies = GS:GroupGuildies()
@@ -220,10 +226,9 @@ do
     H:Add(Own("boss", fields), "self", { group = true, rank = rank })
   end
 
-  local function ReportKill(fields, first, dungeon)
-    local new = first and StillLevelling()
-    if dungeon then H:NoteDungeonKill(fields.inst, fields.boss, new) end
-    if new and not dungeon then
+  local function ReportKill(fields, first, dungeon, instID)
+    if dungeon then H:NoteDungeonKill(fields.inst, fields.boss, CountsAsNew(first, instID)) end
+    if first and not dungeon then
       fields.first = true
       H:Add(Own("boss", fields), "self")
       return
@@ -241,12 +246,12 @@ do
     if KilledWithinMinute(encKey, now) or KilledWithinMinute(nameKey, now) then return end
     if encKey then recentKill[encKey] = now end
     if nameKey then recentKill[nameKey] = now end
-    local inst, itype = KillPlace()
+    local inst, itype, instID = KillPlace()
     local first = not H.cdb.kills[key]
     H.cdb.kills[key] = GS:Now()
     local fields = { enc = encID, boss = name, inst = inst }
     if itype == "raid" then return ReportRaidKill(fields, first) end
-    ReportKill(fields, first, itype == "party")
+    ReportKill(fields, first, itype == "party", instID)
   end
 end
 
@@ -254,9 +259,9 @@ local qcache = {}
 
 local ScanQuestLog
 do
-  local function CacheQuest(qid, title, level, group)
+  local function CacheQuest(qid, title, level)
     if not qid or qid <= 0 then return end
-    qcache[qid] = { title = Plain(title, "string"), level = Plain(level, "number"), group = Plain(group, "number") }
+    qcache[qid] = { title = Plain(title, "string"), level = Plain(level, "number") }
   end
 
   local function ScanModernQuestLog(QL)
@@ -264,7 +269,7 @@ do
     for i = 1, n do
       local info = SafeCall(QL.GetInfo, i)
       if type(info) == "table" and not IsSecret(info) and not Plain(info.isHeader) then
-        CacheQuest(Plain(info.questID, "number"), info.title, info.level, info.suggestedGroup)
+        CacheQuest(Plain(info.questID, "number"), info.title, info.level)
       end
     end
   end
@@ -273,7 +278,7 @@ do
     local n = Plain(SafeCall(GetNumQuestLogEntries), "number") or 0
     for i = 1, n do
       local r = { SafeCall(GetQuestLogTitle, i) }
-      if not Plain(r[4]) then CacheQuest(Plain(r[8], "number"), r[1], r[2], r[3]) end
+      if not Plain(r[4]) then CacheQuest(Plain(r[8], "number"), r[1], r[2]) end
     end
   end
 
@@ -284,19 +289,20 @@ do
   end
 end
 
+H.NOTABLE_QUESTS = {
+  [4743] = true, [6502] = true, [6602] = true, [7622] = true, [7636] = true, [7761] = true, [7787] = true, [7848] = true,
+}
+
 local QuestTag
 do
-  local function ReadQuestTagInfo(qid)
+  local function ReadQuestTagID(qid)
     local QL = C_QuestLog
-    local tagID, isElite
     if QL and QL.GetQuestTagInfo then
       local info = SafeCall(QL.GetQuestTagInfo, qid)
-      if type(info) == "table" and not IsSecret(info) then tagID, isElite = Plain(info.tagID, "number"), Plain(info.isElite) end
-    elseif GetQuestTagInfo then
-      tagID = Plain(SafeCall(GetQuestTagInfo, qid), "number")
+      if type(info) == "table" and not IsSecret(info) then return Plain(info.tagID, "number") end
+      return
     end
-    if isElite == nil and QL and QL.IsEliteQuest then isElite = Plain(SafeCall(QL.IsEliteQuest, qid)) end
-    return tagID, isElite
+    if GetQuestTagInfo then return Plain(SafeCall(GetQuestTagInfo, qid), "number") end
   end
 
   local function IsOneOf(v, ...)
@@ -305,12 +311,12 @@ do
   end
 
   QuestTag = function(qid)
-    local tagID, isElite = ReadQuestTagInfo(qid)
+    if H.NOTABLE_QUESTS[qid] then return "special" end
+    local tagID = ReadQuestTagID(qid)
+    if not tagID then return end
     local T = Enum and Enum.QuestTag or {}
-    if tagID and IsOneOf(tagID, T.Raid, T.Raid10, T.Raid25, 62, 88, 89) then return "raid" end
-    if tagID and IsOneOf(tagID, T.Dungeon, T.Heroic, 81, 85) then return "dungeon" end
-    if isElite == true or tagID == 1 then return "elite" end
-    if tagID and tagID == T.Group then return "group" end
+    if IsOneOf(tagID, T.Legendary, 83) then return "legend" end
+    if IsOneOf(tagID, T.Raid, T.Raid10, T.Raid25, 62, 88, 89) then return "raid" end
   end
 end
 
@@ -321,25 +327,12 @@ do
     return Plain(SafeCall(C_QuestLog.GetTitleForQuestID, qid), "string")
   end
 
-  local function FarAboveMe(questLevel)
-    local red = H:Settings().questRedLevels or 0
-    local plevel = MyLevel()
-    return red > 0 and questLevel and plevel and questLevel - plevel >= red
-  end
-
-  local function HardQuestTag(qid, c)
-    local tag = QuestTag(qid)
-    if tag then return tag end
-    if (c.group or 0) >= 2 then return "group" end
-    if FarAboveMe(c.level) then return "red" end
-  end
-
   OnQuestTurnedIn = function(qid)
     qid = Plain(qid, "number")
     if not qid then return end
     local c = qcache[qid] or {}
     local title = QuestTitle(qid, c)
-    local tag = HardQuestTag(qid, c)
+    local tag = QuestTag(qid)
     local fields = { qid = qid, title = title, ql = c.level, tag = tag }
     if not tag or H.cdb.quests[qid] then H:Activity(Act("quest", fields)) return end
     H.cdb.quests[qid] = true
@@ -369,9 +362,11 @@ local P
 local function LootPatterns()
   if P then return P end
   P = { self = {}, other = {} }
-  for _, f in ipairs({ LOOT_ITEM_SELF_MULTIPLE, LOOT_ITEM_SELF }) do
-    local p = Pattern(f)
-    if p then P.self[#P.self + 1] = p end
+  local own = { { LOOT_ITEM_SELF_MULTIPLE }, { LOOT_ITEM_SELF }, { LOOT_ITEM_CREATED_SELF_MULTIPLE, "craft" },
+    { LOOT_ITEM_CREATED_SELF, "craft" } }
+  for _, f in ipairs(own) do
+    local p = Pattern(f[1])
+    if p then P.self[#P.self + 1] = { p = p, src = f[2] } end
   end
   for _, f in ipairs({ LOOT_ITEM_MULTIPLE, LOOT_ITEM }) do
     local p = Pattern(f)
@@ -383,9 +378,9 @@ end
 local OnLoot
 do
   local function MatchOwnLoot(text, pats)
-    for _, p in ipairs(pats.self) do
-      local l, n = text:match(p)
-      if l then return l, GS:PlayerKey(), tonumber(n) end
+    for _, own in ipairs(pats.self) do
+      local l, n = text:match(own.p)
+      if l then return l, GS:PlayerKey(), tonumber(n), own.src end
     end
   end
 
@@ -424,7 +419,7 @@ do
     text = Plain(text, "string")
     if not text then return NoteSecretLoot() end
     local pats = LootPatterns()
-    local link, who, count = MatchOwnLoot(text, pats)
+    local link, who, count, src = MatchOwnLoot(text, pats)
     if not link then link, who = MatchOthersLoot(text, pats, playerName) end
     if not (link and who) then return end
     link = link:match("(|c.-|r)") or link
@@ -436,7 +431,7 @@ do
     end
     if who ~= me then return WitnessLoot(who, me, f, link) end
     H.cdb.ownedEpics[f.id] = true
-    H:Add(Own("loot", { item = f.id, link = link, q = f.q }), "self")
+    H:Add(Own("loot", { item = f.id, link = link, q = f.q, src = src }), "self")
   end
 end
 
@@ -494,6 +489,7 @@ for _, e in ipairs(EVENTS) do H:RegisterEvent(e, function(_, ...) OnEvent(e, ...
 
 function H:OnLogin()
   LootPatterns()
+  self:SeedMilestones()
   wasInInstance = GS:InInstance()
   self:OnLoginOutbox()
   self:OnLoginCatchup()
