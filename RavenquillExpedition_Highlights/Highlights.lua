@@ -295,60 +295,62 @@ local function NonEmpty(s, fallback) return (s and s ~= "") and s or fallback en
 
 H.KINDS = {
   gear = {
-    code = "g", chat = true, chatMinQuality = 4,
-    format = function(self, e, who)
+    code = "g", chat = true, chatMinQuality = 4, icon = "INV_Chest_Chain_05",
+    format = function(self, e)
       local item = self:ItemText(e)
       local quality = e.q or 0
       local gain = (e.il and e.oil) and (e.il - e.oil) or nil
-      if gain and gain > 0 and quality < 4 then return L.GEAR:format(who, item, gain) end
-      if quality >= 4 then return L.GEAR_EPIC:format(who, item) end
-      return L.GEAR_FILL:format(who, item)
+      if gain and gain > 0 and quality < 4 then return L.GEAR:format(item, gain) end
+      if quality >= 4 then return L.GEAR_EPIC:format(item) end
+      return L.GEAR_FILL:format(item)
     end,
   },
   loot = {
-    code = "l", chat = true,
-    format = function(self, e, who)
+    code = "l", chat = true, icon = "INV_Misc_Bag_08",
+    format = function(self, e)
       local count = (e.n or 1) > 1 and ("x" .. e.n) or ""
-      return (e.src == "bag" and L.LOOT_GOT or L.LOOT):format(who, self:ItemText(e) .. count)
+      return (e.src == "bag" and L.LOOT_GOT or L.LOOT):format(self:ItemText(e) .. count)
     end,
   },
   boss = {
-    code = "b", chat = true,
-    format = function(_, e, who)
+    code = "b", chat = true, icon = "INV_Misc_Bone_HumanSkull_01",
+    format = function(_, e)
       local boss, inst = Gold(NonEmpty(e.boss, L.A_BOSS)), NonEmpty(e.inst, L.AN_INSTANCE)
-      if e.grp and (e.n or 1) > 1 then return L.BOSS_GROUP:format(who, e.n - 1, boss, inst) end
-      return (e.first and L.BOSS_FIRST or L.BOSS):format(who, boss, inst)
+      if e.grp and (e.n or 1) > 1 then return L.BOSS_GROUP:format(boss, inst, e.n - 1) end
+      return (e.first and L.BOSS_FIRST or L.BOSS):format(boss, inst)
     end,
   },
   run = {
-    code = "d", chat = true,
-    format = function(_, e, who)
-      local inst, boss = Gold(NonEmpty(e.inst, L.AN_INSTANCE)), NonEmpty(e.boss, L.A_BOSS)
-      if e.first then return L.RUN_FIRST:format(who, inst, e.n or 1, boss) end
-      return L.RUN_NEW:format(who, inst, e.nf or 1, e.n or 1, boss)
+    code = "d", chat = true, icon = "INV_Misc_Key_03",
+    format = function(_, e)
+      local inst = Gold(NonEmpty(e.inst, L.AN_INSTANCE))
+      if e.first then return L.RUN_FIRST:format(inst, e.n or 1) end
+      return L.RUN_NEW:format(inst, e.nf or 1, e.n or 1)
     end,
   },
   quest = {
-    code = "q", chat = false,
-    format = function(_, e, who)
+    code = "q", chat = false, icon = "INV_Misc_Note_01",
+    format = function(_, e)
       local title = Gold(e.title or ("#" .. tostring(e.qid)))
-      if e.act and not e.tag then return L.QUEST_PLAIN:format(who, title) end
-      return L.QUEST:format(who, L[H.QUEST_TAGS[e.tag] or H.QUEST_TAGS.hard], title)
+      if e.act and not e.tag then return L.QUEST_PLAIN:format(title) end
+      return L.QUEST:format(title, L[H.QUEST_TAGS[e.tag] or H.QUEST_TAGS.hard])
     end,
   },
   level = {
-    code = "v", chat = true,
-    format = function(_, e, who)
+    code = "v", chat = true, icon = "Spell_Holy_InnerFire",
+    format = function(_, e)
       local max = Plain(SafeCall(GetMaxPlayerLevel), "number")
-      return ((max and e.lvl == max) and L.LEVEL_MAX or L.LEVEL):format(who, e.lvl or 0)
+      return ((max and e.lvl == max) and L.LEVEL_MAX or L.LEVEL):format(e.lvl or 0)
     end,
   },
 }
 
+local function Icon(name) return name and ("|TInterface\\Icons\\%s:14:14|t "):format(name) or "" end
+
 function H:Format(e)
-  local who = self.ClassColorName(e.who, e.cls)
   local kind = self.KINDS[e.k]
-  local text = kind and kind.format(self, e, who) or tostring(e.k)
+  local text = kind and kind.format(self, e) or tostring(e.k)
+  text = Icon(kind and kind.icon) .. self.ClassColorName(e.who, e.cls) .. "  ·  " .. text
   if e.by and e.by ~= e.who then text = text .. " |cff888888(" .. L.WITNESSED:format(e.by) .. ")|r" end
   if e.test then text = "|cff888888[" .. L.TEST .. "]|r " .. text end
   return text

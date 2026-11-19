@@ -247,7 +247,7 @@ fire("PLAYER_ENTERING_WORLD")
 local run = last()
 check(count() == n + 1 and run.k == "run" and run.first and run.n == 2 and run.nf == 2 and run.inst == "Die Todesminen"
   and run.boss == "Rhahk'Zor" and H.cdb.run == nil, "entering another instance ends the run: one highlight for the dungeon")
-check(printedSince(runMark):find("zum ersten Mal in", 1, true) ~= nil, "the run is printed in chat")
+check(printedSince(runMark):find("Die Todesminen|r – erster Lauf, 2 Bosse", 1, true) ~= nil, "the run is printed in chat")
 fire("ENCOUNTER_END", 663, "Lucifron", 9, 40, 1)
 local luci = last()
 check(luci.k == "boss" and luci.grp and luci.n == 3 and H.cdb.outbox[luci.id] and H.cdb.outbox[luci.id].rank == 1,
@@ -255,7 +255,7 @@ check(luci.k == "boss" and luci.grp and luci.n == 3 and H.cdb.outbox[luci.id] an
 advance(4 * 3600)
 fire("ENCOUNTER_END", 664, "Magmadar", 9, 40, 1)
 local mag = last()
-check(lastPrinted():find("2 Gildenmitglieder", 1, true), "group kill line names the guildie count")
+check(lastPrinted():find("mit 2 aus der Gilde", 1, true), "group kill line names the guildie count")
 G.inInstance, G.itype, G.raid, G.group, G.instName = false, "none", false, {}, "Burgschmied"
 fire("PLAYER_ENTERING_WORLD")
 advance(20)
@@ -283,7 +283,7 @@ check(count() == n, "the run stays open for a while after leaving")
 advance(20)
 run = last()
 check(count() == n + 1 and run.k == "run" and not run.first and run.nf == 1 and run.n == 2, "a later run with one new boss")
-check(H:Format(run):find("neue Bosse", 1, true) and H:Format(run):find("neu: 1 von 2", 1, true), "new-bosses line text")
+check(H:Format(run):find("1 von 2 Bossen neu", 1, true), "new-bosses line text")
 local runBack = H.Decode("Me Smith", H.Encode(run))
 check(runBack and runBack.k == "run" and runBack.n == 2 and runBack.nf == 1 and runBack.boss == "Mr. Smite"
   and runBack.inst == "Die Todesminen" and not runBack.first, "run round trip")
@@ -365,7 +365,7 @@ check(actOf("boss", function(a) return a.boss == "Baron Rivendare" and a.first e
 fire("CHAT_MSG_LOOT", "Ihr erhaltet Beute: " .. link(300) .. "x3", "Me Smith")
 advance(200)
 check(act[#act].k == "loot" and act[#act].n == 3 and sendsOf(";300;") == 0, "stacked loot counted, activity never sent")
-check(H:Format(act[#act]):find("x3", 1, true) and H:Format(act[#act]):find("erbeutet", 1, true), "activity line text")
+check(H:Format(act[#act]):find("x3", 1, true) and H:Format(act[#act]):find("INV_Misc_Bag_08", 1, true), "activity line text")
 local merged, nHL, nAct = H:LogLines()
 check(#merged == nHL + nAct and nAct == #act, "log = highlights + activity")
 local sorted = true
@@ -381,7 +381,7 @@ local t0 = T()
 local mark = #printed
 recv("Cara Moss", ("1;b;%d;7;Cara Moss;31;7;1150;1;0;Mutanus;Höhlen des Wehklagens"):format(t0))
 check(count() == n + 1 and last().who == "Cara Moss" and last().first and last().cls == "MAGE", "guildie's boss kill received")
-check(printedSince(mark):find("zum ersten Mal", 1, true) ~= nil, "received boss kill printed in chat")
+check(printedSince(mark):find("erster Kill", 1, true) ~= nil, "received boss kill printed in chat")
 recv("Cara Moss", ("1;b;%d;7;Cara Moss;31;7;1150;1;0;Mutanus;Höhlen des Wehklagens"):format(t0))
 check(count() == n + 1, "duplicate ignored")
 recv("Cara Moss", ("1;v;%d;8;Bud Stone;60;9"):format(t0))
@@ -506,7 +506,7 @@ check(H:Settings().chatAll and all:IsEnabled(), "chat all")
 rawget(panel.controls[opt(L.OPT_TEST)], "_scripts").OnClick()
 check(lastPrinted():find("6 Testeinträge", 1, true), "test button adds 6 test entries")
 H:Open()
-check(H.openLabel == "Protokoll" and env.RavenquillExpeditionHighlightsFrame:IsShown() and lines[#lines]:find("Höchststufe 60", 1, true),
+check(H.openLabel == "Protokoll" and env.RavenquillExpeditionHighlightsFrame:IsShown() and lines[#lines]:find("Stufe 60 – Höchststufe!", 1, true),
   "the card's 'Protokoll' entry opens the log window, test entry last")
 local noClutter = true
 for _, o in ipairs(H.options) do
