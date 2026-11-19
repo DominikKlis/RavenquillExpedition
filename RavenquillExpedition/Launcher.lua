@@ -20,7 +20,7 @@ local ANGLE_WITHOUT_OTHER_BUTTONS = 225
 local RIM_TOLERANCE = 12
 local MIN_BUTTON_W, MAX_BUTTON_W = 24, 40
 local PLACE_DELAY_AFTER_WORLD = 5
-local ICON = "Interface\\Icons\\INV_Misc_Book_09"
+local ICON = "Interface\\Icons\\Spell_Nature_RavenForm"
 
 local btn
 
@@ -199,7 +199,7 @@ local function Create()
   local icon = btn:CreateTexture(nil, "ARTWORK")
   icon:SetSize(17, 17)
   icon:SetTexture(ICON)
-  icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+  icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
   icon:SetPoint("TOPLEFT", 7, -6)
   btn.icon = icon
   local border = btn:CreateTexture(nil, "OVERLAY")

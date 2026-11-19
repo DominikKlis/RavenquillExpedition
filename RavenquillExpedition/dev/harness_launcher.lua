@@ -12,6 +12,8 @@ function Geometry.IsForbidden(s) return s._forbidden end
 function Geometry.SetFrameStrata(s, v) s._strata = v end
 function Geometry.SetFrameLevel(s, l) s._level = l end
 function Geometry.ClearAllPoints(s) s._points = {} end
+function Geometry.SetTexture(s, path) s._texture = path end
+function Geometry.SetTexCoord(s, ...) s._texCoord = { ... } end
 function Geometry.SetPoint(s, ...) s._points = s._points or {}; s._points[#s._points + 1] = { ... } end
 
 local cursor = { 0, 0 }
@@ -68,6 +70,12 @@ env.RavenquillExpeditionCraftDB.settings.minimapHide = nil
 section("Placement")
 local btn = coreNS.LauncherButton()
 check(btn ~= nil and btn == env.RavenquillExpeditionLauncher and btn._shown, "button created at PLAYER_LOGIN")
+
+section("Icon: the game's raven icon, its baked-in border cropped")
+check(btn.icon._texture == "Interface\\Icons\\Spell_Nature_RavenForm",
+  "button icon is the game's raven icon: " .. tostring(btn.icon._texture))
+check(table.concat(btn.icon._texCoord or {}, ",") == "0.08,0.92,0.08,0.92",
+  "the icon's square border is cropped so only the bird shows inside the round frame")
 check(btn and btn._strata == "MEDIUM" and btn._level == 8, "strata MEDIUM, level 8")
 local a = RQ:LauncherFreeAngle()
 check(math.abs(a - 346.75) < 0.01, ("largest-gap angle = %.2f (expect 346.75)"):format(a))
