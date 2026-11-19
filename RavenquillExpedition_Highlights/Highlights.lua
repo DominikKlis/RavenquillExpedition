@@ -5,12 +5,12 @@ local SafeCall, Plain = GS.SafeCall, GS.Plain
 
 local H = GS:NewModule("Highlights", {
   addon = ADDON, api = 2, slash = "hl", title = L.TITLE, icon = "Interface\\Icons\\INV_Misc_Note_01",
-  sv = "RavenquillExpeditionHighlightsDB", svChar = "RavenquillExpeditionHighlightsCharDB", dbVersion = 2,
+  sv = "RavenquillExpeditionHighlightsDB", svChar = "RavenquillExpeditionHighlightsCharDB", dbVersion = 3,
   locale = ns.Locales,
   defaults = {
     share = true,
     shareCap = 8,
-    chat = true,
+    chat = false,
     chatAll = false,
     echoOwn = true,
     minGain = 8,
@@ -38,6 +38,10 @@ H.migrations = {
     if type(db.settings) ~= "table" then db.settings = {} end
     if db.settings.questRedLevels == 4 and not db.settings.migratedV2 then db.settings.questRedLevels = 0 end
     db.settings.migratedV2 = true
+  end,
+  [3] = function(db)
+    if type(db.settings) ~= "table" then db.settings = {} end
+    db.settings.chat = false
   end,
 }
 

@@ -122,6 +122,21 @@ fire("PLAYER_LOGIN")
 fire("PLAYER_ENTERING_WORLD")
 advance(5)
 
+Kit.section("Chat is off by default and the v3 update turns it off for everyone")
+check(H:Settings().chat == false, "fresh install: highlights are not printed in chat")
+do
+  local keep = H.db
+  env.RavenquillExpeditionHighlightsDB = { v = 2, settings = { chat = true, share = true } }
+  me.coreNs.SetupModuleDB(H)
+  check(H.db.v == 3 and H:Settings().chat == false, "v2 SavedVariables with chat on: the update switches chat off")
+  H.db.settings.chat = true
+  me.coreNs.SetupModuleDB(H)
+  check(H:Settings().chat == true, "after the update the player can switch chat back on and it stays on")
+  env.RavenquillExpeditionHighlightsDB = keep
+  me.coreNs.SetupModuleDB(H)
+end
+H.db.settings.chat = true
+
 local function events() return (H:Log()) end
 local function last() local e = events(); return e[#e] end
 local function count() return #events() end
