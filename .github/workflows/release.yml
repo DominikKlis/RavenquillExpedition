@@ -73,11 +73,24 @@ jobs:
           cat upload.json; echo
           if [ "$code" != "200" ]; then echo "::error::CurseForge upload failed with HTTP $code: $(cat upload.json)"; exit 1; fi
 
+      - name: WowUp release metadata
+        run: |
+          set -euo pipefail
+          interface=$(sed -n 's/^## Interface:[[:space:]]*\([0-9]*\).*/\1/p' RavenquillExpedition/RavenquillExpedition.toc | tr -d '\r')
+          if [ -z "$interface" ]; then echo "::error::No ## Interface line in RavenquillExpedition.toc"; exit 1; fi
+          jq -n \
+            --arg version "${{ steps.meta.outputs.version }}" \
+            --arg file "$(basename "${{ steps.meta.outputs.zip }}")" \
+            --argjson interface "$interface" \
+            '{releases: [{name: "RavenquillExpedition", version: $version, filename: $file, nolib: false,
+              metadata: [{flavor: "forever", interface: $interface}]}]}' > release.json
+          cat release.json
+
       - name: GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           flags=""
           if [ "${{ steps.meta.outputs.type }}" != "release" ]; then flags="--prerelease"; fi
-          gh release create "${GITHUB_REF_NAME}" "${{ steps.meta.outputs.zip }}" \
+          gh release create "${GITHUB_REF_NAME}" "${{ steps.meta.outputs.zip }}" release.json \
             --title "Ravenquill Expedition ${{ steps.meta.outputs.version }}" --notes-file changelog.md $flags

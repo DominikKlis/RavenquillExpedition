@@ -12,6 +12,10 @@ A WoW Forever (interface 16001) addon suite for the Ravenquill Expedition guild.
 
 CurseForge: project 1806854 (unlisted, alpha).
 
+WowUp: Get Addons → Install from URL → `https://github.com/DominikKlis/RavenquillExpedition`, with the WoW Forever
+install selected. Each GitHub release carries a `release.json` (flavor `forever`) that points WowUp at the zip, and
+WowUp then updates the suite like any other addon.
+
 ## Layout
 
 - Each addon folder is what WoW loads. Its `dev/` folder holds offline tests and tools; `dev/` never ships.
