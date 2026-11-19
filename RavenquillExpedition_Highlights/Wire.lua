@@ -30,6 +30,8 @@ ch:Define("b", { from = "guild", fields = Fields({ { "enc", "int", 0, 9999999, o
 ch:Define("q", { from = "guild", fields = Fields({ { "qid", "int", 1, 9999999 }, { "ql", "int", 0, 200, opt = true },
   { "tag", "word", 8 }, { "title", "text", 64 } }) })
 ch:Define("v", { from = "guild", fields = Fields({}) })
+ch:Define("d", { from = "guild", fields = Fields({ { "first", "flag" }, { "n", "int", 1, 99 }, { "nf", "int", 1, 99 },
+  { "boss", "text", 48 }, { "inst", "text", 48 } }) })
 
 local function Num(v) return (type(v) == "number" and v == v) and math.floor(v) or nil end
 
@@ -43,6 +45,7 @@ local MessageFields = {
     m.enc, m.first, m.raid, m.boss, m.inst = Num(e.enc), Flag(e.first), Flag(e.raid), e.boss or "", e.inst or ""
     m.n = e.grp and Num(e.n or 1) or nil
   end,
+  run = function(m, e) m.first, m.n, m.nf, m.boss, m.inst = Flag(e.first), Num(e.n), Num(e.nf), e.boss or "", e.inst or "" end,
   quest = function(m, e) m.qid, m.ql, m.tag, m.title = Num(e.qid), Num(e.ql), WireQuestTag(e.tag), e.title or "" end,
 }
 
@@ -79,6 +82,7 @@ local EntryFields = {
     e.enc, e.first, e.raid, e.boss, e.inst = m.enc, m.first or nil, m.raid or nil, Str(m.boss), Str(m.inst)
     if m.n then e.grp, e.n = true, m.n end
   end,
+  run = function(e, m) e.first, e.n, e.nf, e.boss, e.inst = m.first or nil, m.n, m.nf, Str(m.boss), Str(m.inst) end,
   quest = function(e, m) e.qid, e.ql, e.tag, e.title = m.qid, m.ql, WireQuestTag(m.tag), Str(m.title) end,
 }
 

@@ -12,4 +12,5 @@ Locale.lua
 Highlights.lua
 Wire.lua
 Detectors.lua
+Runs.lua
 LogWindow.lua

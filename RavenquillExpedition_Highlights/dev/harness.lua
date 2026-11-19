@@ -214,15 +214,25 @@ n = count()
 fire("ENCOUNTER_END", 1144, "Edwin VanCleef", 1, 5, 0)
 fire("BOSS_KILL", 1144, "Edwin VanCleef")
 fire("ENCOUNTER_END", 1144, "Edwin VanCleef", 1, 5, 1)
-check(count() == n + 1 and last().k == "boss" and last().first and last().inst == "Die Todesminen", "first dungeon kill logged once")
 advance(120)
-fire("BOSS_KILL", 1144, "Edwin VanCleef")
-check(count() == n + 1, "repeat dungeon kill not logged")
+fire("BOSS_KILL", 1143, "Rhahk'Zor")
+check(count() == n, "first dungeon kills wait for the end of the run")
+check(H.cdb.run and H.cdb.run.kills == 2 and H.cdb.run.news == 2, "the run counts each boss once")
+G.inInstance, G.itype, G.instName = false, "none", "Westfall"
+fire("PLAYER_ENTERING_WORLD"); advance(120)
+G.inInstance, G.itype, G.instName = true, "party", "Die Todesminen"
+fire("PLAYER_ENTERING_WORLD"); advance(H.RUN_GRACE + 60)
+check(count() == n and H.cdb.run and H.cdb.run.left == nil, "a corpse run back in does not end the run")
 check(#G.sent == sentBefore and next(GS.Comm.q) == nil, "nothing queued inside an instance")
 GS:NotePeer("Cara Moss")
 G.itype, G.instName, G.raid = "raid", "Geschmolzener Kern", true
 G.group = { raid1 = { "Me", "Smith" }, raid2 = { "Cara", "Moss" }, raid3 = { "Bud", "Stone" }, raid4 = { "Rando", "Pug" } }
+local runMark = #printed
 fire("PLAYER_ENTERING_WORLD")
+local run = last()
+check(count() == n + 1 and run.k == "run" and run.first and run.n == 2 and run.nf == 2 and run.inst == "Die Todesminen"
+  and run.boss == "Rhahk'Zor" and H.cdb.run == nil, "entering another instance ends the run: one highlight for the dungeon")
+check(printedSince(runMark):find("zum ersten Mal in", 1, true) ~= nil, "the run is printed in chat")
 fire("ENCOUNTER_END", 663, "Lucifron", 9, 40, 1)
 local luci = last()
 check(luci.k == "boss" and luci.grp and luci.n == 3 and H.cdb.outbox[luci.id] and H.cdb.outbox[luci.id].rank == 1,
@@ -236,7 +246,7 @@ fire("PLAYER_ENTERING_WORLD")
 advance(20)
 recv("Cara Moss", ("1;b;%d;9;Cara Moss;31;7;663;0;1;Lucifron;Geschmolzener Kern;3"):format(luci.t + 30))
 advance(200)
-check(sentKind("b") == 2, "after a 4 h raid: the dungeon kill and Magmadar sent, Lucifron left to Cara")
+check(sentKind("b") == 1 and sentKind("d") == 1, "after a 4 h raid: the dungeon run and Magmadar sent, Lucifron left to Cara")
 local _, idx = H:Log()
 check(idx[luci.id] == nil and H.cdb.outbox[luci.id] == nil and idx[mag.id] ~= nil, "my Lucifron replaced by Cara's report, Magmadar kept")
 echoAll(); advance(5)
@@ -244,10 +254,25 @@ G.level = 60
 G.inInstance, G.itype, G.instName = true, "party", "Stratholme"
 n = count()
 fire("BOSS_KILL", 456, "Baron Rivendare")
-check(count() == n, "first dungeon kill at max level not logged")
 G.level = 30
 G.inInstance, G.itype, G.instName = false, "none", "Westfall"
-fire("PLAYER_ENTERING_WORLD"); advance(5)
+fire("PLAYER_ENTERING_WORLD"); advance(H.RUN_GRACE + 5)
+check(count() == n and H.cdb.run == nil, "a run whose first kills came at max level is not logged")
+G.inInstance, G.itype, G.instName = true, "party", "Die Todesminen"
+fire("PLAYER_ENTERING_WORLD")
+fire("BOSS_KILL", 1144, "Edwin VanCleef")
+fire("BOSS_KILL", 1145, "Mr. Smite")
+G.inInstance, G.itype, G.instName = false, "none", "Westfall"
+fire("PLAYER_ENTERING_WORLD"); advance(H.RUN_GRACE - 10)
+check(count() == n, "the run stays open for a while after leaving")
+advance(20)
+run = last()
+check(count() == n + 1 and run.k == "run" and not run.first and run.nf == 1 and run.n == 2, "a later run with one new boss")
+check(H:Format(run):find("neue Bosse", 1, true) and H:Format(run):find("neu: 1 von 2", 1, true), "new-bosses line text")
+local runBack = H.Decode("Me Smith", H.Encode(run))
+check(runBack and runBack.k == "run" and runBack.n == 2 and runBack.nf == 1 and runBack.boss == "Mr. Smite"
+  and runBack.inst == "Die Todesminen" and not runBack.first, "run round trip")
+echoAll(); advance(200); echoAll(); advance(5)
 
 G.quests = {
   { title = "Westfall", header = true, id = 0 },
@@ -385,7 +410,7 @@ for _, k in ipairs({ "gear", "loot", "boss", "quest", "level" }) do
 end
 
 echoAll(); advance(130)
-env.wipe(H.cdb.outbox)
+env.wipe(H.cdb.outbox); env.wipe(H.cdb.shareLog)
 equip(2, 303); advance(2)
 local id = last().id
 local mine = ";" .. id:match("#(%d+)$") .. ";Me Smith;"

@@ -15,6 +15,7 @@ local function Own(k, fields)
   for key, v in pairs(fields) do e[key] = v end
   return e
 end
+ns.Own = Own
 
 local function Act(k, fields)
   local e = { k = k, lvl = MyLevel() }
@@ -204,7 +205,7 @@ do
     local inst, itype = SafeCall(GetInstanceInfo)
     inst, itype = Plain(inst, "string"), Plain(itype, "string")
     if not inst or itype == "none" then inst = Plain(SafeCall(GetRealZoneText), "string") or inst end
-    return inst, itype == "raid"
+    return inst, itype
   end
 
   local function StillLevelling()
@@ -219,6 +220,18 @@ do
     H:Add(Own("boss", fields), "self", { group = true, rank = rank })
   end
 
+  local function ReportKill(fields, first, dungeon)
+    local new = first and StillLevelling()
+    if dungeon then H:NoteDungeonKill(fields.inst, fields.boss, new) end
+    if new and not dungeon then
+      fields.first = true
+      H:Add(Own("boss", fields), "self")
+      return
+    end
+    fields.first = first or nil
+    H:Activity(Act("boss", fields))
+  end
+
   OnKill = function(encID, name)
     encID, name = KillIdentity(encID, name)
     local encKey, nameKey = encID and ("e" .. encID), name and ("n" .. name)
@@ -228,18 +241,12 @@ do
     if KilledWithinMinute(encKey, now) or KilledWithinMinute(nameKey, now) then return end
     if encKey then recentKill[encKey] = now end
     if nameKey then recentKill[nameKey] = now end
-    local inst, raid = KillPlace()
+    local inst, itype = KillPlace()
     local first = not H.cdb.kills[key]
     H.cdb.kills[key] = GS:Now()
     local fields = { enc = encID, boss = name, inst = inst }
-    if raid then return ReportRaidKill(fields, first) end
-    if first and StillLevelling() then
-      fields.first = true
-      H:Add(Own("boss", fields), "self")
-      return
-    end
-    fields.first = first or nil
-    H:Activity(Act("boss", fields))
+    if itype == "raid" then return ReportRaidKill(fields, first) end
+    ReportKill(fields, first, itype == "party")
   end
 end
 
@@ -457,6 +464,7 @@ do
       local inside = GS:InInstance()
       if wasInInstance and not inside then GS:Call(H.OnLeftInstance, H) end
       wasInInstance = inside
+      GS:Call(H.OnRunZone, H, inside)
     end,
     PLAYER_EQUIPMENT_CHANGED = function(slot) GS:Call(OnEquipmentChanged, slot) end,
     ENCOUNTER_END = function(encID, name, _, _, success)

@@ -313,6 +313,14 @@ H.KINDS = {
       return (e.first and L.BOSS_FIRST or L.BOSS):format(who, boss, inst)
     end,
   },
+  run = {
+    code = "d", chat = true,
+    format = function(_, e, who)
+      local inst, boss = Gold(NonEmpty(e.inst, L.AN_INSTANCE)), NonEmpty(e.boss, L.A_BOSS)
+      if e.first then return L.RUN_FIRST:format(who, inst, e.n or 1, boss) end
+      return L.RUN_NEW:format(who, inst, e.nf or 1, e.n or 1, boss)
+    end,
+  },
   quest = {
     code = "q", chat = false,
     format = function(_, e, who)
@@ -377,7 +385,7 @@ function H:AddTests()
   local list = {
     E("gear", { item = 6084, il = 30, oil = 18, q = 3, slot = 15 }),
     E("loot", { item = 869, q = 4 }),
-    E("boss", { enc = 1144, boss = "Edwin VanCleef", inst = L.TEST_DEADMINES, first = true }),
+    E("run", { inst = L.TEST_DEADMINES, boss = "Edwin VanCleef", n = 6, nf = 6, first = true }),
     E("boss", { enc = 663, boss = "Lucifron", inst = L.TEST_MOLTEN_CORE, grp = true, n = 12, raid = true }),
     E("quest", { qid = 166, title = L.TEST_DEFIAS_QUEST, tag = "dungeon", ql = 22 }),
     E("level", { lvl = 60 }),
