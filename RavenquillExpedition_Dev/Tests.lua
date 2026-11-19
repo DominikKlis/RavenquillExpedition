@@ -536,3 +536,101 @@ Dev:Register("ui.capture", function(t)
     t:after(2, NextTab)
   end)
 end, 30, { manual = true })
+
+local Probe = {}
+local SPEC_IDS = { 71, 72, 73, 65, 66, 70, 253, 254, 255, 259, 260, 261, 256, 257, 258, 262, 263, 264, 62, 63, 64, 265, 266, 267,
+  102, 103, 104, 105 }
+
+function Probe.Api(path)
+  local v = _G
+  for part in path:gmatch("[^.]+") do
+    if type(v) ~= "table" then return nil end
+    v = rawget(v, part)
+  end
+  return v
+end
+
+function Probe.Call(path, ...)
+  local fn = Probe.Api(path)
+  if type(fn) ~= "function" then return false, "missing" end
+  local res = { pcall(fn, ...) }
+  if not res[1] then return false, tostring(res[2]) end
+  return true, unpack(res, 2)
+end
+
+function Probe.Describe(v)
+  if type(v) ~= "table" then return tostring(v) end
+  local keys = {}
+  for k, x in pairs(v) do
+    if #keys < 14 then keys[#keys + 1] = tostring(k) .. "=" .. (type(x) == "table" and "{" .. #x .. "}" or tostring(x)) end
+  end
+  table.sort(keys)
+  return "{" .. table.concat(keys, " ") .. "}"
+end
+
+function Probe.Classic(t)
+  local ok, tabs = Probe.Call("GetNumTalentTabs")
+  t:note("classic GetNumTalentTabs: " .. tostring(ok) .. " " .. tostring(tabs))
+  if not ok or type(tabs) ~= "number" or tabs < 1 then return end
+  local okTab, tabName, _, points = Probe.Call("GetTalentTabInfo", 1)
+  local okNum, n = Probe.Call("GetNumTalents", 1)
+  t:note(("classic tab 1: %s %s points %s, talents %s"):format(tostring(okTab), tostring(tabName), tostring(points), tostring(okNum and n)))
+  local okInfo, name, icon, tier, column, rank, maxRank = Probe.Call("GetTalentInfo", 1, 1)
+  t:note(("classic talent 1/1: %s name %s icon %s tier %s col %s rank %s/%s"):format(tostring(okInfo), tostring(name),
+    tostring(icon), tostring(tier), tostring(column), tostring(rank), tostring(maxRank)))
+  local okOther = Probe.Call("GetTalentInfo", 1, 1, false, false, 2)
+  t:note("classic GetTalentInfo with a class index argument: " .. tostring(okOther))
+end
+
+function Probe.Node(t, configID, nodeID, label)
+  local ok, info = Probe.Call("C_Traits.GetNodeInfo", configID, nodeID)
+  t:note(label .. " node " .. tostring(nodeID) .. ": " .. tostring(ok) .. " " .. Probe.Describe(info))
+  local entryID = ok and type(info) == "table" and type(info.entryIDs) == "table" and info.entryIDs[1]
+  if not entryID then return end
+  local okE, entry = Probe.Call("C_Traits.GetEntryInfo", configID, entryID)
+  t:note(label .. " entry " .. tostring(entryID) .. ": " .. tostring(okE) .. " " .. Probe.Describe(entry))
+  local defID = okE and type(entry) == "table" and entry.definitionID
+  if not defID then return end
+  local okD, def = Probe.Call("C_Traits.GetDefinitionInfo", defID)
+  t:note(label .. " definition " .. tostring(defID) .. ": " .. tostring(okD) .. " " .. Probe.Describe(def))
+end
+
+function Probe.Own(t)
+  local ok, configID = Probe.Call("C_ClassTalents.GetActiveConfigID")
+  t:note("own active config: " .. tostring(ok) .. " " .. tostring(configID))
+  if not ok or not configID then return end
+  local okC, config = Probe.Call("C_Traits.GetConfigInfo", configID)
+  t:note("own config info: " .. tostring(okC) .. " " .. Probe.Describe(config))
+  local treeID = okC and type(config) == "table" and type(config.treeIDs) == "table" and config.treeIDs[1]
+  local okN, nodes = Probe.Call("C_Traits.GetTreeNodes", treeID)
+  t:note("own tree " .. tostring(treeID) .. " nodes: " .. tostring(okN) .. " " .. tostring(type(nodes) == "table" and #nodes))
+  if okN and type(nodes) == "table" and nodes[1] then Probe.Node(t, configID, nodes[1], "own") end
+  return configID, treeID
+end
+
+function Probe.OtherTrees(t, configID, ownTree)
+  local seen, found = {}, {}
+  for _, specID in ipairs(SPEC_IDS) do
+    local ok, treeID = Probe.Call("C_ClassTalents.GetTraitTreeForSpec", specID)
+    if ok and treeID and not seen[treeID] then seen[treeID] = true; found[#found + 1] = specID .. "->" .. tostring(treeID) end
+  end
+  t:note("GetTraitTreeForSpec: " .. (found[1] and table.concat(found, " ") or "nothing"))
+  for treeID in pairs(seen) do
+    if treeID ~= ownTree then
+      local okN, nodes = Probe.Call("C_Traits.GetTreeNodes", treeID)
+      t:note("other tree " .. tostring(treeID) .. " nodes: " .. tostring(okN) .. " " .. tostring(type(nodes) == "table" and #nodes))
+      if okN and type(nodes) == "table" and nodes[1] then Probe.Node(t, configID, nodes[1], "other") end
+      return
+    end
+  end
+end
+
+Dev:Register("talents.probe", function(t)
+  local _, class = UnitClass("player")
+  t:note("class " .. tostring(class) .. ", level " .. tostring(UnitLevel("player")))
+  Probe.Classic(t)
+  local configID, ownTree = Probe.Own(t)
+  Probe.OtherTrees(t, configID, ownTree)
+  t:ok(true, "talent API probe ran (read the notes)")
+  t:done()
+end, 10, { manual = true })
