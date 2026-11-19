@@ -84,11 +84,7 @@ local function AddFooterLines(m)
   GameTooltip:AddLine(AgeText(M:Age(m)), 0.7, 0.7, 0.7)
   if M:State(m) == "stale" then GameTooltip:AddLine(L.TT_STALE, 1, 0.5, 0.2) end
   if m.fake then return GameTooltip:AddLine(L.TT_TEST, 0.5, 0.8, 1) end
-  GameTooltip:AddLine(L.TT_CLICK, 0.5, 1, 0.5)
-end
-
-local function AddZoomOutLine(f)
-  if f.kind == "world" then GameTooltip:AddLine(L.TT_RIGHT_CLICK, 0.7, 0.7, 0.7) end
+  GameTooltip:AddLine(L.TT_RIGHT_CLICK, 0.5, 1, 0.5)
 end
 
 local function OnEnter(self)
@@ -98,23 +94,15 @@ local function OnEnter(self)
   AddIdentityLines(m)
   AddFlagLines(m.flags or {})
   AddFooterLines(m)
-  AddZoomOutLine(self)
   GameTooltip:Show()
 end
 
 local function OnLeave() GameTooltip:Hide() end
 
-local function ZoomOut()
-  local map = WorldMapFrame
-  if map and map.NavigateToParentMap then SafeCall(map.NavigateToParentMap, map) end
-end
-
-local function OnClick(self, button)
-  if button == "RightButton" then return ZoomOut() end
+local function OnClick(self)
   local m = M.members[self.key]
   if not m or m.fake or m.isSelf or type(m.name) ~= "string" then return end
-  local tell = (ChatFrameUtil and ChatFrameUtil.SendTell) or ChatFrame_SendTell
-  SafeCall(tell, m.whisper or m.name)
+  M:Contact(self, m)
 end
 
 local function IsInsideMap(mapData, mapID, uiMapID)
@@ -244,7 +232,7 @@ local function NewPin(kind)
     f.label:SetPoint("TOP", f, "BOTTOM", 0, -1)
   end
   f:EnableMouse(true)
-  if kind == "world" then f:RegisterForClicks("LeftButtonUp", "RightButtonUp") else f:RegisterForClicks("LeftButtonUp") end
+  f:RegisterForClicks("RightButtonUp")
   f:SetScript("OnEnter", OnEnter)
   f:SetScript("OnLeave", OnLeave)
   f:SetScript("OnClick", OnClick)
@@ -386,6 +374,7 @@ function Page.PageRow(page, i)
   hover:SetColorTexture(1, 1, 1, 0.08)
   r.cells = {}
   for c, col in ipairs(Page.Columns()) do r.cells[c] = Page.Cell(r, "GameFontHighlightSmall", col) end
+  r:RegisterForClicks("RightButtonUp")
   r:SetScript("OnClick", OnClick)
   r:SetScript("OnEnter", OnEnter)
   r:SetScript("OnLeave", OnLeave)

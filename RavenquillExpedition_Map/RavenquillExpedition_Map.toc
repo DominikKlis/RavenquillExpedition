@@ -15,5 +15,6 @@ libs\HereBeDragons\HereBeDragons-Pins-2.0.lua
 
 Locale.lua
 Map.lua
+Menu.lua
 Pins.lua
 Sync.lua

@@ -14,7 +14,7 @@ globals = {
 read_globals = {
   "Ambiguate", "BACKSLOT", "BANK_CONTAINER", "ButtonFrameTemplate_HideButtonBar",
   "ButtonFrameTemplate_HidePortrait", "CHESTSLOT", "CLASS_ICON_TCOORDS", "CUSTOM_CLASS_COLORS", "C_AddOns",
-  "C_CVar", "C_ChatInfo", "C_ClassTalents", "C_Container", "C_GuildInfo", "C_Item", "C_Map", "C_QuestLog",
+  "C_CVar", "C_ChatInfo", "C_ClassTalents", "C_Container", "C_GuildInfo", "C_Item", "C_Map", "C_PartyInfo", "C_QuestLog",
   "C_Reputation", "C_Spell", "C_SpellBook", "C_SuperTrack", "C_Texture", "C_Timer", "C_TooltipInfo",
   "C_TradeSkillUI", "C_Traits", "C_XMLUtil", "CanInspect", "ChatEdit_GetActiveWindow", "ChatFontNormal",
   "ChatFrameUtil", "ChatFrame_OpenChat", "ChatFrame_SendTell", "CheckInteractDistance", "Constants", "CreateFrame",
@@ -29,7 +29,7 @@ read_globals = {
   "GetRealZoneText", "GetRealmName", "GetServerTime", "GetSpellInfo", "GetTime", "debugprofilestop", "GetTradeSkillItemLink",
   "GetTradeSkillLine", "GetTradeSkillRecipeLink", "GuildRoster", "HANDSSLOT", "HBD_PINS_WORLDMAP_SHOW_WORLD",
   "HEADSLOT", "HandleModifiedItemClick", "ITEM_CLASSES_ALLOWED", "ITEM_QUALITY_COLORS", "ITEM_REQ_SKILL",
-  "InCombatLockdown", "InspectFrame", "IsAddOnLoaded", "IsControlKeyDown", "IsInGuild", "IsInInstance", "IsInRaid",
+  "InCombatLockdown", "InspectFrame", "InspectUnit", "InviteUnit", "IsAddOnLoaded", "IsControlKeyDown", "IsInGuild", "IsInInstance", "IsInRaid",
   "IsIndoors", "IsModifiedClick", "IsPlayerSpell", "IsShiftKeyDown", "LEGSSLOT", "LOCALIZED_CLASS_NAMES_FEMALE",
   "LOCALIZED_CLASS_NAMES_MALE", "LOOT_ITEM", "LOOT_ITEM_MULTIPLE", "LOOT_ITEM_SELF", "LOOT_ITEM_SELF_MULTIPLE",
   "LibStub", "LoadAddOn", "MAINHANDSLOT", "MenuUtil", "MinimalSliderWithSteppersMixin", "Minimap", "NECKSLOT",

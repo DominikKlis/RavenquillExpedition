@@ -168,9 +168,9 @@ M.members["Hans Wurst"] = { key = "Hans Wurst", name = "Hans Wurst", mapID = 142
 M:Refresh()
 local hp = pinFor(w, w.hbdWorld, "Hans Wurst")
 hp._scripts.OnEnter(hp)
-check(table.concat(w.tip.lines, "|"):find("Click to whisper", 1, true), "real pin tooltip offers whisper")
-hp._scripts.OnClick(hp)
-check(w.tells[1] == "Hans Wurst", "click whispers the real player")
+local realTip = table.concat(w.tip.lines, "|")
+check(not realTip:find("Click", 1, true) and realTip:find("Right-click: invite, inspect", 1, true),
+  "a real dot's tooltip names only the right-click menu: " .. realTip)
 do
   local page = w.env.CreateFrame("Frame")
   M:BuildPage(page)
@@ -184,20 +184,153 @@ do
   check(shown >= 7 and hansRow and hansRow.cells[1]:GetText() == "Hans Wurst" and hansRow.cells[2]:GetText() == "20",
     "the map tab lists the guildmates on the map with name and level (" .. shown .. " rows)")
   check(fakeRow and fakeRow.cells[1]:GetText() == "Test Eins (test)", "test dots are marked as tests in the list")
-  local tells = #w.tells
-  rawget(hansRow, "_scripts").OnClick(hansRow)
-  rawget(fakeRow, "_scripts").OnClick(fakeRow)
-  check(#w.tells == tells + 1 and w.tells[#w.tells] == "Hans Wurst", "clicking a guildmate in the list whispers them; a test dot does not")
+  local invites = {}
+  w.env.C_PartyInfo = { InviteUnit = function(n) invites[#invites + 1] = n end }
+  rawget(hansRow, "_scripts").OnClick(hansRow, "RightButton")
+  w.env.C_PartyInfo = nil
+  check(hansRow.clicks == "RightButtonUp" and invites[1] == "Hans Wurst", "only right-clicking a guildmate in the list reaches the same actions")
   page:Hide()
 end
+local function FakeMenus(env)
+  local menus = {}
+  env.MenuUtil = { CreateContextMenu = function(owner, build)
+    local menu = { owner = owner, titles = {}, entries = {} }
+    local root = {
+      CreateTitle = function(_, text) menu.titles[#menu.titles + 1] = text end,
+      CreateButton = function(_, text, fn)
+        local e = { text = text, fn = fn, enabled = true }
+        e.SetEnabled = function(_, on) e.enabled = on end
+        menu.entries[#menu.entries + 1] = e
+        return e
+      end,
+    }
+    build(owner, root)
+    menus[#menus + 1] = menu
+  end }
+  return menus
+end
+local function Entry(menu, text)
+  for _, e in ipairs(menu and menu.entries or {}) do if e.text == text then return e end end
+end
+local function Shape(menu)
+  if not menu then return "no menu" end
+  local out = { table.concat(menu.titles, "/") }
+  for _, e in ipairs(menu.entries) do out[#out + 1] = e.text .. (e.enabled and "" or " (grey)") end
+  return table.concat(out, "|")
+end
+local function GameCalls(env)
+  local calls = {}
+  local function record(api) return function(...) calls[#calls + 1] = api .. "(" .. table.concat({ ... }, ",") .. ")" end end
+  env.C_PartyInfo = { InviteUnit = record("InviteUnit") }
+  env.InspectUnit = record("InspectUnit")
+  return calls
+end
+local function SeenAs(env, unit, canInspect)
+  env.UnitNameUnmodified = function(u) if u == unit then return "Hans", "Wurst" end end
+  env.CanInspect = function() return canInspect end
+end
+local ALL_GREY = "Hans Wurst|Invite|Whisper|Inspect (grey)|View Talents (grey)"
 do
-  local zoomedOut, tells, oldMap = 0, #w.tells, w.env.WorldMapFrame
-  w.env.WorldMapFrame = { NavigateToParentMap = function() zoomedOut = zoomedOut + 1 end }
+  local env = w.env
+  local menus, calls, tells, ownName = FakeMenus(env), GameCalls(env), #w.tells, env.UnitNameUnmodified
   hp._scripts.OnClick(hp, "RightButton")
-  w.env.WorldMapFrame = oldMap
-  check(zoomedOut == 1 and #w.tells == tells, "right-clicking a world-map dot zooms the map out, like the map itself")
+  f1._scripts.OnClick(f1, "RightButton")
+  local far = menus[1]
+  check(#menus == 1 and far.owner == hp and #w.tells == tells, "right-clicking a dot opens a menu for that guildmate; a test dot gets none")
+  check(Shape(far) == ALL_GREY, "far away: invite, whisper, inspect, talents under just the name; without stored data or a nearby unit inspect and talents are greyed: " .. Shape(far))
+  for _, e in ipairs(far.entries) do e.fn() end
+  check(w.tells[#w.tells] == "Hans Wurst" and table.concat(calls, " ") == "InviteUnit(Hans Wurst)",
+    "invite and whisper reach the guildmate; the greyed-out entries do nothing: " .. table.concat(calls, " "))
+  SeenAs(env, "party2", true)
+  hp._scripts.OnClick(hp, "RightButton")
+  local near = menus[#menus]
+  check(Shape(near) == "Hans Wurst|Invite|Whisper|Inspect|View Talents (grey)",
+    "nearby in the group and inspectable: inspect enabled; talents only come from a stored spec, never the game's inspect: " .. Shape(near))
+  for i = #calls, 1, -1 do calls[i] = nil end
+  Entry(near, "Inspect").fn()
+  check(table.concat(calls, " ") == "InspectUnit(party2)", "inspect acts on their unit: " .. table.concat(calls, " "))
+  SeenAs(env, "target", false)
+  hp._scripts.OnClick(hp, "RightButton")
+  check(Shape(menus[#menus]) == ALL_GREY, "targeted but out of inspect range: Inspect greyed out like the game: " .. Shape(menus[#menus]))
+  env.UnitNameUnmodified = ownName
+  local selfMenus = #menus
+  M.members["@probe"] = { key = "@probe", name = "Me", isSelf = true, mapID = 1429, x = 0.5, y = 0.5, flags = {} }
+  rawset(hp, "key", "@probe")
+  hp._scripts.OnClick(hp, "RightButton")
+  rawset(hp, "key", "Hans Wurst")
+  M.members["@probe"] = nil
+  check(#menus == selfMenus, "your own dot opens no menu")
+  env.UNIT_FRAME_DROPDOWN_SUBSECTION_TITLE_INTERACT, env.WHISPER, env.INSPECT = "Game Interact", "Game Whisper", "SECRET"
+  env.issecretvalue = function(v) return v == "SECRET" end
+  hp._scripts.OnClick(hp, "RightButton")
+  check(Shape(menus[#menus]) == "Hans Wurst|Invite|Game Whisper|Inspect (grey)|View Talents (grey)",
+    "labels are the game's own strings where it has them; a secret one falls back to ours; no Interact title: " .. Shape(menus[#menus]))
+  env.UNIT_FRAME_DROPDOWN_SUBSECTION_TITLE_INTERACT, env.WHISPER, env.INSPECT, env.issecretvalue = nil, nil, nil, nil
   hp._scripts.OnEnter(hp)
-  check(table.concat(w.tip.lines, "|"):find("Right-click: zoom out", 1, true), "the world-map dot's tooltip says so")
+  local tip = table.concat(w.tip.lines, "|")
+  check(tip:find("Right-click: invite, inspect", 1, true) and not tip:find("zoom out", 1, true),
+    "the dot's tooltip points to the menu and no longer to zooming out")
+  f1._scripts.OnEnter(f1)
+  check(not table.concat(w.tip.lines, "|"):find("Right-click", 1, true), "a test dot's tooltip offers no menu")
+  local mini = pinFor(w, w.hbdMini, "Hans Wurst")
+  check(hp.clicks == "RightButtonUp" and mini and mini.clicks == "RightButtonUp",
+    "world-map and minimap dots take right-clicks only")
+  env.MenuUtil = nil
+  hp._scripts.OnClick(hp, "RightButton")
+  check(calls[#calls] == "InviteUnit(Hans Wurst)", "without the game's menu, right-click still invites")
+  env.C_PartyInfo, env.CanInspect, env.InspectUnit = nil, nil, nil
+  check(#w.errors == 0, "menu: no Lua errors (" .. tostring(w.errors[1]) .. ")")
+end
+do
+  local wd = NewWorld({ locale = "deDE" })
+  wd.fire("ADDON_LOADED", "RavenquillExpedition_Map")
+  wd.fire("PLAYER_LOGIN")
+  local menus, calls, shown = FakeMenus(wd.env), GameCalls(wd.env), {}
+  wd.M.members["Hans Wurst"] = { key = "Hans Wurst", name = "Hans Wurst", mapID = 1429, x = 0.3, y = 0.3, level = 20,
+    class = "MAGE", heard = wd.env.GetTime(), flags = {} }
+  wd.M:Refresh()
+  local pin = pinFor(wd, wd.hbdWorld, "Hans Wurst")
+  pin._scripts.OnEnter(pin)
+  local deTip = table.concat(wd.tip.lines, "|")
+  check(deTip:find("Rechtsklick: einladen, betrachten", 1, true) and not deTip:find("Klicken", 1, true),
+    "German tooltip names only the right-click menu: " .. deTip)
+  check(not deTip:find("Interagieren", 1, true), "German tooltip says nothing about Interagieren")
+  pin._scripts.OnClick(pin, "RightButton")
+  local HEAD = "Hans Wurst|Gruppeneinladung anfragen|Flüstern|"
+  check(Shape(menus[1]) == HEAD .. "Betrachten (grey)|Talente anzeigen (grey)",
+    "German client without the game's strings: exactly these entries, read like the game's German menu, no Craft Advisor needed: " .. Shape(menus[1]))
+  local craft = wd.RQ:NewModule("Craft", {})
+  pin._scripts.OnClick(pin, "RightButton")
+  check(Shape(menus[#menus]) == HEAD .. "Betrachten (grey)|Talente anzeigen (grey)",
+    "a Craft Advisor without the inspect window: Betrachten and Talente anzeigen stay greyed: " .. Shape(menus[#menus]))
+  local gear, spec = {}, {}
+  function craft:HasStoredGear(key) return gear[key] == true end
+  function craft:HasStoredSpec(key) return spec[key] == true end
+  function craft:ShowInspect(key, view) shown[#shown + 1] = key .. ":" .. tostring(view) end
+  local function MenuWith(hasGear, hasSpec)
+    gear["Hans Wurst"], spec["Hans Wurst"] = hasGear, hasSpec
+    pin._scripts.OnClick(pin, "RightButton")
+    return menus[#menus]
+  end
+  local menu = MenuWith(true, false)
+  check(Shape(menu) == HEAD .. "Betrachten|Talente anzeigen (grey)", "far away with stored gear only: Betrachten enabled, Talente anzeigen greyed: " .. Shape(menu))
+  Entry(menu, "Betrachten").fn()
+  Entry(menu, "Talente anzeigen").fn()
+  check(table.concat(shown, " ") == "Hans Wurst:gear" and #calls == 0,
+    "Betrachten opens Craft Advisor's window on the stored gear, not the game's inspect; the greyed talents do nothing: " .. table.concat(shown, " "))
+  menu = MenuWith(false, true)
+  check(Shape(menu) == HEAD .. "Betrachten (grey)|Talente anzeigen", "far away with a stored spec only: Talente anzeigen enabled, Betrachten greyed: " .. Shape(menu))
+  Entry(menu, "Talente anzeigen").fn()
+  check(shown[2] == "Hans Wurst:talents" and #shown == 2 and #calls == 0,
+    "Talente anzeigen opens Craft Advisor's window on the talents page from anywhere, never the game's inspect: " .. tostring(shown[2]))
+  check(Shape(MenuWith(true, true)) == HEAD .. "Betrachten|Talente anzeigen", "gear and spec stored: both enabled")
+  check(Shape(MenuWith(false, false)) == HEAD .. "Betrachten (grey)|Talente anzeigen (grey)", "nothing stored and nobody nearby: both greyed")
+  SeenAs(wd.env, "party2", true)
+  menu = MenuWith(false, true)
+  Entry(menu, "Betrachten").fn()
+  check(Shape(menu) == HEAD .. "Betrachten|Talente anzeigen" and calls[#calls] == "InspectUnit(party2)" and #shown == 2,
+    "nearby without stored gear: Betrachten falls back to the game's inspect on their unit: " .. Shape(menu) .. " " .. tostring(calls[#calls]))
+  check(#wd.errors == 0, "German menu with and without Craft Advisor: no Lua errors (" .. tostring(wd.errors[1]) .. ")")
 end
 M.members["Weird Map"] = { key = "Weird Map", name = "Weird Map", mapID = 999999, x = 0.3, y = 0.3, heard = w.env.GetTime(), flags = {} }
 M.members["Bad Data"] = { key = "Bad Data", name = "Bad Data", mapID = "x", x = 2, y = 0.3, heard = w.env.GetTime(), flags = {} }

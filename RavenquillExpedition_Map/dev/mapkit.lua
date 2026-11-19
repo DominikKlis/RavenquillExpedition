@@ -3,9 +3,9 @@ local Kit = dofile(DEV .. "../../RavenquillExpedition/dev/testkit.lua")
 local MapKit = { Kit = Kit, DIR = DEV .. "../" }
 local ADDON = "RavenquillExpedition_Map"
 local FILES = {}
-for i, f in ipairs({ "Locale.lua", "Map.lua", "Pins.lua", "Sync.lua" }) do FILES[i] = { MapKit.DIR .. f, ADDON } end
+for i, f in ipairs({ "Locale.lua", "Map.lua", "Menu.lua", "Pins.lua", "Sync.lua" }) do FILES[i] = { MapKit.DIR .. f, ADDON } end
 
-local NOOP = { ClearAllPoints = true, EnableMouse = true, RegisterForClicks = true, SetTexture = true, SetTextColor = true,
+local NOOP = { ClearAllPoints = true, EnableMouse = true, SetTexture = true, SetTextColor = true,
   SetFrameStrata = true, UnregisterEvent = true, SetHeight = true, SetWidth = true, SetJustifyH = true, SetColorTexture = true }
 
 local function FrameFactory(c)
@@ -13,6 +13,7 @@ local function FrameFactory(c)
     Hide = function(s) s.shown = false end, Show = function(s) s.shown = true end, IsShown = function(s) return s.shown end,
     SetAlpha = function(s, a) s.alpha = a end, SetScript = function(s, k, fn) s._scripts[k] = fn end,
     RegisterEvent = function(s, e) s._events[e] = true end,
+    RegisterForClicks = function(s, ...) s.clicks = table.concat({ ... }, ",") end,
     SetSize = function(s, w, h) s.w, s.h = w, h end,
     SetText = function(s, t) s.text = t end, GetText = function(s) return s.text end,
     IsVisible = function(s) return s.shown end,
