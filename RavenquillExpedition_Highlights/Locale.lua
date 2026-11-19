@@ -5,7 +5,6 @@ local L = {
   FMT_TIME = "%m/%d %H:%M",
   FMT_DAY = "%Y-%m-%d",
   EMPTY = "Nothing logged yet – nothing counted as a highlight since you installed it.\n\nWhat counts: a dungeon run with bosses you never killed before, raid bosses, loot of quality %s or better, gear of quality %s or better at least %d item levels above the old piece, group / elite / dungeon quests, level milestones (change it under /rq hl).\nGuildies running Ravenquill show up here too.\n\nTo see how it looks: /rq hl > Add test entries.",
-  NO_GUILD = "(no guild)",
 
   GEAR = "%s equipped %s (+%d item level)",
   GEAR_EPIC = "%s equipped %s (epic upgrade)",
@@ -61,7 +60,6 @@ local deDE = {
   FMT_DAY = "%d.%m.%Y",
   TITLE = "Gilden-Highlights",
   EMPTY = "Noch nichts protokolliert – seit der Installation zählte noch nichts als Highlight.\n\nWas zählt: ein Dungeon-Lauf mit Bossen, die du noch nie besiegt hast, Schlachtzugsbosse, Beute ab Qualität %s, Ausrüstung ab Qualität %s mindestens %d Gegenstandsstufen über dem alten Teil, Gruppen-/Elite-/Dungeon-Quests, Stufen-Meilensteine (änderbar unter /rq hl).\nGildenmitglieder mit Ravenquill erscheinen hier auch.\n\nZum Ansehen: /rq hl > Testeinträge hinzufügen.",
-  NO_GUILD = "(keine Gilde)",
   GEAR = "%s hat %s angelegt (+%d Gegenstandsstufen)",
   GEAR_EPIC = "%s hat %s angelegt (epische Verbesserung)",
   GEAR_FILL = "%s hat %s angelegt",

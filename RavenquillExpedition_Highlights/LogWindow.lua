@@ -168,9 +168,8 @@ local function KeepReadingPosition(m, offset, newLines)
 end
 
 local function FooterText(self, nHL, nAct)
-  local gkey = self:GuildKey()
   return L.FOOTER:format(nHL, self:Settings().share and L.ON or L.OFF)
-    .. (nAct > 0 and ("  ·  " .. L.FOOTER_ACT:format(nAct)) or "") .. "  ·  " .. (gkey ~= "-" and gkey or L.NO_GUILD)
+    .. (nAct > 0 and ("  ·  " .. L.FOOTER_ACT:format(nAct)) or "")
 end
 
 local function RenderLog(self, view, list, nHL, nAct)

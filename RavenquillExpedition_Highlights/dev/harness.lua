@@ -643,15 +643,11 @@ do
   G.guild = nil
   H:Refresh()
   local cachedLast, cachedFooter = lines[#lines], footer._text
-  local inGuild = env.IsInGuild
-  env.IsInGuild = function() return false end
+  G.guild = "Die Gilde"
   H:Refresh()
-  local noGuildFooter = footer._text
-  env.IsInGuild, G.guild = inGuild, "Die Gilde"
-  H:Refresh()
-  check(cachedLast == arrived and cachedFooter:find("  ·  Die Gilde@Forever$") and noGuildFooter:find("  ·  (keine Gilde)", 1, true),
-    "GetGuildInfo empty for a moment: the footer names the cached guild whose log it shows; out of a guild '(keine Gilde)' ("
-    .. cachedFooter .. " / " .. noGuildFooter .. ")")
+  check(cachedLast == arrived, "GetGuildInfo empty for a moment: the window keeps showing the cached guild's log")
+  check(not cachedFooter:find("Forever", 1, true) and not cachedFooter:find("Gilde@", 1, true),
+    "the footer leaves out the guild and realm (" .. cachedFooter .. ")")
 end
 
 do
