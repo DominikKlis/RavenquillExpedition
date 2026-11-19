@@ -241,18 +241,6 @@ function ns.IconEntry(parent, onClick)
   return b
 end
 
-function ns.SmallIconButton(parent, size)
-  local b = CreateFrame("Button", nil, parent)
-  b:SetSize(size, size)
-  b.icon = b:CreateTexture(nil, "ARTWORK")
-  b.icon:SetAllPoints()
-  b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-  local hover = b:CreateTexture(nil, "HIGHLIGHT")
-  hover:SetAllPoints()
-  hover:SetColorTexture(1, 1, 1, 0.25)
-  return b
-end
-
 local copy
 local function CopyBox()
   if copy then return copy end

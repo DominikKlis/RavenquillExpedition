@@ -401,6 +401,7 @@ ns.Locales.enUS = {
   OPT_H_RESET = "Reset",
   OV_STATUS = "%d guildmates recorded · sharing %s", OV_ON = "on", OV_OFF = "off",
   OPEN_LABEL = "Advisor",
+  OPEN_HINT = "Your guildmates' gear and which of your crafts and enchants would be upgrades for them.",
   OPT_SYNC_RETRY = "Retry sync",
   OPT_SYNC_RETRY_TIP = "Only active while sync sends slowly because our messages did not come back: back to the normal pace.",
   OPT_SYNC_STATUS = "Sync status",

@@ -526,15 +526,15 @@ GS:ShowModulePage("Highlights")
 local hlPage = ov.optView.pages.Highlights
 check(GS.optionsModule == "Highlights" and not GS.moduleSettings and hlPage and hlPage:IsShown() and not ov.optView.scroll:IsShown()
   and hlPage.footer:GetText():find("Highlights", 1, true), "the Highlights tab opens on its log, not on its settings")
-local gear, openWindow = ov.optView.gear, ov.optView.openWindow
-check(rawget(gear, "_shown") and not rawget(openWindow, "_shown") and gear.name == nil,
-  "a module page shows only a small gear at the top right, no labelled entries")
-rawget(gear, "_scripts").OnEnter(gear)
-check(env.GameTooltip:GetText() == "Einstellungen", "hovering the gear names it: 'Einstellungen'")
+local gear = ov.optView.gear
+check(rawget(gear, "_shown") and gear:GetText() == "Einstellungen" and gear:IsEnabled() and hlPage.open == nil,
+  "a module page shows a labelled settings button and its own page, no open button")
 rawget(gear, "_scripts").OnClick(gear)
-check(GS.moduleSettings and ov.optView.panels.Highlights:IsShown() and not hlPage:IsShown(), "the gear shows the settings")
+check(GS.moduleSettings and ov.optView.panels.Highlights:IsShown() and not hlPage:IsShown(), "the settings button shows the settings")
+check(gear:GetText() == "« Zurück" and gear:IsEnabled(), "in the settings the same button reads '« Zurück'")
 rawget(gear, "_scripts").OnClick(gear)
-check(GS.moduleSettings and ov.optView.panels.Highlights:IsShown(), "a second click on the gear does not toggle back")
+check(not GS.moduleSettings and hlPage:IsShown() and gear:GetText() == "Einstellungen", "'« Zurück' goes back to the log")
+GS:ShowModuleOptions("Highlights")
 local hlSideTab
 for _, tab in ipairs(ov.tabs) do if tab.page == "Highlights" then hlSideTab = tab end end
 rawget(hlSideTab, "_scripts").OnClick(hlSideTab)
@@ -572,13 +572,21 @@ rows = GS:OverviewRows()
 check(rows[2].title == "Karte" and rows[2].state == "loaded" and rows[2].status == "Auf der Karte: 2 · Teilen an" and rows[2].open and rows[2].options,
   "Map row uses the module's title, status, Open and options")
 check(#rows == 4, "a registered Map is not listed twice")
+map.openLabel = "Karte"
 GS:ShowModulePage("Map")
-check(GS.moduleSettings and rawget(ov.optView.openWindow, "_shown") and not rawget(ov.optView.gear, "_shown"),
-  "a module without a page opens on its settings; a small icon button opens its window, no gear")
-rawget(ov.optView.openWindow, "_scripts").OnEnter(ov.optView.openWindow)
-check(env.GameTooltip:GetText() == "Öffnen", "hovering the icon button says what it opens")
-rawget(ov.optView.openWindow, "_scripts").OnClick(ov.optView.openWindow)
-check(opened and GS.moduleSettings, "the icon button calls mod:Open() and leaves the settings shown")
+local mapOpen = ov.optView.pages.Map and ov.optView.pages.Map.open
+check(not GS.moduleSettings and ov.optView.pages.Map:IsShown() and not ov.optView.scroll:IsShown() and mapOpen,
+  "a module with a window but no page of its own opens on a page with its open button")
+check(mapOpen:GetText() == "Karte öffnen", "the open button names the module's window (" .. tostring(mapOpen:GetText()) .. ")")
+check(rawget(ov.optView.gear, "_shown") and ov.optView.gear:GetText() == "Einstellungen",
+  "its settings sit behind the settings button at the top right")
+rawget(mapOpen, "_scripts").OnClick(mapOpen)
+check(opened and not GS.moduleSettings, "the open button calls mod:Open() and leaves the page shown")
+rawget(ov.optView.gear, "_scripts").OnClick(ov.optView.gear)
+check(GS.moduleSettings and ov.optView.panels.Map:IsShown() and not ov.optView.pages.Map:IsShown(), "the settings button shows its settings")
+rawget(ov.optView.gear, "_scripts").OnClick(ov.optView.gear)
+check(not GS.moduleSettings and ov.optView.pages.Map:IsShown(), "'« Zurück' goes back to the page with the open button")
+map.openLabel = nil
 GS:ShowHome()
 env.SlashCmdList.RAVENQUILL("map")
 check(GS.optionsModule == "Map" and ov.optView.panels.Map, "/rq map opens the map's options")

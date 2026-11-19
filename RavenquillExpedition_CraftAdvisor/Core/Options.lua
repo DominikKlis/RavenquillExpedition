@@ -132,6 +132,7 @@ function GCA:OverviewDiagnostics()
 end
 
 GCA.openLabel = L.OPEN_LABEL
+GCA.openHint = L.OPEN_HINT
 function GCA:Open() self:OpenWindow() end
 function GCA:OverviewStatus()
   if not self.db then return end

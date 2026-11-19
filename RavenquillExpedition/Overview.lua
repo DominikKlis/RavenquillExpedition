@@ -23,6 +23,12 @@ local function TitleAndIcon(mod, k)
   return mod.title or k.title or mod.name, mod.icon or k.icon or "Interface\\Icons\\INV_Misc_QuestionMark"
 end
 
+local function HasModulePage(mod) return type(mod.BuildPage) == "function" or type(mod.Open) == "function" end
+
+local function KnownAddon(name)
+  for _, k in ipairs(KNOWN_ADDONS) do if k.module == name then return k end end
+end
+
 local function ModuleRow(mod, k)
   local title, icon = TitleAndIcon(mod, k)
   local row = { name = mod.name, title = title, icon = icon, slash = "/rq " .. ns.SlashWord(mod), state = "loaded" }
@@ -31,7 +37,7 @@ local function ModuleRow(mod, k)
   if mod.Open then row.open = function() GS:Call(mod.Open, mod) end end
   row.openLabel = mod.openLabel
   if ns.ModuleOptions(mod) then row.options = true end
-  if type(mod.BuildPage) == "function" then row.page = true end
+  if HasModulePage(mod) then row.page = true end
   return row
 end
 
@@ -215,6 +221,18 @@ local function BuildHome(f)
   return home
 end
 
+local SETTINGS_BUTTON_WIDTH = 150
+
+local function IconButton(parent, width, height)
+  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+  b:SetSize(width, height)
+  b.icon = b:CreateTexture(nil, "ARTWORK")
+  b.icon:SetSize(height - 8, height - 8)
+  b.icon:SetPoint("LEFT", 6, 0)
+  b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+  return b
+end
+
 local function BuildOptionsView(f)
   local opt = CreateFrame("Frame", nil, f)
   opt:SetAllPoints()
@@ -226,15 +244,12 @@ local function BuildOptionsView(f)
   opt.title:SetPoint("TOPLEFT", 20, -18)
   opt.status = Text(inset, "GameFontHighlightSmall")
   opt.status:SetPoint("TOPLEFT", opt.title, "BOTTOMLEFT", 0, -4)
-  opt.status:SetPoint("RIGHT", inset, "RIGHT", -60, 0)
+  opt.status:SetPoint("RIGHT", inset, "RIGHT", -(SETTINGS_BUTTON_WIDTH + 30), 0)
   opt.status:SetTextColor(0.8, 0.8, 0.8)
-  opt.gear = ns.SmallIconButton(inset, 26)
-  opt.gear:SetPoint("TOPRIGHT", -22, -16)
+  opt.gear = IconButton(inset, SETTINGS_BUTTON_WIDTH, 26)
+  opt.gear:SetPoint("TOPRIGHT", -20, -14)
   opt.gear.icon:SetTexture(GEAR_ICON)
-  ns.Tip(opt.gear, L.SETTINGS)
-  opt.openWindow = ns.SmallIconButton(inset, 26)
-  opt.openWindow:SetPoint("TOPRIGHT", -22, -16)
-  ns.Tip(opt.openWindow, function() return opt.openWindow.label or "" end)
+  opt.gear:SetText(L.SETTINGS)
   local line = ns.Rule(inset, opt.title, -30)
   opt.body = CreateFrame("Frame", nil, inset)
   opt.body:SetPoint("TOPLEFT", line, "BOTTOMLEFT", -4, -8)
@@ -298,22 +313,17 @@ end
 
 local function RenderGear(gear, d, settings)
   gear:SetShown((d.page and d.options) and true or false)
-  gear:SetAlpha(settings and 0.5 or 1)
-  gear:SetScript("OnClick", function() if not GS.moduleSettings then GS:ShowModuleOptions(d.name) end end)
+  gear:SetText(settings and L.BACK or L.SETTINGS)
+  gear.icon:SetShown(not settings)
+  gear:SetScript("OnClick", function()
+    if GS.moduleSettings then GS:ShowModulePage(d.name) else GS:ShowModuleOptions(d.name) end
+  end)
 end
 
 local function RenderModuleHeader(opt, d, settings)
   opt.title:SetText(d.title)
   opt.status:SetText(d.status)
   RenderGear(opt.gear, d, settings)
-  local openWindow = opt.openWindow
-  local windowOnly = not d.page and d.open
-  openWindow:SetShown(windowOnly and true or false)
-  if windowOnly then
-    openWindow.icon:SetTexture(d.icon)
-    openWindow.label = d.openLabel or L.OPEN
-    openWindow:SetScript("OnClick", d.open)
-  end
 end
 
 local function OptionsPanel(opt, name, mod)
@@ -325,12 +335,28 @@ local function OptionsPanel(opt, name, mod)
   return p
 end
 
+local function BuildOpenPage(mod, page)
+  local b = IconButton(page, SETTINGS_BUTTON_WIDTH + 30, 26)
+  b:SetPoint("TOPLEFT", 16, -8)
+  b.icon:SetTexture(select(2, TitleAndIcon(mod, KnownAddon(mod.name))))
+  b:SetText(mod.openLabel and L.OPEN_WINDOW:format(mod.openLabel) or L.OPEN)
+  b:SetScript("OnClick", function() GS:Call(mod.Open, mod) end)
+  page.open = b
+  local hint = Text(page, "GameFontHighlightSmall")
+  hint:SetPoint("TOPLEFT", b, "BOTTOMLEFT", 0, -10)
+  hint:SetPoint("RIGHT", page, "RIGHT", -16, 0)
+  hint:SetJustifyH("LEFT")
+  hint:SetTextColor(0.8, 0.8, 0.8)
+  hint:SetText(mod.openHint or "")
+  page.hint = hint
+end
+
 local function ModulePage(opt, name, mod)
   local page = opt.pages[name]
   if not page then
     page = CreateFrame("Frame", nil, opt.body)
     page:SetAllPoints()
-    GS:Call(mod.BuildPage, mod, page)
+    GS:Call(type(mod.BuildPage) == "function" and mod.BuildPage or BuildOpenPage, mod, page)
     opt.pages[name] = page
   end
   return page
@@ -353,7 +379,7 @@ local function ShowModuleView(name, settings)
   if not win then win = CreateWindow() end
   local mod = GS.modules[name]
   if not mod then return GS:ShowHome() end
-  settings = settings or type(mod.BuildPage) ~= "function"
+  settings = settings or not HasModulePage(mod)
   if not win:IsShown() then win:Show() end
   win.home:Hide()
   local opt = win.optView

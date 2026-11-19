@@ -381,6 +381,7 @@ ns.Locales.deDE = {
   OPT_H_RESET = "Zurücksetzen",
   OV_STATUS = "%d Gildenmitglieder erfasst · Teilen %s", OV_ON = "an", OV_OFF = "aus",
   OPEN_LABEL = "Berater",
+  OPEN_HINT = "Die Ausrüstung deiner Gildenmitglieder und welche deiner Herstellungen und Verzauberungen für sie eine Verbesserung wären.",
   OPT_SYNC_RETRY = "Sync erneut versuchen",
   OPT_SYNC_RETRY_TIP = "Nur aktiv, wenn der Sync langsam sendet, weil unsere Nachrichten nicht zurückkamen: zurück zum normalen Tempo.",
   OPT_SYNC_STATUS = "Sync-Status",
