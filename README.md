@@ -23,5 +23,9 @@ WowUp then updates the suite like any other addon.
 - `RavenquillExpedition/dev/testkit.lua`: many simulated clients with the real core on one virtual guild channel.
 - `scripts/run-tests.sh` runs every offline test harness, luacheck and the architecture scorecard (`scripts/check-architecture.lua`).
 - `scripts/link-addons.ps1` links a clone into your AddOns folder.
+- `scripts/switch-addons.ps1 dev|curseforge` switches the game between this clone and the CurseForge install: `dev`
+  parks the CurseForge folders in `Interface\RavenquillExpedition-CurseForge` and links the clone in, `curseforge`
+  removes the links and moves them back. Close the game first, and pause CurseForge updates for the suite while `dev`
+  is active, or the app writes through the links into the clone. `WOW_DIR` or `-AddOns` overrides the game folder.
 - `scripts/package.ps1` builds the release zip (`dist/`), stamping one suite version into every `.toc`.
 - `.github/workflows/` runs the tests on every push and pull request, and releases on version tags.

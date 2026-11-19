@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 set -u
 cd "$(dirname "$0")/.."
-WOW="${WOW_DIR:-../..}"
+default_wow() {
+  if [ "$(basename "$(pwd -P)")" != "AddOns" ] && command -v cygpath >/dev/null 2>&1; then
+    echo "$(cygpath -u -F 42)/World of Warcraft/_forever_"
+  else
+    echo "../.."
+  fi
+}
+WOW="${WOW_DIR:-$(default_wow)}"
 sv="$(ls -t "$WOW"/WTF/Account/*/SavedVariables/RavenquillExpedition_Dev.lua 2>/dev/null | head -n 1)"
 if [ -z "$sv" ]; then
   echo "No RavenquillExpedition_Dev SavedVariables under $WOW/WTF/Account/*/SavedVariables (set WOW_DIR?)."

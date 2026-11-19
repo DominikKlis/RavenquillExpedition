@@ -1,6 +1,7 @@
 # Ravenquill Expedition: notes for Claude
 
-A WoW Forever (interface 16001) addon suite; the repository may be the user's `Interface\AddOns` folder itself.
+A WoW Forever (interface 16001) addon suite. The clone lives outside the game folder; the game loads either the
+CurseForge install or this clone, chosen with `scripts/switch-addons.ps1 dev|curseforge` (game closed).
 `README.md` lists the addons and the repo layout. These notes are the rules for this repo.
 
 - **Never run `git clean -x`/`-X`** and never delete untracked folders in the repo root: they are the user's
