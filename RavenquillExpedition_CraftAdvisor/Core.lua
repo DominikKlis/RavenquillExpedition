@@ -110,6 +110,7 @@ GCA.ItemIDFrom = ItemIDFrom
 
 function GCA:RefreshUI()
   if self.UI and self.UI.Refresh then self.UI:Refresh() end
+  if self.UI and self.UI.RefreshInspect then self.UI:RefreshInspect() end
 end
 
 function GCA:Invalidate()

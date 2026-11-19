@@ -37,6 +37,7 @@ read_globals = {
   "OpenWorldMap", "PanelTemplates_DeselectTab", "PanelTemplates_SelectTab", "PanelTemplates_TabResize", "ReloadUI", "CreateVector2D", "UnitPosition", "GetFactionInfoByID",
   "ProfessionsFrame", "RAID_CLASS_COLORS", "RANGEDSLOT", "SECONDARYHANDSLOT", "SHOULDERSLOT", "SPEED",
   "ScrollUtil", "SendChatMessage", "SetItemRef", "ShoppingTooltip1", "ShoppingTooltip2", "ShowUIPanel",
+  "SHIRTSLOT", "TABARDSLOT",
   "TRINKET0SLOT", "TRINKET1SLOT", "ToggleWorldMap", "UIParent", "UISpecialFrames", "UNKNOWNOBJECT", "UiMapPoint",
   "UnitClass", "UnitFactionGroup", "UnitGUID", "UnitIsDeadOrGhost", "UnitIsInMyGuild", "UnitIsPlayer",
   "UnitIsUnit", "UnitLevel", "UnitName", "UnitNameUnmodified", "UnitOnTaxi", "UnitTokenFromGUID", "WAISTSLOT",

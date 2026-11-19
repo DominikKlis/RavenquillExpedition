@@ -546,7 +546,7 @@ do
     and UIx.modeToggle._override == "Ansicht: Charakterbogen" and UIx.syncDot.text._text == "Gilden-Sync · 3 erfasst" and UIx.memberSearch.placeholder._text == "Mitglied suchen"
     and menuTexts(menuOf(UIx.modeToggle)) == "Charakterbogen|Liste",
     "German: 'Online' header, member row, 'Ansicht: Charakterbogen' (radios Charakterbogen|Liste), 'Gilden-Sync · 3 erfasst', 'Mitglied suchen'")
-  check(UIx.MemberRows(list)[1].group == "online" and ns.L.OPT_INSPECT_NOW == "Ziel jetzt betrachten", "German: groups, 'Ziel jetzt betrachten'")
+  check(UIx.MemberRows(list)[1].group == "online" and ns.L.OPT_SHARE_GEAR == "Meine Ausrüstung mit der Gilde teilen", "German: groups and the sharing label")
   for _, sz in ipairs({ { 840, 560 }, { 980, 640 } }) do
     UIx.frame:SetSize(sz[1], sz[2]); UIx:Layout()
     layoutChecks(UIx, UIx.frame, "German " .. sz[1] .. "x" .. sz[2])

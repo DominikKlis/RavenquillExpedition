@@ -87,6 +87,7 @@ UI.TexOK = TexOK
 UI.SKIN = {
   rowHover = { atlas = "Professions_Recipe_Hover", alpha = 0.5, size = { 309, 21 }, file = "rowHL", blend = "ADD", color = { 1, 1, 1, 0.07 } },
   rowSelected = { atlas = "Professions_Recipe_Active", size = { 267, 19 }, file = "rowHL", blend = "ADD", color = { 1, 0.82, 0, 0.14 } },
+  slotHover = { file = "iconHL", blend = "ADD", color = { 1, 1, 1, 0.15 } },
   listBg = { atlas = "Professions-background-summarylist", color = { 0, 0, 0, 0.45 } },
   separator = { color = { 1, 1, 1, 0.08 } },
   skillBar = { file = "skillBar", tint = { 0.2, 0.32, 0.9, 1 }, color = { 0.2, 0.32, 0.9, 1 } },

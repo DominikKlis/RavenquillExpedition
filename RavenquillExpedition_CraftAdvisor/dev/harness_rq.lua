@@ -118,17 +118,16 @@ for i, o in ipairs(opts or {}) do
   end
 end
 check(#bad == 0, "every entry has a known type and its fields (" .. table.concat(bad, "; ") .. ")")
-check(counts.header == 4 and counts.toggle == 5 and counts.range == 1 and counts.button == 5 and counts.text == nil,
-  string.format("4 headers, 5 toggles, 1 range, 5 buttons, no text boxes (%s/%s/%s/%s/%s)", tostring(counts.header), tostring(counts.toggle),
+check(counts.header == 1 and counts.toggle == 1 and counts.range == nil and counts.button == nil and counts.text == nil,
+  string.format("only the sharing header and toggle (%s/%s/%s/%s/%s)", tostring(counts.header), tostring(counts.toggle),
   tostring(counts.range), tostring(counts.button), tostring(counts.text)))
 local missingOpt = {}
 for k in pairs(ns.missingL) do if k:match("^OPT_") then missingOpt[#missingOpt + 1] = k end end
 check(#missingOpt == 0, "no missing OPT_ locale key (" .. table.concat(missingOpt, ", ") .. ")")
-check(opts[1].label == "Teilen" and opts[2].label == "Meine Ausrüstung mit der Gilde teilen" and byLabel["Ziel jetzt betrachten"]
-  and byLabel["Gruppe jetzt einlesen"] and byLabel["Sync erneut versuchen"] and byLabel["Flüstertext bearbeiten…"]
-  and byLabel["Gespeicherte Ausrüstung vergessen"] and not byLabel["Ravenquill-Minimap-Knopf neu platzieren"]
+check(opts[1].label == "Teilen" and opts[2].label == "Meine Ausrüstung mit der Gilde teilen"
+  and not byLabel["Gespeicherte Ausrüstung vergessen"] and not byLabel["Ravenquill-Minimap-Knopf neu platzieren"]
   and not byLabel["Fenster öffnen"] and GCA.openLabel == "Berater",
-  "German labels (deDE client): sharing first, no window or minimap duplicates, the card opens the 'Berater'")
+  "German labels (deDE client): only sharing, no reset (it lives in the dev tools), the card opens the 'Berater'")
 for _, o in ipairs(opts) do if o.disabled then local ok = pcall(o.disabled); check(ok, "disabled() runs: " .. o.label) end end
 
 io.write("== toggles round-trip on db.settings\n")
@@ -150,27 +149,22 @@ local function toggleFor(key, label)
   o.set(before)
   return ok and (s[key] and true or false) == before
 end
-check(toggleFor("showUnlearned", ns.L.FILTER_UNLEARNED) and toggleFor("lookahead", ns.L.FILTER_LOOKAHEAD)
-  and toggleFor("autoInspect", ns.L.FILTER_AUTOINSPECT) and toggleFor("sync", ns.L.OPT_SHARE_GEAR)
-  and toggleFor("inspectTalents", ns.L.OPT_INSPECT_TALENTS), "toggles write the right db.settings keys")
-local forget = byLabel[ns.L.OPT_RESET]
+check(toggleFor("sync", ns.L.OPT_SHARE_GEAR), "the sharing toggle writes db.settings.sync")
 GCA.db.members["Probe Person"] = { items = {} }
-check(forget.confirm == RQ.OverviewL.CONFIRM and GCA.db.members["Probe Person"] ~= nil,
-  "'forget stored gear' asks for a second click before it wipes anything")
-GCA.db.members["Probe Person"] = nil
+GCA.db.members[GCA.playerKey] = nil
+GCA:ForgetStoredGear()
+check(GCA.db.members["Probe Person"] == nil and GCA.db.members[GCA.playerKey] ~= nil,
+  "forgetting stored gear wipes every guildmate and reads your own gear again")
 
-io.write("== range = leveling bonus\n")
-local range
-for _, o in ipairs(opts) do if o.type == "range" then range = o end end
+io.write("== leveling bonus (window filter menu)\n")
 local inval, realInval = 0, GCA.InvalidateScores
 GCA.InvalidateScores = function(self, ...) inval = inval + 1; return realInval(self, ...) end
-range.set(25)
-check(math.abs(s.survival - 0.25) < 1e-9 and range.get() == 25 and inval >= 1, "set(25) -> survival 0.25, get 25, scores invalidated")
-range.set(150)
-check(math.abs(s.survival - 1) < 1e-9 and range.get() == 100, "set clamps to 100")
-range.set(50)
+GCA:SetSurvival(25)
+check(math.abs(s.survival - 0.25) < 1e-9 and inval >= 1, "SetSurvival(25) -> survival 0.25, scores invalidated")
+GCA:SetSurvival(150)
+check(math.abs(s.survival - 1) < 1e-9, "SetSurvival clamps to 100")
+GCA:SetSurvival(50)
 GCA.InvalidateScores = realInval
-check(range.min == 0 and range.max == 100 and range.step == 5 and string.format(range.format, range.get()) == "50 %", "0-100 step 5, shows \"50 %\"")
 
 io.write("== text boxes\n")
 local wrapper = print

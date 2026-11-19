@@ -3,14 +3,14 @@ local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 local P = UI.P
 local Label = P.Label
-local C, SUB_TINT, SetAtlasSafe, TexOK = P.C, P.SUB_TINT, P.SetAtlasSafe, P.TexOK
+local C, SUB_TINT, TexOK = P.C, P.SUB_TINT, P.TexOK
 local SingleLine, SetTip, ColoredItemName = P.SingleLine, P.SetTip, P.ColoredItemName
 local RowGainText, ShortSlotName = P.RowGainText, P.ShortSlotName
 local TagLine, ItemIcon, TextWidth, NativeFont = P.TagLine, P.ItemIcon, P.TextWidth, P.NativeFont
 local GAIN_RGB, GainFont, LevelTag, CardGain, Tag = P.GAIN_RGB, P.GainFont, P.LevelTag, P.CardGain, P.Tag
 local ShowSuggestionTooltip, HideTip, RightState = P.ShowSuggestionTooltip, P.HideTip, P.RightState
 local CreateOfferButton, CreateCraftedBox = P.CreateOfferButton, P.CreateCraftedBox
-local AddQualityIcon, SetIconQuality, CraftTags = P.AddQualityIcon, P.SetIconQuality, P.CraftTags
+local AddQualityIcon, SetIconQuality, CraftTags, AddGearSlotArt = P.AddQualityIcon, P.SetIconQuality, P.CraftTags, P.AddGearSlotArt
 local WornHyperlink, OnItemClick = P.WornHyperlink, P.OnItemClick
 local WornTip, FillWornIcon, SheetCountText = P.WornTip, P.FillWornIcon, P.SheetCountText
 
@@ -44,15 +44,7 @@ local function CreateSheetSlot(sheet, slot)
   b.sel:SetPoint("BOTTOMRIGHT", 3, -3)
   b.sel:SetColorTexture(1, 0.82, 0, 0.9)
   b.sel:Hide()
-  b.bg = b:CreateTexture(nil, "BACKGROUND", nil, -7)
-  if SetAtlasSafe(b.bg, "UI-Character-Info-GearSlot") then
-    b.bg:SetSize(math.floor(SHEET_S * 55 / 37 + 0.5), math.floor(SHEET_S * 55 / 37 + 0.5))
-    b.bg:SetPoint("CENTER", b, "CENTER", 0, 0)
-    b.gearArt = true
-  else
-    b.bg:SetAllPoints()
-    b.bg:SetColorTexture(0.06, 0.05, 0.04, 1)
-  end
+  AddGearSlotArt(b, SHEET_S)
   AddQualityIcon(b, SHEET_S - 4, "CENTER", b, "CENTER", 0, 0, true)
   b.hl = b:CreateTexture(nil, "HIGHLIGHT")
   b.hl:SetAllPoints()

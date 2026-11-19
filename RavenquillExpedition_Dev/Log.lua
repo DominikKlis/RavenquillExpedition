@@ -140,6 +140,9 @@ mod.options = {
   { type = "toggle", label = "Craft Advisor: verbose chat messages",
     get = function() local c = RQ:GetModule("Craft"); return c and c.verbose and true or false end,
     set = function(v) local c = RQ:GetModule("Craft"); if c then c.verbose = v and true or false end end },
+  { type = "button", label = "Craft Advisor: forget stored gear", confirm = RQ.OverviewL.CONFIRM,
+    tooltip = "Deletes the stored gear of every guildmate (yours is read again right away). It comes back by inspecting or via guild sync.",
+    func = function() local c = RQ:GetModule("Craft"); if c then c:ForgetStoredGear() end end },
   { type = "button", label = "Run all tests (then /reload to save)", func = function() if Dev.RunAll then Dev:RunAll() end end },
   { type = "text", label = "Last 50 entries", lines = function()
     local out, all = {}, Dev.Entries()

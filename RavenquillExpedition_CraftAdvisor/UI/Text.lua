@@ -14,6 +14,7 @@ local SLOT_INFO = {
   [14] = { "Trinket1Slot", TRINKET1SLOT or "Trinket" }, [15] = { "BackSlot", BACKSLOT or "Back" },
   [16] = { "MainHandSlot", MAINHANDSLOT or "Main Hand" }, [17] = { "SecondaryHandSlot", SECONDARYHANDSLOT or "Off Hand" },
   [18] = { "RangedSlot", RANGEDSLOT or "Ranged" },
+  [4] = { "ShirtSlot", SHIRTSLOT or "Shirt" }, [19] = { "TabardSlot", TABARDSLOT or "Tabard" },
 }
 local function SlotName(slot) return SLOT_INFO[slot] and SLOT_INFO[slot][2] or ("Slot " .. slot) end
 UI.SlotName = SlotName
@@ -106,15 +107,18 @@ local SPEC_WHY = { ["no-class"] = "SPEC_WHY_CLASS", ["not-read"] = "SPEC_WHY_NOT
 local function SpecWhyText(why) return L[SPEC_WHY[why] or "SPEC_WHY_UNREADABLE"] end
 UI.SpecWhyText = SpecWhyText
 
+local SPEC_HOW = { manual = "SPEC_HOW_MANUAL", talents = "SPEC_HOW_TALENTS", synced = "SPEC_HOW_SYNCED",
+  own = "SPEC_HOW_OWN", inspected = "SPEC_HOW_INSPECTED" }
+local function SpecHowWords(how) return SPEC_HOW[how] and L[SPEC_HOW[how]] or tostring(how) end
+local function AssumedTag() return " " .. C.future .. L.SPEC_ASSUMED .. "|r" end
+
 local function SpecHowText(d)
   if not d.spec then
     if d.specHow == "unknown" then return C.warn .. L.SPEC_UNKNOWN_PICK .. "|r" end
     return C.warn .. L.SPEC_UNKNOWN_PICK .. "|r " .. C.dim .. "(" .. SpecWhyText(d.specHow) .. ")|r"
   end
-  local how = ({ manual = L.SPEC_HOW_MANUAL, talents = L.SPEC_HOW_TALENTS, synced = L.SPEC_HOW_SYNCED,
-    own = L.SPEC_HOW_OWN, inspected = L.SPEC_HOW_INSPECTED })[d.specHow] or d.specHow
-  local t = GCA:SpecName(d.class, d.spec) .. " " .. C.dim .. "(" .. tostring(how) .. ")|r"
-  if d.specAssumed then t = t .. " " .. C.future .. L.SPEC_ASSUMED .. "|r" end
+  local t = GCA:SpecName(d.class, d.spec) .. " " .. C.dim .. "(" .. SpecHowWords(d.specHow) .. ")|r"
+  if d.specAssumed then t = t .. AssumedTag() end
   return t
 end
 
@@ -214,5 +218,7 @@ P.SlotName = SlotName
 P.SlotTexture = SlotTexture
 P.SourceText = SourceText
 P.SpecHowText = SpecHowText
+P.SpecHowWords = SpecHowWords
+P.AssumedTag = AssumedTag
 P.StatLabel = StatLabel
 P.TagLine = TagLine

@@ -2,7 +2,7 @@ local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "scorekit.lua")
 local section, GCA, check, near, Scoring, CLASSES, W = H.section, H.GCA, H.check, H.near, H.Scoring, H.CLASSES, H.W
 local OURSETS, itemDB, recipeFor, known, addItem = H.OURSETS, H.itemDB, H.recipeFor, H.known, H.addItem
 local CRAFT, link, RQ, ns, Files, env, advance = H.CRAFT, H.link, H.RQ, H.ns, H.Files, H.env, H.advance
-local requests, fire, talent, reloadDB = H.requests, H.fire, H.talent, H.reloadDB
+local requests, fire, talent = H.requests, H.fire, H.talent
 
 section("pickSet at levels 9 / 25 / 26 / 58 / 60 and bracket gaps (F8.9)")
 do
@@ -420,27 +420,13 @@ do
   talent.inspect = nil
   tree, why = GCA:ReadInspectTalents("ROGUE", 30)
   check(tree == nil, "no inspect config -> nothing, no error (" .. tostring(why) .. ")")
-  check(GCA.db.settings.inspectTalents == false, "inspected talents default off")
-  local db = env.RavenquillExpeditionCraftDB
-  db.settings.inspectTalents, db.inspectTalentsOffV1, db.v = true, nil, nil
-  reloadDB()
-  check(db.settings.inspectTalents == false and db.inspectTalentsOffV1, "0.3.0 dev SavedVariables with true -> reset to off once")
-  db.settings.inspectTalents = true
-  reloadDB()
-  check(db.settings.inspectTalents == true, "turned on by hand afterwards -> stays on")
-  GCA.db.settings.inspectTalents = true
+  GCA.db.settings.inspectTalents = false
   talent.inspect = { tree = 889, nodes = { { 5020, 20 } } }
   GCA:TryInspectTalents("Fera Paw", "DRUID", 40)
   advance(2)
   local s, how, assumed = GCA:MemberSpec("Fera Paw", "DRUID", {})
-  check(s == "FERAL_CAT" and how == "inspected" and assumed, "inspected Feral -> Cat (assumed)")
-  GCA.db.settings.inspectTalents = false
-  talent.inspect = { tree = 889, nodes = { { 1020, 20 } } }
-  GCA:TryInspectTalents("Bala Paw", "DRUID", 40)
-  advance(2)
-  check(GCA:MemberSpec("Bala Paw", "DRUID", {}) == nil, "/gca spec inspect off -> not used")
-  GCA.db.settings.inspectTalents = true
-  GCA.db.settings.inspectTalents = true
+  check(s == "FERAL_CAT" and how == "inspected" and assumed,
+    "inspected Feral -> Cat (assumed), even with the old 'off' setting still saved")
   GCA:StoreSpec("Ursa Paw", "DRUID", { spec = "FERAL_BEAR", src = "sync", ts = 5 })
   talent.inspect = { tree = 889, nodes = { { 5020, 20 } } }
   GCA:TryInspectTalents("Ursa Paw", "DRUID", 40); advance(2)
@@ -448,7 +434,6 @@ do
   talent.inspect = { tree = 889, nodes = { { 1020, 20 } } }
   GCA:TryInspectTalents("Ursa Paw", "DRUID", 40); advance(2)
   check(GCA:MemberSpec("Ursa Paw", "DRUID", {}) == "BALANCE", "inspect of another tree (newer) replaces it")
-  GCA.db.settings.inspectTalents = true
   talent.inspect = { tree = 889, nodes = { { 5020, 20 } } }
   GCA:TryInspectTalents("Bear Paw", "DRUID", 40); advance(2)
   local s1, h1 = GCA:MemberSpec("Bear Paw", "DRUID", {})
@@ -459,12 +444,6 @@ do
   GCA:TryInspectTalents("Bear Paw", "DRUID", 40); advance(2)
   check(GCA:MemberSpec("Bear Paw", "DRUID", {}) == "FERAL_BEAR", "a later inspect of the same tree still doesn't replace it")
   check(not GCA:StoreSpec("Bear Paw", "DRUID", { spec = "BALANCE", src = "sync", ts = GCA:Now() - 99999 }), "an older synced spec still loses to a newer synced one")
-  GCA.db.settings.inspectTalents = false
-  local s3, h3 = GCA:MemberSpec("Fera Paw", "DRUID", {})
-  check(s3 == nil and GCA.db.specs["Fera Paw"].src == "inspect", "inspect off: stored inspect record ignored (" .. tostring(h3) .. ")")
-  check(GCA:StoreSpec("Fera Paw", "DRUID", { spec = "BALANCE", src = "sync", ts = 1 }) and GCA:MemberSpec("Fera Paw", "DRUID", {}) == "BALANCE",
-    "inspect off: an older synced spec of another tree replaces the ignored inspect record")
-  GCA.db.settings.inspectTalents = true
   talent.inspect = nil
   GCA:TryInspectTalents("Late Paw", "DRUID", 40, "G-A", GCA.inspectGen)
   GCA:OnInspectReady("G-B")
@@ -492,9 +471,7 @@ end
 
 section("Stored specs: which record wins")
 do
-  local specs, settings = GCA.db.specs, GCA.db.settings
-  local savedInspect = settings.inspectTalents
-  settings.inspectTalents = true
+  local specs = GCA.db.specs
   local function store(key, class, rec) GCA:StoreSpec(key, class, rec); return specs[key] == rec end
   local t = GCA:Now()
   store("Wins Paw", "MAGE", { spec = "FIRE", src = "sync", ts = t })
@@ -510,7 +487,6 @@ do
   check(not store("Tree Paw", "DRUID", { spec = "BALANCE", src = "sync", ts = t - 500 }),
     "an older synced spec of another tree doesn't replace a newer inspect")
   specs["Wins Paw"], specs["Self Paw"], specs["Tree Paw"] = nil, nil, nil
-  settings.inspectTalents = savedInspect
 end
 
 section("Debug: /gca stats <item link>")

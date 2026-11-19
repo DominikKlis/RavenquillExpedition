@@ -50,6 +50,7 @@ UI\CraftRows.lua
 UI\Sections.lua
 UI\Needs.lua
 UI\Sheet.lua
+UI\InspectWindow.lua
 UI\Dropdowns.lua
 UI\Dialogs.lua
 UI\Geometry.lua

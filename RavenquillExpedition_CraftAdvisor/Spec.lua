@@ -233,8 +233,6 @@ function GCA:ReadInspectTalents(class, level)
   return tree, "ok", read
 end
 
-function GCA:InspectTalentsOn() return self.db and self.db.settings.inspectTalents == true end
-
 function GCA:TryInspectTalents(key, class, level, guid, gen)
   if not (key and class) then return end
   gen = gen or self.inspectGen
@@ -246,9 +244,7 @@ function GCA:TryInspectTalents(key, class, level, guid, gen)
     self.lastInspectTalents = { key = key, class = class, level = level, tree = tree, why = why, read = read, at = GetTime() }
     if tree then
       done = true
-      if self:InspectTalentsOn() then
-        self:StoreSpec(key, class, { tree = tree, src = "inspect", ts = self:Now() })
-      end
+      self:StoreSpec(key, class, { tree = tree, src = "inspect", ts = self:Now() })
     end
   end
   try()
@@ -263,7 +259,6 @@ local function SyncedOverInspect(a, b) return SYNCED_SOURCES[a.src] and b.src ==
 
 local function KeepsCurrentSpec(self, cur, rec, class)
   if not (cur and cur.class == class) then return false end
-  if cur.src == "inspect" and not self:InspectTalentsOn() then return false end
   if TreeOf(self, cur) == TreeOf(self, rec) then
     if SyncedOverInspect(cur, rec) then return true end
     if SyncedOverInspect(rec, cur) then return false end
@@ -299,7 +294,7 @@ end
 local STORED_SPEC_HOW = { sync = "synced", self = "own" }
 local function StoredSpec(self, rec, class, items)
   if STORED_SPEC_HOW[rec.src] and self:ValidSpec(class, rec.spec) then return rec.spec, STORED_SPEC_HOW[rec.src] end
-  if rec.src == "inspect" and rec.tree and self:InspectTalentsOn() then
+  if rec.src == "inspect" and rec.tree then
     local spec, assumed = self:ResolveTree(rec.tree, class, items, nil)
     if self:ValidSpec(class, spec) then return spec, "inspected", assumed end
   end
@@ -355,7 +350,7 @@ function GCA:SpecDebug(P)
       li.key, tostring(li.class), tostring(li.level), tostring(r.configID), tostring(r.treeID), tostring(r.nodeCount),
       tostring(r.purchased), tostring(r.active), tostring(li.tree), tostring(li.why)))
     if r.points then P("  points: " .. fmtPoints(r.points, li.class) .. (r.unplaced and r.unplaced > 0 and (" (+" .. r.unplaced .. " outside the trees)") or "")) end
-    P("  inspected talents are " .. (self:InspectTalentsOn() and "used when plausible" or "ignored (off by default)") .. " (option 'spec from inspected talents').")
+    P("  inspected talents are used when plausible.")
   else
     P("No inspect read yet: inspect a guild member, then " .. "open this box again.")
   end

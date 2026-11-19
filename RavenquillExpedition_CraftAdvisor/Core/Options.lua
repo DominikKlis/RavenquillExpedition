@@ -43,13 +43,11 @@ function GCA:OpenWindow()
   UI:Toggle()
 end
 
-local SCORED = { inspectTalents = true }
 function GCA:SetSetting(key, value)
   local s = self:Settings()
   if not s or s[key] == value then return false end
   s[key] = value
   if key == "sync" and value and self.CheckOwn then self:CheckOwn(false) end
-  if SCORED[key] then self:InvalidateScores() end
   return true
 end
 function GCA:SetSurvival(percent)
@@ -68,42 +66,18 @@ local function SettingToggle(key, label, tip)
     get = function() local s = GCA:Settings(); return s and s[key] and true or false end,
     set = function(v) if GCA:SetSetting(key, v and true or false) then GCA:RefreshUI() end end }
 end
+function GCA:ForgetStoredGear()
+  if not self.db then return end
+  wipe(self.db.members)
+  self:CaptureSelf()
+  Print(L.CMD_RESET)
+  self:RefreshUI()
+end
+
 function GCA:BuildOptions()
-  local a, b = ns.G("SPELL_STAT3_NAME"), ns.G("SPELL_STAT5_NAME")
   return {
     { type = "header", label = L.OPT_H_SYNC },
     SettingToggle("sync", "OPT_SHARE_GEAR", "FILTER_SYNC_TIP"),
-    { type = "button", label = L.OPT_SYNC_RETRY, tooltip = L.OPT_SYNC_RETRY_TIP,
-      disabled = function() return not (GCA.SyncState and GCA:SyncState() == "paused") end,
-      func = function() if GCA.SyncRetry then GCA:SyncRetry() end; GCA:RefreshUI() end },
-
-    { type = "header", label = L.OPT_H_SUGGEST },
-    SettingToggle("showUnlearned", "FILTER_UNLEARNED", "FILTER_UNLEARNED_TIP"),
-    SettingToggle("lookahead", "FILTER_LOOKAHEAD", "FILTER_LOOKAHEAD_TIP"),
-    { type = "range", label = string.format(L.OPT_SURVIVAL, a, b), tooltip = string.format(L.SLIDER_TIP, a, b),
-      min = 0, max = 100, step = 5, format = "%d %%",
-      get = function() return math.floor(GCA:SurvivalShare() * 100 + 0.5) end,
-      set = function(v) if GCA:SetSurvival(v) then GCA:RefreshUI() end end },
-
-    { type = "header", label = L.OPT_H_GEAR },
-    SettingToggle("autoInspect", "FILTER_AUTOINSPECT", "FILTER_AUTOINSPECT_TIP"),
-    SettingToggle("inspectTalents", "OPT_INSPECT_TALENTS", "OPT_INSPECT_TALENTS_TIP"),
-    { type = "button", label = L.OPT_INSPECT_NOW, tooltip = L.OPT_INSPECT_NOW_TIP,
-      func = function() if GCA.db then GCA:InspectTarget() end end },
-    { type = "button", label = L.OPT_SCAN_NOW, tooltip = L.OPT_SCAN_NOW_TIP,
-      func = function() if GCA.db then GCA:ScanGroup() end end },
-    { type = "button", label = L.EDIT_WHISPER, tooltip = L.EDIT_WHISPER_TIP,
-      func = function() if GCA.UI and GCA.UI.OpenWhisperEditor then GCA.UI:OpenWhisperEditor() end end },
-
-    { type = "header", label = L.OPT_H_RESET },
-    { type = "button", label = L.OPT_RESET, tooltip = L.OPT_RESET_TIP, confirm = RQ.OverviewL.CONFIRM,
-      func = function()
-        if not GCA.db then return end
-        wipe(GCA.db.members)
-        GCA:CaptureSelf()
-        Print(L.CMD_RESET)
-        GCA:RefreshUI()
-      end },
   }
 end
 

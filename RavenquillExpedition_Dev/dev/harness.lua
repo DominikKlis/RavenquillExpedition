@@ -104,6 +104,22 @@ st = {}
 for _, r in ipairs(finished.results) do st[r.name] = r.status end
 check(st["comm.echo"] == "pass", "comm.echo passes with a guild echo: " .. tostring(st["comm.echo"]))
 check(st["env.info"] == "pass (no checks)", "env.info only notes")
+section("Craft Advisor reset")
+do
+  local forgot, realGet = 0, RQ.GetModule
+  local craft = { ForgetStoredGear = function() forgot = forgot + 1 end }
+  RQ.GetModule = function(self, name) if name == "Craft" then return craft end return realGet(self, name) end
+  local reset
+  for _, o in ipairs(Dev.mod.options) do if o.label == "Craft Advisor: forget stored gear" then reset = o end end
+  check(reset and reset.type == "button" and reset.confirm == RQ.OverviewL.CONFIRM,
+    "the dev tools offer the Craft Advisor reset, behind a second click")
+  if reset then reset.func() end
+  RQ.GetModule = function(self, name) if name == "Craft" then return nil end return realGet(self, name) end
+  if reset then reset.func() end
+  RQ.GetModule = realGet
+  check(forgot == 1, "it forgets the stored gear once, and does nothing without the Craft Advisor")
+end
+
 check(#me.errors == 0, "no Lua errors (" .. #me.errors .. ")" .. (me.errors[1] and (": " .. tostring(me.errors[1])) or ""))
 
 Kit.finish()

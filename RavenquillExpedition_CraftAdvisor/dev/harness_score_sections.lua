@@ -164,7 +164,7 @@ do
   local L = ns.L
   ns.Locales.enUS.__TEST_ONLY_EN = "English only"
   ns.locale = "deDE"
-  check(L.OPT_INSPECT_NOW == "Ziel jetzt betrachten" and L.__TEST_ONLY_EN == "English only" and ns.LGet("__NOPE__") == nil and L.__NOPE__ == "__NOPE__"
+  check(L.OPT_SHARE_GEAR == "Meine Ausrüstung mit der Gilde teilen" and L.__TEST_ONLY_EN == "English only" and ns.LGet("__NOPE__") == nil and L.__NOPE__ == "__NOPE__"
     and ns.missingL.__NOPE__, "deDE: German; key missing in deDE -> English; missing everywhere -> key (noted)")
   check(GCA:SpecName("ROGUE", "COMBAT") == "Kampf" and GCA:SpecName("PRIEST", "SMITE") == "Göttliche Pein (Schaden)", "spec names in German")
   local d = { kind = "item", info = { link = "|cff1eff00|Hitem:4244::::|h[Hillmans Lederweste]|h|r", name = "Hillmans Lederweste" }, slot = 5 }

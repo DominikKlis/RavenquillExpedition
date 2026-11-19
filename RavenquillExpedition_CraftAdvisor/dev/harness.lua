@@ -71,7 +71,6 @@ h(GCA, "PLAYER_LOGIN"); sched:flush(200)
 h(GCA, "GUILD_ROSTER_UPDATE"); sched:flush(200)
 env.print("known", GCA:KnownCount(GCA:SelectedProfession()))
 check(GCA:KnownCount(GCA:SelectedProfession()) == 3, "3 recipes known (IsSpellKnown)")
-check(GCA.db.settings.inspectTalents == false, "inspected talents default off")
 GCA:InspectTarget(); env.print("notified", notified)
 check(notified == "target", "Inspect target -> NotifyInspect(target)")
 h(GCA, "INSPECT_READY", "G-buddy"); sched:flush(200)
@@ -219,7 +218,7 @@ check(out:find("ITEM_MOD_AGILITY_SHORT=4", 1, true) and out:find("Canonical: Agi
 mark = #printed
 GCA:SpecDebug()
 out = printedSince(mark)
-check(out:find("announced over sync: COMBAT", 1, true) and out:find("ignored (off by default)", 1, true), "/gca spec debug: announced spec, inspect setting")
+check(out:find("announced over sync: COMBAT", 1, true) and out:find("inspected talents are used when plausible", 1, true), "/gca spec debug: announced spec, inspected talents used")
 local box = { t = "" }
 function box:GetText() return self.t end
 function box:SetText(t) self.t = t end
@@ -332,11 +331,9 @@ do
   itemMeta[9001] = { loc = "INVTYPE_WEAPON", sub = 0, lvl = 1, stats = {} }
   members["Wave Shammy"] = { class = "SHAMAN", level = 30, source = "inspect", items = { [17] = "item:9001::::" } }
   db.specs["Wave Shammy"] = { class = "SHAMAN", tree = "ENHANCEMENT", src = "inspect", ts = 1 }
-  db.settings.inspectTalents = true
   list = listed()
   check(list["Wave Shammy"] and list["Wave Shammy"].spec == "ENHANCEMENT_DW" and list["Wave Shammy"].specAssumed,
     "an inspected Enhancement tree with a one-hander in the stored off hand -> dual-wield spec, assumed")
-  db.settings.inspectTalents = false
   members["Wave Shammy"], db.specs["Wave Shammy"] = nil, nil
   db.settings.hideOffline = savedHide
 end

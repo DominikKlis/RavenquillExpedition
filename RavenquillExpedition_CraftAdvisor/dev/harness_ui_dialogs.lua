@@ -368,8 +368,7 @@ do
   check(s.survival == 0.25, "the window's slider applies 25 % after its debounce: " .. tostring(s.survival))
   local rqSurvival
   for _, o in ipairs(GCA.options) do if o.type == "range" then rqSurvival = o end end
-  rqSurvival.set(75)
-  check(s.survival == 0.75 and rqSurvival.get() == 75, "the /rq option sets the same value")
+  check(rqSurvival == nil, "the leveling weight lives only in the window, not in /rq")
   local owed = 0
   GCA.CheckOwn = function() owed = owed + 1 end
   s.sync = false

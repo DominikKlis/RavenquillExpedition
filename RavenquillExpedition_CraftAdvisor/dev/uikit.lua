@@ -110,6 +110,9 @@ function Frame:SetChecked(v) self._checked = v and true or false end
 function Frame:SetAlpha(a) self._alpha = a end
 function Frame:GetAlpha() return self._alpha or 1 end
 function Frame:GetParent() return self._parent end
+function Frame:SetEnabled(on) self._enabled = on and true or false end
+function Frame:LockHighlight() self._locked = true end
+function Frame:UnlockHighlight() self._locked = false end
 H.badAtlas = 0
 H.atlasMode = "ok"
 local ATLASES = { ["Profession-Background-Overview"] = true, ["Profession-Background-Template2"] = true,
@@ -164,8 +167,8 @@ local function NewUIFrame(otype, name, parent, template)
     end
     return f
   end
-  if template == "PortraitFrameTemplate" then
-    if H.templateMode == "fail" then error("Couldn't find inherited node 'PortraitFrameTemplate'") end
+  if template == "PortraitFrameTemplate" or template == "ButtonFrameTemplate" then
+    if H.templateMode == "fail" then error("Couldn't find inherited node '" .. template .. "'") end
     local f = New(otype, parent, name)
     f.Bg = Tex()
     f.NineSlice = New("Frame", f)

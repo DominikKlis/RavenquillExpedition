@@ -134,6 +134,18 @@ local function AddQualityIcon(f, size, point, rel, relPoint, x, y, itemButton)
     f.iconBorder:Hide()
   end
 end
+local function AddGearSlotArt(b, size)
+  b.bg = b:CreateTexture(nil, "BACKGROUND", nil, -7)
+  if SetAtlasSafe(b.bg, "UI-Character-Info-GearSlot") then
+    local art = math.floor(size * 55 / 37 + 0.5)
+    b.bg:SetSize(art, art)
+    b.bg:SetPoint("CENTER", b, "CENTER", 0, 0)
+    b.gearArt = true
+  else
+    b.bg:SetAllPoints()
+    b.bg:SetColorTexture(0.06, 0.05, 0.04, 1)
+  end
+end
 local function SetIconQuality(f, quality, r, g, b)
   if not r then r, g, b = QualityColor(quality) end
   if f.frameArt then
@@ -361,6 +373,7 @@ end
 UI.UpdateCardRow = UpdateCardRow
 function UI.CardHeight() return SUG_ROW_H end
 
+P.AddGearSlotArt = AddGearSlotArt
 P.AddQualityIcon = AddQualityIcon
 P.CraftTags = CraftTags
 P.CreateCardRow = CreateCardRow
