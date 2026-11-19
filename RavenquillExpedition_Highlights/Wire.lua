@@ -13,6 +13,7 @@ H.MAX_TRIES = 3
 
 local ch = H:NewChannel({ tag = "H", version = 1 })
 H.channel = ch
+local RELAY = "R"
 local HEAD = { { "t", "int", 1, 4102444800 }, { "seq", "word", 5 }, { "who", "key" }, { "lvl", "int", 1, 200, opt = true },
   { "cls", "int", 0, 99 } }
 local function Fields(extra)
@@ -21,17 +22,21 @@ local function Fields(extra)
   for _, x in ipairs(extra) do out[#out + 1] = x end
   return out
 end
-ch:Define("g", { from = "guild", fields = Fields({ { "item", "int", 1, 9999999 }, { "il", "int", 0, 2000, opt = true },
-  { "q", "int", 0, 8, opt = true }, { "oil", "int", 0, 2000, opt = true }, { "slot", "int", 0, 19, opt = true } }) })
-ch:Define("l", { from = "guild", fields = Fields({ { "item", "int", 1, 9999999 }, { "q", "int", 0, 8, opt = true },
-  { "src", "word", 3 } }) })
-ch:Define("b", { from = "guild", fields = Fields({ { "enc", "int", 0, 9999999, opt = true }, { "first", "flag" }, { "raid", "flag" },
-  { "boss", "text", 48 }, { "inst", "text", 48 }, { "n", "int", 1, 80, opt = true } }) })
-ch:Define("q", { from = "guild", fields = Fields({ { "qid", "int", 1, 9999999 }, { "ql", "int", 0, 200, opt = true },
-  { "tag", "word", 8 }, { "title", "text", 64 } }) })
-ch:Define("v", { from = "guild", fields = Fields({}) })
-ch:Define("d", { from = "guild", fields = Fields({ { "first", "flag" }, { "n", "int", 1, 99 }, { "nf", "int", 1, 99 },
-  { "boss", "text", 48 }, { "inst", "text", 48 } }) })
+local KIND_FIELDS = {
+  g = Fields({ { "item", "int", 1, 9999999 }, { "il", "int", 0, 2000, opt = true }, { "q", "int", 0, 8, opt = true },
+    { "oil", "int", 0, 2000, opt = true }, { "slot", "int", 0, 19, opt = true } }),
+  l = Fields({ { "item", "int", 1, 9999999 }, { "q", "int", 0, 8, opt = true }, { "src", "word", 3 } }),
+  b = Fields({ { "enc", "int", 0, 9999999, opt = true }, { "first", "flag" }, { "raid", "flag" }, { "boss", "text", 48 },
+    { "inst", "text", 48 }, { "n", "int", 1, 80, opt = true } }),
+  d = Fields({ { "first", "flag" }, { "n", "int", 1, 99 }, { "nf", "int", 1, 99 }, { "boss", "text", 48 }, { "inst", "text", 48 } }),
+  q = Fields({ { "qid", "int", 1, 9999999 }, { "ql", "int", 0, 200, opt = true }, { "tag", "word", 8 }, { "title", "text", 64 } }),
+  v = Fields({}),
+}
+for code, fields in pairs(KIND_FIELDS) do
+  ch:Define(code, { from = "guild", fields = fields })
+  ch:Define(RELAY .. code, { from = "guild", fields = fields })
+end
+ch:Define("r", { from = "guild", fields = { { "since", "int", 0, 4102444800 } } })
 
 local function Num(v) return (type(v) == "number" and v == v) and math.floor(v) or nil end
 
@@ -50,9 +55,9 @@ local MessageFields = {
 }
 
 local function WireSeq(e)
-  local seq = e.id and e.id:match("#(%d+)$")
-  if e.k == "loot" and e.by and e.by ~= e.who then return "w" end
-  return seq or "0"
+  local id = e.id or ""
+  if e.k == "loot" and ((e.by and e.by ~= e.who) or id:sub(1, 2) == "W#") then return "w" end
+  return id:match("#(%d+)$") or "0"
 end
 
 local function ToMessage(e)
@@ -71,6 +76,12 @@ function H.Encode(e)
   if not code then return end
   local text = ch:Encode(code, m)
   return text and text:sub(3)
+end
+
+function H.RelayMessage(e)
+  local code, m = ToMessage(e)
+  local typ = code and RELAY .. code
+  if typ and ch:Encode(typ, m) then return typ, m end
 end
 
 local function Str(v) return (v ~= nil and v ~= "") and v or nil end
@@ -92,13 +103,18 @@ local function OwnEntryId(m)
   return ("%s#%d#%d"):format(m.who, m.t, seq)
 end
 
-local function ToEntry(sender, code, m)
+local function Vouched(sender, k, m, relayed)
+  if relayed then return m.seq ~= "w" or k == "loot" end
+  return m.who == sender or (m.seq == "w" and k == "loot")
+end
+
+local function ToEntry(sender, code, m, relayed)
   local k = CODE_KIND[code]
+  if not Vouched(sender, k, m, relayed) then return end
   local witnessed = m.seq == "w"
-  if m.who ~= sender and not (witnessed and k == "loot") then return end
   local e = { k = k, t = m.t, who = m.who, lvl = m.lvl, cls = CLASSES[m.cls] }
   if witnessed then
-    e.by = sender
+    e.by = not relayed and sender or nil
   else
     e.id = OwnEntryId(m)
     if not e.id then return end
@@ -276,5 +292,8 @@ for code in pairs(CODE_KIND) do
     if e.by and GS:IsGuildMember(e.who) ~= true then return end
     if not H:Admit(sender, GetTime()) then return end
     H:Add(e, "wire")
+  end)
+  ch:On(RELAY .. code, function(sender, m)
+    if H.db then H:OnRelay(sender, ToEntry(sender, code, m, true)) end
   end)
 end

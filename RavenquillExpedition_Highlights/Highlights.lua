@@ -122,16 +122,23 @@ end
 
 local lootHeard = {}
 
-local function OnHeardFromWire(self, e)
+local function OnHeard(self, e)
   if e.k == "loot" then lootHeard[e.who .. "#" .. tostring(e.item)] = e.t end
   if e.k == "boss" and e.grp then self:Supersede(e) end
-  self:Announce(e)
 end
 
 local function OnSeenHere(self, e, source, opts, gkey)
   if source == "witness" or self:Settings().echoOwn then self:Announce(e) end
   if not opts.localOnly and gkey ~= "-" then self:Share(e, opts) end
 end
+
+local SOURCES = {
+  wire = { heard = true, after = function(self, e) OnHeard(self, e); self:Announce(e) end },
+  relay = { heard = true, after = OnHeard },
+  self = { after = OnSeenHere },
+  witness = { after = OnSeenHere },
+  test = { test = true },
+}
 
 local function OutsideKeptWindow(self, t)
   local now = GS:Now()
@@ -140,21 +147,17 @@ end
 
 function H:Add(e, source, opts)
   if not self.db or not Valid(e) then return end
-  opts = opts or {}
   if OutsideKeptWindow(self, e.t) then return end
   local gkey = self:GuildKey()
   local events, idx = self:Log(gkey)
   if idx[e.id] or IsRecentLootRepeat(self, events, e) then return end
-  if source == "test" then e.test = true end
+  local s = SOURCES[source]
+  if s.test then e.test = true end
   InsertByTime(events, e)
   idx[e.id] = e
-  if source == "wire" then self:CapWho(events, idx, e.who) end
+  if s.heard then self:CapWho(events, idx, e.who) end
   self:Prune(gkey)
-  if source == "wire" then
-    OnHeardFromWire(self, e)
-  elseif source == "self" or source == "witness" then
-    OnSeenHere(self, e, source, opts, gkey)
-  end
+  if s.after then s.after(self, e, source, opts or {}, gkey) end
   self:RefreshSoon()
   return e
 end
@@ -460,6 +463,7 @@ function H:DiagLines()
   out[#out + 1] = "settings: " .. table.concat(SortedAssignments(self:Settings()), ", ")
   local d = self.db.diag
   out[#out + 1] = ("secret loot lines: %d, bad messages: %d"):format(d.secretLoot or 0, d.badMsg or 0)
+  out[#out + 1] = self:CatchupLine()
   out[#out + 1] = "events seen: " .. JoinedOr(SortedAssignments(d.seen or {}), ", ", "-")
   AddLastEventLines(out, d.last)
   return out

@@ -496,4 +496,5 @@ function H:OnLogin()
   LootPatterns()
   wasInInstance = GS:InInstance()
   self:OnLoginOutbox()
+  self:OnLoginCatchup()
 end

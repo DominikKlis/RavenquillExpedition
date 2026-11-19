@@ -53,6 +53,7 @@ local L = {
   OPT_CLEARTEST = "Remove test entries", MAX_ONLY = "max only", OPEN_LABEL = "Log",
   OV_WAITING = "%d waiting to be sent",
   TEST_DEADMINES = "The Deadmines", TEST_MOLTEN_CORE = "Molten Core", TEST_DEFIAS_QUEST = "The Defias Brotherhood",
+  CAUGHT_UP = "Caught up on %d highlights from while you were away.",
 }
 
 local deDE = {
@@ -106,6 +107,7 @@ local deDE = {
   OPT_CLEARTEST = "Testeinträge entfernen", MAX_ONLY = "nur Höchste", OPEN_LABEL = "Protokoll",
   OV_WAITING = "%d warten aufs Senden",
   TEST_DEADMINES = "Die Todesminen", TEST_MOLTEN_CORE = "Geschmolzener Kern", TEST_DEFIAS_QUEST = "Die Bruderschaft der Defias",
+  CAUGHT_UP = "%d Highlights nachgeholt, die du verpasst hast.",
 }
 
 ns.Locales = { enUS = L, deDE = deDE }
