@@ -124,6 +124,11 @@ function GCA:CraftersOf(prof, spellID)
   return out
 end
 
+function GCA:OnAdvisorShown()
+  self:RefreshKnown()
+  if self.RequestCrafters then self:RequestCrafters() end
+end
+
 function GCA:OwnRecipeSet()
   local own, trusted = self:OwnProfessions()
   if not trusted then return nil end

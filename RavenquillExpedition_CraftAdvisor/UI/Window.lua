@@ -244,7 +244,7 @@ function Build.OnShow()
   UI.needsCollapsed, UI.needSel = {}, nil
   UI:ApplyView()
   RavenquillExpedition:RequestRoster()
-  GCA:RefreshKnown()
+  GCA:OnAdvisorShown()
   UI:Refresh()
 end
 

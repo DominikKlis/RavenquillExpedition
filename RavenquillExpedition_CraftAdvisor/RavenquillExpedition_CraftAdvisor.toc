@@ -47,6 +47,7 @@ UI\Frames.lua
 UI\ScrollList.lua
 UI\MemberList.lua
 UI\Sources.lua
+UI\Crafters.lua
 UI\Tooltips.lua
 UI\CraftRows.lua
 UI\Sections.lua

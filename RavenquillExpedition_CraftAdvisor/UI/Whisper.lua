@@ -151,10 +151,10 @@ local function OpenWhisper(name, msg)
 end
 UI.OpenWhisper = OpenWhisper
 
-local function SendWhisper(name, msg)
+local function SendWhisper(name, msg, sentFmt)
   local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
   if send and pcall(send, msg, "WHISPER", nil, name) then
-    GCA:Print(string.format(L.WHISPER_SENT, name))
+    GCA:Print(string.format(sentFmt or L.WHISPER_SENT, name))
   else
     OpenWhisper(name, msg)
   end
