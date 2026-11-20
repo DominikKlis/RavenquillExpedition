@@ -479,10 +479,15 @@ echoAll(); advance(20)
 check(H.cdb.outbox[id] == nil, "outbox empty after echo")
 advance(3700)
 env.wipe(H.cdb.shareLog); env.wipe(H.cdb.outbox)
+local levelSends = sentKind("v")
 for lvl = 110, 200, 10 do fire("PLAYER_LEVEL_UP", lvl) end
-check(outboxSize() == 8, ("of 10 highlights in an hour 8 are shared, the rest stay local (%d)"):format(outboxSize()))
-env.wipe(H.cdb.shareLog)
 for _ = 1, 30 do advance(10); echoAll() end
+check(sentKind("v") - levelSends == 8 and outboxSize() == 2,
+  ("of 10 highlights in an hour 8 go to the guild, 2 wait (%d sent)"):format(sentKind("v") - levelSends))
+advance(3300)
+for _ = 1, 30 do advance(10); echoAll() end
+check(sentKind("v") - levelSends == 10 and outboxSize() == 0,
+  ("the 2 that waited go out in the next hour (%d sent)"):format(sentKind("v") - levelSends))
 advance(5)
 
 do
@@ -513,7 +518,7 @@ local panel = ov.optView.panels.Highlights
 check(panel and #panel.controls == #H.options, "one control per option entry")
 local L = hlNS.L
 local iShare = opt(L.OPT_SHARE)
-local capNote = panel.controls[opt("Höchstens 8 Highlights pro Stunde gehen an die Gilde, der Rest bleibt nur in deinem Protokoll.")]
+local capNote = panel.controls[opt("Höchstens 8 Highlights pro Stunde gehen an die Gilde, der Rest wartet und folgt in der nächsten Stunde.")]
 local share = panel.controls[iShare]
 check(share:GetChecked() == true, "share checkbox shows the setting")
 check(capNote and capNote._red == 1, "under the share box the page says how many highlights an hour go to the guild")
@@ -1098,6 +1103,16 @@ do
   LogOut(c)
 end
 
+local function EchoTo(c)
+  for _, s in ipairs(G.sent) do
+    if not s.echoed then
+      s.echoed = true
+      fire("CHAT_MSG_ADDON", s.prefix, s.msg, "GUILD", "Me Smith")
+      c.fire("CHAT_MSG_ADDON", s.prefix, s.msg, "GUILD", "Me Smith")
+    end
+  end
+end
+
 Kit.section("Rule settings saved by an older version change nothing")
 do
   local old = { RavenquillExpeditionHighlightsDB = { v = 3, settings = { minLootQuality = 3, minGearQuality = 2, minGain = 1,
@@ -1118,9 +1133,41 @@ do
   c.fire("PLAYER_LEVEL_UP", 35)
   check(Kinds(c, "level") == 0, "a saved level step of 5: level 35 is still no highlight")
   for lvl = 40, 130, 10 do c.fire("PLAYER_LEVEL_UP", lvl) end
-  check(Kinds(c, "level") == 10 and Outbox() == 8,
-    ("a saved cap of 20 an hour: of 10 level highlights still only 8 are shared (%d)"):format(Outbox()))
+  for _ = 1, 30 do advance(10); EchoTo(c) end
+  check(Kinds(c, "level") == 10 and #c.H.cdb.shareLog == 8 and Outbox() == 2,
+    ("a saved cap of 20 an hour: of 10 level highlights still only 8 go out within the hour (%d wait)"):format(Outbox()))
   G.equipped[11], G.equipped[12], G.bags[0][13] = rings[1], rings[2], nil
+  LogOut(c)
+end
+
+Kit.section("Raid night: kills a guildmate reports for the raid do not use up my hourly cap")
+do
+  local c = Character(); c.login(); advance(5)
+  c.RQ:NotePeer("Bud Stone")
+  local level = G.level
+  G.level, G.inInstance, G.itype, G.instName, G.raid = 60, true, "raid", "Pechschwingenhort", true
+  G.group = { raid1 = { "Me", "Smith" }, raid2 = { "Bud", "Stone" } }
+  c.fire("PLAYER_ENTERING_WORLD")
+  local kills = {}
+  for i = 1, 8 do
+    c.fire("ENCOUNTER_END", 610 + i, "Boss " .. i, 9, 40, 1)
+    local log = c.H:Log()
+    kills[i] = log[#log]
+    advance(300)
+  end
+  G.items[324] = { name = "Lila Klinge", q = 4, il = 70 }
+  c.fire("CHAT_MSG_LOOT", "Ihr erhaltet Beute: " .. link(324) .. ".", "Me Smith")
+  G.inInstance, G.itype, G.raid, G.group, G.instName = false, "none", false, {}, "Burgschmied"
+  c.fire("PLAYER_ENTERING_WORLD"); advance(5)
+  for _, k in ipairs(kills) do
+    c.fire("CHAT_MSG_ADDON", "RQE1", ("H;1;b;%d;9;Bud Stone;60;9;%d;0;1;%s;Pechschwingenhort;2"):format(k.t + 5, k.enc, k.boss),
+      "GUILD", "Bud Stone")
+  end
+  for _ = 1, 30 do advance(10); EchoTo(c) end
+  check(Kinds(c, "boss") == 8 and sendsOf(";Me Smith;60;4;61") == 0, "setup: Bud reported all 8 kills, I sent none of them")
+  check(sendsOf(";Me Smith;60;4;324;") == 1, "my own epic after 8 kills that Bud reported goes to the guild")
+  check(#c.H.cdb.shareLog == 1, ("only what I sent counts against the hourly cap (%d)"):format(#c.H.cdb.shareLog))
+  G.level = level
   LogOut(c)
 end
 

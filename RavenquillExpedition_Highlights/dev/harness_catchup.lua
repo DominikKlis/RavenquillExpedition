@@ -1,5 +1,8 @@
-local Kit = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "../../RavenquillExpedition/dev/testkit.lua")
+local DEV = (arg[0]:gsub("[^/\\]*$", ""))
+local Kit = dofile(DEV .. "../../RavenquillExpedition/dev/testkit.lua")
 local check = Kit.check
+local TocFiles = dofile(Kit.ADDONS .. "RavenquillExpedition/dev/toc.lua")
+local HL = "RavenquillExpedition_Highlights"
 
 local EPOCH = 1800000000
 local SV_NAMES = { "RavenquillExpeditionDB", "RavenquillExpeditionHighlightsDB", "RavenquillExpeditionHighlightsCharDB" }
@@ -24,19 +27,27 @@ local function Stubs(env)
   env.LOOT_ITEM, env.LOOT_ITEM_MULTIPLE = "%s receives loot: %s.", "%s receives loot: %sx%d."
 end
 
+local function WithCatchupOf09()
+  local list = {}
+  for _, f in ipairs(TocFiles(Kit.ADDONS .. HL)) do
+    list[#list + 1] = { f == "Catchup.lua" and (DEV .. "fixtures/compat_0.9.1/Catchup.lua") or (Kit.ADDONS .. HL .. "/" .. f), HL }
+  end
+  return list
+end
+
 local function NewWorld()
   local sched, bus = Kit.Setup()
   local w = { sched = sched, bus = bus, seed = 0 }
 
-  function w.join(name, sv, random)
+  function w.join(name, sv, random, v09)
     w.seed = w.seed + 1
     local c = Kit.Client(sched, bus, name, { guild = "Die Gilde", realm = "Forever", class = "MAGE", level = 40, epoch = EPOCH,
-      random = random or Kit.Random(w.seed * 7919), addons = { "RavenquillExpedition_Highlights" },
+      random = random or Kit.Random(w.seed * 7919), addons = not v09 and { HL } or nil, files = v09 and WithCatchupOf09() or nil,
       setup = function(env)
         Stubs(env)
         for k, v in pairs(sv or {}) do env[k] = Copy(v) end
       end })
-    c.H = c.ns.RavenquillExpedition_Highlights.H
+    c.H = c.ns[HL].H
     bus:setOnline(name, true)
     c.login()
     c.H.db.settings.chat = true
@@ -44,6 +55,7 @@ local function NewWorld()
   end
 
   function w.leave(c)
+    c.fire("PLAYER_LOGOUT")
     c.online = false
     bus:setOnline(c.name, false)
   end
@@ -279,7 +291,7 @@ do
   check(stored == 20, ("of 21 relays from one relayer for one request, 20 are stored (%d)"):format(stored))
 end
 
-Kit.section("30 entries missed: the newest 20 arrive; a member who did not ask stores none")
+Kit.section("30 entries missed: all 30 arrive in two pages; a member who did not ask stores none")
 do
   local w = NewWorld()
   w.bus:member("Dave Rook", "WARRIOR", 50, false)
@@ -291,14 +303,101 @@ do
   local asked = w.sched.t
   local anna = w.join("Anna Stone")
   w.sched:advance(600)
-  local newest = {}
-  for i = 11, 30 do newest[#newest + 1] = missing[i].id end
-  local ok, got = Same(Ids(anna), newest)
-  check(ok, "Anna has exactly entries 11-30: " .. got)
-  check(#w.relays(nil, asked) == 20, "20 relays on the wire")
+  local ok, got = Same(Ids(anna), IdsOf(missing))
+  check(ok, "Anna has all 30: " .. got)
+  check(w.requests("Anna Stone", asked) == 2, ("Anna asked for two pages (%d)"):format(w.requests("Anna Stone", asked)))
+  local relays = #w.relays(nil, asked)
+  check(relays >= 30 and relays <= 31, ("%d relays on the wire: each entry once, the page boundary at most twice"):format(relays))
   check(#Ids(cara) == 0, ("Cara, online all along, stored none of the relays (%d)"):format(#Ids(cara)))
-  check(Lines(cara, "Caught up on") == 0 and Lines(anna, "Caught up on 20 highlights") == 1,
-    "only the member who asked gets the summary line")
+  check(Lines(cara, "Caught up on") == 0 and Lines(anna, "Caught up on 30 highlights") == 1,
+    "only the member who asked gets the summary line, once, counting all 30")
+end
+
+Kit.section("120 entries missed: at most 5 pages, the newest entries without a hole")
+do
+  local w = NewWorld()
+  w.bus:member("Dave Rook", "WARRIOR", 50, false)
+  local missing = Series("Dave Rook", EPOCH - 86400, 120, 300)
+  local bert = w.join("Bert Hill")
+  w.sched:advance(300)
+  Hold(bert, missing)
+  local asked = w.sched.t
+  local anna = w.join("Anna Stone")
+  w.sched:advance(1800)
+  local has, oldest = #Ids(anna), nil
+  for i = #missing, 1, -1 do
+    if not Has(anna, missing[i].id) then break end
+    oldest = i
+  end
+  check(w.requests("Anna Stone", asked) == 5, ("Anna asked for 5 pages and stopped (%d)"):format(w.requests("Anna Stone", asked)))
+  check(oldest and has == #missing - oldest + 1 and has >= 90 and has <= 100,
+    ("she has the newest %d without a hole (from #%s)"):format(has, tostring(oldest)))
+  check(#w.relays(nil, asked) <= 100, ("%d relays on the wire"):format(#w.relays(nil, asked)))
+end
+
+Kit.section("Nobody online at login: the gap fills once a member who holds it comes online")
+do
+  local w = NewWorld()
+  local bert = w.join("Bert Hill")
+  local cara = w.join("Cara Moss")
+  local anna = w.join("Anna Stone")
+  w.sched:advance(120)
+  local saved = Saved(anna)
+  w.leave(anna)
+  w.sched:advance(600)
+  local e1 = Author(cara, { lvl = 21 })
+  w.sched:advance(300)
+  check(Has(bert, e1.id), "setup: Bert holds Cara's highlight that Anna missed")
+  local bertSaved = Saved(bert)
+  w.leave(cara); w.leave(bert)
+  w.sched:advance(600)
+  local back = w.sched.t
+  local anna2 = w.join("Anna Stone", saved)
+  w.sched:advance(900)
+  check(w.requests("Anna Stone", back) == 0, "setup: alone online, Anna has nobody to ask")
+  local bert2 = w.join("Bert Hill", bertSaved)
+  w.sched:advance(120)
+  local b1 = Author(bert2, { lvl = 41 })
+  w.sched:advance(400)
+  check(Has(anna2, b1.id), "setup: Anna hears Bert's new highlight live")
+  check(Has(anna2, e1.id), "15 minutes after her login Bert comes online, and Anna gets the highlight she missed")
+end
+
+Kit.section("Only a member without the addon online, then a live highlight: the gap stays open until a holder answers")
+do
+  local w = NewWorld()
+  w.bus:member("Dora Dunn", "PRIEST", 30, false)
+  local bert = w.join("Bert Hill")
+  local cara = w.join("Cara Moss")
+  local anna = w.join("Anna Stone")
+  w.sched:advance(300)
+  local saved = Saved(anna)
+  w.leave(anna)
+  w.sched:advance(600)
+  local e1 = Author(cara, { lvl = 21 })
+  w.sched:advance(300)
+  local bertSaved = Saved(bert)
+  w.leave(cara); w.leave(bert)
+  w.bus:setOnline("Dora Dunn", true)
+  local back = w.sched.t
+  local anna2 = w.join("Anna Stone", saved)
+  w.sched:advance(400)
+  check(w.requests("Anna Stone", back) == 1, "setup: Anna asked while only Dora, who has no addon, was online")
+  local ella = w.join("Ella Fox")
+  w.sched:advance(5)
+  local e2 = Author(ella, { lvl = 30 })
+  w.sched:advance(5)
+  w.leave(ella)
+  w.sched:advance(60)
+  check(Has(anna2, e2.id) and not Has(anna2, e1.id), "setup: Anna heard Ella's newer highlight live, Cara's older one is missing")
+  local saved2 = Saved(anna2)
+  w.leave(anna2)
+  w.sched:advance(300)
+  w.join("Bert Hill", bertSaved)
+  w.sched:advance(60)
+  local anna3 = w.join("Anna Stone", saved2)
+  w.sched:advance(600)
+  check(Has(anna3, e1.id), "back with Bert online, Anna gets Cara's highlight from before Ella's")
 end
 
 Kit.section("A guildmate who repeats requests and forges relays: only a member who asked stores them, 20 at most")
@@ -343,7 +442,7 @@ do
   check(#w.relays() == 0 and #Ids(anna) == 0, "no relay, nothing stored")
 end
 
-Kit.section("Own entries kept local (share off, over the hourly cap, local only) are never relayed, also after a reload")
+Kit.section("Own entries kept local (share off, local only) or waiting for the hourly cap are not relayed, also after a reload")
 do
   local w = NewWorld()
   w.bus:member("Dave Rook", "WARRIOR", 50, false)
@@ -352,29 +451,35 @@ do
   local heard = Entry("Dave Rook", EPOCH - 600, 1)
   Hold(bert, { heard })
   local s = bert.H.db.settings
-  local shared = {}
-  for i = 1, 8 do shared[i] = Author(bert, { lvl = 40 + i }) end
-  local kept = { Author(bert, { lvl = 49 }) }
+  local hour = {}
+  for i = 1, 9 do hour[i] = Author(bert, { lvl = 40 + i }) end
   s.share = false
-  kept[2] = Author(bert, { lvl = 50 })
+  local kept = { Author(bert, { lvl = 50 }) }
   s.share = true
-  kept[3] = Author(bert, { lvl = 51 }, { localOnly = true })
+  kept[2] = Author(bert, { lvl = 51 }, { localOnly = true })
   w.sched:advance(120)
+  local waiting = {}
+  for id in pairs(bert.H.cdb.outbox) do waiting[#waiting + 1] = id end
+  check(#waiting == 1, ("setup: 8 of Bert's 9 highlights of the hour went out, %d waits"):format(#waiting))
   local saved = Saved(bert)
   w.leave(bert)
   local bert2 = w.join("Bert Hill", saved)
   w.sched:advance(60)
-  check(Has(bert2, kept[1].id) and Has(bert2, kept[2].id) and Has(bert2, kept[3].id), "setup: the kept entries stay in Bert's log")
+  check(Has(bert2, waiting[1]) and Has(bert2, kept[1].id) and Has(bert2, kept[2].id), "setup: the kept entries stay in Bert's log")
   local asked = w.sched.t
   local anna = w.join("Anna Stone")
   w.sched:advance(400)
   check(w.requests("Anna Stone") == 1, "setup: Anna asked")
-  local want = IdsOf(shared)
-  want[#want + 1] = heard.id
+  local want = { heard.id }
+  for _, e in ipairs(hour) do if e.id ~= waiting[1] then want[#want + 1] = e.id end end
   local ok, got = Same(w.relays("Bert Hill", asked), want)
-  check(ok, "Bert relays the entries he shared and heard, none he kept local: " .. got)
+  check(ok, "Bert relays the entries he shared and heard, none he kept local or that still waits: " .. got)
   ok, got = Same(Ids(anna), want)
   check(ok, "Anna stores exactly those: " .. got)
+  w.sched:advance(3600)
+  want[#want + 1] = waiting[1]
+  ok, got = Same(Ids(anna), want)
+  check(ok, "the one that waited reaches Anna once the hour is over, the local ones never: " .. got)
 end
 
 Kit.section("Test entries are never relayed and never crowd out real ones")
@@ -392,7 +497,48 @@ do
   check(ok, "Anna gets the 20 real entries and no test entry: " .. got)
   local tests = 0
   for _, id in ipairs(w.relays()) do if id:find("TEST", 1, true) then tests = tests + 1 end end
-  check(tests == 0 and #w.relays() == 20, "only the 20 real entries went out")
+  check(tests == 0 and #w.relays() >= 20 and #w.relays() <= 21,
+    ("only the 20 real entries went out, the page boundary at most twice (%d relays)"):format(#w.relays()))
+end
+
+Kit.section("A 0.9 member answers a page ask like a first ask: the newest 20 arrive and paging stops")
+do
+  local w = NewWorld()
+  w.bus:member("Dave Rook", "WARRIOR", 50, false)
+  local missing = Series("Dave Rook", EPOCH - 7200, 30)
+  local bert = w.join("Bert Hill", nil, nil, true)
+  w.sched:advance(700)
+  Hold(bert, missing)
+  local asked = w.sched.t
+  local anna = w.join("Anna Stone")
+  w.sched:advance(900)
+  local newest = {}
+  for i = 11, 30 do newest[#newest + 1] = missing[i].id end
+  local ok, got = Same(Ids(anna), newest)
+  check(ok, "Anna has the newest 20, as from a 0.9 member before: " .. got)
+  check(w.requests("Anna Stone", asked) == 2,
+    ("Anna asked for page 2, got page 1 again and stopped (%d asks)"):format(w.requests("Anna Stone", asked)))
+  check(Lines(anna, "Caught up on 20 highlights") == 1, "one summary line for the 20")
+  check(#anna.errors == 0 and #bert.errors == 0, "no Lua errors on either side")
+end
+
+Kit.section("A 0.9 member asking this version gets the newest 20, as before")
+do
+  local w = NewWorld()
+  w.bus:member("Dave Rook", "WARRIOR", 50, false)
+  local missing = Series("Dave Rook", EPOCH - 7200, 30)
+  local bert = w.join("Bert Hill")
+  w.sched:advance(700)
+  Hold(bert, missing)
+  local asked = w.sched.t
+  local anna = w.join("Anna Stone", nil, nil, true)
+  w.sched:advance(600)
+  local newest = {}
+  for i = 11, 30 do newest[#newest + 1] = missing[i].id end
+  local ok, got = Same(Ids(anna), newest)
+  check(ok, "the 0.9 member has the newest 20: " .. got)
+  check(w.requests("Anna Stone", asked) == 1 and #w.relays(nil, asked) == 20, "one ask, 20 relays")
+  check(#anna.errors == 0 and #bert.errors == 0, "no Lua errors on either side")
 end
 
 Kit.finish()
