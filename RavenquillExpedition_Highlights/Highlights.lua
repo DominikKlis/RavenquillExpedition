@@ -128,7 +128,13 @@ end
 
 local lootHeard = {}
 
+local function NewToMe(self, e)
+  if e.who == GS:PlayerKey() then return false end
+  return not (e.k == "boss" and e.grp and self:WasAtKill(e))
+end
+
 local function OnHeard(self, e)
+  if NewToMe(self, e) then e.unseen = true end
   if e.k == "loot" then lootHeard[e.who .. "#" .. tostring(e.item)] = e.t end
   if e.k == "boss" and e.grp then self:Supersede(e) end
 end
@@ -529,9 +535,11 @@ end
 function H:OverviewStatus()
   if not self.db then return end
   local events = self:Log()
-  local waiting = 0
+  local waiting, unseen = 0, 0
   for _ in pairs(self.cdb.outbox) do waiting = waiting + 1 end
+  for _, e in ipairs(events) do if e.unseen then unseen = unseen + 1 end end
   local s = L.OV_STATUS:format(#events, self:Settings().share and L.ON or L.OFF)
+  if unseen > 0 then s = L.OV_NEW:format(unseen) .. " · " .. s end
   if waiting > 0 then s = s .. " · " .. L.OV_WAITING:format(waiting) end
   return s
 end

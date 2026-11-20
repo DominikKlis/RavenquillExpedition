@@ -1224,6 +1224,178 @@ do
   G.factions = {}
 end
 
+Kit.section("New since you last looked: guildies' entries count, your own never do")
+do
+  local c = Character(); c.login(); advance(40)
+  local function hear(sender, msg) c.fire("CHAT_MSG_ADDON", "RQE1", "H;" .. msg, "GUILD", sender) end
+  local function status() return c.H:OverviewStatus() end
+  check(not status():find("neu", 1, true), "a fresh log has nothing new (" .. status() .. ")")
+  local t = T()
+  hear("Cara Moss", ("1;v;%d;41;Cara Moss;40;7"):format(t))
+  hear("Bud Stone", ("1;v;%d;42;Bud Stone;40;9"):format(t - 7200))
+  hear("Abe Ash", ("1;Rv;%d;43;Dora Dunn;30;5"):format(t - 86400))
+  check(Kinds(c, "level") == 3 and (c.H.db.diag.catchup.accepted or 0) == 1,
+    "a live entry, one sent late and one caught up from yesterday are logged")
+  check(status():sub(1, #"3 neu · ") == "3 neu · ", "all three are new, however old their time (" .. status() .. ")")
+  local row
+  for _, r in ipairs(c.RQ:OverviewRows()) do if r.name == "Highlights" then row = r end end
+  check(row and row.status == status(), "the /rq overview line carries the same count (" .. tostring(row and row.status) .. ")")
+  c.fire("PLAYER_LEVEL_UP", 40)
+  hear("Bud Stone", ("1;l;%d;w;Me Smith;30;4;301;4;"):format(t))
+  check(Kinds(c, "level") == 4 and Kinds(c, "loot") == 1, "my own level and a guildie's report of my loot are logged")
+  check(status():sub(1, #"3 neu · ") == "3 neu · ", "neither of my own entries counts as new (" .. status() .. ")")
+  LogOut(c)
+end
+
+Kit.section("New since you last looked: opening the log marks where new starts and clears the count")
+do
+  local c = Character(); c.login(); advance(40)
+  local function hear(sender, msg) c.fire("CHAT_MSG_ADDON", "RQE1", "H;" .. msg, "GUILD", sender) end
+  local function newCount(h) return tonumber((h or c.H):OverviewStatus():match("^(%d+) neu ·")) or 0 end
+  local function divider()
+    local at, found = nil, 0
+    for i, l in ipairs(lines) do if l:find("neu seit deinem letzten Blick", 1, true) then at, found = i, found + 1 end end
+    return at, found
+  end
+  local function lineOf(who) for i, l in ipairs(lines) do if l:find(who, 1, true) then return i end end end
+  local t = T()
+  hear("Cara Moss", ("1;v;%d;51;Cara Moss;40;7"):format(t - 600))
+  c.fire("PLAYER_LEVEL_UP", 40)
+  hear("Bud Stone", ("1;v;%d;52;Bud Stone;40;9"):format(t))
+  check(newCount() == 2, "two new before the log is opened (" .. newCount() .. ")")
+  c.H:ShowWindow()
+  local at, marks = divider()
+  check(marks == 1 and lines[at + 1]:find("Cara Moss", 1, true) and lineOf("Bud Stone") > at,
+    "the log marks the first new entry once, the newer ones below it")
+  check(newCount() == 0, "opening the log clears the count")
+  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  hear("Dora Dunn", ("1;v;%d;53;Dora Dunn;30;5"):format(t - 300))
+  check(newCount() == 1, "an entry older than the last look but heard after it is new (" .. newCount() .. ")")
+  c.H:ShowWindow()
+  at = divider()
+  check(at and lines[at + 1]:find("Dora Dunn", 1, true) and lineOf("Cara Moss") < at and lineOf("Bud Stone") > at,
+    "the mark sits right above it, between entries already seen")
+  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  c.H:ShowWindow()
+  check(select(2, divider()) == 0 and newCount() == 0, "nothing new: no mark")
+  hear("Abe Ash", ("1;v;%d;54;Abe Ash;60;1"):format(T()))
+  advance(1)
+  check(lineOf("Abe Ash") and newCount() == 0, "an entry that arrives while the log is open is seen there")
+  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  hear("Cara Moss", ("1;v;%d;55;Cara Moss;50;7"):format(T()))
+  local r = Reload(LogOut(c)); advance(5)
+  check(newCount(r.H) == 1, "the count survives a logout (" .. newCount(r.H) .. ")")
+  r.RQ:ShowModulePage("Highlights")
+  check(newCount(r.H) == 0 and not r.RQ:OverviewRows()[1].status:find("neu", 1, true),
+    "the log on the /rq Highlights tab clears it too, and the status line follows")
+  LogOut(r)
+end
+
+Kit.section("New since you last looked: only a log on screen clears the count")
+do
+  local c = Character(); c.login(); advance(40)
+  local function hear(sender, msg) c.fire("CHAT_MSG_ADDON", "RQE1", "H;" .. msg, "GUILD", sender) end
+  local function newCount() return tonumber(c.H:OverviewStatus():match("^(%d+) neu ·")) or 0 end
+  local function toggle(key)
+    for _, o in ipairs(c.H.options) do if o.key == key then o.set(not o.get()) end end
+  end
+  local function touchEverything()
+    toggle("echoOwn"); toggle("echoOwn")
+    c.fire("GET_ITEM_INFO_RECEIVED", 309, true)
+    c.H:ClearTests()
+    advance(1)
+  end
+  hear("Cara Moss", ("1;v;%d;61;Cara Moss;40;7"):format(T()))
+  touchEverything()
+  check(newCount() == 1, "an option, item data or clearing test entries with the log never opened keep the count ("
+    .. newCount() .. ")")
+  c.RQ:ShowModuleOptions("Highlights")
+  touchEverything()
+  check(newCount() == 1, "the Highlights options in /rq hide the log: changing them keeps the count (" .. newCount() .. ")")
+  c.RQ:ShowModulePage("Highlights")
+  check(newCount() == 0, "the log on the /rq Highlights tab clears it")
+  LogOut(c)
+end
+
+Kit.section("New since you last looked: the log opens with the new-entries line on screen")
+do
+  local c = Character(); c.login(); advance(40)
+  local VISIBLE = 10
+  c.frameMethods.ScrollToBottom = function(f) f._offset = 0 end
+  c.frameMethods.GetScrollOffset = function(f) return f._offset or 0 end
+  c.frameMethods.SetScrollOffset = function(f, v) f._offset = v end
+  c.frameMethods.GetNumVisibleLines = function() return VISIBLE end
+  local function hear(sender, msg) c.fire("CHAT_MSG_ADDON", "RQE1", "H;" .. msg, "GUILD", sender) end
+  local function msg() return c.env.RavenquillExpeditionHighlightsFrame.msg end
+  local function top() return #lines - msg()._offset - VISIBLE + 1 end
+  local function onScreen(pattern)
+    for i = math.max(1, top()), #lines - msg()._offset do if lines[i]:find(pattern, 1, true) then return i end end
+  end
+  local t = T()
+  for i = 1, 5 do hear("Abe Ash", ("1;v;%d;%d;Abe Ash;%d;1"):format(t - 900 + i, 80 + i, 40 + i)) end
+  c.H:ShowWindow()
+  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  for i = 1, 14 do hear("Cara Moss", ("1;v;%d;%d;Cara Moss;%d;7"):format(t - 600 + i, 90 + i, 40 + i)) end
+  c.H:ShowWindow()
+  local at = onScreen("neu seit deinem letzten Blick")
+  check(at == top() and lines[at + 1]:find("Cara Moss", 1, true),
+    "14 new entries do not fit: the log scrolls so the line opens the screen (line " .. tostring(at) .. " of " .. #lines
+    .. ", offset " .. tostring(msg()._offset) .. ")")
+  hear("Dora Dunn", ("1;v;%d;120;Dora Dunn;30;5"):format(T()))
+  advance(1)
+  check(onScreen("neu seit deinem letzten Blick") and onScreen("Cara Moss"),
+    "an entry arriving while reading keeps the line where it was")
+  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  hear("Bud Stone", ("1;v;%d;121;Bud Stone;40;9"):format(T()))
+  msg()._offset = 0
+  c.H:ShowWindow()
+  check(msg()._offset == 0 and onScreen("neu seit deinem letzten Blick") and onScreen("Bud Stone"),
+    "one new entry fits at the bottom: the log stays at the bottom")
+  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  LogOut(c)
+end
+
+Kit.section("New since you last looked: a raid kill you were at is not new to you")
+do
+  local saved = { G.inInstance, G.itype, G.instName, G.raid, G.group }
+  local c = Character(); c.login(); advance(40)
+  local function hear(sender, msg) c.fire("CHAT_MSG_ADDON", "RQE1", "H;" .. msg, "GUILD", sender) end
+  local function newCount() return tonumber(c.H:OverviewStatus():match("^(%d+) neu ·")) or 0 end
+  local function own(enc)
+    for _, e in ipairs((c.H:Log())) do if e.k == "boss" and e.enc == enc and e.who == "Me Smith" then return e end end
+  end
+  local function report(entryId, enc, boss, t)
+    hear("Cara Moss", ("1;b;%d;%d;Cara Moss;31;7;%d;0;1;%s;Geschmolzener Kern;3"):format(t, entryId, enc, boss))
+  end
+  G.inInstance, G.itype, G.instName, G.raid = true, "raid", "Geschmolzener Kern", true
+  G.group = { raid1 = { "Me", "Smith" }, raid2 = { "Cara", "Moss" }, raid3 = { "Bud", "Stone" } }
+  c.fire("PLAYER_ENTERING_WORLD")
+  c.fire("ENCOUNTER_END", 663, "Lucifron", 9, 40, 1)
+  local myLuci = own(663)
+  check(myLuci and myLuci.grp and c.H.cdb.outbox[myLuci.id], "my Lucifron kill waits to be sent as a group report")
+  report(131, 663, "Lucifron", myLuci.t + 30)
+  check(own(663) == nil and newCount() == 0, "Cara's report replaces mine and is not new to me (" .. newCount() .. ")")
+  c.fire("ENCOUNTER_END", 664, "Magmadar", 9, 40, 1)
+  local myMag = own(664)
+  G.inInstance, G.itype, G.instName, G.raid, G.group = false, "none", "Burgschmied", false, {}
+  c.fire("PLAYER_ENTERING_WORLD")
+  local sentMark = #G.sent
+  for _ = 1, 300 do
+    advance(1)
+    for i = sentMark + 1, #G.sent do
+      local m = G.sent[i]
+      if not m.echoed then m.echoed = true; c.fire("CHAT_MSG_ADDON", m.prefix, m.msg, "GUILD", "Me Smith") end
+    end
+  end
+  check(myMag and c.H.cdb.outbox[myMag.id] == nil and own(664), "my Magmadar report went out")
+  report(132, 664, "Magmadar", myMag.t + 20)
+  check(newCount() == 0, "Cara's later Magmadar report is not new either (" .. newCount() .. ")")
+  report(133, 665, "Gehennas", T() - 60)
+  check(newCount() == 1, "a raid kill I was not at is new (" .. newCount() .. ")")
+  LogOut(c)
+  G.inInstance, G.itype, G.instName, G.raid, G.group = saved[1], saved[2], saved[3], saved[4], saved[5]
+end
+
 do
   local errs = 0
   for _, c in ipairs(characters) do errs = errs + #c.errors end
