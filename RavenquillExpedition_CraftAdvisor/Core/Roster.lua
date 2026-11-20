@@ -65,10 +65,15 @@ local function NoteCraftedMarks(note, key, profs)
   end
 end
 
+local function NoteField(note, t, field)
+  for key, r in pairs(t or {}) do note(key, type(r) == "table" and r[field]) end
+end
+
 local function CollectSightings(db)
   local note, lastSeen, keys = Sightings()
   for key, m in pairs(db.members) do note(key, m.time); note(key, m.ts) end
-  for key, r in pairs(db.specs or {}) do note(key, type(r) == "table" and r.ts) end
+  NoteField(note, db.specs, "ts")
+  NoteField(note, GCA:CrafterEntries(), "time")
   for _, byMember in pairs(db.crafted or {}) do
     if type(byMember) == "table" then
       for key, profs in pairs(byMember) do NoteCraftedMarks(note, key, profs) end
@@ -84,6 +89,7 @@ end
 local function ForgetMember(db, key)
   db.members[key] = nil
   if db.specs then db.specs[key] = nil end
+  GCA:ForgetCrafter(key)
   for _, byMember in pairs(db.crafted or {}) do
     if type(byMember) == "table" then byMember[key] = nil end
   end
