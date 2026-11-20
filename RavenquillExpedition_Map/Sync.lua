@@ -100,6 +100,11 @@ local function WalkedSince(last, pos)
   return math.max(math.abs(pos.x - last.x), math.abs(pos.y - last.y)) >= C.MOVE_MIN
 end
 
+local function HeartbeatAfter(pos)
+  if pos.stationary or pos.taxi then return C.HEARTBEAT end
+  return C.FADE_MIN * C.BEAT_OF_FADE
+end
+
 local function SendReason(pos, now, interval)
   local last = S.last
   if not last then
@@ -109,7 +114,7 @@ local function SendReason(pos, now, interval)
   if pos.mapID ~= last.mapID and not pos.taxi then return "zone" end
   if pos.flags ~= last.flags then return "flags" end
   if WalkedSince(last, pos) then return "moved" end
-  if now - last.t >= math.max(C.HEARTBEAT, interval) then return "heartbeat" end
+  if now - last.t >= math.max(HeartbeatAfter(pos), interval) then return "heartbeat" end
 end
 
 local function KnownLevelAndClass(pos)
