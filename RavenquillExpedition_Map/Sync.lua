@@ -41,6 +41,10 @@ function M:SyncLogin()
   S.loginAt, S.firstRand = GetTime(), math.random()
 end
 
+function M:SyncReloaded()
+  S.firstAt = GetTime()
+end
+
 function M:DirectSenders()
   local now, count = GetTime(), 0
   for key, t in pairs(S.senders) do

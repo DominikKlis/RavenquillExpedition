@@ -318,5 +318,8 @@ function M:OnLogin()
 end
 
 local function Refresh() M:Refresh() end
-M:RegisterEvent("PLAYER_ENTERING_WORLD", Refresh)
+M:RegisterEvent("PLAYER_ENTERING_WORLD", function(self, _, isReloadingUi)
+  if Bool(isReloadingUi) then self:SyncReloaded() end
+  self:Refresh()
+end)
 M:RegisterEvent("ZONE_CHANGED_NEW_AREA", Refresh)
