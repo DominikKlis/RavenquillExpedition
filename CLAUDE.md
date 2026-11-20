@@ -11,7 +11,7 @@ CurseForge install or this clone, chosen with `scripts/switch-addons.ps1 dev|cur
   `gh auth refresh -h github.com -s workflow` themselves (it is interactive), then push again.
 - Releases happen by pushing an annotated `v*` tag (`-alpha` / `-beta` suffix sets the CurseForge release type, the
   tag message is the changelog; the workflow needs the `CF_API_KEY` secret). Only push a tag when the user asks: it
-  publishes to CurseForge. Never bump `## Version` by hand: the release stamps the tag's version into every `.toc`.
+  publishes to CurseForge.
 - `RavenquillExpedition_CraftAdvisor` ships. Its recipe data in `Data/` is maintained by hand: no generator, and no
   addon other than Auctionator may be needed at runtime or to build or test it (SimGear only for the optional score
   tests). `dev/harness_data.lua` checks the data.

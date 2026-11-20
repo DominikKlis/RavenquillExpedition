@@ -3,7 +3,7 @@
 ## Notes: Shows your guildmates' gear (from inspects and guild sync) and which of your crafts (Leatherworking, Blacksmithing, Tailoring, Engineering, Enchanting) and enchants would be upgrades for them.
 ## Notes-deDE: Zeigt die Ausrüstung deiner Gildenmitglieder (aus Betrachten und Gilden-Sync) und welche deiner Herstellungen und Verzauberungen für sie eine Verbesserung wären.
 ## Author: domin
-## Version: dev
+## Version: 0.9.1-beta
 ## Dependencies: RavenquillExpedition
 ## OptionalDeps: Auctionator
 ## SavedVariables: RavenquillExpeditionCraftDB
