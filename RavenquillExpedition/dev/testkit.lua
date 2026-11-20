@@ -156,6 +156,7 @@ function FrameMethods.SetText(s, v) s._text = v end
 function FrameMethods.SetAlpha(s, v) s._alpha = v end
 function FrameMethods.GetAlpha(s) return s._alpha or 1 end
 function FrameMethods.GetText(s) return s._text end
+function FrameMethods.GetStringHeight(s) return s._text and 12 or 0 end
 function FrameMethods.SetChecked(s, v) s._checked = v and true or false end
 function FrameMethods.GetChecked(s) return s._checked end
 function FrameMethods.GetName(s) return s._name end

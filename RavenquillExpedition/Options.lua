@@ -370,6 +370,18 @@ function Build.button(parent, o, y, refreshAll)
   return ButtonWidget(parent, o, y, ConfirmedClick(o, refreshAll))
 end
 
+local NOTE_WIDTH, NOTE_GAP = 412, 6
+
+function Build.note(parent, o, y)
+  local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  fs:SetPoint("TOPLEFT", 12, y - 2)
+  fs:SetWidth(NOTE_WIDTH)
+  fs:SetJustifyH("LEFT")
+  fs:SetWordWrap(true)
+  fs:SetText(o.label or "")
+  return fs:GetStringHeight() + NOTE_GAP, function() SetLabelEnabled(fs, not IsDisabled(o)) end, fs
+end
+
 function Build.text(parent, o, y)
   return ButtonWidget(parent, o, y, function()
     local lines = GS:Call(o.lines)

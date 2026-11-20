@@ -114,6 +114,25 @@ check(o and o.get() == true, "SetOptions key shorthand: get reads mod.settings")
 o.set(false)
 check(db.settings.share == false and changed[1] == "share=false", "set writes mod.settings and calls OnOptionChanged")
 check(mod:Option("go") and mod:Option("nope") == nil, "Option(id)")
+do
+  local methods, tops, white = me.frameMethods, {}, {}
+  methods.GetStringHeight = function(s) return s._text == "Drei Zeilen Erklärung" and 40 or 12 end
+  methods.SetPoint = function(s, point, _, y) if point == "TOPLEFT" then tops[s] = y end end
+  methods.SetTextColor = function(s, r) white[s] = r == 1 end
+  local sharing = true
+  local p = coreNS.BuildPanel(nil, {
+    { type = "note", label = "Drei Zeilen Erklärung", disabled = function() return not sharing end },
+    { type = "toggle", label = "Danach", get = function() return true end, set = function() end },
+  })
+  p.refreshAll()
+  local note, toggle = p.controls[1], p.controls[2]
+  check(note:GetText() == "Drei Zeilen Erklärung" and white[note] and tops[toggle] <= -40,
+    "a note shows its text and the next option starts below all its wrapped lines")
+  sharing = false
+  p.refreshAll()
+  check(white[note] == false, "a note greys out while its disabled function says so")
+  methods.GetStringHeight, methods.SetPoint, methods.SetTextColor = nil, nil, nil
+end
 
 section("Names and roster")
 fire("GUILD_ROSTER_UPDATE")
