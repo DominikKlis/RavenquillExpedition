@@ -130,8 +130,8 @@ Dev.GAME_GLOBALS = {
   "InCombatLockdown", "InspectFrame", "InspectUnit", "InviteUnit", "IsAddOnLoaded", "IsControlKeyDown", "IsInGuild", "IsInInstance", "IsInRaid",
   "IsIndoors", "IsModifiedClick", "IsPlayerSpell", "IsShiftKeyDown", "LEGSSLOT", "LOCALIZED_CLASS_NAMES_FEMALE",
   "LOCALIZED_CLASS_NAMES_MALE", "LOOT_ITEM", "LOOT_ITEM_MULTIPLE", "LOOT_ITEM_SELF", "LOOT_ITEM_SELF_MULTIPLE",
-  "LOOT_ITEM_CREATED_SELF", "LOOT_ITEM_CREATED_SELF_MULTIPLE", "IsMounted", "GetUnitSpeed", "UnitPVPRank",
-  "GetPVPRankInfo", "GetBattlefieldWinner", "GetNumSkillLines", "GetSkillLineInfo", "GetNumFactions", "GetFactionInfo",
+  "LOOT_ITEM_CREATED_SELF", "LOOT_ITEM_CREATED_SELF_MULTIPLE", "IsMounted", "GetUnitSpeed",
+  "GetBattlefieldWinner",
   "LibStub", "LoadAddOn", "MAINHANDSLOT", "MenuUtil", "MinimalSliderWithSteppersMixin", "Minimap", "NECKSLOT",
   "NUM_BAG_SLOTS", "NUM_BANKBAGSLOTS", "NUM_TOTAL_EQUIPPED_BAG_SLOTS", "NineSliceUtil", "NotifyInspect",
   "OpenWorldMap", "PanelTemplates_DeselectTab", "PanelTemplates_SelectTab", "PanelTemplates_TabResize", "ReloadUI", "CreateVector2D", "UnitPosition", "GetFactionInfoByID",
@@ -482,18 +482,19 @@ Dev:Register("highlights.smoke", function(t)
   end)
 end, 30)
 
-local MILESTONE_APIS = { "IsMounted", "GetUnitSpeed", "UnitOnTaxi", "UnitPVPRank", "GetPVPRankInfo", "GetBattlefieldWinner",
-  "UnitFactionGroup", "GetNumSkillLines", "GetSkillLineInfo", "GetSpellInfo" }
+local MILESTONE_APIS = { "IsMounted", "GetUnitSpeed", "UnitOnTaxi", "GetBattlefieldWinner", "UnitFactionGroup",
+  "GetProfessions", "GetProfessionInfo" }
 local MILESTONE_STRINGS = { "LOOT_ITEM_CREATED_SELF", "FACTION_STANDING_CHANGED", "FACTION_STANDING_LABEL7",
-  "FACTION_STANDING_LABEL8", "DUEL_WINNER", "DUEL_WINNER_RETREAT", "SKILL_RANK_UP" }
+  "FACTION_STANDING_LABEL8", "DUEL_WINNER_KNOCKOUT", "DUEL_WINNER_RETREAT", "SKILL_RANK_UP" }
 
-local function NoteSkillLines(t)
-  if type(GetNumSkillLines) ~= "function" then return end
-  for i = 1, GetNumSkillLines() do
-    local name, header, _, rank, _, _, maxRank, abandonable = GetSkillLineInfo(i)
-    t:note(("skill %d: %s header=%s rank=%s/%s abandonable=%s"):format(i, tostring(name), tostring(header), tostring(rank),
-      tostring(maxRank), tostring(abandonable)))
-  end
+local function CheckReputation(t)
+  local R = rawget(_G, "C_Reputation")
+  local ok = type(R) == "table" and type(R.GetNumFactions) == "function" and type(R.GetFactionDataByIndex) == "function"
+  t:ok(ok, "C_Reputation.GetNumFactions and GetFactionDataByIndex exist")
+  if not ok then return end
+  local f = R.GetFactionDataByIndex(1)
+  t:note(("factions %s, first: %s reaction %s header %s"):format(tostring(R.GetNumFactions()), tostring(f and f.name),
+    tostring(f and f.reaction), tostring(f and f.isHeader)))
 end
 
 Dev:Register("highlights.milestones", function(t)
@@ -505,8 +506,7 @@ Dev:Register("highlights.milestones", function(t)
     local _, run = GetUnitSpeed("player")
     t:note(("mounted %s, run speed %s"):format(tostring(IsMounted and IsMounted()), tostring(run)))
   end
-  if type(UnitPVPRank) == "function" then t:note("pvp rank id " .. tostring(UnitPVPRank("player"))) end
-  NoteSkillLines(t)
+  CheckReputation(t)
   local rec = H.cdb.mount
   t:ok(type(rec) == "table", ("mount record: tier %s, base level %s"):format(tostring(rec and rec.tier), tostring(rec and rec.base)))
   t:done()

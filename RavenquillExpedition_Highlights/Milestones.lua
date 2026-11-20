@@ -1,7 +1,7 @@
 local ADDON, ns = ...
 local GS = RavenquillExpedition
 local H = ns.H
-local SafeCall, Plain = GS.SafeCall, GS.Plain
+local SafeCall, Plain, IsSecret = GS.SafeCall, GS.Plain, GS.IsSecret
 local Own, Act, MyLevel, Diag = ns.Own, ns.Act, ns.MyLevel, ns.Diag
 
 H.EPIC_MOUNT_SPEED = 13
@@ -10,7 +10,6 @@ H.MOUNT_TIER_LEVEL = { 40, 60 }
 H.REP_MILESTONE = 7
 H.SKILL_FROM, H.SKILL_STEP = 150, 75
 H.DUEL_EVERY = 86400
-local SECONDARY_SKILL_SPELLS = { 2550, 3273, 7620 }
 
 local function Store(key)
   local t = H.cdb[key]
@@ -32,21 +31,20 @@ local function Match(text, global)
   if p then return text:match(p) end
 end
 
-local function PvPRank()
-  local id = Plain(SafeCall(UnitPVPRank, "player"), "number")
-  if not id then return end
-  local name, number = SafeCall(GetPVPRankInfo, id)
-  return Plain(number, "number"), Plain(name, "string")
+local function FactionStanding(R, i)
+  local f = SafeCall(R.GetFactionDataByIndex, i)
+  if type(f) ~= "table" or IsSecret(f) or Plain(f.isHeader) then return end
+  return Plain(f.name, "string"), Plain(f.reaction, "number")
 end
 
 local function CurrentStandings()
-  local n = Plain(SafeCall(GetNumFactions), "number") or 0
+  local R = C_Reputation
+  local n = R and Plain(SafeCall(R.GetNumFactions), "number") or 0
   if n == 0 then return end
   local out = {}
   for i = 1, n do
-    local name, _, standing, _, _, _, _, _, header = SafeCall(GetFactionInfo, i)
-    name, standing = Plain(name, "string"), Plain(standing, "number")
-    if name and standing and not Plain(header) then out[name] = standing end
+    local name, standing = FactionStanding(R, i)
+    if name and standing then out[name] = standing end
   end
   return out
 end
@@ -58,8 +56,6 @@ function H:SeedMilestones()
     self.cdb.mount = { tier = 0, base = MyLevel() or 99 }
     mountRecordMadeNow = true
   end
-  local pvp = Store("pvp")
-  if pvp.rank == nil then pvp.rank = PvPRank() end
   if type(self.cdb.reps) ~= "table" then self.cdb.reps = CurrentStandings() end
 end
 
@@ -134,7 +130,7 @@ local function DuelWon(winner, foe)
 end
 
 local function OnDuel(text)
-  for _, global in ipairs({ "DUEL_WINNER", "DUEL_WINNER_RETREAT" }) do
+  for _, global in ipairs({ "DUEL_WINNER_KNOCKOUT", "DUEL_WINNER", "DUEL_WINNER_RETREAT" }) do
     local a, b = Match(text, global)
     if a and b then
       if not WinnerFirst(global) then a, b = b, a end
@@ -149,19 +145,13 @@ local function OnSystem(text)
   OnDuel(text)
 end
 
-local function SpellName(id)
-  if C_Spell and C_Spell.GetSpellName then return Plain(SafeCall(C_Spell.GetSpellName, id), "string") end
-  return Plain(SafeCall(GetSpellInfo, id), "string")
-end
+local PROFESSION_SLOTS = 6
 
 local function IsProfession(name)
-  for _, id in ipairs(SECONDARY_SKILL_SPELLS) do if SpellName(id) == name then return true end end
-  for i = 1, Plain(SafeCall(GetNumSkillLines), "number") or 0 do
-    local skill, header, _, _, _, _, _, abandonable = SafeCall(GetSkillLineInfo, i)
-    if Plain(skill, "string") == name and not Plain(header) then
-      abandonable = Plain(abandonable)
-      return abandonable == true or abandonable == 1
-    end
+  local slots = { SafeCall(GetProfessions) }
+  for i = 1, PROFESSION_SLOTS do
+    local index = Plain(slots[i], "number")
+    if index and Plain(SafeCall(GetProfessionInfo, index), "string") == name then return true end
   end
   return false
 end
@@ -175,16 +165,6 @@ local function OnSkill(text)
   if (skills[name] or 0) >= rank then return end
   skills[name] = rank
   Report("skill", { skill = name, rank = rank }, true)
-end
-
-local function OnPvPRank()
-  local number, name = PvPRank()
-  if not number then return end
-  local pvp = Store("pvp")
-  local best = pvp.rank
-  if best == nil or number > best then pvp.rank = number end
-  if best == nil or number <= best or number < 1 then return end
-  Report("pvp", { pk = "rank", pr = number, name = name }, true)
 end
 
 local bgReported = false
@@ -207,7 +187,6 @@ local HANDLERS = {
   CHAT_MSG_SYSTEM = OnSystem,
   CHAT_MSG_COMBAT_FACTION_CHANGE = OnSystem,
   CHAT_MSG_SKILL = OnSkill,
-  PLAYER_PVP_RANK_CHANGED = OnPvPRank,
   UPDATE_BATTLEFIELD_SCORE = OnBattlefieldScore,
 }
 local NOISY = { UNIT_AURA = true, CHAT_MSG_SYSTEM = true, UPDATE_BATTLEFIELD_SCORE = true }

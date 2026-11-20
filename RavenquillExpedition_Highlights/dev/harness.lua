@@ -113,14 +113,16 @@ local meOpts = { guild = "Die Gilde", realm = "Forever", locale = "deDE", class 
     env.LOOT_ITEM_CREATED_SELF = "Ihr stellt her: %s."
     env.FACTION_STANDING_CHANGED = "Ihr seid jetzt %s bei %s."
     env.FACTION_STANDING_LABEL6, env.FACTION_STANDING_LABEL7, env.FACTION_STANDING_LABEL8 = "Wohlwollend", "Respektvoll", "Ehrfürchtig"
-    env.DUEL_WINNER = "%1$s hat %2$s in einem Duell besiegt."
+    env.DUEL_WINNER_KNOCKOUT = "%1$s hat %2$s in einem Duell besiegt."
     env.DUEL_WINNER_RETREAT = "%2$s ist vor %1$s aus einem Duell geflohen."
     env.SKILL_RANK_UP = "Eure Fertigkeit in %s hat sich auf %d erhöht."
-    function env.GetNumFactions() return #G.factions end
-    function env.GetFactionInfo(i)
-      local f = G.factions[i]
-      if f then return f[1], "", f[2], 0, 0, 0, false, false, f.header or false end
-    end
+    env.C_Reputation = {
+      GetNumFactions = function() return #G.factions end,
+      GetFactionDataByIndex = function(i)
+        local f = G.factions[i]
+        if f then return { name = f[1], reaction = f[2], isHeader = f.header or false } end
+      end,
+    }
     function env.IsMounted() return G.mounted end
     function env.UnitOnTaxi() return false end
     function env.GetUnitSpeed() return 0, G.runSpeed end
@@ -942,14 +944,9 @@ do
 end
 
 do
-  local skillLines = { { "Berufe", true }, { "Schmiedekunst", false, 8 }, { "Waffenfertigkeiten", true }, { "Schwerter", false },
-    { "Sekundäre Fertigkeiten", true }, { "Kochkunst", false } }
-  env.GetNumSkillLines = function() return #skillLines end
-  env.GetSkillLineInfo = function(i)
-    local l = skillLines[i]
-    return l[1], l[2], true, 150, 0, 0, 300, l[3] and 1 or nil
-  end
-  env.GetSpellInfo = function(spellID) return ({ [2550] = "Kochkunst", [3273] = "Erste Hilfe", [7620] = "Angeln" })[spellID] end
+  local professions = { [1] = "Schmiedekunst", [4] = "Angeln", [5] = "Kochkunst", [6] = "Erste Hilfe" }
+  env.GetProfessions = function() return 1, nil, nil, 4, 5, 6 end
+  env.GetProfessionInfo = function(i) return professions[i], "", 150, 300 end
   local before = count()
   fire("CHAT_MSG_SKILL", "Eure Fertigkeit in Schmiedekunst hat sich auf 149 erhöht.")
   check(count() == before, "a skill-up that is no milestone is not logged")
@@ -963,20 +960,10 @@ do
 end
 
 do
-  local rankID, winner = 6, nil
-  env.UnitPVPRank = function() return rankID end
-  env.GetPVPRankInfo = function(rankIndex) return "Rang " .. (rankIndex - 4), rankIndex - 4 end
+  local winner = nil
   env.UnitFactionGroup = function() return "Alliance" end
   env.GetBattlefieldWinner = function() return winner end
-  local before = count()
-  fire("PLAYER_PVP_RANK_CHANGED")
-  check(count() == before and H.cdb.pvp.rank == 2, "the first rank seen is only recorded")
-  rankID = 7
-  fire("PLAYER_PVP_RANK_CHANGED")
-  check(count() == before + 1 and newest().pk == "rank" and newest().pr == 3, "a new PvP rank is a highlight")
-  rankID = 6
-  fire("PLAYER_PVP_RANK_CHANGED")
-  check(count() == before + 1, "a rank lost to decay is not news")
+  local before = count() - 1
   G.instName = "Kriegshymnenschlucht"
   fire("UPDATE_BATTLEFIELD_SCORE")
   winner = 1
