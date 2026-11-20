@@ -1270,6 +1270,44 @@ do
   LogOut(c)
 end
 
+Kit.section("New since you last looked: the log opens with the new-entries line on screen")
+do
+  local c = Character(); c.login(); advance(40)
+  local VISIBLE = 10
+  c.frameMethods.ScrollToBottom = function(f) f._offset = 0 end
+  c.frameMethods.GetScrollOffset = function(f) return f._offset or 0 end
+  c.frameMethods.SetScrollOffset = function(f, v) f._offset = v end
+  c.frameMethods.GetNumVisibleLines = function() return VISIBLE end
+  local function hear(sender, msg) c.fire("CHAT_MSG_ADDON", "RQE1", "H;" .. msg, "GUILD", sender) end
+  local function msg() return c.env.RavenquillExpeditionHighlightsFrame.msg end
+  local function top() return #lines - msg()._offset - VISIBLE + 1 end
+  local function onScreen(pattern)
+    for i = math.max(1, top()), #lines - msg()._offset do if lines[i]:find(pattern, 1, true) then return i end end
+  end
+  local t = T()
+  for i = 1, 5 do hear("Abe Ash", ("1;v;%d;%d;Abe Ash;%d;1"):format(t - 900 + i, 80 + i, 40 + i)) end
+  c.H:ShowWindow()
+  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  for i = 1, 14 do hear("Cara Moss", ("1;v;%d;%d;Cara Moss;%d;7"):format(t - 600 + i, 90 + i, 40 + i)) end
+  c.H:ShowWindow()
+  local at = onScreen("neu seit deinem letzten Blick")
+  check(at == top() and lines[at + 1]:find("Cara Moss", 1, true),
+    "14 new entries do not fit: the log scrolls so the line opens the screen (line " .. tostring(at) .. " of " .. #lines
+    .. ", offset " .. tostring(msg()._offset) .. ")")
+  hear("Dora Dunn", ("1;v;%d;120;Dora Dunn;30;5"):format(T()))
+  advance(1)
+  check(onScreen("neu seit deinem letzten Blick") and onScreen("Cara Moss"),
+    "an entry arriving while reading keeps the line where it was")
+  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  hear("Bud Stone", ("1;v;%d;121;Bud Stone;40;9"):format(T()))
+  msg()._offset = 0
+  c.H:ShowWindow()
+  check(msg()._offset == 0 and onScreen("neu seit deinem letzten Blick") and onScreen("Bud Stone"),
+    "one new entry fits at the bottom: the log stays at the bottom")
+  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  LogOut(c)
+end
+
 Kit.section("New since you last looked: a raid kill you were at is not new to you")
 do
   local saved = { G.inInstance, G.itype, G.instName, G.raid, G.group }

@@ -96,6 +96,7 @@ end
 
 local function ShowLog(view)
   view.firstUnseen = H.db and FirstUnseen(H:Log())
+  view.opening = true
   H:Refresh()
 end
 
@@ -178,6 +179,15 @@ local function KeepReadingPosition(m, offset, newLines)
   end
 end
 
+local function ScrollToFirstNew(m, messages, entry)
+  local below = LinesAfter(messages, entry)
+  local visible = m.GetNumVisibleLines and m:GetNumVisibleLines()
+  m:ScrollToBottom()
+  if below and visible and visible > 1 and m.SetScrollOffset and below + 2 > visible then
+    m:SetScrollOffset(below + 2 - visible)
+  end
+end
+
 local function FooterText(self, nHL, nAct)
   return L.FOOTER:format(nHL, self:Settings().share and L.ON or L.OFF)
     .. (nAct > 0 and ("  ·  " .. L.FOOTER_ACT:format(nAct)) or "")
@@ -193,7 +203,12 @@ local function RenderLog(self, view, list, nHL, nAct)
   for _, line in ipairs(messages) do
     if line.color then m:AddMessage(line.text, line.color[1], line.color[2], line.color[3]) else m:AddMessage(line.text) end
   end
-  KeepReadingPosition(m, offset, LinesAfter(messages, view.newest))
+  if view.opening and view.firstUnseen then
+    ScrollToFirstNew(m, messages, view.firstUnseen)
+  else
+    KeepReadingPosition(m, offset, LinesAfter(messages, view.newest))
+  end
+  view.opening = nil
   view.newest = list[#list]
   view.footer:SetText(FooterText(self, nHL, nAct))
 end
