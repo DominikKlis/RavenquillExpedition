@@ -3,7 +3,7 @@ local Kit = dofile(DEV .. "../../RavenquillExpedition/dev/testkit.lua")
 local MapKit = { Kit = Kit, DIR = DEV .. "../" }
 local ADDON = "RavenquillExpedition_Map"
 local FILES = {}
-for i, f in ipairs({ "Locale.lua", "Map.lua", "Menu.lua", "Pins.lua", "Sync.lua" }) do FILES[i] = { MapKit.DIR .. f, ADDON } end
+for i, f in ipairs({ "Locale.lua", "Map.lua", "Menu.lua", "Pins.lua", "Page.lua", "Sync.lua" }) do FILES[i] = { MapKit.DIR .. f, ADDON } end
 
 local NOOP = { ClearAllPoints = true, EnableMouse = true, SetTexture = true, SetTextColor = true,
   SetFrameStrata = true, UnregisterEvent = true, SetHeight = true, SetWidth = true, SetJustifyH = true, SetColorTexture = true }
