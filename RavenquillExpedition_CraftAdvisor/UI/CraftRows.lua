@@ -36,6 +36,7 @@ local function LayoutRight(b, showOffer, showCheck, gainY)
 end
 
 function UI.DoOffer(d, cur)
+  if UI.DoAsk(d, cur) then return true end
   local who = cur and cur.key
   if not (d and who and UI.CanOffer(cur, d)) then return false end
   local msg = UI.OfferText(cur.prof or GCA:SelectedProfession(), d, who)
@@ -43,7 +44,8 @@ function UI.DoOffer(d, cur)
   return true
 end
 
-local function OfferTip(owner, d)
+local function OfferTip(owner, d, cur)
+  if UI.AskTarget(cur, d) then return UI.AskTip(owner, d, cur) end
   GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
   GameTooltip:SetText(L.OFFER, 1, 1, 1)
   GameTooltip:AddLine(d and d.kind == "enchant" and L.OFFER_TIP_ENCHANT or L.OFFER_TIP_CRAFT, 1, 0.82, 0)
@@ -77,7 +79,7 @@ local function CraftedTip(owner, d, cur)
 end
 
 local function RightState(d, cur)
-  local showOffer = UI.CanOffer(cur, d)
+  local showOffer = UI.RowAction(cur, d) ~= nil
   local prof = cur and cur.prof or GCA:SelectedProfession()
   local mark = cur and d.cand and GCA:CraftedMark(cur.key, prof, d.cand.spellID)
   local showCheck = cur ~= nil and not cur.browse and (d.known or mark ~= nil)
@@ -94,7 +96,7 @@ P.CreateOfferTextButton = function(parent, row, w, h)
   local o = NewTextButton(parent, w or 84, h or 22, L.OFFER)
   o.row = row
   o:SetScript("OnClick", function(self) UI.DoOffer(RowCtx(self.row)) end)
-  SetTip(o, "offer", function(self) OfferTip(self, (RowCtx(self.row))) end)
+  SetTip(o, "offer", function(self) OfferTip(self, RowCtx(self.row)) end)
   o:SetScript("OnLeave", GameTooltip_Hide)
   return o
 end
@@ -206,6 +208,8 @@ end
 UI.CraftTags = CraftTags
 
 function UI.LearnText(d, cur)
+  local crafters = UI.CrafterBadge(d, cur)
+  if crafters then return crafters end
   local colour = (cur and cur.browse) and C.browse or C.notLearnedTag
   return colour .. (UI.SourceBadge(d, cur) or L.NOT_LEARNED) .. "|r"
 end
@@ -358,7 +362,7 @@ local function UpdateCardRow(b, d, listW)
   b.gain:SetText(big)
   b.points:SetText(small)
   local showOffer, showCheck, mark = RightState(d, cur)
-  b.offer:SetShown(showOffer)
+  UI.ShowRowAction(b.offer, cur, d)
   b.crafted:SetShown(showCheck)
   b.crafted:SetChecked(mark ~= nil)
   LayoutRight(b, showOffer, showCheck, 7)

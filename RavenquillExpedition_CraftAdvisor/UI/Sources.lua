@@ -410,6 +410,7 @@ function UI.NotLearnedTip(owner, d, cur)
   local r, g, b = QualityColor(d.info and d.info.quality)
   GameTooltip:SetText(d.info and d.info.name or "?", r, g, b)
   GameTooltip:AddLine(L.NOT_LEARNED, 1, 0.35, 0.35)
+  UI.AddCrafterLines(d, cur)
   local info = UI.SourceInfo(d, cur)
   if info then Src.AddTooltip(info, { click = L.TIP_HINT_MAP, right = L.TIP_HINT_MENU }) end
   GameTooltip:Show()

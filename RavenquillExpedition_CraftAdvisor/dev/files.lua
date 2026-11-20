@@ -8,6 +8,7 @@ local F = { ROOT = ROOT }
 local GROUPS = {
   UI = function(f) return f == "UI.lua" or f:find("^UI/") ~= nil end,
   Core = function(f) return f == "Core.lua" or f:find("^Core/") ~= nil end,
+  Sync = function(f) return f:find("^Sync%w*%.lua$") ~= nil end,
 }
 
 function F.all() return TocFiles(ROOT .. "../" .. ADDON) end

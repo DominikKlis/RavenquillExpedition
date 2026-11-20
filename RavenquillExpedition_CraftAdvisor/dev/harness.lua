@@ -5,7 +5,7 @@ local CA = "RavenquillExpedition_CraftAdvisor"
 local Files = dofile(ROOT .. "dev/files.lua")
 local files = Files.kitFiles({ "Locales/enUS.lua", "Locales/deDE.lua", "Data/Leatherworking.lua", "Data/Blacksmithing.lua",
   "Data/Tailoring.lua", "Data/Engineering.lua", "Data/Enchanting.lua", "Data/Enchants.lua" })
-for _, f in ipairs(Files.kitFiles(Files.list({ from = "Data/Weights.lua", except = { "Data/Sources.lua", "Sync.lua", "RecipeSources.lua" } }))) do
+for _, f in ipairs(Files.kitFiles(Files.list({ from = "Data/Weights.lua", except = { "Data/Sources.lua", "Sync", "RecipeSources.lua" } }))) do
   files[#files + 1] = f
 end
 local units = {

@@ -187,6 +187,7 @@ function GCA:CheckOwn(answer)
   local now = GetTime()
   if answer then S.owed = true; S.lastQAt = now; S.specOwed = true end
   self:CheckOwnSpec()
+  self:CheckOwnRecipes()
   if not OwnDue() then return end
   if S.ownTimer then return end
   local delay
@@ -406,26 +407,27 @@ function GCA:OnSpecMessage(senderKey, f)
   return true
 end
 
+local HANDLERS = {
+  G = { fields = 8, fn = OnGear },
+  S = { fields = 3, fn = function(key, f) GCA:OnSpecMessage(key, f) end },
+  Q = { fn = function(key) S.addonUsers[key] = GetTime(); GCA:CheckOwn(true) end },
+}
+
 function GCA:OnAddonMessage(key, text, sender)
   if type(text) ~= "string" or type(key) ~= "string" or not self.db then return end
   S.lastRaw = sender
   if InInstance() or not self.db.settings.sync then return end
-  local now = GetTime()
   local first = not next(S.peers)
-  S.peers[key] = now
+  S.peers[key] = GetTime()
   CharState().peerAt = self:Now()
   local f = { strsplit(";", text) }
-  if f[1] == "G" and #f == 8 then
-    OnGear(key, f)
-  elseif f[1] == "S" and #f == 3 then
-    self:OnSpecMessage(key, f)
-  elseif f[1] == "Q" then
-    S.addonUsers[key] = now
-    self:CheckOwn(true)
-  end
-  if first then self:CheckOwn(false); DrainRelays() end
+  local h = HANDLERS[f[1]]
+  if h and (h.fields == nil or h.fields == #f) then h.fn(key, f) end
+  if first then self:CheckOwn(false); DrainRelays(); self:CheckCrafterRequest() end
 end
 raw:OnMessage(function(key, text, sender) GCA:OnAddonMessage(key, text, sender) end)
+GCA.SyncKit = { C = C, S = S, HANDLERS = HANDLERS, Enqueue = Enqueue, CharState = CharState, Enabled = Enabled,
+  PeerKnown = PeerKnown, InInstance = InInstance, InRange = InRange }
 raw:OnEcho(function() S.echoSeen = GetTime() end)
 
 function GCA:SyncPeerCount(window)

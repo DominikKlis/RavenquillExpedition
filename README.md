@@ -7,7 +7,7 @@ A WoW Forever (interface 16001) addon suite for the Ravenquill Expedition guild.
 | `RavenquillExpedition` | Core: the module API, one guild-sync scheduler for all modules, the `/rq` overview with every module's options | yes |
 | `RavenquillExpedition_Map` | Guildmates who run the addon on the world map and minimap | yes |
 | `RavenquillExpedition_Highlights` | Logs and shares the guild's cool moments | yes |
-| `RavenquillExpedition_CraftAdvisor` | Which of your crafts would be upgrades for guildmates | yes |
+| `RavenquillExpedition_CraftAdvisor` | Which of your crafts would be upgrades for guildmates, and which guildmates can craft yours | yes |
 | `RavenquillExpedition_Dev` | Developer tools: a log in SavedVariables and in-game tests | never |
 
 CurseForge: project 1806854 (unlisted, alpha).

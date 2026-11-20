@@ -32,11 +32,13 @@ Core\Ranking.lua
 Core\Enchants.lua
 Core\Suggestions.lua
 Core\Crafted.lua
+Core\Crafters.lua
 Core\Debug.lua
 Core\Options.lua
 Auction.lua
 Spec.lua
 Sync.lua
+SyncRecipes.lua
 RecipeSources.lua
 UI\Theme.lua
 UI\Text.lua
@@ -45,6 +47,7 @@ UI\Frames.lua
 UI\Rows.lua
 UI\MemberList.lua
 UI\Sources.lua
+UI\Crafters.lua
 UI\Tooltips.lua
 UI\CraftRows.lua
 UI\Sections.lua
