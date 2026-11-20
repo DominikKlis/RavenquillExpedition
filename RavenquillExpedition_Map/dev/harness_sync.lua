@@ -436,6 +436,38 @@ do
   NoErrors({ A, B }, "milling: no Lua errors")
 end
 
+local function Reload(sched, bus, old, opts)
+  old.fire("PLAYER_LOGOUT")
+  old.online, old.pos = false, nil
+  local c = Client(sched, bus, old.name, opts)
+  for _, a in ipairs(c.addons) do c.fire("ADDON_LOADED", a) end
+  c.fire("PLAYER_LOGIN")
+  c.fire("PLAYER_ENTERING_WORLD", false, true)
+  c.fire("GUILD_ROSTER_UPDATE")
+  return c
+end
+
+do
+  local sched, bus = Setup()
+  local A = Client(sched, bus, "Anna Alpha", { pos = { 1429, 0.5, 0.5 } })
+  local B = Client(sched, bus, "Bert Beta", { pos = { 1429, 0.6, 0.6 } })
+  A.login(); B.login()
+  sched:advance(400)
+  check(B.M.members["Anna Alpha"] ~= nil, "B shows A before A's /reload")
+  local t0 = sched.t
+  local A2 = Reload(sched, bus, A, { pos = { 1429, 0.5, 0.5 } })
+  local MC = A2.M.C
+  local missing = 0
+  sched:at(sched.t + 1, function() if not B.M.members["Anna Alpha"] then missing = missing + 1 end end, 1)
+  sched:advance(120)
+  local leave = LastMsg(bus, "Anna Alpha", "L")
+  check(leave and leave.t == t0, "the reload's logout still sends a leave")
+  check(missing < MC.JITTER_MIN, ("after a /reload the dot is back within seconds, no login delay (missing %d s)"):format(missing))
+  local burst = MapSends(bus, "Anna Alpha", t0, t0 + MC.STILL_AFTER, "P")
+  check(burst <= 1, ("a reload sends one position, not a burst (%d in the first %d s)"):format(burst, MC.STILL_AFTER))
+  NoErrors({ A, A2, B }, "reload: no Lua errors")
+end
+
 do
   local sched, bus = Setup()
   local A = Client(sched, bus, "Anna Alpha")
