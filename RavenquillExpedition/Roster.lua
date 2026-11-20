@@ -85,24 +85,80 @@ GS.PEER_MAX_AGE = 14 * 86400
 
 local function FreshPeer(t, now, window) return type(t) == "number" and now - t <= (window or GS.PEER_MAX_AGE) end
 
-function GS:Peers()
+local function GuildTable(self, field)
   local db = self.db
   if not db then return end
   local g = self:GuildKey() or self.guildKey
   if not g then return end
-  db.peersByGuild = type(db.peersByGuild) == "table" and db.peersByGuild or {}
-  local t = db.peersByGuild[g]
-  if type(t) ~= "table" then t = {}; db.peersByGuild[g] = t end
-  if type(db.peers) == "table" then
-    for k, v in pairs(db.peers) do if type(v) == "number" and (t[k] or 0) < v then t[k] = v end end
-    db.peers = nil
+  db[field] = type(db[field]) == "table" and db[field] or {}
+  local t = db[field][g]
+  if type(t) ~= "table" then t = {}; db[field][g] = t end
+  return t
+end
+
+function GS:Peers()
+  local t = GuildTable(self, "peersByGuild")
+  local old = t and self.db.peers
+  if type(old) == "table" then
+    for k, v in pairs(old) do if type(v) == "number" and (t[k] or 0) < v then t[k] = v end end
+    self.db.peers = nil
   end
   return t
+end
+
+function GS:PeerVersions() return GuildTable(self, "peerVersions") end
+
+local function Supersedes(seen, version)
+  if not seen then return true end
+  if not version then return false end
+  return not seen.version or GS.NewerVersion(version, seen.version)
+end
+
+function GS:NoteNewer(key, version)
+  if not GS.IsRelease(self.version) or not Supersedes(self.newer, version) then return end
+  local said = self.newer ~= nil
+  self.newer = { from = key, version = version }
+  if said then return end
+  local L = self.OverviewL
+  self.Print(nil, version and L.NEWER_VERSION:format(key, version, self.version) or L.NEWER_FORMAT:format(key))
+end
+
+function GS:NotePeerVersion(key, version)
+  local versions = GS.IsRelease(version) and self:PeerVersions()
+  if not versions then return end
+  versions[key] = version
+  if GS.NewerVersion(version, self.version) then self:NoteNewer(key, version) end
+end
+
+function GS:CheckPeerVersions()
+  local from, newest
+  for key, v in pairs(self:PeerVersions() or {}) do
+    if GS.NewerVersion(v, newest or self.version) then from, newest = key, v end
+  end
+  if from then self:NoteNewer(from, newest) end
+end
+
+function GS:OverviewVersionLine()
+  local own = GS.IsRelease(self.version) and ("v" .. self.version) or self.version
+  local newer, L = self.newer, self.OverviewL
+  if not newer then return own end
+  return own .. "  ·  " .. (newer.version and L.UPDATE_TO:format(newer.version) or L.UPDATE_ANY)
 end
 
 function GS:NotePeer(key)
   local peers = key and self:Peers()
   if peers then peers[key] = self:Now() end
+end
+
+local function PruneVersions(db)
+  if type(db.peerVersions) ~= "table" then return end
+  for g, versions in pairs(db.peerVersions) do
+    local peers = type(db.peersByGuild) == "table" and db.peersByGuild[g]
+    if type(versions) ~= "table" or type(peers) ~= "table" then db.peerVersions[g] = nil
+    else
+      for key in pairs(versions) do if not peers[key] then versions[key] = nil end end
+    end
+  end
 end
 
 function GS:PrunePeers()
@@ -122,6 +178,7 @@ function GS:PrunePeers()
       if not next(peers) then db.peersByGuild[g] = nil end
     end
   end
+  PruneVersions(db)
 end
 
 function GS:IsPeer(key)
@@ -138,16 +195,33 @@ function ns.PeerCount(window)
   return n
 end
 
-function ns.PeersOnRoster()
-  local total, online, now = 0, 0, GS:Now()
+local function FreshRosterPeers()
+  local out, now = {}, GS:Now()
   for key, t in pairs(GS:Peers() or {}) do
     local member = FreshPeer(t, now) and GS.roster[key]
-    if member then
-      total = total + 1
-      if member.online then online = online + 1 end
-    end
+    if member then out[key] = member end
+  end
+  return out
+end
+
+function ns.PeersOnRoster()
+  local total, online = 0, 0
+  for _, member in pairs(FreshRosterPeers()) do
+    total = total + 1
+    if member.online then online = online + 1 end
   end
   return total, online
+end
+
+function GS:PeerVersionLines()
+  local members, versions, out = FreshRosterPeers(), self:PeerVersions() or {}, {}
+  for key in pairs(members) do out[#out + 1] = key end
+  table.sort(out)
+  for i, key in ipairs(out) do
+    local line = key .. "  " .. (versions[key] or "?")
+    out[i] = members[key].online and line or ("|cff999999" .. line .. "|r")
+  end
+  return out
 end
 
 function GS:ElectionRank(candidates)

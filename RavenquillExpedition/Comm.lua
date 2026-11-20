@@ -24,6 +24,7 @@ local C = {
   STATE_QUIET = 4,
   STATE_MAX_60 = 10,
   STARVE = 30,
+  VERSION_DELAY = 30, VERSION_JITTER = 60, VERSION_RETRY = 60,
 }
 GS.CommConst = C
 
@@ -345,7 +346,10 @@ end
 
 function Channel:Receive(sender, body)
   local typ, msg, detail = self:Decode(sender, body)
-  if not typ then return Reject(self, msg, detail) end
+  if not typ then
+    if msg == "version" and (tonumber(detail) or 0) > (tonumber(self.version) or math.huge) then GS:NoteNewer(sender) end
+    return Reject(self, msg, detail)
+  end
   self.stats.received = self.stats.received + 1
   local h = self.handlers[typ]
   if h then GS:Call(h, sender, msg) end
@@ -495,9 +499,24 @@ function GS:CommStatus()
     self:InInstance() and ", |cffff8800paused (instance)|r" or "", S.slow and ", |cffff8800slow (no echo)|r" or "")
 end
 
+local versionChannel = ns.ModuleProto.NewChannel({ name = "core" }, { tag = "V" })
+versionChannel:Define("v", { fields = { { "ver", "text", 24 } } })
+versionChannel:On("v", function(sender, msg) GS:NotePeerVersion(sender, msg.ver) end)
+
+local function AnnounceVersion()
+  versionChannel:Send("v", { ver = GS.version }, { onResult = function(status)
+    if status == "dropped" then C_Timer.After(C.VERSION_RETRY, function() GS:Call(AnnounceVersion) end) end
+  end })
+end
+
 function GS:OnLoginComm()
   RegisterPrefix(PREFIX)
   for _, raw in pairs(S.prefixes) do raw.prefixOk = RegisterPrefix(raw.prefix) end
+  if not GS.IsRelease(self.version) then return end
+  C_Timer.After(C.VERSION_DELAY + math.random() * C.VERSION_JITTER, function()
+    GS:Call(GS.CheckPeerVersions, GS)
+    GS:Call(AnnounceVersion)
+  end)
 end
 
 if hooksecurefunc and C_ChatInfo and C_ChatInfo.SendAddonMessage then

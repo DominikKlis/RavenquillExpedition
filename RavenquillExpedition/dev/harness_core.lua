@@ -211,4 +211,19 @@ check(W.Clean("|cffff0000Rot|r;x|y\n", 50) == "Rotxy" and W.Clean("ÄÄÄ", 3) =
 check(W.CLASSES[9] == "DRUID" and W.CLASS_IDX.SHAMAN == 6 and #W.CLASSES == 13, "class index table (1-9 = the wire contract)")
 
 check(#me.errors == 2, "no other Lua errors (" .. #me.errors .. ")")
+
+section("Overview footer: copy diagnostics")
+RQ:Call(function() error("kaputt im Test") end)
+RQ:ToggleOverview()
+local diagButton
+for _, c in ipairs(env.RavenquillExpeditionOverview.home.options.controls) do
+  if c and c:GetText() == "Diagnose kopieren" then diagButton = c end
+end
+check(diagButton ~= nil, "the /rq footer has a 'Diagnose kopieren' button")
+check(env.RavenquillExpeditionCopyBox == nil or not env.RavenquillExpeditionCopyBox:IsShown(), "precondition: no copy box shown")
+if diagButton then rawget(diagButton, "_scripts").OnClick(diagButton) end
+local diagBox = env.RavenquillExpeditionCopyBox
+check(diagBox and diagBox:IsShown() and diagBox.text:find("Ravenquill Expedition v", 1, true)
+  and diagBox.text:find("sync: queue", 1, true) and diagBox.text:find("kaputt im Test", 1, true),
+  "clicking it opens the copy box with the version, the sync state and the last error")
 Kit.finish()

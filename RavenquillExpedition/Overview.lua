@@ -91,9 +91,9 @@ function GS:OverviewPeersLine() return L.PEERS:format(ns.PeersOnRoster()) end
 
 local function PlainText(text) return (tostring(text):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
 
-local function PeerList(peers)
+local function PeerList(peers, versions)
   local out = {}
-  for k, t in pairs(peers or {}) do out[#out + 1] = k .. " (" .. date("%d.%m. %H:%M", t) .. ")" end
+  for k, t in pairs(peers or {}) do out[#out + 1] = k .. " " .. (versions[k] or "?") .. " (" .. date("%d.%m. %H:%M", t) .. ")" end
   table.sort(out)
   return out[1] and table.concat(out, ", ") or "-"
 end
@@ -111,7 +111,7 @@ function GS:DiagLines()
     "sync: " .. PlainText(self:CommStatus()),
     "roster members: " .. (function() local n = 0; for _ in pairs(self.roster) do n = n + 1 end; return n end)(),
   }
-  out[#out + 1] = "peers: " .. PeerList(self:Peers())
+  out[#out + 1] = "peers: " .. PeerList(self:Peers(), self:PeerVersions() or {})
   local names = {}
   for _, name in ipairs(self.moduleOrder) do names[#names + 1] = name .. "=" .. tostring(self.modules[name].addon) end
   out[#out + 1] = "modules: " .. table.concat(names, ", ")
@@ -138,7 +138,7 @@ local WIDTH, HEIGHT, MAX_TABS = 673, 594, 7
 local SUITE_ICON = "Interface\\Icons\\INV_Misc_Book_09"
 local GEAR_ICON = "Interface\\Icons\\INV_Misc_Gear_01"
 local WIDE_CARD = "Profession-overview-Card"
-local SIZE = { edge = 24, header = 62, footer = 34, row = 22, title = 170, rows = 6, recent = 40 }
+local SIZE = { edge = 24, header = 62, footer = 62, row = 22, title = 170, rows = 6, recent = 40 }
 local Strip = {}
 local Text = ns.Text
 
@@ -177,6 +177,10 @@ local function BuildHeader(home)
     GS:RefreshOverview()
   end)
   home.retry:Hide()
+  home.peersTip = CreateFrame("Frame", nil, card)
+  home.peersTip:SetAllPoints(home.peers)
+  home.peersTip:EnableMouse(true)
+  ns.Tip(home.peersTip, L.PEER_VERSIONS, function() return GS:PeerVersionLines() end)
   return card
 end
 
@@ -249,6 +253,7 @@ local function BuildFooter(home)
   home.options = ns.BuildPanel(home, {
     { type = "toggle", label = L.SHOW_LAUNCHER,
       get = function() return GS:LauncherShown() end, set = function(on) GS:SetLauncherShown(on) end },
+    { type = "text", label = L.COPY_DIAG, lines = function() return GS:DiagLines() end },
   })
   home.options:SetPoint("BOTTOMLEFT", 14, 4)
   home.options:SetHeight(SIZE.footer)
@@ -478,7 +483,7 @@ local function RenderHeader(home)
   home.sync:SetText(GS:OverviewSyncLine())
   home.retry:SetShown(GS:OverviewSyncState() == "slow")
   home.peers:SetText(GS:OverviewPeersLine())
-  home.version:SetText("v" .. GS.version)
+  home.version:SetText(GS:OverviewVersionLine())
 end
 
 function Strip.RenderRow(row, d)
