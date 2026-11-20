@@ -78,10 +78,14 @@ Dev:Register("craft.window", function(t)
 end)
 
 Dev:Register("sv.shapes", function(t)
+  local function Version(name)
+    local mod = RQ:GetModule(name)
+    return mod and mod.dbVersion
+  end
   local checks = {
     { "RavenquillExpeditionDB", nil },
-    { "RavenquillExpeditionHighlightsDB", 2 },
-    { "RavenquillExpeditionMapDB", 1 },
+    { "RavenquillExpeditionHighlightsDB", Version("Highlights") },
+    { "RavenquillExpeditionMapDB", Version("Map") },
     { "RavenquillExpeditionCraftDB", nil },
   }
   for _, c in ipairs(checks) do
@@ -102,6 +106,92 @@ Dev:Register("env.info", function(t)
   t:note("player " .. tostring((RQ:PlayerKey())) .. ", guild " .. tostring((RQ:GuildKey())))
   t:note("hooks: core comm " .. tostring(RQ.Comm and RQ.Comm.hooked))
   t:note("ReloadUI is " .. type(ReloadUI))
+  t:done()
+end)
+
+Dev.GAME_GLOBALS = {
+  "Ambiguate", "BACKSLOT", "BANK_CONTAINER", "ButtonFrameTemplate_HideButtonBar",
+  "ButtonFrameTemplate_HidePortrait", "CHESTSLOT", "CLASS_ICON_TCOORDS", "CUSTOM_CLASS_COLORS", "C_AddOns",
+  "C_CVar", "C_ChatInfo", "C_ClassTalents", "C_Container", "C_GuildInfo", "C_Item", "C_Map", "C_PartyInfo", "C_QuestLog",
+  "C_Reputation", "C_Spell", "C_SpellBook", "C_SuperTrack", "C_Texture", "C_Timer", "C_TooltipInfo",
+  "C_TradeSkillUI", "C_Traits", "C_XMLUtil", "CanInspect", "ChatEdit_GetActiveWindow", "ChatFontNormal",
+  "ChatFrameUtil", "ChatFrame_OpenChat", "ChatFrame_SendTell", "CheckInteractDistance", "Constants", "CreateFrame",
+  "DEFAULT_CHAT_FRAME", "Enum", "FEETSLOT", "FINGER0SLOT", "FINGER1SLOT", "GameFontHighlightSmall", "GameTooltip",
+  "GameTooltip_Hide", "GameTooltip_ShowCompareItem", "GetAddOnInfo", "GetAddOnMetadata", "GetBuildInfo",
+  "GetCoinTextureString", "GetContainerItemLink", "GetContainerNumSlots", "GetCursorPosition",
+  "GetDetailedItemLevelInfo", "GetFileIDFromPath", "GetGuildInfo", "GetGuildRosterInfo", "GetInstanceInfo",
+  "GetInventoryItemLink", "GetInventorySlotInfo", "GetItemCount", "GetItemInfo", "GetItemInfoInstant",
+  "GetItemStats", "GetLocale", "GetMaxPlayerLevel", "GetMoneyString", "GetNormalizedRealmName",
+  "GetNumGroupMembers", "GetNumGuildMembers", "GetNumQuestLogEntries", "GetNumSubgroupMembers",
+  "GetNumTradeSkills", "GetProfessionInfo", "GetProfessions", "GetQuestLogTitle", "GetQuestTagInfo",
+  "GetRealZoneText", "GetRealmName", "GetServerTime", "GetSpellInfo", "GetTime", "debugprofilestop", "GetTradeSkillItemLink",
+  "GetTradeSkillLine", "GetTradeSkillRecipeLink", "GuildRoster", "HANDSSLOT", "HBD_PINS_WORLDMAP_SHOW_WORLD",
+  "HEADSLOT", "HandleModifiedItemClick", "ITEM_CLASSES_ALLOWED", "ITEM_QUALITY_COLORS", "ITEM_REQ_SKILL",
+  "InCombatLockdown", "InspectFrame", "InspectUnit", "InviteUnit", "IsAddOnLoaded", "IsControlKeyDown", "IsInGuild", "IsInInstance", "IsInRaid",
+  "IsIndoors", "IsModifiedClick", "IsPlayerSpell", "IsShiftKeyDown", "LEGSSLOT", "LOCALIZED_CLASS_NAMES_FEMALE",
+  "LOCALIZED_CLASS_NAMES_MALE", "LOOT_ITEM", "LOOT_ITEM_MULTIPLE", "LOOT_ITEM_SELF", "LOOT_ITEM_SELF_MULTIPLE",
+  "LOOT_ITEM_CREATED_SELF", "LOOT_ITEM_CREATED_SELF_MULTIPLE", "IsMounted", "GetUnitSpeed", "UnitPVPRank",
+  "GetPVPRankInfo", "GetBattlefieldWinner", "GetNumSkillLines", "GetSkillLineInfo", "GetNumFactions", "GetFactionInfo",
+  "LibStub", "LoadAddOn", "MAINHANDSLOT", "MenuUtil", "MinimalSliderWithSteppersMixin", "Minimap", "NECKSLOT",
+  "NUM_BAG_SLOTS", "NUM_BANKBAGSLOTS", "NUM_TOTAL_EQUIPPED_BAG_SLOTS", "NineSliceUtil", "NotifyInspect",
+  "OpenWorldMap", "PanelTemplates_DeselectTab", "PanelTemplates_SelectTab", "PanelTemplates_TabResize", "ReloadUI", "CreateVector2D", "UnitPosition", "GetFactionInfoByID",
+  "ProfessionsFrame", "RAID_CLASS_COLORS", "RANGEDSLOT", "SECONDARYHANDSLOT", "SHOULDERSLOT", "SPEED",
+  "ScrollUtil", "SendChatMessage", "SetItemRef", "ShoppingTooltip1", "ShoppingTooltip2", "ShowUIPanel",
+  "SHIRTSLOT", "TABARDSLOT",
+  "TRINKET0SLOT", "TRINKET1SLOT", "ToggleWorldMap", "UIParent", "UISpecialFrames", "UNKNOWNOBJECT", "UiMapPoint",
+  "UnitClass", "UnitFactionGroup", "UnitGUID", "UnitIsDeadOrGhost", "UnitIsInMyGuild", "UnitIsPlayer",
+  "UnitIsUnit", "UnitLevel", "UnitName", "UnitNameUnmodified", "UnitOnTaxi", "UnitTokenFromGUID", "WAISTSLOT",
+  "WOW_PROJECT_CAMELOT", "WOW_PROJECT_CLASSIC", "WOW_PROJECT_ID", "WOW_PROJECT_MAINLINE", "WRISTSLOT",
+  "WorldMapFrame", "canaccessvalue", "date", "debugstack", "geterrorhandler", "hooksecurefunc", "issecretvalue",
+  "strsplit", "time", "tinsert", "wipe",
+}
+
+Dev:Register("env.globals", function(t)
+  local missing = {}
+  for _, name in ipairs(Dev.GAME_GLOBALS) do
+    if _G[name] == nil then missing[#missing + 1] = name end
+  end
+  table.sort(missing)
+  t:note(("%d of %d game globals the suite reads exist"):format(#Dev.GAME_GLOBALS - #missing, #Dev.GAME_GLOBALS))
+  t:note("missing: " .. (#missing > 0 and table.concat(missing, ", ") or "none"))
+  t:done()
+end)
+
+local PROBE_PATTERNS = { "DUEL", "PVPRANK", "PVP_RANK", "PVPRank", "PvpRank", "HONOR", "SkillLine", "SKILL_RANK", "Profession" }
+
+local function Matches(name)
+  for _, p in ipairs(PROBE_PATTERNS) do if name:find(p, 1, true) then return true end end
+end
+
+local function NoteTable(t, label, tbl)
+  if type(tbl) ~= "table" then t:note(label .. " is " .. type(tbl)) return end
+  local keys = {}
+  for k in pairs(tbl) do keys[#keys + 1] = tostring(k) end
+  table.sort(keys)
+  t:note(label .. ": " .. table.concat(keys, ", "))
+end
+
+Dev:Register("probe.milestones", function(t)
+  local found = {}
+  for name, value in pairs(_G) do
+    if type(name) == "string" and Matches(name) and (type(value) == "function" or type(value) == "string") then
+      found[#found + 1] = name
+    end
+  end
+  table.sort(found)
+  for _, name in ipairs(found) do
+    local v = _G[name]
+    t:note(type(v) == "string" and (name .. " = " .. v) or (name .. "()"))
+  end
+  NoteTable(t, "C_PvP", rawget(_G, "C_PvP"))
+  NoteTable(t, "C_Spell", rawget(_G, "C_Spell"))
+  NoteTable(t, "C_TradeSkillUI", rawget(_G, "C_TradeSkillUI"))
+  if type(GetProfessions) == "function" then
+    for i, index in pairs({ GetProfessions() }) do
+      local name, _, rank, maxRank, _, _, skillLine = GetProfessionInfo(index)
+      t:note(("profession %s: %s %s/%s line %s"):format(tostring(i), tostring(name), tostring(rank), tostring(maxRank), tostring(skillLine)))
+    end
+  end
   t:done()
 end)
 
@@ -545,6 +635,7 @@ Dev:Register("ui.capture", function(t)
   if RQ:OverviewShown() then RQ:ToggleOverview() end
   RQ:ToggleOverview()
   t:after(1.5, function()
+    TakeScreenshot()
     local n = Dev:InspectFrame("RavenquillExpeditionOverview")
     t:ok(n and n > 0, ("overview recorded: %s regions"):format(tostring(n)))
     local tabs, i = { "Highlights", "Map", "Craft" }, 0
@@ -635,7 +726,6 @@ function Probe.Own(t)
   local okN, nodes = Probe.Call("C_Traits.GetTreeNodes", treeID)
   t:note("own tree " .. tostring(treeID) .. " nodes: " .. tostring(okN) .. " " .. tostring(type(nodes) == "table" and #nodes))
   if okN and type(nodes) == "table" and nodes[1] then Probe.Node(t, configID, nodes[1], "own") end
-    TakeScreenshot()
   return configID, treeID
 end
 

@@ -104,6 +104,20 @@ st = {}
 for _, r in ipairs(finished.results) do st[r.name] = r.status end
 check(st["comm.echo"] == "pass", "comm.echo passes with a guild echo: " .. tostring(st["comm.echo"]))
 check(st["env.info"] == "pass (no checks)", "env.info only notes")
+do
+  local config = { files = {} }
+  local chunk = loadfile(Kit.ADDONS .. ".luacheckrc", "t", config)
+  if chunk then chunk() end
+  local want, have = {}, {}
+  for _, name in ipairs(config.read_globals or {}) do want[name] = true end
+  for _, name in ipairs(Dev.GAME_GLOBALS) do have[name] = true end
+  local drift = {}
+  for name in pairs(want) do if not have[name] then drift[#drift + 1] = "+" .. name end end
+  for name in pairs(have) do if not want[name] then drift[#drift + 1] = "-" .. name end end
+  table.sort(drift)
+  check(next(want) ~= nil and #drift == 0,
+    "env.globals checks exactly the read_globals of .luacheckrc: " .. (#drift > 0 and table.concat(drift, " ") or "in step"))
+end
 section("Craft Advisor reset")
 do
   local forgot, realGet = 0, RQ.GetModule
@@ -120,9 +134,6 @@ do
   check(forgot == 1, "it forgets the stored gear once, and does nothing without the Craft Advisor")
 end
 
-check(#me.errors == 0, "no Lua errors (" .. #me.errors .. ")" .. (me.errors[1] and (": " .. tostring(me.errors[1])) or ""))
-
-Kit.finish()
 section("Suite diagnostics")
 do
   local diag
@@ -132,3 +143,6 @@ do
     "the dev tools show the whole suite's diagnostics, now that the overview has no button for it")
 end
 
+check(#me.errors == 0, "no Lua errors (" .. #me.errors .. ")" .. (me.errors[1] and (": " .. tostring(me.errors[1])) or ""))
+
+Kit.finish()
