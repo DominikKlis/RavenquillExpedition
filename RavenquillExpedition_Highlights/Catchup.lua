@@ -26,7 +26,7 @@ local function Count(key)
   c[key] = (c[key] or 0) + 1
 end
 
-local function Relayable(e) return not (e.test or e.act or e.held) end
+local function Relayable(e) return not (e.test or e.act or e.held or H.cdb.outbox[e.id]) end
 
 local function Newest(events)
   for i = #events, 1, -1 do

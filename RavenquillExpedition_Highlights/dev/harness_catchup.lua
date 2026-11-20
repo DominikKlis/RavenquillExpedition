@@ -343,7 +343,7 @@ do
   check(#w.relays() == 0 and #Ids(anna) == 0, "no relay, nothing stored")
 end
 
-Kit.section("Own entries kept local (share off, over the hourly cap, local only) are never relayed, also after a reload")
+Kit.section("Own entries kept local (share off, local only) or waiting for the hourly cap are not relayed, also after a reload")
 do
   local w = NewWorld()
   w.bus:member("Dave Rook", "WARRIOR", 50, false)
@@ -352,29 +352,35 @@ do
   local heard = Entry("Dave Rook", EPOCH - 600, 1)
   Hold(bert, { heard })
   local s = bert.H.db.settings
-  local shared = {}
-  for i = 1, 8 do shared[i] = Author(bert, { lvl = 40 + i }) end
-  local kept = { Author(bert, { lvl = 49 }) }
+  local hour = {}
+  for i = 1, 9 do hour[i] = Author(bert, { lvl = 40 + i }) end
   s.share = false
-  kept[2] = Author(bert, { lvl = 50 })
+  local kept = { Author(bert, { lvl = 50 }) }
   s.share = true
-  kept[3] = Author(bert, { lvl = 51 }, { localOnly = true })
+  kept[2] = Author(bert, { lvl = 51 }, { localOnly = true })
   w.sched:advance(120)
+  local waiting = {}
+  for id in pairs(bert.H.cdb.outbox) do waiting[#waiting + 1] = id end
+  check(#waiting == 1, ("setup: 8 of Bert's 9 highlights of the hour went out, %d waits"):format(#waiting))
   local saved = Saved(bert)
   w.leave(bert)
   local bert2 = w.join("Bert Hill", saved)
   w.sched:advance(60)
-  check(Has(bert2, kept[1].id) and Has(bert2, kept[2].id) and Has(bert2, kept[3].id), "setup: the kept entries stay in Bert's log")
+  check(Has(bert2, waiting[1]) and Has(bert2, kept[1].id) and Has(bert2, kept[2].id), "setup: the kept entries stay in Bert's log")
   local asked = w.sched.t
   local anna = w.join("Anna Stone")
   w.sched:advance(400)
   check(w.requests("Anna Stone") == 1, "setup: Anna asked")
-  local want = IdsOf(shared)
-  want[#want + 1] = heard.id
+  local want = { heard.id }
+  for _, e in ipairs(hour) do if e.id ~= waiting[1] then want[#want + 1] = e.id end end
   local ok, got = Same(w.relays("Bert Hill", asked), want)
-  check(ok, "Bert relays the entries he shared and heard, none he kept local: " .. got)
+  check(ok, "Bert relays the entries he shared and heard, none he kept local or that still waits: " .. got)
   ok, got = Same(Ids(anna), want)
   check(ok, "Anna stores exactly those: " .. got)
+  w.sched:advance(3600)
+  want[#want + 1] = waiting[1]
+  ok, got = Same(Ids(anna), want)
+  check(ok, "the one that waited reaches Anna once the hour is over, the local ones never: " .. got)
 end
 
 Kit.section("Test entries are never relayed and never crowd out real ones")

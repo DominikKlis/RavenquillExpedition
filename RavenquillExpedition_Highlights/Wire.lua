@@ -157,13 +157,20 @@ function H:CapOk()
   return #log < self.SHARE_CAP
 end
 
+local function Charge(self, o)
+  if o.shared then return true end
+  if not self:CapOk() then return false end
+  table.insert(self.cdb.shareLog, GS:Now())
+  o.shared = true
+  return true
+end
+
 function H:Share(e, opts)
   opts = opts or {}
   if not self:Settings().share then return end
   local gkey = self:GuildKey()
-  if gkey == "-" or not self:CapOk() then return end
-  table.insert(self.cdb.shareLog, GS:Now())
-  local o = { g = gkey, t = e.t, nb = GS:Now() + (opts.group and Delay(opts.rank) or 0) }
+  if gkey == "-" then return end
+  local o ={ g = gkey, t = e.t, nb = GS:Now() + (opts.group and Delay(opts.rank) or 0) }
   if opts.group then o.grp, o.rank = true, opts.rank or 0 end
   self.cdb.outbox[e.id] = o
   self:SchedulePump(1)
@@ -235,17 +242,17 @@ end
 local function SendDue(self, due, idx)
   local outbox = self.cdb.outbox
   table.sort(due, function(a, b) return (outbox[a].t or 0) < (outbox[b].t or 0) end)
-  local sent = false
+  local busy = false
   for _, id in ipairs(due) do
     local e = idx[id]
-    if e and self:StillWanted(e) then
-      self:Send(e)
-      sent = true
-    else
+    if not (e and self:StillWanted(e)) then
       outbox[id] = nil
+    elseif Charge(self, outbox[id]) then
+      self:Send(e)
     end
+    busy = busy or outbox[id] ~= nil
   end
-  return sent
+  return busy
 end
 
 local function PumpDue(self)
