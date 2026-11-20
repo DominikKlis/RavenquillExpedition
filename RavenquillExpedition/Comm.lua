@@ -15,6 +15,7 @@ local C = {
   INTAKE_PER_MIN = 15,
   INTAKE_STATE_PER_MIN = 15,
   ECHO_TIMEOUT = 120,
+  SLOW_AFTER_LOSSES = 2,
   QUEUE_MAX = 40,
   QUEUE_MAX_WAIT = 1800,
   RECORD_MAX_WAIT = 300,
@@ -203,7 +204,7 @@ do
   end
 
   local function SlowDownWithoutEcho(now)
-    if S.slow or (S.lostSinceEcho or 0) <= 0 then return end
+    if S.slow or (S.lostSinceEcho or 0) < C.SLOW_AFTER_LOSSES then return end
     local since = S.lastEcho or S.firstSent
     if not since or now - since <= C.ECHO_TIMEOUT then return end
     S.slow = true
@@ -212,7 +213,7 @@ do
     GS:Trace("comm.slow", "no echo for " .. C.ECHO_TIMEOUT .. " s")
     if S.slowSaid then return end
     S.slowSaid = true
-    GS.Print(nil, "guild sync: our messages don't come back – sending slowly now (1 per 5 min).")
+    GS.Print(nil, GS.OverviewL.SLOW_WARNING)
   end
 
   local function ExpireQueue(now)
