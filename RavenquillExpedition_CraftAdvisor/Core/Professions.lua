@@ -170,6 +170,7 @@ function GCA:RefreshKnown()
     self.knownGen = (self.knownGen or 0) + 1
     self:Invalidate()
   end
+  if self.CheckOwnRecipes then self:CheckOwnRecipes() end
   return changed
 end
 

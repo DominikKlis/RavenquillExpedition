@@ -52,7 +52,7 @@ local requests = {}
 local player = { first = "Me", surname = "Stone", class = "DRUID", level = 40, items = {} }
 local Files = dofile(ROOT .. "dev/files.lua")
 local CA = "RavenquillExpedition_CraftAdvisor"
-local files = Files.kitFiles(Files.list({ except = { "Data/Sources.lua", "Data/ExtraSources.lua", "Auction.lua", "Sync.lua",
+local files = Files.kitFiles(Files.list({ except = { "Data/Sources.lua", "Data/ExtraSources.lua", "Auction.lua", "Sync",
   "RecipeSources.lua", "UI" } }))
 local function idOf(item) return type(item) == "number" and item or tonumber(tostring(item):match("item:(%d+)")) end
 local client = Kit.Client(sched, nil, "Me Stone", { class = "DRUID", level = 40, epoch = 1800000000, files = files,

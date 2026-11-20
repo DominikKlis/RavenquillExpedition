@@ -186,7 +186,7 @@ local function NewUIFrame(otype, name, parent, template)
 end
 
 local Files = dofile(ROOT .. "dev/files.lua")
-local files = Files.kitFiles(Files.list({ except = { "Sync.lua" } }))
+local files = Files.kitFiles(Files.list({ except = { "Sync" } }))
 local client = Kit.Client(sched, nil, "Me Stone", { env = env, epoch = 1800000000, files = files, setup = function(_, c)
   c.newFrame = NewUIFrame
   env.C_ChatInfo, env.C_GuildInfo = nil, nil

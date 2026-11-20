@@ -3,7 +3,7 @@ local Kit = dofile(ROOT .. "../RavenquillExpedition/dev/testkit.lua")
 local check = Kit.check
 local CA = "RavenquillExpedition_CraftAdvisor"
 local Files = dofile(ROOT .. "dev/files.lua")
-local files = Files.kitFiles(Files.list({ except = { "Data/Sources.lua", "Data/ExtraSources.lua", "Sync.lua", "RecipeSources.lua" } }))
+local files = Files.kitFiles(Files.list({ except = { "Data/Sources.lua", "Data/ExtraSources.lua", "Sync", "RecipeSources.lua" } }))
 local units = {
   player = { name="Me", class="ROGUE", level=30, guid="G-me", items={ [8]="item:2302::::" } },
   target = { name="Buddy", class="DRUID", level=28, guid="G-buddy", items={ [5]="item:2300::::", [8]="item:2302::::" } },
@@ -54,7 +54,7 @@ local me = Kit.Client(sched, nil, "Me", { locale = "deDE", files = files, setup 
 end })
 local env = me.env
 local RQ, ns, fire = me.RQ, me.ns[CA], me.fire
-local okSy, errSy = pcall(function() Kit.loadchunk(ROOT .. "Sync.lua", env)(CA, ns) end)
+local okSy, errSy = pcall(function() for _, f in ipairs(Files.group("Sync")) do Kit.loadchunk(ROOT .. f, env)(CA, ns) end end)
 io.write("Sync.lua loaded: ", tostring(okSy), " ", okSy and "" or tostring(errSy), "\n")
 local GCA = ns.GCA
 fire("ADDON_LOADED", "RavenquillExpedition")

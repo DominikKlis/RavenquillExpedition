@@ -38,6 +38,7 @@ Core\Options.lua
 Auction.lua
 Spec.lua
 Sync.lua
+SyncRecipes.lua
 RecipeSources.lua
 UI\Theme.lua
 UI\Text.lua
