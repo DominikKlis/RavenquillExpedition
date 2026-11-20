@@ -170,6 +170,14 @@ function H:Share(e, opts)
   return true
 end
 
+local function SameKill(self, o, e)
+  return o.k == "boss" and o.enc == e.enc and math.abs(o.t - e.t) <= self.BOSS_SAME
+end
+
+local function MyGroupKill(self, o, e)
+  return o.grp and o.who == GS:PlayerKey() and SameKill(self, o, e)
+end
+
 function H:StillWanted(e)
   if e.k == "loot" and e.by then
     return not (self:LootReportedByOthers(e) or GS:IsPeer(e.who))
@@ -178,19 +186,24 @@ function H:StillWanted(e)
     local events = self:Log()
     for i = #events, 1, -1 do
       local o = events[i]
-      if o.k == "boss" and o.who ~= e.who and o.enc == e.enc and math.abs(o.t - e.t) <= self.BOSS_SAME then return false end
+      if o.who ~= e.who and SameKill(self, o, e) then return false end
     end
   end
   return true
 end
 
+function H:WasAtKill(r)
+  for _, o in ipairs(self:Log()) do
+    if MyGroupKill(self, o, r) then return true end
+  end
+  return false
+end
+
 function H:Supersede(r)
-  local me = GS:PlayerKey()
   local events = self:Log()
   for i = #events, 1, -1 do
     local o = events[i]
-    if o.k == "boss" and o.grp and o.who == me and o.enc == r.enc and math.abs(o.t - r.t) <= self.BOSS_SAME
-      and self.cdb.outbox[o.id] and not inflight[o.id] then
+    if MyGroupKill(self, o, r) and self.cdb.outbox[o.id] and not inflight[o.id] then
       self:Remove(o.id)
     end
   end

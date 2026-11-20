@@ -128,8 +128,13 @@ end
 
 local lootHeard = {}
 
+local function NewToMe(self, e)
+  if e.who == GS:PlayerKey() then return false end
+  return not (e.k == "boss" and e.grp and self:WasAtKill(e))
+end
+
 local function OnHeard(self, e)
-  if e.who ~= GS:PlayerKey() then e.unseen = true end
+  if NewToMe(self, e) then e.unseen = true end
   if e.k == "loot" then lootHeard[e.who .. "#" .. tostring(e.item)] = e.t end
   if e.k == "boss" and e.grp then self:Supersede(e) end
 end

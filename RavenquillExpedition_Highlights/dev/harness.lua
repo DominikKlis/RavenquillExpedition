@@ -1244,6 +1244,47 @@ do
   LogOut(r)
 end
 
+Kit.section("New since you last looked: a raid kill you were at is not new to you")
+do
+  local saved = { G.inInstance, G.itype, G.instName, G.raid, G.group }
+  local c = Character(); c.login(); advance(40)
+  local function hear(sender, msg) c.fire("CHAT_MSG_ADDON", "RQE1", "H;" .. msg, "GUILD", sender) end
+  local function newCount() return tonumber(c.H:OverviewStatus():match("^(%d+) neu ·")) or 0 end
+  local function own(enc)
+    for _, e in ipairs((c.H:Log())) do if e.k == "boss" and e.enc == enc and e.who == "Me Smith" then return e end end
+  end
+  local function report(entryId, enc, boss, t)
+    hear("Cara Moss", ("1;b;%d;%d;Cara Moss;31;7;%d;0;1;%s;Geschmolzener Kern;3"):format(t, entryId, enc, boss))
+  end
+  G.inInstance, G.itype, G.instName, G.raid = true, "raid", "Geschmolzener Kern", true
+  G.group = { raid1 = { "Me", "Smith" }, raid2 = { "Cara", "Moss" }, raid3 = { "Bud", "Stone" } }
+  c.fire("PLAYER_ENTERING_WORLD")
+  c.fire("ENCOUNTER_END", 663, "Lucifron", 9, 40, 1)
+  local myLuci = own(663)
+  check(myLuci and myLuci.grp and c.H.cdb.outbox[myLuci.id], "my Lucifron kill waits to be sent as a group report")
+  report(131, 663, "Lucifron", myLuci.t + 30)
+  check(own(663) == nil and newCount() == 0, "Cara's report replaces mine and is not new to me (" .. newCount() .. ")")
+  c.fire("ENCOUNTER_END", 664, "Magmadar", 9, 40, 1)
+  local myMag = own(664)
+  G.inInstance, G.itype, G.instName, G.raid, G.group = false, "none", "Burgschmied", false, {}
+  c.fire("PLAYER_ENTERING_WORLD")
+  local sentMark = #G.sent
+  for _ = 1, 300 do
+    advance(1)
+    for i = sentMark + 1, #G.sent do
+      local m = G.sent[i]
+      if not m.echoed then m.echoed = true; c.fire("CHAT_MSG_ADDON", m.prefix, m.msg, "GUILD", "Me Smith") end
+    end
+  end
+  check(myMag and c.H.cdb.outbox[myMag.id] == nil and own(664), "my Magmadar report went out")
+  report(132, 664, "Magmadar", myMag.t + 20)
+  check(newCount() == 0, "Cara's later Magmadar report is not new either (" .. newCount() .. ")")
+  report(133, 665, "Gehennas", T() - 60)
+  check(newCount() == 1, "a raid kill I was not at is new (" .. newCount() .. ")")
+  LogOut(c)
+  G.inInstance, G.itype, G.instName, G.raid, G.group = saved[1], saved[2], saved[3], saved[4], saved[5]
+end
+
 do
   local errs = 0
   for _, c in ipairs(characters) do errs = errs + #c.errors end
