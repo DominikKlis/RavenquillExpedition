@@ -91,9 +91,9 @@ function GS:OverviewPeersLine() return L.PEERS:format(ns.PeersOnRoster()) end
 
 local function PlainText(text) return (tostring(text):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
 
-local function PeerList(peers)
+local function PeerList(peers, versions)
   local out = {}
-  for k, t in pairs(peers or {}) do out[#out + 1] = k .. " (" .. date("%d.%m. %H:%M", t) .. ")" end
+  for k, t in pairs(peers or {}) do out[#out + 1] = k .. " " .. (versions[k] or "?") .. " (" .. date("%d.%m. %H:%M", t) .. ")" end
   table.sort(out)
   return out[1] and table.concat(out, ", ") or "-"
 end
@@ -111,7 +111,7 @@ function GS:DiagLines()
     "sync: " .. PlainText(self:CommStatus()),
     "roster members: " .. (function() local n = 0; for _ in pairs(self.roster) do n = n + 1 end; return n end)(),
   }
-  out[#out + 1] = "peers: " .. PeerList(self:Peers())
+  out[#out + 1] = "peers: " .. PeerList(self:Peers(), self:PeerVersions() or {})
   local names = {}
   for _, name in ipairs(self.moduleOrder) do names[#names + 1] = name .. "=" .. tostring(self.modules[name].addon) end
   out[#out + 1] = "modules: " .. table.concat(names, ", ")
@@ -168,6 +168,10 @@ local function BuildHeader(home)
   home.sync:SetPoint("TOPLEFT", home.guild, "BOTTOMLEFT", 0, -6)
   home.peers = Text(card, "GameFontHighlightSmall", "RIGHT")
   home.peers:SetPoint("TOPRIGHT", -24, -36)
+  home.peersTip = CreateFrame("Frame", nil, card)
+  home.peersTip:SetAllPoints(home.peers)
+  home.peersTip:EnableMouse(true)
+  ns.Tip(home.peersTip, L.PEER_VERSIONS, function() return GS:PeerVersionLines() end)
   return card
 end
 
@@ -469,7 +473,7 @@ local function RenderHeader(home)
   home.guild:SetText(g or L.NO_GUILD)
   home.sync:SetText(GS:OverviewSyncLine())
   home.peers:SetText(GS:OverviewPeersLine())
-  home.version:SetText("v" .. GS.version)
+  home.version:SetText(GS:OverviewVersionLine())
 end
 
 function Strip.RenderRow(row, d)

@@ -38,6 +38,25 @@ function GS:AddOnVersion(addon)
 end
 GS.version = GS:AddOnVersion(ADDON)
 
+local function ReleaseParts(v)
+  if type(v) ~= "string" then return end
+  local major, minor, patch, pre = v:match("^(%d+)%.(%d+)%.(%d+)%-?([%w%.]*)$")
+  if major then return { tonumber(major), tonumber(minor), tonumber(patch), pre } end
+end
+
+function GS.IsRelease(v) return ReleaseParts(v) ~= nil end
+
+function GS.NewerVersion(a, b)
+  local x, y = ReleaseParts(a), ReleaseParts(b)
+  if not (x and y) then return false end
+  for i = 1, 3 do
+    if x[i] ~= y[i] then return x[i] > y[i] end
+  end
+  if x[4] == y[4] then return false end
+  if x[4] == "" or y[4] == "" then return x[4] == "" end
+  return x[4] > y[4]
+end
+
 function GS:Trace(cat, msg, data) end
 
 function GS:Call(fn, ...)

@@ -357,7 +357,13 @@ local stub = function(env)
   env.LOOT_ITEM, env.LOOT_ITEM_MULTIPLE = "%s receives loot: %s.", "%s receives loot: %sx%d."
   env.RAID_CLASS_COLORS = {}
 end
-local new = Kit.Client(sched3, bus3, "Neu Mann", { addons = { "RavenquillExpedition_Highlights" }, setup = stub })
+local function Released(version, more)
+  return function(env, c)
+    if more then more(env, c) end
+    env.C_AddOns.GetAddOnMetadata = function(_, field) if field == "Version" then return version end end
+  end
+end
+local new = Kit.Client(sched3, bus3, "Neu Mann", { addons = { "RavenquillExpedition_Highlights" }, setup = Released("0.9.2-beta", stub) })
 local old = Kit.Client(sched3, bus3, "Alt Frau", { noCore = true, files = OldFiles(), setup = stub })
 new.login(); old.login()
 sched3:advance(5)
@@ -370,6 +376,118 @@ local function has(c, who) for _, e in ipairs((H(c):Log())) do if e.who == who t
 check(has(old, "Neu Mann"), "the 0.2.0 client stores the new client's highlight")
 check(has(new, "Alt Frau"), "the new client stores the 0.2.0 client's highlight")
 check(#new.errors == 0 and #old.errors == 0, "no Lua errors on either (" .. tostring(new.errors[1] or old.errors[1]) .. ")")
+local oldPrinted = #old.printed
+sched3:advance(C.VERSION_DELAY + C.VERSION_JITTER + 5)
+local function OnRQE1(e) return e.prefix == "RQE1" end
+local newSent = bus3:sentBy("Neu Mann", OnRQE1)
+local oldReceived = tonumber(old.RQ:CommStatus():match("received (%d+)"))
+local oldFromNew = 0
+for _, e in ipairs((H(old):Log())) do if e.who == "Neu Mann" then oldFromNew = oldFromNew + 1 end end
+check(#bus3:sentBy("Neu Mann", function(e) return e.msg == "V;1;v;0.9.2-beta" end) == 1 and oldReceived == #newSent,
+  ("the 0.2.0 client receives the version announcement too (%s of %d messages)"):format(tostring(oldReceived), #newSent))
+check(#old.errors == 0 and #old.printed == oldPrinted and oldFromNew == 1,
+  "and drops its unknown tag silently: no error, no chat line, no extra highlight")
+
+section("Suite version: announced once per session, an older release is told once")
+check(new.RQ.NewerVersion("0.10.0", "0.9.9") and new.RQ.NewerVersion("1.0.0", "1.0.0-beta")
+  and new.RQ.NewerVersion("0.9.1-beta", "0.9.1-alpha") and not new.RQ.NewerVersion("0.9.1-beta", "0.9.1-beta")
+  and not new.RQ.NewerVersion("0.9.1", "0.10.0-alpha"),
+  "release order: numbers compare as numbers, a plain release beats its -alpha / -beta")
+check(not new.RQ.NewerVersion("dev", "0.1.0") and not new.RQ.NewerVersion("0.1.0", "dev") and not new.RQ.IsRelease("dev")
+  and not new.RQ.IsRelease("") and new.RQ.IsRelease("0.9.2-beta"), "a dev build is neither newer nor older than anything")
+local function Beacons(onBus, who) return onBus:sentBy(who, function(e) return e.prefix == "RQE1" and e.msg:find("^V;") ~= nil end) end
+local function Count(c, needle)
+  local hits = 0
+  for _, line in ipairs(c.printed) do if line.text:find(needle, 1, true) then hits = hits + 1 end end
+  return hits
+end
+local WINDOW = C.VERSION_DELAY + C.VERSION_JITTER + 5
+local schedV, busV, anna, bert = Kit.Two({ a = { setup = Released("0.9.1-beta") }, b = { setup = Released("0.9.2-beta") } })
+local dora = Kit.Client(schedV, busV, "Dora Dev")
+dora.login()
+schedV:advance(WINDOW)
+local bertSaid = Beacons(busV, "Bert Hill")
+check(#bertSaid == 1 and bertSaid[1].msg == "V;1;v;0.9.2-beta" and bertSaid[1].t >= C.VERSION_DELAY
+  and bertSaid[1].t <= C.VERSION_DELAY + C.VERSION_JITTER + 2,
+  ("one announcement %d-%d s after login, 16 bytes on RQE1 (%d, at %s s)"):format(C.VERSION_DELAY,
+    C.VERSION_DELAY + C.VERSION_JITTER, #bertSaid, tostring(bertSaid[1] and bertSaid[1].t)))
+check(#Beacons(busV, "Dora Dev") == 0, "a dev build (clone, no stamped version) announces nothing")
+local NOTICE = "Bert Hill runs a newer version (0.9.2-beta, you have 0.9.1-beta). Update with CurseForge or WowUp."
+check(Count(anna, NOTICE) == 1, "the older release is told in chat: " .. tostring(anna.printed[#anna.printed] and anna.printed[#anna.printed].text))
+check(Count(bert, "newer") == 0 and Count(dora, "newer") == 0, "the newest release and the dev build are told nothing")
+check(((anna.env.RavenquillExpeditionDB.peerVersions or {})["Testgilde@Realm"] or {})["Bert Hill"] == "0.9.2-beta"
+  and dora.RQ:PeerVersions()["Anna Stone"] == "0.9.1-beta", "every client keeps each peer's version in SavedVariables")
+check(anna.RQ:OverviewVersionLine() == "v0.9.1-beta  ·  |cffff8800update to 0.9.2-beta|r" and bert.RQ:OverviewVersionLine() == "v0.9.2-beta"
+  and dora.RQ:OverviewVersionLine() == "dev", "the /rq footer shows the update: " .. anna.RQ:OverviewVersionLine())
+local cora = Kit.Client(schedV, busV, "Cora Vale", { setup = Released("0.9.3-beta") })
+cora.login()
+schedV:advance(3 * 3600)
+check(#Beacons(busV, "Anna Stone") == 1 and #Beacons(busV, "Bert Hill") == 1 and #Beacons(busV, "Cora Vale") == 1,
+  "three hours later: still one announcement per client and session")
+check(Count(anna, "runs a newer version") == 1 and anna.RQ:OverviewVersionLine():find("update to 0.9.3-beta", 1, true) ~= nil,
+  "an even newer peer updates the footer without a second chat line")
+check(Count(dora, "newer") == 0 and dora.RQ:PeerVersions()["Cora Vale"] == "0.9.3-beta", "the dev build stores it, still silent")
+dora.env.C_ChatInfo.SendAddonMessage("RQE1", "V;1;v;dev", "GUILD")
+schedV:advance(10)
+check(anna.RQ:PeerVersions()["Dora Dev"] == nil and anna.RQ:IsPeer("Dora Dev"),
+  "a hand-made announcement that is no release makes a peer, but no version is stored")
+anna.RQ:ToggleOverview()
+local tipFrame = anna.env.RavenquillExpeditionOverview.home.peersTip
+busV:setOnline("Bert Hill", false)
+anna.fire("GUILD_ROSTER_UPDATE")
+rawget(tipFrame, "_scripts").OnEnter(tipFrame)
+check(table.concat(anna.tip.lines, "\n") == "|cff999999Bert Hill  0.9.2-beta|r\nCora Vale  0.9.3-beta\nDora Dev  ?",
+  "hovering the /rq peers line lists each guildmate's version, offline ones grey:\n" .. table.concat(anna.tip.lines, "\n"))
+check(anna.env.RavenquillExpeditionOverview.home.version:GetText():find("update to 0.9.3-beta", 1, true) ~= nil,
+  "the overview footer text carries the update")
+check(table.concat(anna.RQ:DiagLines(), "\n"):find("Cora Vale 0.9.3-beta (", 1, true) ~= nil, "diagnostics list each peer's version")
+
+local schedC, busC = Kit.Setup()
+local eve = Kit.Client(schedC, busC, "Eve Rook", { setup = Released("0.9.2-beta") })
+eve.combat = true
+eve.login()
+schedC:advance(WINDOW + 3 * C.VERSION_RETRY)
+check(#Beacons(busC, "Eve Rook") == 0, "in combat when it is due: nothing sent")
+eve.combat = false
+schedC:advance(C.VERSION_RETRY + 5)
+schedC:advance(3600)
+check(#Beacons(busC, "Eve Rook") == 1, "sent once after combat, then never again (" .. #Beacons(busC, "Eve Rook") .. ")")
+
+local schedF, busF, finn, gus = Kit.Two({ a = { setup = Released("0.9.1-beta") }, b = { setup = Released("0.9.1-beta") } })
+local ida = Kit.Client(schedF, busF, "Ida Dev")
+ida.login()
+local finnCh = finn.newModule("Fmt"):NewChannel({ tag = "FM", version = 1 })
+local gusCh = gus.newModule("Fmt"):NewChannel({ tag = "FM", version = 2 })
+for _, ch in ipairs({ finnCh, gusCh, ida.newModule("Fmt"):NewChannel({ tag = "FM", version = 1 }) }) do
+  ch:Define("x", { fields = { { "n", "int" } } })
+end
+schedF:advance(WINDOW)
+check(Count(finn, "newer") == 0 and Count(gus, "newer") == 0, "precondition: same suite version, no notice")
+gusCh:Send("x", { n = 1 })
+gusCh:Send("x", { n = 2 })
+finnCh:Send("x", { n = 3 })
+schedF:advance(60)
+check(Count(finn, "Bert Hill sends guild data in a newer format than this version reads.") == 1
+  and finn.RQ:OverviewVersionLine() == "v0.9.1-beta  ·  |cffff8800update available|r",
+  "a message in a newer channel format tells the reader once, at no message cost")
+check(Count(gus, "newer") == 0 and gus.RQ:OverviewVersionLine() == "v0.9.1-beta", "an older format tells nobody anything")
+check(Count(ida, "newer") == 0 and ida.RQ:OverviewVersionLine() == "dev", "a dev build that reads the newer format is not told either")
+
+local schedS, busS = Kit.Setup()
+local hana = Kit.Client(schedS, busS, "Hana Moor", { setup = Released("0.9.1-beta") })
+local seenAt = hana.env.time() - 3600
+hana.env.RavenquillExpeditionDB = { peersByGuild = { ["Testgilde@Realm"] = { ["Ivo Stern"] = seenAt } },
+  peerVersions = { ["Testgilde@Realm"] = { ["Ivo Stern"] = "0.9.4", ["Old Gone"] = "1.0.0" }, ["Left@Realm"] = { x = "2.0.0" } } }
+hana.login()
+schedS:advance(WINDOW)
+local hv = hana.env.RavenquillExpeditionDB.peerVersions
+check(Count(hana, "Ivo Stern runs a newer version (0.9.4, you have 0.9.1-beta)") == 1 and Count(hana, "newer") == 1,
+  "a newer version stored in an earlier session is told after login, nobody heard this session")
+check(hv["Testgilde@Realm"]["Old Gone"] == nil and hv["Left@Realm"] == nil and hv["Testgilde@Realm"]["Ivo Stern"] == "0.9.4",
+  "versions are pruned with their peers (and with guilds that have none)")
+check(#anna.errors + #bert.errors + #cora.errors + #dora.errors + #eve.errors + #finn.errors + #gus.errors + #ida.errors
+  + #hana.errors == 0,
+  "no Lua errors on any client")
 
 section("Review 2026-11-15: bounded lists, a module that never loads")
 sched, bus, a, b = Kit.Two()
