@@ -3,7 +3,7 @@
 ## Notes: Shows guildmates who run this addon on the world map and minimap, even when you're not grouped.
 ## Notes-deDE: Zeigt Gildenmitglieder, die dieses Addon nutzen, auf der Weltkarte und Minikarte – auch ohne Gruppe.
 ## Author: domin
-## Version: 0.9.1-beta
+## Version: 0.10.0-beta
 ## Dependencies: RavenquillExpedition
 ## SavedVariables: RavenquillExpeditionMapDB
 ## IconTexture: Interface\Icons\INV_Misc_Map_01

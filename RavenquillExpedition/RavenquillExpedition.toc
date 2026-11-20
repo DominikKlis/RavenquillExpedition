@@ -3,7 +3,7 @@
 ## Notes: Shared core for the Ravenquill Expedition modules (guild sync lane, helpers, /rq).
 ## Notes-deDE: Gemeinsamer Kern für die Ravenquill-Expedition-Module (Gilden-Sync, Hilfsfunktionen, /rq).
 ## Author: domin
-## Version: 0.9.1-beta
+## Version: 0.10.0-beta
 ## SavedVariables: RavenquillExpeditionDB
 ## IconTexture: Interface\Icons\INV_Misc_Book_09
 ## AddonCompartmentFunc: RavenquillExpedition_OnCompartmentClick
