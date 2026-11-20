@@ -26,6 +26,7 @@ M.C = {
   INTERVAL_MIN = 5,
   HEARTBEAT = 300,
   FADE_MIN = 180,
+  BEAT_OF_FADE = 0.75,
   STATIONARY_FADE = 1.5,
   REMOVE_FACTOR = 2,
   MINIMAP_FRESH = 45,
@@ -317,5 +318,8 @@ function M:OnLogin()
 end
 
 local function Refresh() M:Refresh() end
-M:RegisterEvent("PLAYER_ENTERING_WORLD", Refresh)
+M:RegisterEvent("PLAYER_ENTERING_WORLD", function(self, _, isReloadingUi)
+  if Bool(isReloadingUi) then self:SyncReloaded() end
+  self:Refresh()
+end)
 M:RegisterEvent("ZONE_CHANGED_NEW_AREA", Refresh)
