@@ -144,6 +144,7 @@ mod.options = {
     tooltip = "Deletes the stored gear of every guildmate (yours is read again right away). It comes back by inspecting or via guild sync.",
     func = function() local c = RQ:GetModule("Craft"); if c then c:ForgetStoredGear() end end },
   { type = "button", label = "Run all tests (then /reload to save)", func = function() if Dev.RunAll then Dev:RunAll() end end },
+  { type = "text", label = "Diagnostics (whole suite)", lines = function() return RQ:DiagLines() end },
   { type = "text", label = "Last 50 entries", lines = function()
     local out, all = {}, Dev.Entries()
     for i = math.max(1, #all - 49), #all do

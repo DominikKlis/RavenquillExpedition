@@ -153,6 +153,8 @@ function FrameMethods.Show(s) local was = s._shown; s._shown = true; if not was 
 function FrameMethods.Hide(s) local was = s._shown; s._shown = false; if was and s._scripts.OnHide then s._scripts.OnHide(s) end end
 function FrameMethods.SetShown(s, v) if v then s:Show() else s:Hide() end end
 function FrameMethods.SetText(s, v) s._text = v end
+function FrameMethods.SetAlpha(s, v) s._alpha = v end
+function FrameMethods.GetAlpha(s) return s._alpha or 1 end
 function FrameMethods.GetText(s) return s._text end
 function FrameMethods.SetChecked(s, v) s._checked = v and true or false end
 function FrameMethods.GetChecked(s) return s._checked end

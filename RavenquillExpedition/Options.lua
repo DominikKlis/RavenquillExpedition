@@ -122,15 +122,6 @@ function ns.PortraitWindow(name, title, icon)
   return f
 end
 
-function ns.Card(parent, atlas, w, h)
-  local c = CreateFrame("Frame", nil, parent)
-  c:SetSize(w, h)
-  local bg = c:CreateTexture(nil, "BACKGROUND")
-  bg:SetAllPoints()
-  AtlasOr(bg, atlas, 0, 0, 0, 0.4)
-  return c
-end
-
 local SLICE_X = { { "LEFT", 0 }, { "LEFT", 1 }, { "RIGHT", -1 } }
 local SLICE_X_END = { { "LEFT", 1 }, { "RIGHT", -1 }, { "RIGHT", 0 } }
 local SLICE_Y = { { "TOP", 0 }, { "TOP", -1 }, { "BOTTOM", 1 } }
@@ -200,44 +191,6 @@ function ns.SideTab(f, prev, onClick)
   SideTabTexture(b, "HIGHLIGHT", "common-sidetab-hover", 1, 1, 1, 0.15)
   b:SetScript("OnClick", onClick)
   ns.Tip(b, function() return b.title or "" end)
-  return b
-end
-
-function ns.ProgressBar(parent, w)
-  local bar = CreateFrame("StatusBar", nil, parent)
-  bar:SetSize(w, 18)
-  bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
-  bar:SetStatusBarColor(0.25, 0.45, 0.75)
-  local bg = bar:CreateTexture(nil, "BACKGROUND")
-  bg:SetAllPoints()
-  AtlasOr(bg, "Profession-ProgressBar-BG", 0, 0, 0, 0.6)
-  local border = bar:CreateTexture(nil, "OVERLAY")
-  border:SetPoint("TOPLEFT", -3, 3)
-  border:SetPoint("BOTTOMRIGHT", 3, -2)
-  if not ns.SetAtlas(border, "Profession-ProgressBar-frame") then border:Hide() end
-  bar.text = ns.Text(bar, "GameFontHighlightSmall", "CENTER")
-  bar.text:SetPoint("CENTER")
-  return bar
-end
-
-function ns.IconEntry(parent, onClick)
-  local b = CreateFrame("Button", nil, parent)
-  b:SetSize(37, 37)
-  b.icon = b:CreateTexture(nil, "ARTWORK")
-  b.icon:SetAllPoints()
-  local frame = b:CreateTexture(nil, "OVERLAY")
-  frame:SetPoint("TOPLEFT", -1, 1)
-  frame:SetPoint("BOTTOMRIGHT", 1, -1)
-  if not ns.SetAtlas(frame, "UI-HUD-ActionBar-IconFrame") then frame:Hide() end
-  local hover = b:CreateTexture(nil, "HIGHLIGHT")
-  hover:SetAllPoints()
-  hover:SetColorTexture(1, 1, 1, 0.2)
-  b.name = ns.Text(b, "GameFontNormal")
-  b.name:SetPoint("TOPLEFT", b, "TOPRIGHT", 8, -4)
-  b.sub = ns.Text(b, "GameFontHighlightSmall")
-  b.sub:SetPoint("TOPLEFT", b.name, "BOTTOMLEFT", 0, -2)
-  b.sub:SetTextColor(0.75, 0.75, 0.75)
-  if onClick then b:SetScript("OnClick", onClick) end
   return b
 end
 

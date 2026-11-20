@@ -123,3 +123,12 @@ end
 check(#me.errors == 0, "no Lua errors (" .. #me.errors .. ")" .. (me.errors[1] and (": " .. tostring(me.errors[1])) or ""))
 
 Kit.finish()
+section("Suite diagnostics")
+do
+  local diag
+  for _, o in ipairs(Dev.mod.options) do if o.label == "Diagnostics (whole suite)" then diag = o end end
+  local text = diag and diag.type == "text" and table.concat(diag.lines(), " | ") or ""
+  check(text:find("Ravenquill Expedition v", 1, true) and text:find("== minimap button", 1, true),
+    "the dev tools show the whole suite's diagnostics, now that the overview has no button for it")
+end
+

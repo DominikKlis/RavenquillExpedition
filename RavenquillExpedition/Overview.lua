@@ -137,8 +137,9 @@ local win
 local WIDTH, HEIGHT, MAX_TABS = 673, 594, 7
 local SUITE_ICON = "Interface\\Icons\\INV_Misc_Book_09"
 local GEAR_ICON = "Interface\\Icons\\INV_Misc_Gear_01"
-local WIDE_CARD, WIDE_W, WIDE_H = "Profession-overview-Card", 664, 142
-local CARD_EDGE = 24
+local WIDE_CARD = "Profession-overview-Card"
+local SIZE = { edge = 24, header = 62, footer = 34, row = 22, title = 170, rows = 6, recent = 40 }
+local Strip = {}
 local Text = ns.Text
 
 local function OpenPage(page)
@@ -156,49 +157,71 @@ local function BuildTabs(f)
   end
 end
 
-local function BuildGuildCard(home)
-  local card = ns.Card(home, WIDE_CARD, WIDE_W, WIDE_H)
+local function BuildHeader(home)
+  local card = ns.SlicedCard(home, WIDE_CARD, SIZE.edge)
   card:SetPoint("TOPLEFT", 5, -41)
+  card:SetPoint("RIGHT", home, "RIGHT", -4, 0)
+  card:SetHeight(SIZE.header)
   home.guild = Text(card, "GameFontNormal")
-  home.guild:SetPoint("TOPLEFT", 20, -24)
-  home.version = Text(card, "GameFontDisableSmall", "RIGHT")
-  home.version:SetPoint("TOPRIGHT", -24, -26)
-  home.syncEntry = ns.IconEntry(card)
-  home.syncEntry:SetPoint("TOPLEFT", 17, -52)
-  home.syncEntry.icon:SetTexture(SUITE_ICON)
-  home.syncEntry.name:SetText(L.SYNC_TITLE)
-  home.sync = home.syncEntry.sub
-  ns.Tip(home.syncEntry, L.SYNC_TITLE, function() return { GS:OverviewSyncLine(), GS:OverviewPeersLine() } end)
-  home.peersBar = ns.ProgressBar(card, 441)
-  home.peersBar:SetPoint("RIGHT", -40, 0)
-  home.options = ns.BuildPanel(card, {
-    { type = "toggle", label = L.SHOW_LAUNCHER,
-      get = function() return GS:LauncherShown() end, set = function(on) GS:SetLauncherShown(on) end },
-  })
-  home.options:SetPoint("TOPLEFT", card, "BOTTOMLEFT", 10, 38)
-  home.options:Show()
-  local diag = CreateFrame("Button", nil, card, "UIPanelButtonTemplate")
-  diag:SetSize(120, 22)
-  diag:SetPoint("BOTTOMRIGHT", -40, 14)
-  diag:SetText(L.DIAG)
-  diag:SetScript("OnClick", function() GS:ShowCopyBox(L.TITLE .. " – " .. L.DIAG, GS:Call(GS.DiagLines, GS) or {}) end)
-  home.replace = CreateFrame("Button", nil, card, "UIPanelButtonTemplate")
-  home.replace:SetSize(190, 22)
-  home.replace:SetPoint("RIGHT", diag, "LEFT", -8, 0)
-  home.replace:SetText(L.REPLACE_LAUNCHER)
-  home.replace:SetScript("OnClick", function() GS.Print(nil, L.LAUNCHER_MOVED:format(GS:LauncherReplace() or 0)) end)
+  home.guild:SetPoint("TOPLEFT", 20, -16)
+  home.sync = Text(card, "GameFontHighlightSmall")
+  home.sync:SetPoint("TOPLEFT", home.guild, "BOTTOMLEFT", 0, -6)
+  home.peers = Text(card, "GameFontHighlightSmall", "RIGHT")
+  home.peers:SetPoint("TOPRIGHT", -24, -36)
   return card
 end
 
-local function BuildRecentCard(home, above)
-  local card = ns.SlicedCard(home, WIDE_CARD, CARD_EDGE)
-  card:SetPoint("TOPLEFT", above, "BOTTOMLEFT", 0, 5)
-  card:SetPoint("BOTTOMRIGHT", -4, 5)
+function Strip.Open(row)
+  local d = row.data
+  if not d then return end
+  if d.page or d.options then GS:ShowModulePage(d.name) elseif d.open then d.open() end
+end
+
+function Strip.TipLines(row)
+  local d = row.data
+  if not d then return {} end
+  return { d.status, L.COMMAND:format(d.slash) }
+end
+
+function Strip.BuildRow(strip, i)
+  local row = CreateFrame("Button", nil, strip)
+  row:SetHeight(SIZE.row)
+  row:SetPoint("TOPLEFT", 0, -(i - 1) * SIZE.row)
+  row:SetPoint("RIGHT", strip, "RIGHT", 0, 0)
+  local hover = row:CreateTexture(nil, "HIGHLIGHT")
+  hover:SetAllPoints()
+  hover:SetColorTexture(1, 1, 1, 0.08)
+  row.icon = ns.Icon(row, SIZE.row - 4)
+  row.icon:SetPoint("LEFT", 2, 0)
+  row.title = Text(row, "GameFontNormalSmall")
+  row.title:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
+  row.title:SetWidth(SIZE.title)
+  row.status = Text(row, "GameFontHighlightSmall")
+  row.status:SetPoint("LEFT", row.title, "RIGHT", 8, 0)
+  row.status:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+  row:SetScript("OnClick", Strip.Open)
+  ns.Tip(row, function() return row.data and row.data.title or "" end, function() return Strip.TipLines(row) end)
+  row:Hide()
+  return row
+end
+
+function Strip.Build(card)
+  local strip = CreateFrame("Frame", nil, card)
+  strip:SetPoint("TOPLEFT", 16, -18)
+  strip:SetPoint("RIGHT", card, "RIGHT", -20, 0)
+  strip:SetHeight(SIZE.row)
+  strip.rows = {}
+  for i = 1, SIZE.rows do strip.rows[i] = Strip.BuildRow(strip, i) end
+  return strip
+end
+
+local function BuildFeed(home, card)
   home.recentHead = Text(card, "GameFontNormal")
-  home.recentHead:SetPoint("TOPLEFT", 20, -24)
+  home.recentHead:SetPoint("TOPLEFT", home.strip, "BOTTOMLEFT", 4, -18)
   home.recentHead:SetText(L.RECENT)
+  ns.Rule(card, home.recentHead, -4)
   local msg = CreateFrame("ScrollingMessageFrame", nil, card)
-  msg:SetPoint("TOPLEFT", 20, -44)
+  msg:SetPoint("TOPLEFT", home.recentHead, "BOTTOMLEFT", 0, -10)
   msg:SetPoint("BOTTOMRIGHT", -24, 16)
   msg:SetFontObject(GameFontHighlightSmall)
   msg:SetJustifyH("LEFT")
@@ -211,13 +234,30 @@ local function BuildRecentCard(home, above)
   msg:EnableMouseWheel(true)
   msg:SetScript("OnMouseWheel", ns.WheelLines)
   home.recent = msg
-  return card
+end
+
+local function BuildFooter(home)
+  home.options = ns.BuildPanel(home, {
+    { type = "toggle", label = L.SHOW_LAUNCHER,
+      get = function() return GS:LauncherShown() end, set = function(on) GS:SetLauncherShown(on) end },
+  })
+  home.options:SetPoint("BOTTOMLEFT", 14, 4)
+  home.options:SetHeight(SIZE.footer)
+  home.options:Show()
+  home.version = Text(home, "GameFontDisableSmall", "RIGHT")
+  home.version:SetPoint("BOTTOMRIGHT", -20, 16)
 end
 
 local function BuildHome(f)
   local home = CreateFrame("Frame", nil, f)
   home:SetAllPoints()
-  BuildRecentCard(home, BuildGuildCard(home))
+  local header = BuildHeader(home)
+  local body = ns.SlicedCard(home, WIDE_CARD, SIZE.edge)
+  body:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 5)
+  body:SetPoint("BOTTOMRIGHT", -4, SIZE.footer + 5)
+  home.strip = Strip.Build(body)
+  BuildFeed(home, body)
+  BuildFooter(home)
   return home
 end
 
@@ -237,20 +277,18 @@ local function BuildOptionsView(f)
   local opt = CreateFrame("Frame", nil, f)
   opt:SetAllPoints()
   opt:Hide()
-  local inset = ns.SlicedCard(opt, WIDE_CARD, CARD_EDGE)
+  local inset = ns.SlicedCard(opt, WIDE_CARD, SIZE.edge)
   inset:SetPoint("TOPLEFT", 5, -41)
   inset:SetPoint("BOTTOMRIGHT", -4, 5)
-  opt.title = Text(inset, "GameFontNormal")
-  opt.title:SetPoint("TOPLEFT", 20, -18)
   opt.status = Text(inset, "GameFontHighlightSmall")
-  opt.status:SetPoint("TOPLEFT", opt.title, "BOTTOMLEFT", 0, -4)
+  opt.status:SetPoint("TOPLEFT", 20, -23)
   opt.status:SetPoint("RIGHT", inset, "RIGHT", -(SETTINGS_BUTTON_WIDTH + 30), 0)
   opt.status:SetTextColor(0.8, 0.8, 0.8)
   opt.gear = IconButton(inset, SETTINGS_BUTTON_WIDTH, 26)
   opt.gear:SetPoint("TOPRIGHT", -20, -14)
   opt.gear.icon:SetTexture(GEAR_ICON)
   opt.gear:SetText(L.SETTINGS)
-  local line = ns.Rule(inset, opt.title, -30)
+  local line = ns.Rule(inset, opt.status, -14)
   opt.body = CreateFrame("Frame", nil, inset)
   opt.body:SetPoint("TOPLEFT", line, "BOTTOMLEFT", -4, -8)
   opt.body:SetPoint("BOTTOMRIGHT", -16, 10)
@@ -321,7 +359,6 @@ local function RenderGear(gear, d, settings)
 end
 
 local function RenderModuleHeader(opt, d, settings)
-  opt.title:SetText(d.title)
   opt.status:SetText(d.status)
   RenderGear(opt.gear, d, settings)
 end
@@ -410,7 +447,7 @@ end
 local function RecentLines()
   for _, name in ipairs(GS.moduleOrder) do
     local mod = GS.modules[name]
-    if mod.OverviewRecent then return GS:Call(mod.OverviewRecent, mod, 12) end
+    if mod.OverviewRecent then return GS:Call(mod.OverviewRecent, mod, SIZE.recent) end
   end
 end
 
@@ -426,15 +463,31 @@ local function RenderRecent(m)
   if m.ScrollToBottom then m:ScrollToBottom() end
 end
 
-local function RenderGuildCard(home)
+local function RenderHeader(home)
   local g = Plain(SafeCall(GetGuildInfo, "player"), "string")
   home.guild:SetText(g or L.NO_GUILD)
+  home.sync:SetText(GS:OverviewSyncLine())
+  home.peers:SetText(GS:OverviewPeersLine())
   home.version:SetText("v" .. GS.version)
-  home.sync:SetText(L[SYNC_STATES[GS:OverviewSyncState()].label])
-  local known, online = ns.PeersOnRoster()
-  home.peersBar:SetMinMaxValues(0, math.max(1, known))
-  home.peersBar:SetValue(online)
-  home.peersBar.text:SetText(GS:OverviewPeersLine())
+end
+
+function Strip.RenderRow(row, d)
+  local usable = d.state == "loaded"
+  row.data = d
+  row.icon:SetTexture(d.icon)
+  row.icon:SetDesaturated(not usable)
+  row.title:SetText(d.title)
+  row.status:SetText(d.status or "")
+  row:SetAlpha(usable and 1 or 0.55)
+  row:Show()
+end
+
+function Strip.Render(strip, rows)
+  local shown = 0
+  for i, row in ipairs(strip.rows) do
+    if rows[i] then Strip.RenderRow(row, rows[i]); shown = i else row.data = nil; row:Hide() end
+  end
+  strip:SetHeight(math.max(1, shown) * SIZE.row)
 end
 
 function GS:RefreshOverview()
@@ -443,10 +496,10 @@ function GS:RefreshOverview()
   RenderTabs(win, rows, self.optionsModule or "home")
   if self.optionsModule then return self:RefreshModuleView(rows) end
   local home = win.home
-  RenderGuildCard(home)
+  RenderHeader(home)
+  Strip.Render(home.strip, rows)
   RenderRecent(home.recent)
   home.options.refreshAll()
-  if GS:LauncherShown() then home.replace:Enable() else home.replace:Disable() end
 end
 
 function GS:RefreshModuleView(rows)

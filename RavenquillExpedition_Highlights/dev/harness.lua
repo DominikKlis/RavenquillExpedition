@@ -571,6 +571,11 @@ check(rawget(gear, "_shown") and gear:GetText() == "Einstellungen" and gear:IsEn
   "a module page shows a labelled settings button and its own page, no open button")
 rawget(gear, "_scripts").OnClick(gear)
 check(GS.moduleSettings and ov.optView.panels.Highlights:IsShown() and not hlPage:IsShown(), "the settings button shows the settings")
+GS:ShowHome()
+local missingRow = ov.home.strip.rows[2]
+check(rawget(missingRow, "_shown") and missingRow.data.state == "missing" and missingRow.status:GetText() == GS.OverviewL.MISSING
+  and missingRow:GetAlpha() < 1 and ov.home.strip.rows[1]:GetAlpha() == 1,
+  "a module that is not installed stays in the overview's list, greyed, with the reason")
 check(gear:GetText() == "« Zurück" and gear:IsEnabled(), "in the settings the same button reads '« Zurück'")
 rawget(gear, "_scripts").OnClick(gear)
 check(not GS.moduleSettings and hlPage:IsShown() and gear:GetText() == "Einstellungen", "'« Zurück' goes back to the log")
@@ -716,12 +721,26 @@ do
   rawget(hlTab, "_scripts").OnClick(hlTab)
   check(GS.optionsModule == "Highlights" and ov.optView:IsShown() and rawget(hlTab.selected, "_shown")
     and not rawget(tabs[1].selected, "_shown") and ov._title == H.title and ov._portrait == H.icon
-    and ov.optView.title:GetText() == H.title,
-    "a module's side tab opens that module, and the window takes its title and portrait")
+    and ov.optView.title == nil and ov.optView.status:GetText() == H:OverviewStatus(),
+    "a module's side tab opens that module, the window takes its title and portrait, and the page shows its status, not the title again")
   rawget(tabs[1], "_scripts").OnClick(tabs[1])
   check(GS.optionsModule == nil and ov.home:IsShown() and ov._title == "Ravenquill Expedition",
     "the overview tab goes back to the overview")
-  check(ov.home.rows == nil and ov.home.recent ~= nil, "the overview has no module cards; the highlights feed takes the page")
+  local stripRows, homeRows = ov.home.strip.rows, GS:OverviewRows()
+  local stripped, hlRow = 0, nil
+  for _, row in ipairs(stripRows) do
+    if rawget(row, "_shown") then
+      stripped = stripped + 1
+      if row.data.name == "Highlights" then hlRow = row end
+    end
+  end
+  check(stripped == #homeRows and hlRow and hlRow.status:GetText() == H:OverviewStatus() and ov.home.recent ~= nil,
+    "the overview lists every module with its status line, above the highlights feed (" .. stripped .. ")")
+  rawget(hlRow, "_scripts").OnClick(hlRow)
+  check(GS.optionsModule == "Highlights" and not GS.moduleSettings, "clicking a module's line opens its tab")
+  rawget(tabs[1], "_scripts").OnClick(tabs[1])
+  check(ov.home.peers:GetText() == GS:OverviewPeersLine() and ov.home.sync:GetText() == GS:OverviewSyncLine()
+    and ov.home.peersBar == nil, "the header states sync and peers as text, without a progress bar")
   check(hlTab.status == H:OverviewStatus(), "a side tab's tooltip carries the module's status line")
   fm.SetTitle, fm.SetPortraitToAsset = nil, nil
   local clears = 0
@@ -848,19 +867,8 @@ do
   GS:ShowModuleOptions("Highlights")
   check(GS.moduleSettings and ov.optView.panels.Highlights:IsShown(), "/rq hl and friends still open the settings directly")
   GS:ShowHome()
-  local moved = 0
-  local replace = GS.LauncherReplace
-  GS.LauncherReplace = function() moved = moved + 1; return 135 end
-  rawget(home.replace, "_scripts").OnClick()
-  GS.LauncherReplace = replace
-  check(moved == 1 and lastPrinted():find("Minimap-Knopf in die größte freie Lücke verschoben (135°)", 1, true),
-    "the overview re-places the minimap button and says where it went")
-  GS:SetLauncherShown(false)
-  GS:RefreshOverview()
-  local offWhileHidden = not home.replace:IsEnabled()
-  GS:SetLauncherShown(true)
-  GS:RefreshOverview()
-  check(offWhileHidden and home.replace:IsEnabled(), "re-placing is greyed out while the minimap button is hidden")
+  check(home.replace == nil and home.diag == nil and GS.OverviewL.DIAG == "DIAG",
+    "the overview has no re-place and no diagnostics button: those are dev tools now")
   env.SlashCmdList.RAVENQUILL("")
 end
 

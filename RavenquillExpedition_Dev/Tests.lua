@@ -635,6 +635,7 @@ function Probe.Own(t)
   local okN, nodes = Probe.Call("C_Traits.GetTreeNodes", treeID)
   t:note("own tree " .. tostring(treeID) .. " nodes: " .. tostring(okN) .. " " .. tostring(type(nodes) == "table" and #nodes))
   if okN and type(nodes) == "table" and nodes[1] then Probe.Node(t, configID, nodes[1], "own") end
+    TakeScreenshot()
   return configID, treeID
 end
 
