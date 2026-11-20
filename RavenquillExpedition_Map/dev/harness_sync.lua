@@ -415,6 +415,29 @@ end
 
 do
   local sched, bus = Setup()
+  local A = Client(sched, bus, "Anna Alpha", { pos = { 1429, 0.5, 0.5 } })
+  local B = Client(sched, bus, "Bert Beta", { pos = { 1429, 0.6, 0.6 } })
+  A.login(); B.login()
+  sched:advance(200)
+  local MC = A.M.C
+  local side = 1
+  sched:at(sched.t + 2, function() side = -side; A.pos = { 1429, 0.5 + side * 0.0012, 0.5 } end, 2)
+  local notFresh = 0
+  sched:at(sched.t + 1, function()
+    local m = B.M.members["Anna Alpha"]
+    if not m or B.M:State(m) ~= "fresh" then notFresh = notFresh + 1 end
+  end, 1)
+  local t0 = sched.t
+  sched:advance(900)
+  local sends = MapSends(bus, "Anna Alpha", t0, sched.t, "P")
+  check(notFresh == 0, ("milling within a few yards: B never shows A's dot as old (old or missing %d of 900 s)"):format(notFresh))
+  check(sends <= 900 / (MC.FADE_MIN / 2), ("milling costs at most one position per %d s (half the fade time): %d in 900 s"):format(
+    MC.FADE_MIN / 2, sends))
+  NoErrors({ A, B }, "milling: no Lua errors")
+end
+
+do
+  local sched, bus = Setup()
   local A = Client(sched, bus, "Anna Alpha")
   local B = Client(sched, bus, "Bert Beta")
   A.login(); B.login()
