@@ -17,4 +17,5 @@ Locale.lua
 Map.lua
 Menu.lua
 Pins.lua
+Page.lua
 Sync.lua

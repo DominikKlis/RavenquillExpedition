@@ -17,11 +17,13 @@ function GS:ReadRoster()
   local n = Plain(SafeCall(GetNumGuildMembers), "number") or 0
   local roster, offline = {}, 0
   for i = 1, n do
-    local name, _, _, level, _, _, _, _, online, _, classFile = SafeCall(GetGuildRosterInfo, i)
+    local name, _, _, level, _, zone, _, _, online, _, classFile = SafeCall(GetGuildRosterInfo, i)
     local key = self:NormName(name)
     if key then
       local on = Plain(online) and true or false
-      roster[key] = { level = Plain(level, "number"), class = Plain(classFile, "string"), online = on }
+      zone = Plain(zone, "string")
+      roster[key] = { level = Plain(level, "number"), class = Plain(classFile, "string"), online = on,
+        zone = zone ~= "" and zone or nil }
       if not on then offline = offline + 1 end
     end
   end

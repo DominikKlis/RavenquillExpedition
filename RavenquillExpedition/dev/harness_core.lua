@@ -6,9 +6,9 @@ local sched = Kit.Scheduler({ start = 100 })
 local bus = Kit.Bus(sched)
 local me = Kit.Client(sched, bus, "Me Smith", { guild = "Die Gilde", realm = "Forever", locale = "deDE", class = "ROGUE",
   level = 30, epoch = 1800000000 })
-bus:member("Bud Stone", "DRUID", 28)
+bus:member("Bud Stone", "DRUID", 28, true, "Dämmerwald")
 bus:member("Cara Moss", "MAGE", 31, false)
-bus:member("Anna Muller-Lee", "PRIEST", 20)
+bus:member("Anna Muller-Lee", "PRIEST", 20, true, "")
 local env, coreNS, RQ, fire = me.env, me.coreNs, me.RQ, me.fire
 fire("ADDON_LOADED", "RavenquillExpedition")
 
@@ -140,6 +140,8 @@ check(RQ:PlayerKey() == "Me Smith" and RQ:IsMe("Me Smith-Forever") and not RQ:Is
 check(RQ:NormName("Anna Muller-Lee-Forever") == "Anna Muller-Lee" and RQ:StripRealm("Anna Muller-Lee") == nil,
   "only our own realm is stripped; hyphenated surnames stay")
 check(RQ:RosterEntry("Bud Stone").class == "DRUID" and RQ:RosterEntry("Bud Stone-Forever") ~= nil, "RosterEntry, also with the realm suffix")
+check(RQ:RosterEntry("Bud Stone").zone == "Dämmerwald" and RQ:RosterEntry("Cara Moss").zone == nil
+  and RQ:RosterEntry("Anna Muller-Lee").zone == nil, "RosterEntry carries the roster's zone, nil when it names none or an empty one")
 check(RQ:IsGuildMember("Cara Moss") == true and RQ:IsGuildMember("Nobody") == false, "IsGuildMember")
 local loaded, count, offline = RQ:RosterComplete()
 check(loaded and count == 4 and offline == 1 and RQ:OnlineCount() == 3, "RosterComplete / OnlineCount")

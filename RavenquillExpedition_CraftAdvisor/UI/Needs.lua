@@ -291,7 +291,7 @@ function UI.CreateCraftDetail(parent)
   p.learn = UI.CreateLearnButton(p)
   p.forTitle = DetailTitle(p, L.DETAIL_FOR)
   p.forTitle:SetPoint("TOPLEFT", p, "TOPLEFT", 18, -76)
-  p.members = P.CreateScrollList(p, 300, NEED_SUB_H * 3,
+  p.members = RavenquillExpedition.CreateScrollList(p, 300, NEED_SUB_H * 3,
     { default = { create = CreateNeedMemberRow, update = UpdateNeedMemberRow, height = NEED_SUB_H } })
   p.members:SetPoint("TOPLEFT", p, "TOPLEFT", 10, -92)
   P.RaiseInsetBorder(p, p.members)
