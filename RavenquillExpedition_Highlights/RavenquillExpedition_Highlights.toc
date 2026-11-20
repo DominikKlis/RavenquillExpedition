@@ -15,4 +15,7 @@ Catchup.lua
 Detectors.lua
 Milestones.lua
 Runs.lua
+NewsLocale_enUS.lua
+NewsLocale_deDE.lua
+News.lua
 LogWindow.lua
