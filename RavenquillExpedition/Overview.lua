@@ -138,7 +138,7 @@ local WIDTH, HEIGHT, MAX_TABS = 673, 594, 7
 local SUITE_ICON = "Interface\\Icons\\INV_Misc_Book_09"
 local GEAR_ICON = "Interface\\Icons\\INV_Misc_Gear_01"
 local WIDE_CARD = "Profession-overview-Card"
-local SIZE = { edge = 24, header = 62, footer = 34, row = 22, title = 170, rows = 6, recent = 40 }
+local SIZE = { edge = 24, header = 62, footer = 62, row = 22, title = 170, rows = 6, recent = 40 }
 local Strip = {}
 local Text = ns.Text
 
@@ -240,6 +240,7 @@ local function BuildFooter(home)
   home.options = ns.BuildPanel(home, {
     { type = "toggle", label = L.SHOW_LAUNCHER,
       get = function() return GS:LauncherShown() end, set = function(on) GS:SetLauncherShown(on) end },
+    { type = "text", label = L.COPY_DIAG, lines = function() return GS:DiagLines() end },
   })
   home.options:SetPoint("BOTTOMLEFT", 14, 4)
   home.options:SetHeight(SIZE.footer)
