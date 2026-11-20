@@ -82,6 +82,21 @@ for i, e in ipairs(ENTRIES) do
 end
 check(okDec == total and total >= 10, ("%d/%d golden bodies decode to their entries"):format(okDec, total))
 
+Kit.section("Catch-up asks: a 0.9 client and this one read each other's r")
+local v09 = setmetatable({ tag = "H", version = 1, types = {} }, coreNS.Channel)
+v09:Define("r", { from = "guild", fields = { { "since", "int", 0, 4102444800 } } })
+local SINCE, BEFORE = EPOCH - 9000, EPOCH - 3000
+local askOf09 = v09:Encode("r", { since = SINCE })
+check(askOf09 == "H;1;r;" .. SINCE, "setup: a 0.9 client asks with H;1;r;<since>")
+local typ, msg = H.channel:Decode("Alt Frau", askOf09:sub(3))
+check(typ == "r" and msg.since == SINCE and msg.before == nil, "this version reads a 0.9 ask as a first-page ask")
+typ, msg = v09:Decode("Neu Mann", H.channel:Encode("r", { since = SINCE }):sub(3))
+check(typ == "r" and msg.since == SINCE, "a 0.9 client reads this version's first-page ask")
+local pageAsk = H.channel:Encode("r", { since = SINCE, before = BEFORE })
+typ, msg = v09:Decode("Neu Mann", pageAsk:sub(3))
+check(pageAsk == ("H;1;r;%d;%d"):format(SINCE, BEFORE) and typ == "r" and msg.since == SINCE,
+  "a 0.9 client reads a later-page ask as an ask from the same time and ignores the page bound")
+
 Kit.section("SavedVariables layer: old shapes load into the same tables as before")
 local function lines(s) local out = {} for l in (s .. "\n"):gmatch("(.-)\n") do out[#out + 1] = l end return out end
 local SV_CASES = {

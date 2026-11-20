@@ -1,5 +1,8 @@
-local Kit = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "../../RavenquillExpedition/dev/testkit.lua")
+local DEV = (arg[0]:gsub("[^/\\]*$", ""))
+local Kit = dofile(DEV .. "../../RavenquillExpedition/dev/testkit.lua")
 local check = Kit.check
+local TocFiles = dofile(Kit.ADDONS .. "RavenquillExpedition/dev/toc.lua")
+local HL = "RavenquillExpedition_Highlights"
 
 local EPOCH = 1800000000
 local SV_NAMES = { "RavenquillExpeditionDB", "RavenquillExpeditionHighlightsDB", "RavenquillExpeditionHighlightsCharDB" }
@@ -24,19 +27,27 @@ local function Stubs(env)
   env.LOOT_ITEM, env.LOOT_ITEM_MULTIPLE = "%s receives loot: %s.", "%s receives loot: %sx%d."
 end
 
+local function WithCatchupOf09()
+  local list = {}
+  for _, f in ipairs(TocFiles(Kit.ADDONS .. HL)) do
+    list[#list + 1] = { f == "Catchup.lua" and (DEV .. "fixtures/compat_0.9.1/Catchup.lua") or (Kit.ADDONS .. HL .. "/" .. f), HL }
+  end
+  return list
+end
+
 local function NewWorld()
   local sched, bus = Kit.Setup()
   local w = { sched = sched, bus = bus, seed = 0 }
 
-  function w.join(name, sv, random)
+  function w.join(name, sv, random, v09)
     w.seed = w.seed + 1
     local c = Kit.Client(sched, bus, name, { guild = "Die Gilde", realm = "Forever", class = "MAGE", level = 40, epoch = EPOCH,
-      random = random or Kit.Random(w.seed * 7919), addons = { "RavenquillExpedition_Highlights" },
+      random = random or Kit.Random(w.seed * 7919), addons = not v09 and { HL } or nil, files = v09 and WithCatchupOf09() or nil,
       setup = function(env)
         Stubs(env)
         for k, v in pairs(sv or {}) do env[k] = Copy(v) end
       end })
-    c.H = c.ns.RavenquillExpedition_Highlights.H
+    c.H = c.ns[HL].H
     bus:setOnline(name, true)
     c.login()
     c.H.db.settings.chat = true
@@ -488,6 +499,46 @@ do
   for _, id in ipairs(w.relays()) do if id:find("TEST", 1, true) then tests = tests + 1 end end
   check(tests == 0 and #w.relays() >= 20 and #w.relays() <= 21,
     ("only the 20 real entries went out, the page boundary at most twice (%d relays)"):format(#w.relays()))
+end
+
+Kit.section("A 0.9 member answers a page ask like a first ask: the newest 20 arrive and paging stops")
+do
+  local w = NewWorld()
+  w.bus:member("Dave Rook", "WARRIOR", 50, false)
+  local missing = Series("Dave Rook", EPOCH - 7200, 30)
+  local bert = w.join("Bert Hill", nil, nil, true)
+  w.sched:advance(700)
+  Hold(bert, missing)
+  local asked = w.sched.t
+  local anna = w.join("Anna Stone")
+  w.sched:advance(900)
+  local newest = {}
+  for i = 11, 30 do newest[#newest + 1] = missing[i].id end
+  local ok, got = Same(Ids(anna), newest)
+  check(ok, "Anna has the newest 20, as from a 0.9 member before: " .. got)
+  check(w.requests("Anna Stone", asked) == 2,
+    ("Anna asked for page 2, got page 1 again and stopped (%d asks)"):format(w.requests("Anna Stone", asked)))
+  check(Lines(anna, "Caught up on 20 highlights") == 1, "one summary line for the 20")
+  check(#anna.errors == 0 and #bert.errors == 0, "no Lua errors on either side")
+end
+
+Kit.section("A 0.9 member asking this version gets the newest 20, as before")
+do
+  local w = NewWorld()
+  w.bus:member("Dave Rook", "WARRIOR", 50, false)
+  local missing = Series("Dave Rook", EPOCH - 7200, 30)
+  local bert = w.join("Bert Hill")
+  w.sched:advance(700)
+  Hold(bert, missing)
+  local asked = w.sched.t
+  local anna = w.join("Anna Stone", nil, nil, true)
+  w.sched:advance(600)
+  local newest = {}
+  for i = 11, 30 do newest[#newest + 1] = missing[i].id end
+  local ok, got = Same(Ids(anna), newest)
+  check(ok, "the 0.9 member has the newest 20: " .. got)
+  check(w.requests("Anna Stone", asked) == 1 and #w.relays(nil, asked) == 20, "one ask, 20 relays")
+  check(#anna.errors == 0 and #bert.errors == 0, "no Lua errors on either side")
 end
 
 Kit.finish()
