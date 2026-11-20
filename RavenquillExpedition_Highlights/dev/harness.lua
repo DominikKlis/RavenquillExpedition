@@ -1244,6 +1244,32 @@ do
   LogOut(r)
 end
 
+Kit.section("New since you last looked: only a log on screen clears the count")
+do
+  local c = Character(); c.login(); advance(40)
+  local function hear(sender, msg) c.fire("CHAT_MSG_ADDON", "RQE1", "H;" .. msg, "GUILD", sender) end
+  local function newCount() return tonumber(c.H:OverviewStatus():match("^(%d+) neu ·")) or 0 end
+  local function toggle(key)
+    for _, o in ipairs(c.H.options) do if o.key == key then o.set(not o.get()) end end
+  end
+  local function touchEverything()
+    toggle("echoOwn"); toggle("echoOwn")
+    c.fire("GET_ITEM_INFO_RECEIVED", 309, true)
+    c.H:ClearTests()
+    advance(1)
+  end
+  hear("Cara Moss", ("1;v;%d;61;Cara Moss;40;7"):format(T()))
+  touchEverything()
+  check(newCount() == 1, "an option, item data or clearing test entries with the log never opened keep the count ("
+    .. newCount() .. ")")
+  c.RQ:ShowModuleOptions("Highlights")
+  touchEverything()
+  check(newCount() == 1, "the Highlights options in /rq hide the log: changing them keeps the count (" .. newCount() .. ")")
+  c.RQ:ShowModulePage("Highlights")
+  check(newCount() == 0, "the log on the /rq Highlights tab clears it")
+  LogOut(c)
+end
+
 Kit.section("New since you last looked: a raid kill you were at is not new to you")
 do
   local saved = { G.inInstance, G.itype, G.instName, G.raid, G.group }
