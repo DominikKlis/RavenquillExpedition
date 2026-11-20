@@ -42,7 +42,7 @@ UI\Theme.lua
 UI\Text.lua
 UI\Whisper.lua
 UI\Frames.lua
-UI\ScrollList.lua
+UI\Rows.lua
 UI\MemberList.lua
 UI\Sources.lua
 UI\Tooltips.lua
