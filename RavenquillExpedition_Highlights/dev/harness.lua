@@ -1177,6 +1177,29 @@ do
   G.factions = {}
 end
 
+Kit.section("New since you last looked: guildies' entries count, your own never do")
+do
+  local c = Character(); c.login(); advance(40)
+  local function hear(sender, msg) c.fire("CHAT_MSG_ADDON", "RQE1", "H;" .. msg, "GUILD", sender) end
+  local function status() return c.H:OverviewStatus() end
+  check(not status():find("neu", 1, true), "a fresh log has nothing new (" .. status() .. ")")
+  local t = T()
+  hear("Cara Moss", ("1;v;%d;41;Cara Moss;40;7"):format(t))
+  hear("Bud Stone", ("1;v;%d;42;Bud Stone;40;9"):format(t - 7200))
+  hear("Abe Ash", ("1;Rv;%d;43;Dora Dunn;30;5"):format(t - 86400))
+  check(Kinds(c, "level") == 3 and (c.H.db.diag.catchup.accepted or 0) == 1,
+    "a live entry, one sent late and one caught up from yesterday are logged")
+  check(status():sub(1, #"3 neu · ") == "3 neu · ", "all three are new, however old their time (" .. status() .. ")")
+  local row
+  for _, r in ipairs(c.RQ:OverviewRows()) do if r.name == "Highlights" then row = r end end
+  check(row and row.status == status(), "the /rq overview line carries the same count (" .. tostring(row and row.status) .. ")")
+  c.fire("PLAYER_LEVEL_UP", 40)
+  hear("Bud Stone", ("1;l;%d;w;Me Smith;30;4;301;4;"):format(t))
+  check(Kinds(c, "level") == 4 and Kinds(c, "loot") == 1, "my own level and a guildie's report of my loot are logged")
+  check(status():sub(1, #"3 neu · ") == "3 neu · ", "neither of my own entries counts as new (" .. status() .. ")")
+  LogOut(c)
+end
+
 do
   local errs = 0
   for _, c in ipairs(characters) do errs = errs + #c.errors end
