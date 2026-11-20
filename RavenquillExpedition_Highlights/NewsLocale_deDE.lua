@@ -104,7 +104,7 @@ ns.NewsLocales.deDE = {
       },
       dek = {
         "{name} drang bis ins Herz des Gewölbes vor. Am Ende standen {n} besiegte Bosse zu Buche.",
-                "Von {n} Bossen waren {nf} für {name} neu.",
+        "Von {n} Bossen waren {nf} für {name} neu.",
         "{?first}Zum ersten Mal stand {name} dort, wo {lastboss} wartete.",
         "Die Gruppe kehrte zurück, {lastboss} nicht.",
         "Ein Lauf ohne besondere Vorkommnisse, sofern man die Bosse nicht mitzählt.",
