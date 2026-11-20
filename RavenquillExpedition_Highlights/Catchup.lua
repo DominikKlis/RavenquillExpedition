@@ -12,7 +12,7 @@ local COUNTERS = { "asked", "heard", "relayed", "accepted", "rejected" }
 
 local IDLE = { state = "idle" }
 local round = IDLE
-local listen = { closesAt = 0, mine = false, perRelayer = {}, caughtUp = 0 }
+local listen = { closesAt = 0, perRelayer = {}, caughtUp = 0 }
 local sinceAtLogin = {}
 
 local function Counts()
@@ -26,7 +26,7 @@ local function Count(key)
   c[key] = (c[key] or 0) + 1
 end
 
-local function Relayable(e) return not (e.test or e.act) end
+local function Relayable(e) return not (e.test or e.act or e.held) end
 
 local function Newest(events)
   for i = #events, 1, -1 do
@@ -94,13 +94,6 @@ local function NoteOtherRelay(sender, e)
   if round.state == "waiting" or sender < (GS:PlayerKey() or "") then round = IDLE end
 end
 
-local function OpenWindow(mine)
-  local now = GetTime()
-  listen.mine = mine or (listen.mine and now < listen.closesAt)
-  listen.closesAt = now + C.WINDOW
-  listen.perRelayer = {}
-end
-
 local function Summarize(at)
   if listen.lastAt ~= at or listen.caughtUp == 0 then return end
   local n = listen.caughtUp
@@ -109,7 +102,6 @@ local function Summarize(at)
 end
 
 local function NoteCaughtUp(added)
-  if not listen.mine then return end
   if added then listen.caughtUp = listen.caughtUp + 1 end
   local at = GetTime()
   listen.lastAt = at
@@ -132,7 +124,6 @@ end
 ch:On("r", function(_, m)
   if not H.db then return end
   Count("heard")
-  OpenWindow(false)
   Offer(m.since)
 end)
 
@@ -141,7 +132,7 @@ local function ReadyToAsk()
 end
 
 local function Ask()
-  OpenWindow(true)
+  listen.closesAt = GetTime() + C.WINDOW
   Count("asked")
   ch:Send("r", { since = sinceAtLogin[H:GuildKey()] or 0 })
 end
@@ -159,7 +150,7 @@ end
 local function WindowText()
   local left = math.floor(listen.closesAt - GetTime())
   if left <= 0 then return "closed" end
-  return ("%d s%s"):format(left, listen.mine and " (mine)" or "")
+  return ("%d s"):format(left)
 end
 
 function H:CatchupLine()

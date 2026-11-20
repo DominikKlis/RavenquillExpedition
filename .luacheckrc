@@ -33,7 +33,7 @@ read_globals = {
   "IsIndoors", "IsModifiedClick", "IsPlayerSpell", "IsShiftKeyDown", "LEGSSLOT", "LOCALIZED_CLASS_NAMES_FEMALE",
   "LOCALIZED_CLASS_NAMES_MALE", "LOOT_ITEM", "LOOT_ITEM_MULTIPLE", "LOOT_ITEM_SELF", "LOOT_ITEM_SELF_MULTIPLE",
   "LOOT_ITEM_CREATED_SELF", "LOOT_ITEM_CREATED_SELF_MULTIPLE", "IsMounted", "GetUnitSpeed", "UnitPVPRank",
-  "GetPVPRankInfo", "GetBattlefieldWinner", "GetNumSkillLines", "GetSkillLineInfo",
+  "GetPVPRankInfo", "GetBattlefieldWinner", "GetNumSkillLines", "GetSkillLineInfo", "GetNumFactions", "GetFactionInfo",
   "LibStub", "LoadAddOn", "MAINHANDSLOT", "MenuUtil", "MinimalSliderWithSteppersMixin", "Minimap", "NECKSLOT",
   "NUM_BAG_SLOTS", "NUM_BANKBAGSLOTS", "NUM_TOTAL_EQUIPPED_BAG_SLOTS", "NineSliceUtil", "NotifyInspect",
   "OpenWorldMap", "PanelTemplates_DeselectTab", "PanelTemplates_SelectTab", "PanelTemplates_TabResize", "ReloadUI", "CreateVector2D", "UnitPosition", "GetFactionInfoByID",

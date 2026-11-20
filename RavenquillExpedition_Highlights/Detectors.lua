@@ -108,8 +108,8 @@ local snap, snapReady = {}, false
 
 local function ReadSlot(slot) return Plain(SafeCall(GetInventoryItemLink, "player", slot), "string") end
 
-local function MarkEpic(q, id)
-  if id and (q or 0) >= (H:Settings().minLootQuality or 4) then H.cdb.ownedEpics[id] = true end
+local function MarkOwned(id)
+  if id then H.cdb.ownedEpics[id] = true end
 end
 
 local function TakeSnapshot()
@@ -119,15 +119,14 @@ local function TakeSnapshot()
     local id = ItemID(l)
     if id then
       H.cdb.everEquipped[id] = true
-      local f = ItemFacts(l)
-      MarkEpic(f and f.q, id)
+      MarkOwned(id)
     end
   end
   if not H.cdb.bagsSeeded then
-    EachItem(BagList(), function(_, q, id) if id then H.cdb.everEquipped[id] = true; MarkEpic(q, id) end end)
+    EachItem(BagList(), function(_, _, id) if id then H.cdb.everEquipped[id] = true; MarkOwned(id) end end)
     H.cdb.bagsSeeded = true
   else
-    EachItem(BagList(), function(_, q, id) MarkEpic(q, id) end)
+    EachItem(BagList(), function(_, _, id) MarkOwned(id) end)
   end
   snapReady = true
 end
@@ -136,23 +135,38 @@ local EvaluateGear
 do
   local function StillLoading(nf, of) return not nf.ready or (of and not of.ready) end
 
+  local function ItemLevelGain(nf, of)
+    if of and nf.il and of.il then return nf.il - of.il end
+  end
+
   local function GearWorthSharing(nf, of)
-    local s = H:Settings()
-    local gain = of and (nf.il - of.il)
-    local epicNew = (nf.q or 0) >= 4 and (not of or (of.q or 0) < 4)
-    local bigGain = gain and gain >= s.minGain and (nf.q or 0) >= (s.minGearQuality or 3)
+    local q, gain = nf.q or 0, ItemLevelGain(nf, of)
+    local epicNew = q >= H.EPIC_QUALITY and (not of or (of.q or 0) < H.EPIC_QUALITY)
+    local bigGain = gain and gain >= H.MIN_GAIN and q >= H.GEAR_QUALITY
     return bigGain or epicNew
+  end
+
+  local function LootHighlighted(id)
+    local me = GS:PlayerKey()
+    for _, e in ipairs((H:Log())) do
+      if e.k == "loot" and e.item == id and e.who == me then return true end
+    end
+    return false
   end
 
   EvaluateGear = function(slot, old, new, tries)
     local nf, of = ItemFacts(new), old and ItemFacts(old)
     if not nf then return end
-    if StillLoading(nf, of) then
-      if tries < 5 then C_Timer.After(1, function() GS:Call(EvaluateGear, slot, old, new, tries + 1) end) end
+    if StillLoading(nf, of) and tries < 5 then
+      C_Timer.After(1, function() GS:Call(EvaluateGear, slot, old, new, tries + 1) end)
       return
     end
     local fields = { item = nf.id, link = new, il = nf.il, q = nf.q, oil = of and of.il, slot = slot }
-    if GearWorthSharing(nf, of) then H:Add(Own("gear", fields), "self") else H:Activity(Act("gear", fields)) end
+    if GearWorthSharing(nf, of) and not LootHighlighted(nf.id) then
+      H:Add(Own("gear", fields), "self")
+    else
+      H:Activity(Act("gear", fields))
+    end
   end
 end
 
@@ -164,26 +178,25 @@ local function OnEquipmentChanged(slot)
   local id = ItemID(new)
   if not id or H.cdb.everEquipped[id] then return end
   H.cdb.everEquipped[id] = true
+  MarkOwned(id)
   EvaluateGear(slot, old, new, 0)
 end
 
 local bankOpen = false
 local function ScanBagsForEpics()
   if not snapReady or not H.cdb.bagsSeeded then return end
-  local minQ = H:Settings().minLootQuality or 4
   EachItem(BagList(), function(link, q, id)
-    if id and (q or 0) >= minQ and not H.cdb.ownedEpics[id] then
-      H.cdb.ownedEpics[id] = true
-      if not bankOpen then H:Add(Own("loot", { item = id, link = link, q = q, src = "bag" }), "self") end
-    end
+    if not id or H.cdb.ownedEpics[id] then return end
+    MarkOwned(id)
+    if not bankOpen and (q or 0) >= H.LOOT_QUALITY then H:Add(Own("loot", { item = id, link = link, q = q, src = "bag" }), "self") end
   end)
 end
 
 local function OnBankOpened()
   bankOpen = true
-  EachItem(BankList(), function(_, q, id)
+  EachItem(BankList(), function(_, _, id)
     if id then
-      MarkEpic(q, id)
+      MarkOwned(id)
       if not H.cdb.bankSeeded then H.cdb.everEquipped[id] = true end
     end
   end)
@@ -344,8 +357,7 @@ local function OnLevelUp(level)
   level = Plain(level, "number")
   if not level then return end
   local max = MaxLevel()
-  local step = H:Settings().levelStep
-  if (step and step > 0 and level % step == 0) or (max and level == max) then
+  if level % H.LEVEL_STEP == 0 or (max and level == max) then
     local e = Own("level", {})
     if e then e.lvl = level; H:Add(e, "self") end
   else
@@ -395,7 +407,7 @@ do
     if H.db then H.db.diag.secretLoot = (H.db.diag.secretLoot or 0) + 1 end
   end
 
-  local function Notable(f) return f and f.id and f.q and f.q >= H:Settings().minLootQuality end
+  local function Notable(f) return f and f.id and f.q and f.q >= H.LOOT_QUALITY end
 
   local function GroupedWith(who)
     local inGroup, others = false, {}
@@ -453,7 +465,8 @@ do
   local function QueueQuestScan() Soon("quests", 1, ScanQuestLog) end
 
   local Handlers = {
-    PLAYER_ENTERING_WORLD = function()
+    PLAYER_ENTERING_WORLD = function(initialLogin)
+      if Plain(initialLogin) then GS:Call(H.EndMountSeeding, H) end
       if not snapReady then Soon("snap", 3, TakeSnapshot) end
       QueueQuestScan()
       local inside = GS:InInstance()

@@ -154,7 +154,7 @@ local function Delay(rank) return 10 + (rank or 0) * 45 + math.random() * 20 end
 function H:CapOk()
   local now, log = GS:Now(), self.cdb.shareLog
   for i = #log, 1, -1 do if now - log[i] > 3600 then table.remove(log, i) end end
-  return #log < (self:Settings().shareCap or 8)
+  return #log < self.SHARE_CAP
 end
 
 function H:Share(e, opts)
@@ -167,6 +167,7 @@ function H:Share(e, opts)
   if opts.group then o.grp, o.rank = true, opts.rank or 0 end
   self.cdb.outbox[e.id] = o
   self:SchedulePump(1)
+  return true
 end
 
 function H:StillWanted(e)

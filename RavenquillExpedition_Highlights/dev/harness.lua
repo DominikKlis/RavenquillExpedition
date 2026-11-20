@@ -8,7 +8,7 @@ local G = {
   inInstance = false, itype = "none", instName = "Elwynn",
   level = 30, inCombat = false, guild = "Die Gilde",
   equipped = {}, items = {}, bags = { [0] = {} }, bank = { [-1] = {} },
-  quests = {}, tags = {},
+  quests = {}, tags = {}, factions = {}, mounted = false, runSpeed = 0,
   group = {}, raid = false, sent = {}, sendResult = 0,
   roster = { { "Me Smith-Forever", 30, "ROGUE" }, { "Bud Stone-Forever", 28, "DRUID" }, { "Cara Moss-Forever", 31, "MAGE" },
              { "Abe Ash-Forever", 60, "WARRIOR" }, { "Dora Dunn-Forever", 33, "PRIEST" } },
@@ -31,7 +31,7 @@ G.equipped = { [1] = 100, [11] = 200, [12] = 201, [16] = 106 }
 G.bags[0] = { [1] = 105, [2] = 307 }
 
 local sched = Kit.Scheduler({ start = 1000 })
-local me = Kit.Client(sched, nil, "Me Smith", { guild = "Die Gilde", realm = "Forever", locale = "deDE", class = "ROGUE",
+local meOpts = { guild = "Die Gilde", realm = "Forever", locale = "deDE", class = "ROGUE",
   epoch = 1800000000, random = function() return 0.5 end, addons = { "RavenquillExpedition_Highlights" },
   setup = function(env, c)
     c.frameMethods.AddMessage = function(_, m) lines[#lines + 1] = m end
@@ -41,6 +41,8 @@ local me = Kit.Client(sched, nil, "Me Smith", { guild = "Die Gilde", realm = "Fo
     c.frameMethods.IsEnabled = function(s) return not s._disabled end
     c.frameMethods.GetVerticalScroll = function() return 0 end
     c.frameMethods.GetHeight = function() return 0 end
+    c.frameMethods.SetTextColor = function(s, r) s._red = r end
+    env.ITEM_QUALITY3_DESC, env.ITEM_QUALITY4_DESC = "Selten", "Episch"
     local create = env.CreateFrame
     function env.CreateFrame(otype, name, parent, template)
       if template == "ButtonFrameTemplate" then error("no template in mock") end
@@ -114,7 +116,16 @@ local me = Kit.Client(sched, nil, "Me Smith", { guild = "Die Gilde", realm = "Fo
     env.DUEL_WINNER = "%1$s hat %2$s in einem Duell besiegt."
     env.DUEL_WINNER_RETREAT = "%2$s ist vor %1$s aus einem Duell geflohen."
     env.SKILL_RANK_UP = "Eure Fertigkeit in %s hat sich auf %d erhöht."
-  end })
+    function env.GetNumFactions() return #G.factions end
+    function env.GetFactionInfo(i)
+      local f = G.factions[i]
+      if f then return f[1], "", f[2], 0, 0, 0, false, false, f.header or false end
+    end
+    function env.IsMounted() return G.mounted end
+    function env.UnitOnTaxi() return false end
+    function env.GetUnitSpeed() return 0, G.runSpeed end
+  end }
+local me = Kit.Client(sched, nil, "Me Smith", meOpts)
 local env, fire, printed, errors = me.env, me.fire, me.printed, me.errors
 local function advance(sec) sched:advance(sec) end
 local function lastPrinted() local p = printed[#printed]; return p and p.text or "" end
@@ -466,11 +477,11 @@ echoAll(); advance(20)
 check(H.cdb.outbox[id] == nil, "outbox empty after echo")
 advance(3700)
 env.wipe(H.cdb.shareLog); env.wipe(H.cdb.outbox)
-H:Settings().shareCap = 2
-for _, lvl in ipairs({ 10, 20, 30 }) do fire("PLAYER_LEVEL_UP", lvl) end
-check(outboxSize() == 2, "only shareCap highlights per hour are shared, the rest stay local")
-H:Settings().shareCap = 8
-advance(200); echoAll(); advance(5)
+for lvl = 110, 200, 10 do fire("PLAYER_LEVEL_UP", lvl) end
+check(outboxSize() == 8, ("of 10 highlights in an hour 8 are shared, the rest stay local (%d)"):format(outboxSize()))
+env.wipe(H.cdb.shareLog)
+for _ = 1, 30 do advance(10); echoAll() end
+advance(5)
 
 do
   local before, chatBefore = count(), #printed
@@ -500,25 +511,20 @@ local panel = ov.optView.panels.Highlights
 check(panel and #panel.controls == #H.options, "one control per option entry")
 local L = hlNS.L
 local iShare = opt(L.OPT_SHARE)
-local iCap = opt(L.OPT_CAP)
+local capNote = panel.controls[opt("Höchstens 8 Highlights pro Stunde gehen an die Gilde, der Rest bleibt nur in deinem Protokoll.")]
 local share = panel.controls[iShare]
 check(share:GetChecked() == true, "share checkbox shows the setting")
+check(capNote and capNote._red == 1, "under the share box the page says how many highlights an hour go to the guild")
 share:SetChecked(false); rawget(share, "_scripts").OnClick(share)
 check(H:Settings().share == false, "unticking 'send my highlights' turns sharing off")
-check(panel.controls[iCap].plus:IsEnabled() == false, "the hourly cap is greyed out while sharing is off")
+check(capNote._red < 1, "the hourly cap note is greyed out while sharing is off")
 G.level = 50; fire("PLAYER_LEVEL_UP", 50); advance(100)
 check(sendsOf(";Me Smith;50;") == 0 and last().lvl == 50, "logged but not sent while sharing is off")
 share:SetChecked(true); rawget(share, "_scripts").OnClick(share)
-check(H:Settings().share and panel.controls[iCap].plus:IsEnabled(), "sharing back on, cap enabled again")
-local iStep = opt(L.OPT_LEVEL)
-for _ = 1, 4 do rawget(panel.controls[iStep].plus, "_scripts").OnClick() end
-check(H:Settings().levelStep == 14, "the + button raises a range setting")
-for _ = 1, 9 do rawget(panel.controls[iStep].plus, "_scripts").OnClick() end
-check(H:Settings().levelStep == 20 and not panel.controls[iStep].plus:IsEnabled(), "a range stops at its maximum")
-for _ = 1, 20 do rawget(panel.controls[iStep].minus, "_scripts").OnClick() end
-check(H:Settings().levelStep == 0 and not panel.controls[iStep].minus:IsEnabled(), "and at its minimum")
-check(panel.controls[iStep].value:GetText() == "nur Höchste", "a level step of 0 reads 'nur Höchste', not a bare 0")
-H:Settings().levelStep = 10
+check(H:Settings().share and capNote._red == 1, "sharing back on, cap note no longer greyed")
+local sliders = {}
+for _, o in ipairs(H.options) do if o.type == "range" then sliders[#sliders + 1] = o.label end end
+check(#sliders == 0, "no rule sliders: everyone in the guild runs the same rules (" .. table.concat(sliders, ", ") .. ")")
 check(H:Option("questRedLevels") == nil, "the hard-quest option is gone: only notable quests count")
 local iChat, iAll = opt(L.OPT_CHAT), opt(L.OPT_CHAT_ALL)
 local chat = panel.controls[iChat]
@@ -562,6 +568,11 @@ check(rows[1].title == H.title and rows[1].state == "loaded" and rows[1].open an
 check(rows[2].state == "missing" and rows[2].slash == "/rq map", "Map row: not installed")
 check(rows[3].state == "disabled" and rows[3].slash == "/rq craft" and rows[3].title == "Guild Craft Advisor", "Craft row: disabled")
 check(#rows == 3, "three known rows, no duplicates")
+GS:ShowHome()
+local missingRow = ov.home.strip.rows[2]
+check(rawget(missingRow, "_shown") and missingRow.data.state == "missing" and missingRow.status:GetText() == GS.OverviewL.MISSING
+  and missingRow:GetAlpha() < 1 and ov.home.strip.rows[1]:GetAlpha() == 1,
+  "a module that is not installed stays in the overview's list, greyed, with the reason")
 GS:ShowModulePage("Highlights")
 local hlPage = ov.optView.pages.Highlights
 check(GS.optionsModule == "Highlights" and not GS.moduleSettings and hlPage and hlPage:IsShown() and not ov.optView.scroll:IsShown()
@@ -571,11 +582,6 @@ check(rawget(gear, "_shown") and gear:GetText() == "Einstellungen" and gear:IsEn
   "a module page shows a labelled settings button and its own page, no open button")
 rawget(gear, "_scripts").OnClick(gear)
 check(GS.moduleSettings and ov.optView.panels.Highlights:IsShown() and not hlPage:IsShown(), "the settings button shows the settings")
-GS:ShowHome()
-local missingRow = ov.home.strip.rows[2]
-check(rawget(missingRow, "_shown") and missingRow.data.state == "missing" and missingRow.status:GetText() == GS.OverviewL.MISSING
-  and missingRow:GetAlpha() < 1 and ov.home.strip.rows[1]:GetAlpha() == 1,
-  "a module that is not installed stays in the overview's list, greyed, with the reason")
 check(gear:GetText() == "« Zurück" and gear:IsEnabled(), "in the settings the same button reads '« Zurück'")
 rawget(gear, "_scripts").OnClick(gear)
 check(not GS.moduleSettings and hlPage:IsShown() and gear:GetText() == "Einstellungen", "'« Zurück' goes back to the log")
@@ -640,6 +646,9 @@ for _ = 1, 10 do rawget(sizePlus, "_scripts").OnClick() end
 check(math.abs(mapSize - 2) < 1e-9 and not sizePlus:IsEnabled(), "0.1 steps reach exactly the maximum and stop there")
 for _ = 1, 3 do rawget(ov.optView.panels.Map.controls[2].minus, "_scripts").OnClick() end
 check(("%.1f"):format(mapSize) == "1.7" and math.abs(mapSize - 1.7) < 1e-9, "0.1 steps down without drift")
+local sizeMinus = ov.optView.panels.Map.controls[2].minus
+for _ = 1, 20 do rawget(sizeMinus, "_scripts").OnClick() end
+check(math.abs(mapSize - 0.5) < 1e-9 and not sizeMinus:IsEnabled(), "and stop at the minimum")
 function map:OverviewStatus() error("map not ready") end
 local errBefore = #errors
 rows = GS:OverviewRows()
@@ -668,7 +677,7 @@ end
 
 do
   local shareOpt = H:Option("share")
-  check(shareOpt and shareOpt.get() == true and H:Option("levelStep"), "options are found by their settings key")
+  check(shareOpt and shareOpt.get() == true and H:Option("chat"), "options are found by their settings key")
   fire("PLAYER_LEVEL_UP", 90)
   shareOpt.set(false)
   advance(30)
@@ -758,46 +767,34 @@ do
   env.SlashCmdList.RAVENQUILL("")
 end
 
+Kit.section("The settings page explains the fixed rules")
 do
-  env.ITEM_QUALITY3_DESC, env.ITEM_QUALITY4_DESC = "Selten", "Episch"
   env.SlashCmdList.RAVENQUILL("hl")
-  local s = H:Settings()
-  s.minGearQuality, s.minLootQuality = 3, 4
-  panel.refreshAll()
-  local gearText = panel.controls[opt(L.OPT_GEARQ)].value:GetText()
-  local lootText = panel.controls[opt(L.OPT_LOOTQ)].value:GetText()
-  check(gearText == "|cff0070ddSelten|r" and lootText == "|cffa335eeEpisch|r",
-    "quality options show the coloured quality name, not a number (" .. gearText .. " / " .. lootText .. ")")
-  env.SlashCmdList.RAVENQUILL("")
-  env.SlashCmdList.RAVENQUILL("")
-end
-
-do
-  local RANGE_LABEL_ROOM, AVERAGE_GLYPH_WIDTH, DEFAULT_VALUE_WIDTH = 348, 6.5, 44
-  local tooLong = {}
-  for _, o in ipairs(H.options) do
-    for key, deText in pairs(H.locale.deDE) do
-      if o.type == "range" and deText == o.label then
-        for locale, t in pairs(H.locale) do
-          local label = t[key] or H.locale.enUS[key]
-          if utf8.len(label) * AVERAGE_GLYPH_WIDTH > RANGE_LABEL_ROOM - (o.valueWidth or DEFAULT_VALUE_WIDTH) then
-            tooLong[#tooLong + 1] = locale .. ":" .. key
-          end
-        end
-      end
+  local notes = {}
+  for i, o in ipairs(H.options) do if o.type == "note" then notes[#notes + 1] = panel.controls[i]:GetText() end end
+  local page = table.concat(notes, "\n")
+  check(page:find("Ausrüstung:|r ein neuer Gegenstand, den du anlegst, ab Qualität |cff0070ddSelten|r und mindestens 8 Gegenstandsstufen", 1, true)
+    and page:find("in Qualität |cffa335eeEpisch|r, wenn er eine niedrigere Qualität oder einen leeren Platz ersetzt", 1, true),
+    "the gear line names the item level gain and the game's coloured quality names")
+  check(page:find("Beute:|r Gegenstände ab Qualität |cffa335eeEpisch|r", 1, true) and page:find("Stufen:|r alle 10 Stufen und die Höchststufe", 1, true)
+    and page:find("„Nur Highlights“ im Protokollfenster", 1, true), "the loot, level and activity lines carry the fixed numbers")
+  local unexplained = {}
+  for k, kind in pairs(H.KINDS) do
+    if not page:find(kind.icon, 1, true) then unexplained[#unexplained + 1] = k end
+  end
+  check(#unexplained == 0, "every kind of highlight has a line on the page (" .. table.concat(unexplained, ", ") .. ")")
+  local untranslated = {}
+  for _, rule in ipairs(H.RULES) do
+    for locale, t in pairs(H.locale) do
+      local how = t[rule.text]
+      local slots = type(how) == "string" and select(2, how:gsub("%%[ds]", ""))
+      if type(t[rule.title]) ~= "string" or slots ~= #(rule.args or {}) then untranslated[#untranslated + 1] = locale .. ":" .. rule.text end
     end
   end
-  check(#tooLong == 0, "range labels fit beside their -/+ buttons in every locale (" .. table.concat(tooLong, ", ") .. ")")
-end
-
-do
-  local s = H:Settings()
-  local gain = s.minGain
-  s.minGain = 13
-  local emptyText = H:EmptyText()
-  s.minGain = gain
-  check(emptyText:find("mindestens 13 Gegenstandsstufen", 1, true) and emptyText:find("Ausrüstung ab Qualität |cff0070ddSelten|r", 1, true),
-    "the empty log explains what counts with the player's own settings")
+  check(#untranslated == 0, "every explanation exists in English and German with the same numbers to fill in ("
+    .. table.concat(untranslated, ", ") .. ")")
+  env.SlashCmdList.RAVENQUILL("")
+  env.SlashCmdList.RAVENQUILL("")
   check(H.locale.enUS.TEST_DEADMINES == "The Deadmines" and L.TEST_DEADMINES == "Die Todesminen",
     "test entries name their dungeon in the player's language")
 end
@@ -1016,6 +1013,187 @@ do
     check(same, "round trip " .. e.k .. (e.pk and (" " .. e.pk) or ""))
   end
 end
+
+Kit.section("Gear whose item data never loads")
+do
+  local base = count()
+  G.items[315] = { name = "Lila Nebelklinge", q = 4, il = 50, unloaded = true }
+  equip(16, 315); advance(10)
+  check(count() == base + 1 and last().k == "gear" and last().item == 315 and last().q == 4,
+    "an epic whose item data never loads is still a gear highlight after the retries, its quality read from the link")
+  G.items[315].unloaded = nil
+end
+
+Kit.section("One item, one highlight")
+do
+  local base = count()
+  equip(5, 310); advance(2)
+  local a = H.cdb.activity[#H.cdb.activity]
+  check(count() == base and a.k == "gear" and a.item == 310,
+    "equipping the crafted epic that was already a loot highlight goes to the activity log, not a second highlight")
+  base = count()
+  G.items[316] = { name = "Lila Handschuhe", q = 4, il = 45 }
+  equip(10, 316); advance(2)
+  check(count() == base + 1 and last().k == "gear" and last().item == 316,
+    "an epic that was never a loot highlight is a gear highlight when equipped")
+  base = count()
+  equip(10, nil); G.bags[0][10] = 316; fire("BAG_UPDATE_DELAYED"); advance(2)
+  check(count() == base, ("taken off into the bags, that epic is not reported as received afterwards (%d new)"):format(count() - base))
+end
 check(#errors == 0, "no Lua errors after the new kinds (" .. #errors .. ")")
+
+local SV_NAMES = { "RavenquillExpeditionDB", "RavenquillExpeditionHighlightsDB", "RavenquillExpeditionHighlightsCharDB" }
+local function Copy(v)
+  if type(v) ~= "table" then return v end
+  local out = {}
+  for k, x in pairs(v) do out[k] = Copy(x) end
+  return out
+end
+local characters = {}
+local function Character(saved)
+  local opts = {}
+  for k, v in pairs(meOpts) do opts[k] = v end
+  opts.setup = function(cenv, c)
+    meOpts.setup(cenv, c)
+    for _, k in ipairs(SV_NAMES) do cenv[k] = Copy(saved and saved[k]) end
+  end
+  local c = Kit.Client(sched, nil, "Me Smith", opts)
+  c.H = c.ns.RavenquillExpedition_Highlights.H
+  characters[#characters + 1] = c
+  return c
+end
+local function LogOut(c)
+  c.online = false
+  local saved = {}
+  for _, k in ipairs(SV_NAMES) do saved[k] = Copy(c.env[k]) end
+  return saved
+end
+local function Reload(saved)
+  local c = Character(saved)
+  for _, a in ipairs(c.addons) do c.fire("ADDON_LOADED", a) end
+  c.fire("PLAYER_LOGIN")
+  c.fire("PLAYER_ENTERING_WORLD", false, true)
+  return c
+end
+local function Kinds(c, k, list)
+  local found = 0
+  for _, e in ipairs(list or (c.H:Log())) do if e.k == k then found = found + 1 end end
+  return found
+end
+
+local function Reported(c)
+  local out, total = {}, 0
+  for _, e in ipairs((c.H:Log())) do
+    if e.k == "loot" then out[e.item] = true; total = total + 1 end
+  end
+  return out, total
+end
+
+Kit.section("Epics a character had at login are not reported as received")
+do
+  G.items[317] = { name = "Lila Gürtel", q = 4, il = 30 }
+  G.items[318] = { name = "Lila Ring", q = 4, il = 30 }
+  G.equipped[6] = 317
+  local first = Character(); first.login(); advance(5)
+  first.fire("BAG_UPDATE_DELAYED"); advance(2)
+  local _, atInstall = Reported(first)
+  check(atInstall == 0, ("right after the install: the epics in the bags are not reported (%d)"):format(atInstall))
+  local saved = LogOut(first)
+  G.bags[0][11] = 318
+  local c = Character(saved); c.login(); advance(5)
+  G.equipped[6] = nil; c.fire("PLAYER_EQUIPMENT_CHANGED", 6, false)
+  G.bags[0][9] = 317; c.fire("BAG_UPDATE_DELAYED"); advance(2)
+  local reported, total = Reported(c)
+  check(not reported[317], "an epic worn at login and taken off into the bags is not reported as received")
+  check(not reported[318], "an epic that came into the bags while the addon was off is not reported")
+  check(total == 0, ("nor is any other epic that was in the bags at login (%d)"):format(total))
+  G.bags[0][9], G.bags[0][11] = nil, nil
+  LogOut(c)
+end
+
+Kit.section("Rule settings saved by an older version change nothing")
+do
+  local old = { RavenquillExpeditionHighlightsDB = { v = 3, settings = { minLootQuality = 3, minGearQuality = 2, minGain = 1,
+    levelStep = 5, shareCap = 20 } } }
+  local c = Character(old); c.login(); advance(5)
+  local function Outbox() local queued = 0; for _ in pairs(c.H.cdb.outbox) do queued = queued + 1 end; return queued end
+  G.items[320], G.items[321], G.items[322] = { name = "Blaue Hose", q = 3, il = 40 }, { name = "Blauer Mantel", q = 3, il = 40 },
+    { name = "Grüner Riesenring", q = 2, il = 60 }
+  c.fire("CHAT_MSG_LOOT", "Ihr erhaltet Beute: " .. link(320) .. ".", "Me Smith")
+  G.bags[0][13] = 321; c.fire("BAG_UPDATE_DELAYED"); advance(2)
+  local _, rares = Reported(c)
+  check(rares == 0, ("a saved loot quality of rare: looted and received rares are still no highlights (%d)"):format(rares))
+  G.items[323] = { name = "Blauer Siegelring", q = 3, il = G.items[G.equipped[12]].il + 3 }
+  local rings = { G.equipped[11], G.equipped[12] }
+  G.equipped[11] = 322; c.fire("PLAYER_EQUIPMENT_CHANGED", 11, true)
+  G.equipped[12] = 323; c.fire("PLAYER_EQUIPMENT_CHANGED", 12, true); advance(2)
+  check(Kinds(c, "gear") == 0, "saved gear rules of green and +1: a green +34 and a rare +3 upgrade are still no highlights")
+  c.fire("PLAYER_LEVEL_UP", 35)
+  check(Kinds(c, "level") == 0, "a saved level step of 5: level 35 is still no highlight")
+  for lvl = 40, 130, 10 do c.fire("PLAYER_LEVEL_UP", lvl) end
+  check(Kinds(c, "level") == 10 and Outbox() == 8,
+    ("a saved cap of 20 an hour: of 10 level highlights still only 8 are shared (%d)"):format(Outbox()))
+  G.equipped[11], G.equipped[12], G.bags[0][13] = rings[1], rings[2], nil
+  LogOut(c)
+end
+
+Kit.section("An empty log points to the explanations")
+do
+  local fresh = Character(); fresh.login(); advance(5)
+  fresh.H:ShowWindow()
+  local shown = lines[#lines] or ""
+  check(shown:find("Was zählt, steht unter /rq hl.", 1, true) and shown:find("Testeinträge hinzufügen", 1, true)
+    and not shown:find("Gegenstandsstufen", 1, true), "an empty log points to /rq hl for what counts instead of listing the rules")
+  LogOut(fresh)
+end
+
+Kit.section("A mount owned at install is quiet in the install session; the first one bought later is news")
+do
+  local level = G.level
+  G.level, G.mounted, G.runSpeed = 45, true, 11.2
+  local riding = Character(); riding.login(); advance(5)
+  riding.fire("UNIT_AURA", "player"); advance(2)
+  check(Kinds(riding, "mount") == 0 and Kinds(riding, "mount", riding.H.cdb.activity) == 1,
+    "installed at 45 and riding: the mount is seen, but it is no highlight")
+  LogOut(riding)
+  G.mounted = false
+  local first = Character(); first.login(); advance(5)
+  local installed = LogOut(first)
+  local reloaded = Reload(installed); advance(5)
+  G.mounted = true
+  reloaded.fire("UNIT_AURA", "player"); advance(2)
+  check(Kinds(reloaded, "mount") == 0, "a /reload does not end the install session: riding afterwards is still quiet")
+  LogOut(reloaded)
+  G.mounted = false
+  local later = Character(installed); later.login(); advance(5)
+  G.mounted = true
+  later.fire("UNIT_AURA", "player"); advance(2)
+  check(Kinds(later, "mount") == 1, "installed at 45 without a mount: the first mount, ridden after a relog, is a highlight")
+  LogOut(later)
+  G.level, G.mounted, G.runSpeed = level, false, 0
+end
+
+Kit.section("Reputation the character had at install is not news")
+do
+  G.factions = { { "Allianz", 4, header = true }, { "Argentumdämmerung", 7 }, { "Holzschlundfeste", 8 }, { "Darnassus", 6 } }
+  local c = Character(); c.login(); advance(5)
+  c.fire("CHAT_MSG_COMBAT_FACTION_CHANGE", "Ihr seid jetzt Respektvoll bei Argentumdämmerung.")
+  check(Kinds(c, "rep") == 0, "revered before the install: revered again is not news")
+  local seen = Kinds(c, "rep")
+  c.fire("CHAT_MSG_COMBAT_FACTION_CHANGE", "Ihr seid jetzt Respektvoll bei Holzschlundfeste.")
+  c.fire("CHAT_MSG_COMBAT_FACTION_CHANGE", "Ihr seid jetzt Ehrfürchtig bei Holzschlundfeste.")
+  check(Kinds(c, "rep") == seen, "exalted before the install: dropping to revered and coming back is not news")
+  seen = Kinds(c, "rep")
+  c.fire("CHAT_MSG_COMBAT_FACTION_CHANGE", "Ihr seid jetzt Respektvoll bei Darnassus.")
+  check(Kinds(c, "rep") == seen + 1, "honored before the install: revered is a highlight")
+  LogOut(c)
+  G.factions = {}
+end
+
+do
+  local errs = 0
+  for _, c in ipairs(characters) do errs = errs + #c.errors end
+  check(errs == 0, "no Lua errors in the fresh logins (" .. errs .. ")")
+end
 
 Kit.finish()

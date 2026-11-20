@@ -39,10 +39,33 @@ local function PvPRank()
   return Plain(number, "number"), Plain(name, "string")
 end
 
+local function CurrentStandings()
+  local n = Plain(SafeCall(GetNumFactions), "number") or 0
+  if n == 0 then return end
+  local out = {}
+  for i = 1, n do
+    local name, _, standing, _, _, _, _, _, header = SafeCall(GetFactionInfo, i)
+    name, standing = Plain(name, "string"), Plain(standing, "number")
+    if name and standing and not Plain(header) then out[name] = standing end
+  end
+  return out
+end
+
+local mountRecordMadeNow = false
+
 function H:SeedMilestones()
-  if type(self.cdb.mount) ~= "table" then self.cdb.mount = { tier = 0, base = MyLevel() or 99 } end
+  if type(self.cdb.mount) ~= "table" then
+    self.cdb.mount = { tier = 0, base = MyLevel() or 99 }
+    mountRecordMadeNow = true
+  end
   local pvp = Store("pvp")
   if pvp.rank == nil then pvp.rank = PvPRank() end
+  if type(self.cdb.reps) ~= "table" then self.cdb.reps = CurrentStandings() end
+end
+
+function H:EndMountSeeding()
+  local rec = self.cdb.mount
+  if rec and not mountRecordMadeNow then rec.base = nil end
 end
 
 local function MountTier()
@@ -57,7 +80,7 @@ local function CheckMount()
   local rec = H.cdb.mount
   local tier = MountTier()
   if not tier or tier <= rec.tier then return end
-  local seeding = rec.tier == 0 and rec.base >= H.MOUNT_TIER_LEVEL[tier]
+  local seeding = rec.tier == 0 and (rec.base or 0) >= H.MOUNT_TIER_LEVEL[tier]
   rec.tier = tier
   Report("mount", { epic = tier == 2 or nil }, not seeding)
 end

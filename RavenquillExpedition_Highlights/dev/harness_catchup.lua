@@ -88,12 +88,12 @@ local function Hold(c, list)
   for _, e in ipairs(list) do c.H:Add(Copy(e), "wire") end
 end
 
-local function Author(c, fields)
+local function Author(c, fields, opts)
   local t = c.env.time()
   local e = { k = "level", t = t, who = c.RQ:PlayerKey(), lvl = 40, cls = "MAGE" }
   for k, v in pairs(fields) do e[k] = v end
   e.id = e.id or c.H:NextID(e.who, t)
-  return c.H:Add(e, "self")
+  return c.H:Add(e, "self", opts)
 end
 
 local function Inject(c, e)
@@ -279,7 +279,7 @@ do
   check(stored == 20, ("of 21 relays from one relayer for one request, 20 are stored (%d)"):format(stored))
 end
 
-Kit.section("30 entries missed: the newest 20 arrive; a bystander fills in quietly")
+Kit.section("30 entries missed: the newest 20 arrive; a member who did not ask stores none")
 do
   local w = NewWorld()
   w.bus:member("Dave Rook", "WARRIOR", 50, false)
@@ -296,9 +296,37 @@ do
   local ok, got = Same(Ids(anna), newest)
   check(ok, "Anna has exactly entries 11-30: " .. got)
   check(#w.relays(nil, asked) == 20, "20 relays on the wire")
-  check(Same(Ids(cara), newest), "Cara, online all along, also stored the relayed entries")
+  check(#Ids(cara) == 0, ("Cara, online all along, stored none of the relays (%d)"):format(#Ids(cara)))
   check(Lines(cara, "Caught up on") == 0 and Lines(anna, "Caught up on 20 highlights") == 1,
     "only the member who asked gets the summary line")
+end
+
+Kit.section("A guildmate who repeats requests and forges relays: only a member who asked stores them, 20 at most")
+do
+  local w = NewWorld()
+  w.bus:member("Dave Rook", "WARRIOR", 50, false)
+  local anna = w.join("Anna Stone")
+  local mal = w.join("Mal Ory")
+  w.sched:advance(700)
+  local cara = w.join("Cara Moss")
+  w.sched:advance(60)
+  check(w.requests("Cara Moss") == 1, "setup: Cara asked")
+  local forged = Series("Dave Rook", EPOCH - 6000, 100, 10)
+  for round = 0, 4 do
+    mal.H.channel:Send("r", { since = 0 })
+    w.sched:advance(2)
+    for i = 1, 20 do Inject(mal, forged[round * 20 + i]) end
+    w.sched:advance(60)
+  end
+  w.sched:advance(120)
+  check(w.requests("Mal Ory") == 6, ("setup: Mal sent 5 requests after his own (%d)"):format(w.requests("Mal Ory")))
+  local function Stored(c)
+    local n = 0
+    for _, e in ipairs(forged) do if Has(c, e.id) then n = n + 1 end end
+    return n
+  end
+  check(Stored(anna) == 0, ("Anna, who did not ask, stored none of the 100 (%d)"):format(Stored(anna)))
+  check(Stored(cara) == 20, ("Cara, who asked, stored 20 of the 100 (%d)"):format(Stored(cara)))
 end
 
 Kit.section("A holder who does not share sends nothing")
@@ -313,6 +341,40 @@ do
   w.sched:advance(400)
   check(w.requests("Anna Stone") == 1, "setup: Anna asked")
   check(#w.relays() == 0 and #Ids(anna) == 0, "no relay, nothing stored")
+end
+
+Kit.section("Own entries kept local (share off, over the hourly cap, local only) are never relayed, also after a reload")
+do
+  local w = NewWorld()
+  w.bus:member("Dave Rook", "WARRIOR", 50, false)
+  local bert = w.join("Bert Hill")
+  w.sched:advance(60)
+  local heard = Entry("Dave Rook", EPOCH - 600, 1)
+  Hold(bert, { heard })
+  local s = bert.H.db.settings
+  local shared = {}
+  for i = 1, 8 do shared[i] = Author(bert, { lvl = 40 + i }) end
+  local kept = { Author(bert, { lvl = 49 }) }
+  s.share = false
+  kept[2] = Author(bert, { lvl = 50 })
+  s.share = true
+  kept[3] = Author(bert, { lvl = 51 }, { localOnly = true })
+  w.sched:advance(120)
+  local saved = Saved(bert)
+  w.leave(bert)
+  local bert2 = w.join("Bert Hill", saved)
+  w.sched:advance(60)
+  check(Has(bert2, kept[1].id) and Has(bert2, kept[2].id) and Has(bert2, kept[3].id), "setup: the kept entries stay in Bert's log")
+  local asked = w.sched.t
+  local anna = w.join("Anna Stone")
+  w.sched:advance(400)
+  check(w.requests("Anna Stone") == 1, "setup: Anna asked")
+  local want = IdsOf(shared)
+  want[#want + 1] = heard.id
+  local ok, got = Same(w.relays("Bert Hill", asked), want)
+  check(ok, "Bert relays the entries he shared and heard, none he kept local: " .. got)
+  ok, got = Same(Ids(anna), want)
+  check(ok, "Anna stores exactly those: " .. got)
 end
 
 Kit.section("Test entries are never relayed and never crowd out real ones")

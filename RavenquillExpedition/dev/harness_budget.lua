@@ -83,7 +83,7 @@ sched:at(sched.t + 180, function()
   B.fire("PLAYER_EQUIPMENT_CHANGED")
 end, 180)
 local H = Cc.module("Highlights")
-H.db.settings.shareCap = 100
+H.SHARE_CAP = 100
 local ids = {}
 local lvl = 30
 sched:at(sched.t + 120, function()

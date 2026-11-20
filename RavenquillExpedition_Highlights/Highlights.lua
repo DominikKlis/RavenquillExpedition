@@ -3,26 +3,25 @@ local GS = RavenquillExpedition
 local L = ns.L
 local SafeCall, Plain = GS.SafeCall, GS.Plain
 
+local RETIRED_SETTINGS = { shareCap = 8, minGain = 8, minGearQuality = 3, minLootQuality = 4, levelStep = 10, questRedLevels = 0 }
+local defaults = { share = true, chat = false, chatAll = false, echoOwn = true, logOnlyHighlights = false }
+for k, v in pairs(RETIRED_SETTINGS) do defaults[k] = v end
+
 local H = GS:NewModule("Highlights", {
   addon = ADDON, api = 2, slash = "hl", title = L.TITLE, icon = "Interface\\Icons\\INV_Misc_Note_01",
   sv = "RavenquillExpeditionHighlightsDB", svChar = "RavenquillExpeditionHighlightsCharDB", dbVersion = 3,
   locale = ns.Locales,
-  defaults = {
-    share = true,
-    shareCap = 8,
-    chat = false,
-    chatAll = false,
-    echoOwn = true,
-    minGain = 8,
-    minGearQuality = 3,
-    minLootQuality = 4,
-    levelStep = 10,
-    questRedLevels = 0,
-    logOnlyHighlights = false,
-  },
+  defaults = defaults,
   charDefaults = { everEquipped = {}, ownedEpics = {}, kills = {}, quests = {}, outbox = {}, shareLog = {}, activity = {} },
 })
 ns.H = H
+
+H.MIN_GAIN = 8
+H.GEAR_QUALITY = 3
+H.EPIC_QUALITY = 4
+H.LOOT_QUALITY = 4
+H.LEVEL_STEP = 10
+H.SHARE_CAP = 8
 
 H.MAX_EVENTS = 1500
 H.MAX_AGE = 90 * 86400
@@ -134,9 +133,9 @@ local function OnHeard(self, e)
   if e.k == "boss" and e.grp then self:Supersede(e) end
 end
 
-local function OnSeenHere(self, e, source, opts, gkey)
+local function OnSeenHere(self, e, source, opts)
   if source == "witness" or self:Settings().echoOwn then self:Announce(e) end
-  if not opts.localOnly and gkey ~= "-" then self:Share(e, opts) end
+  if opts.localOnly or not self:Share(e, opts) then e.held = true end
 end
 
 local SOURCES = {
@@ -164,7 +163,7 @@ function H:Add(e, source, opts)
   idx[e.id] = e
   if s.heard then self:CapWho(events, idx, e.who) end
   self:Prune(gkey)
-  if s.after then s.after(self, e, source, opts or {}, gkey) end
+  if s.after then s.after(self, e, source, opts or {}) end
   self:RefreshSoon()
   return e
 end
@@ -248,11 +247,6 @@ function H.QualityName(q)
   local name = Plain(_G["ITEM_QUALITY" .. tostring(q) .. "_DESC"], "string") or tostring(q)
   local hex = QUALITY_HEX[q]
   return hex and ("|cff" .. hex .. name .. "|r") or name
-end
-
-function H:EmptyText()
-  local s = self:Settings()
-  return L.EMPTY:format(self.QualityName(s.minLootQuality), self.QualityName(s.minGearQuality), s.minGain)
 end
 
 function H.ItemInfo(item) return SafeCall((C_Item and C_Item.GetItemInfo) or GetItemInfo, item) end
@@ -444,31 +438,48 @@ function H:OnOptionChanged(key, v)
   self:Refresh()
 end
 
-local QUALITY_VALUE_WIDTH = 96
+local Q = H.QualityName
+H.RULES = {
+  { k = "gear", title = "RULE_GEAR", text = "HOW_GEAR", args = { Q(H.GEAR_QUALITY), H.MIN_GAIN, Q(H.EPIC_QUALITY) } },
+  { k = "loot", title = "RULE_LOOT", text = "HOW_LOOT", args = { Q(H.LOOT_QUALITY) } },
+  { k = "boss", title = "RULE_RAID_BOSS", text = "HOW_RAID_BOSS" },
+  { k = "boss", title = "RULE_WORLD_BOSS", text = "HOW_WORLD_BOSS" },
+  { k = "run", title = "RULE_RUN", text = "HOW_RUN" },
+  { k = "quest", title = "RULE_QUEST", text = "HOW_QUEST" },
+  { k = "level", title = "RULE_LEVEL", text = "HOW_LEVEL", args = { H.LEVEL_STEP } },
+  { k = "mount", title = "RULE_MOUNT", text = "HOW_MOUNT" },
+  { k = "rep", title = "RULE_REP", text = "HOW_REP" },
+  { k = "skill", title = "RULE_SKILL", text = "HOW_SKILL" },
+  { k = "pvp", title = "RULE_PVP", text = "HOW_PVP" },
+  { k = "duel", title = "RULE_DUEL", text = "HOW_DUEL" },
+}
+
+local function RuleLine(rule)
+  local text = L[rule.text]:format(unpack(rule.args or {}))
+  return Icon(H.KINDS[rule.k].icon) .. Gold(L[rule.title] .. ":") .. " " .. text
+end
 
 local function ShareOff() return not H:Settings().share end
 local function ChatOff() return not H:Settings().chat end
 
-H:SetOptions({
+local options = {
   { type = "header", label = L.OPT_SHARE_H },
   { type = "toggle", key = "share", label = L.OPT_SHARE, tooltip = L.OPT_SHARE_TIP },
-  { type = "range", key = "shareCap", label = L.OPT_CAP, tooltip = L.OPT_CAP_TIP, min = 1, max = 20, step = 1, disabled = ShareOff },
+  { type = "note", label = L.OPT_SHARE_CAP:format(H.SHARE_CAP), disabled = ShareOff },
   { type = "header", label = L.OPT_CHAT_H },
   { type = "toggle", key = "chat", label = L.OPT_CHAT, tooltip = L.OPT_CHAT_TIP },
   { type = "toggle", key = "chatAll", label = L.OPT_CHAT_ALL, disabled = ChatOff },
   { type = "toggle", key = "echoOwn", label = L.OPT_ECHO, disabled = ChatOff },
   { type = "header", label = L.OPT_RULES_H },
-  { type = "range", key = "minGain", label = L.OPT_GAIN, tooltip = L.OPT_GAIN_TIP, min = 1, max = 40, step = 1 },
-  { type = "range", key = "minGearQuality", label = L.OPT_GEARQ, tooltip = L.OPT_QUALITY_TIP, min = 2, max = 4, step = 1,
-    display = H.QualityName, valueWidth = QUALITY_VALUE_WIDTH },
-  { type = "range", key = "minLootQuality", label = L.OPT_LOOTQ, tooltip = L.OPT_QUALITY_TIP, min = 3, max = 5, step = 1,
-    display = H.QualityName, valueWidth = QUALITY_VALUE_WIDTH },
-  { type = "range", key = "levelStep", label = L.OPT_LEVEL, tooltip = L.OPT_LEVEL_TIP, min = 0, max = 20, step = 1,
-    display = function(v) return v == 0 and L.MAX_ONLY or tostring(v) end, valueWidth = QUALITY_VALUE_WIDTH },
+}
+for _, rule in ipairs(H.RULES) do options[#options + 1] = { type = "note", label = RuleLine(rule) } end
+for _, o in ipairs({
+  { type = "note", label = L.HOW_ACTIVITY:format(L.LOG_ONLY_HL) },
   { type = "header", label = L.OPT_TEST_H },
   { type = "button", label = L.OPT_TEST, tooltip = L.OPT_TEST_TIP, func = function() H:Print(L.TEST_ADDED:format(H:AddTests())) end },
   { type = "button", label = L.OPT_CLEARTEST, func = function() H:Print(L.TEST_CLEARED:format(H:ClearTests())) end },
-})
+}) do options[#options + 1] = o end
+H:SetOptions(options)
 
 local function SortedAssignments(t)
   local list = {}

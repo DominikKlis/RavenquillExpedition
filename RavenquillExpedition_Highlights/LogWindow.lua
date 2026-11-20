@@ -178,7 +178,7 @@ local function RenderLog(self, view, list, nHL, nAct)
   local messages = LogMessages(self, list)
   m:Clear()
   view.onlyHL:SetChecked(self:Settings().logOnlyHighlights and true or false)
-  if not list[1] then m:AddMessage(self:EmptyText(), 0.7, 0.7, 0.7) end
+  if not list[1] then m:AddMessage(L.EMPTY, 0.7, 0.7, 0.7) end
   for _, line in ipairs(messages) do
     if line.color then m:AddMessage(line.text, line.color[1], line.color[2], line.color[3]) else m:AddMessage(line.text) end
   end
