@@ -88,19 +88,24 @@ local function AddFooterLines(m)
 end
 
 local function OnEnter(self)
-  local m = M.members[self.key]
+  local m = M.members[self.key] or self.unshared
   if not m then return end
   GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
   AddIdentityLines(m)
-  AddFlagLines(m.flags or {})
-  AddFooterLines(m)
+  if m.unshared then
+    GameTooltip:AddLine(L.TT_NOT_SHARING, 0.7, 0.7, 0.7)
+    GameTooltip:AddLine(L.TT_RIGHT_CLICK, 0.5, 1, 0.5)
+  else
+    AddFlagLines(m.flags or {})
+    AddFooterLines(m)
+  end
   GameTooltip:Show()
 end
 
 local function OnLeave() GameTooltip:Hide() end
 
 local function OnClick(self)
-  local m = M.members[self.key]
+  local m = M.members[self.key] or self.unshared
   if not m or m.fake or m.isSelf or type(m.name) ~= "string" then return end
   M:Contact(self, m)
 end
@@ -392,7 +397,10 @@ function M:BuildPage(parent)
   for i = 1, Page.ROWS do parent.rows[i] = Page.PageRow(parent, i) end
   parent.note = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   parent.note:SetPoint("BOTTOMLEFT", 8, 6)
-  parent:SetScript("OnShow", function() GS:Call(M.RenderPage, M) end)
+  parent:SetScript("OnShow", function()
+    GS:RequestRoster()
+    GS:Call(M.RenderPage, M)
+  end)
   self.page = parent
 end
 
@@ -402,32 +410,57 @@ function Page.ZoneName(m)
   return "?"
 end
 
+function Page.WhereText(m)
+  if m.unshared then return L.ZONE_UNKNOWN end
+  return Page.ZoneName(m)
+end
+
 function Page.SeenText(m)
   local f, text = m.flags or {}, AgeText(M:Age(m))
   local flag = (f.g and L.TT_GHOST) or (f.t and L.TT_TAXI) or (f.s and L.TT_STATIONARY)
   return flag and (text .. " · " .. flag) or text
 end
 
-function Page.ListedMembers()
-  local list = {}
-  for _, m in pairs(M.members) do
-    if not m.isSelf and M:State(m) ~= "gone" then list[#list + 1] = m end
+local function Rank(m)
+  if m.unshared then return 3 end
+  return M:State(m) == "fresh" and 1 or 2
+end
+
+function Page.UnsharedMembers(listed)
+  local out = {}
+  for key, e in GS:EachMember() do
+    if e.online and not listed[key] and not GS:IsMe(key) then
+      out[#out + 1] = { key = key, name = key, class = e.class, level = e.level, unshared = true }
+    end
   end
+  return out
+end
+
+function Page.ListedMembers()
+  local list, listed = {}, {}
+  for key, m in pairs(M.members) do
+    if not m.isSelf and M:State(m) ~= "gone" then
+      list[#list + 1] = m
+      listed[key] = true
+      listed[GS:StripRealm(key) or key] = true
+    end
+  end
+  for _, m in ipairs(Page.UnsharedMembers(listed)) do list[#list + 1] = m end
   table.sort(list, function(a, b)
-    local fa, fb = M:State(a) == "fresh", M:State(b) == "fresh"
-    if fa ~= fb then return fa end
+    local ra, rb = Rank(a), Rank(b)
+    if ra ~= rb then return ra < rb end
     return tostring(a.name) < tostring(b.name)
   end)
   return list
 end
 
 function Page.RenderRow(r, m)
-  r.key = m.key
+  r.key, r.unshared = m.key, m.unshared and m or nil
   r.cells[1]:SetText(tostring(m.name) .. (m.fake and (" (" .. L.TEST_MARK .. ")") or ""))
   r.cells[1]:SetTextColor(ClassColor(m.class))
   r.cells[2]:SetText((type(m.level) == "number" and m.level > 0) and tostring(m.level) or "")
-  r.cells[3]:SetText(Page.ZoneName(m))
-  r.cells[4]:SetText(Page.SeenText(m))
+  r.cells[3]:SetText(Page.WhereText(m))
+  r.cells[4]:SetText(m.unshared and "" or Page.SeenText(m))
   r:SetAlpha(M:State(m) == "stale" and 0.5 or 1)
   r:Show()
 end
@@ -444,3 +477,5 @@ function M:RenderPage()
 end
 
 function M:RefreshPage() self:RenderPage() end
+
+M:RegisterEvent("GUILD_ROSTER_UPDATE", function() M:RenderPage() end)

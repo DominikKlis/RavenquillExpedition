@@ -62,5 +62,5 @@ end
 
 function M:Contact(owner, m)
   if not (MenuUtil and MenuUtil.CreateContextMenu) then return Invite(m.whisper or m.name) end
-  SafeCall(MenuUtil.CreateContextMenu, owner, function(_, root) Build(m, root) end)
+  GS:Call(MenuUtil.CreateContextMenu, owner, function(_, root) Build(m, root) end)
 end

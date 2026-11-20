@@ -189,6 +189,34 @@ do
   rawget(hansRow, "_scripts").OnClick(hansRow, "RightButton")
   w.env.C_PartyInfo = nil
   check(hansRow.clicks == "RightButtonUp" and invites[1] == "Hans Wurst", "only right-clicking a guildmate in the list reaches the same actions")
+  local core = w.env.RavenquillExpedition
+  local realRoster = core.roster
+  core.roster = {
+    ["Hans Wurst"] = { level = 20, class = "MAGE", online = true },
+    ["Greta Stumm"] = { level = 33, class = "DRUID", online = true },
+    ["Otto Weg"] = { level = 50, class = "ROGUE", online = false },
+  }
+  M:RenderPage()
+  local byName = {}
+  for _, r in ipairs(page.rows) do
+    if r.shown then
+      local name = r.cells[1]:GetText()
+      byName[name] = (byName[name] or 0) + 1
+      if name == "Greta Stumm" then hansRow = r end
+    end
+  end
+  check(byName["Greta Stumm"] == 1 and hansRow.cells[2]:GetText() == "33" and hansRow.cells[3]:GetText() == "Unknown"
+    and hansRow.cells[4]:GetText() == "", "an online guildmate who doesn't share is listed with an unknown zone")
+  check(byName["Hans Wurst"] == 1, "a sharing guildmate on the roster is listed once")
+  check(byName["Otto Weg"] == nil, "offline guildmates are not listed")
+  invites = {}
+  w.env.C_PartyInfo = { InviteUnit = function(n) invites[#invites + 1] = n end }
+  rawget(hansRow, "_scripts").OnClick(hansRow, "RightButton")
+  w.env.C_PartyInfo = nil
+  check(invites[1] == "Greta Stumm", "right-clicking a guildmate who doesn't share still invites")
+  hansRow._scripts.OnEnter(hansRow)
+  check(table.concat(w.tip.lines, "|"):find("Not sharing a position", 1, true), "the tooltip says the guildmate isn't sharing")
+  core.roster = realRoster
   page:Hide()
 end
 local function FakeMenus(env)
@@ -280,6 +308,18 @@ do
   check(calls[#calls] == "InviteUnit(Hans Wurst)", "without the game's menu, right-click still invites")
   env.C_PartyInfo, env.CanInspect, env.InspectUnit = nil, nil, nil
   check(#w.errors == 0, "menu: no Lua errors (" .. tostring(w.errors[1]) .. ")")
+  FakeMenus(env)
+  local modules = env.RavenquillExpedition.modules
+  local realCraft = modules.Craft
+  modules.Craft = { HasStoredGear = function() error("stored gear read broke") end }
+  hp._scripts.OnClick(hp, "RightButton")
+  modules.Craft = realCraft
+  check(tostring(w.errors[1]):find("stored gear read broke", 1, true),
+    "an error while building the menu reaches the error handler instead of vanishing: " .. tostring(w.errors[1]))
+  for i = #w.errors, 1, -1 do w.errors[i] = nil end
+  local db = env.RavenquillExpeditionDB
+  if db then db.lastError = nil end
+  env.MenuUtil = nil
 end
 do
   local wd = NewWorld({ locale = "deDE" })

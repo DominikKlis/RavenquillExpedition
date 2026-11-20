@@ -46,7 +46,8 @@ local L = {
   TT_FAKE = "Seven pretend guildmates around you, only on your screen – nothing is sent.",
   OPEN_LABEL = "World map",
   COL_NAME = "Name", COL_LEVEL = "Level", COL_ZONE = "Zone", COL_SEEN = "Last update", TEST_MARK = "test",
-  PAGE_EMPTY = "No guildmate is sharing a position right now.", PAGE_MORE = "+%d more",
+  PAGE_EMPTY = "No other guildmate is online right now.", PAGE_MORE = "+%d more",
+  ZONE_UNKNOWN = "Unknown", TT_NOT_SHARING = "Not sharing a position",
 }
 
 local deDE = {
@@ -95,7 +96,8 @@ local deDE = {
   TT_FAKE = "Sieben gespielte Gildenmitglieder um dich herum, nur auf deinem Bildschirm – nichts wird gesendet.",
   OPEN_LABEL = "Weltkarte",
   COL_NAME = "Name", COL_LEVEL = "Stufe", COL_ZONE = "Gebiet", COL_SEEN = "Zuletzt", TEST_MARK = "Test",
-  PAGE_EMPTY = "Gerade teilt niemand aus der Gilde seine Position.", PAGE_MORE = "+%d weitere",
+  PAGE_EMPTY = "Gerade ist sonst niemand aus der Gilde online.", PAGE_MORE = "+%d weitere",
+  ZONE_UNKNOWN = "Unbekannt", TT_NOT_SHARING = "Teilt keine Position",
 }
 
 ns.Locales = { enUS = L, deDE = deDE }
