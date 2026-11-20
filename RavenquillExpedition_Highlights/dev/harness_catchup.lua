@@ -44,6 +44,7 @@ local function NewWorld()
   end
 
   function w.leave(c)
+    c.fire("PLAYER_LOGOUT")
     c.online = false
     bus:setOnline(c.name, false)
   end
@@ -279,7 +280,7 @@ do
   check(stored == 20, ("of 21 relays from one relayer for one request, 20 are stored (%d)"):format(stored))
 end
 
-Kit.section("30 entries missed: the newest 20 arrive; a member who did not ask stores none")
+Kit.section("30 entries missed: all 30 arrive in two pages; a member who did not ask stores none")
 do
   local w = NewWorld()
   w.bus:member("Dave Rook", "WARRIOR", 50, false)
@@ -291,14 +292,79 @@ do
   local asked = w.sched.t
   local anna = w.join("Anna Stone")
   w.sched:advance(600)
-  local newest = {}
-  for i = 11, 30 do newest[#newest + 1] = missing[i].id end
-  local ok, got = Same(Ids(anna), newest)
-  check(ok, "Anna has exactly entries 11-30: " .. got)
-  check(#w.relays(nil, asked) == 20, "20 relays on the wire")
+  local ok, got = Same(Ids(anna), IdsOf(missing))
+  check(ok, "Anna has all 30: " .. got)
+  check(w.requests("Anna Stone", asked) == 2, ("Anna asked for two pages (%d)"):format(w.requests("Anna Stone", asked)))
+  local relays = #w.relays(nil, asked)
+  check(relays >= 30 and relays <= 31, ("%d relays on the wire: each entry once, the page boundary at most twice"):format(relays))
   check(#Ids(cara) == 0, ("Cara, online all along, stored none of the relays (%d)"):format(#Ids(cara)))
-  check(Lines(cara, "Caught up on") == 0 and Lines(anna, "Caught up on 20 highlights") == 1,
-    "only the member who asked gets the summary line")
+  check(Lines(cara, "Caught up on") == 0 and Lines(anna, "Caught up on 30 highlights") == 1,
+    "only the member who asked gets the summary line, once, counting all 30")
+end
+
+Kit.section("Nobody online at login: the gap fills once a member who holds it comes online")
+do
+  local w = NewWorld()
+  local bert = w.join("Bert Hill")
+  local cara = w.join("Cara Moss")
+  local anna = w.join("Anna Stone")
+  w.sched:advance(120)
+  local saved = Saved(anna)
+  w.leave(anna)
+  w.sched:advance(600)
+  local e1 = Author(cara, { lvl = 21 })
+  w.sched:advance(300)
+  check(Has(bert, e1.id), "setup: Bert holds Cara's highlight that Anna missed")
+  local bertSaved = Saved(bert)
+  w.leave(cara); w.leave(bert)
+  w.sched:advance(600)
+  local back = w.sched.t
+  local anna2 = w.join("Anna Stone", saved)
+  w.sched:advance(900)
+  check(w.requests("Anna Stone", back) == 0, "setup: alone online, Anna has nobody to ask")
+  local bert2 = w.join("Bert Hill", bertSaved)
+  w.sched:advance(120)
+  local b1 = Author(bert2, { lvl = 41 })
+  w.sched:advance(400)
+  check(Has(anna2, b1.id), "setup: Anna hears Bert's new highlight live")
+  check(Has(anna2, e1.id), "15 minutes after her login Bert comes online, and Anna gets the highlight she missed")
+end
+
+Kit.section("Only a member without the addon online, then a live highlight: the gap stays open until a holder answers")
+do
+  local w = NewWorld()
+  w.bus:member("Dora Dunn", "PRIEST", 30, false)
+  local bert = w.join("Bert Hill")
+  local cara = w.join("Cara Moss")
+  local anna = w.join("Anna Stone")
+  w.sched:advance(300)
+  local saved = Saved(anna)
+  w.leave(anna)
+  w.sched:advance(600)
+  local e1 = Author(cara, { lvl = 21 })
+  w.sched:advance(300)
+  local bertSaved = Saved(bert)
+  w.leave(cara); w.leave(bert)
+  w.bus:setOnline("Dora Dunn", true)
+  local back = w.sched.t
+  local anna2 = w.join("Anna Stone", saved)
+  w.sched:advance(400)
+  check(w.requests("Anna Stone", back) == 1, "setup: Anna asked while only Dora, who has no addon, was online")
+  local ella = w.join("Ella Fox")
+  w.sched:advance(5)
+  local e2 = Author(ella, { lvl = 30 })
+  w.sched:advance(5)
+  w.leave(ella)
+  w.sched:advance(60)
+  check(Has(anna2, e2.id) and not Has(anna2, e1.id), "setup: Anna heard Ella's newer highlight live, Cara's older one is missing")
+  local saved2 = Saved(anna2)
+  w.leave(anna2)
+  w.sched:advance(300)
+  w.join("Bert Hill", bertSaved)
+  w.sched:advance(60)
+  local anna3 = w.join("Anna Stone", saved2)
+  w.sched:advance(600)
+  check(Has(anna3, e1.id), "back with Bert online, Anna gets Cara's highlight from before Ella's")
 end
 
 Kit.section("A guildmate who repeats requests and forges relays: only a member who asked stores them, 20 at most")
