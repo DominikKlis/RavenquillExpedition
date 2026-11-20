@@ -231,12 +231,34 @@ do
   check(UIx.survival._parent == f.content and not UIx.survival._shown and UIx.helpButton == nil,
     "the bottom slider is hidden with the native Filter menu; no '?' help button")
   local op = menuOf(fb)
-  check(#op == 8 and op[1].kind == "check" and op[5].kind == "check" and op[6].kind == "divider" and op[7].kind == "button"
-    and #op[7].sub == 5 and op[8].kind == "button",
-    "filter menu: 4 settings + offline members, divider, leveling bonus submenu (5 values), edit whisper (" .. #op .. ")")
-  check(menuTexts(op) == "Show missing recipes|Look ahead 5 levels|Read gear automatically|Guild sync|Include offline members (0)|Leveling bonus (Stamina/Spirit): 50%|Edit whisper text…",
+  check(#op == 10 and op[1].kind == "check" and op[5].kind == "check" and op[6].kind == "divider" and op[7].kind == "button"
+    and #op[7].sub == 5 and op[8].kind == "button" and op[9].kind == "button" and op[10].kind == "button",
+    "filter menu: 4 settings + offline members, divider, leveling bonus submenu (5 values), edit whisper, inspect target, read group (" .. #op .. ")")
+  check(menuTexts(op) == "Show missing recipes|Look ahead 5 levels|Read gear automatically|Guild sync|Include offline members (0)|Leveling bonus (Stamina/Spirit): 50%|Edit whisper text…|Inspect target now|Read group now",
     "menu labels: " .. menuTexts(op))
-  check(op[1].tip ~= nil and op[7].tip ~= nil and op[8].tip ~= nil, "every entry has its tooltip")
+  check(op[1].tip ~= nil and op[7].tip ~= nil and op[8].tip ~= nil and #op == 10 and op[9].tip ~= nil and op[10].tip ~= nil, "every entry has its tooltip")
+  local function chatAfter(entry)
+    local lines, add = {}, env.DEFAULT_CHAT_FRAME.AddMessage
+    env.DEFAULT_CHAT_FRAME.AddMessage = function(_, t) lines[#lines + 1] = plain(tostring(t)) end
+    if entry then entry:click() end
+    env.DEFAULT_CHAT_FRAME.AddMessage = add
+    return table.concat(lines, "\n")
+  end
+  check(chatAfter(op[9]):find("Target a guild member first.", 1, true), "Inspect target now reads your target's gear (no target: it says so)")
+  check(chatAfter(op[10]):find("No guild members in your group to inspect.", 1, true), "Read group now reads your group's gear (alone: it says so)")
+  local syncState, retried = "ok", 0
+  GCA.SyncState = function() return syncState end
+  GCA.SyncRetry = function() retried = retried + 1; syncState = "ok" end
+  check(not menuTexts(menuOf(fb)):find("Retry sync", 1, true), "no Retry sync while sync runs at its normal pace")
+  syncState = "paused"
+  UIx:Refresh()
+  local paused = menuOf(fb)
+  local retry = paused[#paused]
+  check(retry.text == "Retry sync" and retry.tip ~= nil and UIx.syncDot.state == "paused",
+    "while our messages do not come back the menu offers Retry sync: " .. menuTexts(paused))
+  if retry.text == "Retry sync" then retry:click() end
+  check(retried == 1 and UIx.syncDot.state == "ok", "Retry sync resumes sync and the window shows it right away (" .. tostring(UIx.syncDot.state) .. ")")
+  GCA.SyncState, GCA.SyncRetry = nil, nil
   check(op[7].sub[3]:on() and not op[7].sub[4]:on(), "50 % is the selected bonus")
   op[7].sub[4]:click()
   check(math.abs(GCA.db.settings.survival - 0.75) < 1e-9 and menuOf(fb)[7].sub[4]:on(), "picking 75 % sets the bonus")

@@ -204,4 +204,16 @@ end
 GCA.db.specs["Icon Probe"] = nil
 check(#bad == 0, "every spec shows an icon, no two specs of a class share one: " .. table.concat(bad, ", "))
 
+section("Inspect window: forgotten members")
+GCA.db.members["Gone Soon"] = { class = "WARRIOR", level = 20, source = "inspect", time = env.time(), items = { [1] = HAT } }
+GCA.db.members["Sol Shadow"] = { class = "PRIEST", level = 30, source = "self", time = env.time(), items = { [1] = HAT } }
+GCA:ShowInspect("Sol Shadow")
+GCA:ForgetGear("Sol Shadow")
+GCA:RefreshUI()
+check(window()._shown and page(window()) == "talents" and plain(title(window())) == "Sol Shadow",
+  "his gear forgotten, his spec still stored: the window stays on his talents")
+check(GCA:ShowInspect("Gone Soon") == true and window()._shown, "a member with stored gear is shown")
+GCA:ForgetStoredGear()
+check(GCA.db.members["Gone Soon"] == nil and not window()._shown, "forgetting all stored gear closes the window showing her")
+
 H.finish(true)

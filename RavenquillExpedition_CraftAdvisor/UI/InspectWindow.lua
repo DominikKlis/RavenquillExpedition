@@ -273,6 +273,7 @@ end
 
 function UI:RefreshInspect()
   local f = self.inspect
-  local page = f and f:IsShown() and PickPage(f.key, f.page)
-  if page then Fill(f, f.key, page) end
+  if not (f and f:IsShown()) then return end
+  local page = PickPage(f.key, f.page)
+  if page then Fill(f, f.key, page) else f:Hide() end
 end

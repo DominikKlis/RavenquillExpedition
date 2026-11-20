@@ -341,6 +341,14 @@ local function FilterItems()
   items[#items + 1] = { kind = "divider" }
   items[#items + 1] = { kind = "native", build = SurvivalSubmenu }
   items[#items + 1] = { kind = "button", label = L.EDIT_WHISPER, tip = L.EDIT_WHISPER_TIP, onClick = function() UI:OpenWhisperEditor() end }
+  items[#items + 1] = { kind = "button", label = L.OPT_INSPECT_NOW, tip = L.OPT_INSPECT_NOW_TIP,
+    onClick = function() if GCA.db then GCA:InspectTarget() end end }
+  items[#items + 1] = { kind = "button", label = L.OPT_SCAN_NOW, tip = L.OPT_SCAN_NOW_TIP,
+    onClick = function() if GCA.db then GCA:ScanGroup() end end }
+  if UI.SyncState() == "paused" then
+    items[#items + 1] = { kind = "button", label = L.OPT_SYNC_RETRY, tip = L.OPT_SYNC_RETRY_TIP,
+      onClick = function() GCA:SyncRetry(); GCA:RefreshUI() end }
+  end
   return items
 end
 local function FilterTip(self)

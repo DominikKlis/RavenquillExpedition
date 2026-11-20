@@ -431,6 +431,13 @@ do
     check(#bad == 0, "member line and tooltip per state (not inspected, browse, upgrades, no spec, no level, loading, none, yourself): "
       .. table.concat(bad, "; "))
   end
+  local caraRow = ml.pools.default[3]
+  GCA.db.members["Cara Field"] = { class = "DRUID", level = 30, source = "inspect", time = env.time(), items = { [5] = "item:4244" } }
+  check(caraRow.data == K5.cara and GCA:ShowInspect("Cara Field") and UIx.inspect._shown, "Cara's stored gear is open in the inspect window")
+  env.IsShiftKeyDown = function() return true end
+  caraRow._scripts.OnClick(caraRow, "RightButton")
+  env.IsShiftKeyDown = function() return false end
+  check(GCA.db.members["Cara Field"] == nil and not UIx.inspect._shown, "Shift+Right-click forgets her gear and closes her inspect window")
   gp[2]._scripts.OnClick(gp[2])
   local olgaRow
   for _, r in ipairs(ml.pools.default) do if r._shown and r.data == K5.olga then olgaRow = r end end
@@ -626,7 +633,9 @@ do
     "fallbacks: red 'Filter' button + popup, the K2 search box, UIPanelScrollFrameTemplate")
   UIx.filterButton._scripts.OnClick(UIx.filterButton)
   local fp = UIx.filterPopup
-  check(fp._shown and #fp.buttons == 6 and plain(fp.buttons[5].text._text) == "Include offline members (1)", "fallback Filter popup: 4 toggles, offline members, edit whisper")
+  check(fp._shown and #fp.buttons == 8 and plain(fp.buttons[5].text._text) == "Include offline members (1)"
+    and fp.buttons[7].text._text == "Inspect target now" and fp.buttons[8].text._text == "Read group now",
+    "fallback Filter popup: 4 toggles, offline members, edit whisper, inspect target, read group")
   fp.buttons[5]._scripts.OnClick(fp.buttons[5])
   check(GCA.db.settings.needsOffline == true and fp.buttons[5].check._shown, "fallback popup toggles 'Include offline members'")
   fp.buttons[5]._scripts.OnClick(fp.buttons[5]); fp:Hide()

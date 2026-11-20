@@ -103,7 +103,7 @@ local function CreateMemberRow(parent)
     else
       UI:SelectMember(self.data.key)
     end
-    UI:Refresh()
+    GCA:RefreshUI()
   end)
   SetTip(b, "member row", MemberTip)
   b:SetScript("OnLeave", GameTooltip_Hide)
