@@ -72,7 +72,7 @@ local EQUIP_LOCS = {
   INVTYPE_THROWN = { slots = { 18 }, dps = "RangedDps" },
   INVTYPE_WEAPON = { slots = { 16, 17 }, hand = "main", oneHand = true, dps = "MainHandDps", enchant = { "weapon" } },
   INVTYPE_WEAPONMAINHAND = { slots = { 16 }, hand = "main", oneHand = true, dps = "MainHandDps", enchant = { "weapon" } },
-  INVTYPE_WEAPONOFFHAND = { slots = { 17 }, hand = "off", oneHand = true, dps = "OffHandDps" },
+  INVTYPE_WEAPONOFFHAND = { slots = { 17 }, hand = "off", oneHand = true, dps = "OffHandDps", enchant = { "weapon" } },
   INVTYPE_2HWEAPON = { slots = { 16 }, hand = "two", dps = "TwoHandDps", enchant = { "twohand", "weapon" } },
   INVTYPE_SHIELD = { slots = { 17 }, hand = "off", enchant = { "shield" } },
   INVTYPE_HOLDABLE = { slots = { 17 }, hand = "off", enchant = { "offhand" } },
