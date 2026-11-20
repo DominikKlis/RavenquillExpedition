@@ -341,6 +341,83 @@ do
   check(#hits == 0, "no deDE newspaper text uses a gendered person noun or pronoun (" .. (hits[1] or "none") .. ")")
 end
 
+local function Click(button) button:GetScript("OnClick")(button) end
+local function Frame(c) return c.env.RavenquillExpeditionHighlightsFrame end
+local function Heard(c, e) return c.H:Add(e, "wire") end
+
+Kit.section("Window: the Kurier opens on the latest issue, with previous and next issues")
+do
+  local c = Client("Lyra Distelbach")
+  Heard(c, E("level", "Bodo Kesselring", At(16, 10), { lvl = 20, cls = "WARRIOR" }))
+  Heard(c, E("mount", "Mira Sturmfeder", At(18, 13, 24), { lvl = 40 }))
+  Heard(c, E("loot", "Tamo Eichengrund", At(20, 20), { item = 5001, q = 4 }))
+  Heard(c, E("run", "Bodo Kesselring", At(20, 11, 38), { inst = "Zul'Farrak", boss = "Wasserbeschwörerin Velratha", n = 7, nf = 7 }))
+  check(c.H:OverviewStatus():find("^4 neu"), "four new entries before the paper is opened (" .. c.H:OverviewStatus() .. ")")
+  c.H:ShowWindow()
+  local f = Frame(c)
+  local paper = f.paper
+  check(f.mode == "paper" and paper:IsShown() and not f.msg:IsShown() and f.modeButton:GetText() == "Chronik",
+    "the window opens as the newspaper with a Chronik button")
+  check(paper.metaLeft:GetText() == "Gildenblatt der Ravenquill Expedition" and paper.metaDate:GetText() == "Freitag, 20. November"
+    and paper.metaRight:GetText() == "Nr. 3 · Preis: 1 Kupfer", "meta line: paper, weekday and date, issue number and price")
+  check(paper.issue.lead.kind == "epic" and paper.lead.head:GetText() == paper.issue.lead.head and paper.second.head:GetText() == paper.issue.second.head,
+    "the latest issue leads with the epic, the run is the second story")
+  check(f.issueLabel:GetText() == "Ausgabe vom 20. November" and f.prev:IsEnabled() and not f.next:IsEnabled(),
+    "footer: issue date, previous enabled, next disabled on the latest issue")
+  check(not c.H:OverviewStatus():find("neu", 1, true), "opening the newspaper counts as looking: nothing new left")
+  Click(f.prev)
+  check(paper.metaRight:GetText() == "Nr. 2 · Preis: 1 Kupfer" and f.issueLabel:GetText() == "Ausgabe vom 18. November"
+    and paper.issue.lead.kind == "mount" and f.next:IsEnabled(), "previous issue: the 18th with the mount")
+  check(paper.second.head:GetText() == DE.NO_SECOND_HEAD and paper.brief.more:GetText() == DE.NO_BRIEF,
+    "a one-story day says so in the second column and the brief box")
+  Click(f.prev)
+  check(paper.metaRight:GetText() == "Nr. 1 · Preis: 1 Kupfer" and not f.prev:IsEnabled(), "first issue: previous disabled")
+  Click(f.next)
+  Click(f.next)
+  check(paper.metaRight:GetText() == "Nr. 3 · Preis: 1 Kupfer" and not f.next:IsEnabled(), "next twice: back on the latest issue")
+  Click(f.prev)
+  Click(f.modeButton)
+  local lines = table.concat(f.msg._lines or {}, "\n")
+  check(f.mode == "log" and f.msg:IsShown() and not paper:IsShown() and f.modeButton:GetText() == "Zeitung"
+    and lines:find("Zul'Farrak", 1, true) and lines:find("neu seit deinem letzten Blick", 1, true),
+    "Chronik shows the plain log with the new-entries line, and the button turns into Zeitung")
+  Click(f.modeButton)
+  check(f.mode == "paper" and paper:IsShown() and not f.msg:IsShown(), "Zeitung switches back to the newspaper")
+  f:Hide()
+  Click(f.modeButton)
+  c.H:ShowWindow()
+  check(f.mode == "paper" and paper.metaRight:GetText() == "Nr. 3 · Preis: 1 Kupfer", "reopening starts on the latest issue again")
+  Heard(c, E("level", "Mira Sturmfeder", At(20, 21, 15), { lvl = 60 }))
+  sched:advance(1)
+  check(paper.issue.brief[1] and paper.brief.lines[1]:GetText():find("Mira Sturmfeder", 1, true),
+    "an entry arriving while the paper is open goes into today's issue")
+  check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
+end
+
+Kit.section("Window: empty log, masthead and parchment fallbacks")
+do
+  local c = Client("Tamo Eichengrund", "deDE", function(env, cl)
+    env.GetFileIDFromPath = function() return nil end
+    cl.frameMethods.SetTexture = function(s, path) s._texture = path; if tostring(path):find("masthead", 1, true) then return false end end
+  end)
+  c.H:ShowWindow()
+  local f = Frame(c)
+  local paper = f.paper
+  check(not paper.masthead.loaded and paper.masthead.text:IsShown() and not paper.masthead.texture:IsShown()
+    and paper.masthead.text:GetText() == "Der Ravenquiller Kurier", "a masthead texture that fails to load falls back to the Morpheus title")
+  check(paper.parchment.source == "color", "a missing parchment texture falls back to a paper colour")
+  check(paper.lead.head:GetText() == DE.EMPTY_HEAD and f.issueLabel:GetText() == DE.NO_ISSUE and not f.prev:IsEnabled()
+    and not f.next:IsEnabled(), "an empty log prints the editors' note and disables both buttons")
+  local plain = Client("Mira Sturmfeder", "enUS")
+  plain.H:ShowWindow()
+  local pf = Frame(plain)
+  check(pf.paper.masthead.loaded and pf.paper.masthead.texture:IsShown() and not pf.paper.masthead.text:IsShown(),
+    "with the texture available the masthead is the texture")
+  check(pf.modeButton:GetText() == "Chronicle" and pf.prev:GetText() == "« Previous issue" and pf.paper.lead.head:GetText() == EN.EMPTY_HEAD,
+    "English clients get the English paper")
+  check(#c.errors == 0 and #plain.errors == 0, "no Lua errors")
+end
+
 Kit.section("Sample issues (German)")
 do
   local samples = {

@@ -134,6 +134,11 @@ local function lastPrinted() local p = printed[#printed]; return p and p.text or
 local printedSince = me.printedSince
 local hlNS = me.ns.RavenquillExpedition_Highlights
 local GS, H = me.RQ, hlNS.H
+local function OpenLog(h, e)
+  h:ShowWindow()
+  local f = e.RavenquillExpeditionHighlightsFrame
+  if f.mode ~= "log" then f.modeButton:GetScript("OnClick")(f.modeButton) end
+end
 
 fire("ADDON_LOADED", "RavenquillExpedition")
 fire("ADDON_LOADED", "RavenquillExpedition_Highlights")
@@ -544,8 +549,12 @@ check(H:Settings().chatAll and all:IsEnabled(), "chat all")
 rawget(panel.controls[opt(L.OPT_TEST)], "_scripts").OnClick()
 check(lastPrinted():find("11 Testeinträge", 1, true), "test button adds 11 test entries")
 H:Open()
-check(H.openLabel == "Protokoll" and env.RavenquillExpeditionHighlightsFrame:IsShown() and lines[#lines]:find("Stufe 60 – Höchststufe!", 1, true),
-  "the card's 'Protokoll' entry opens the log window, test entry last")
+local hlFrame = env.RavenquillExpeditionHighlightsFrame
+check(H.openLabel == "Zeitung" and hlFrame:IsShown() and hlFrame.mode == "paper" and hlFrame.paper:IsShown()
+  and not hlFrame.msg:IsShown(), "the card's 'Zeitung' entry opens the window on the newspaper")
+OpenLog(H, env)
+check(hlFrame.msg:IsShown() and lines[#lines]:find("Stufe 60 – Höchststufe!", 1, true),
+  "its Chronik button shows the log, test entry last")
 local noClutter = true
 for _, o in ipairs(H.options) do
   if o.type == "text" or o.key == "logOnlyHighlights" or o.label == "Protokoll öffnen" then noClutter = false end
@@ -695,7 +704,7 @@ do
 end
 
 do
-  H:ShowWindow()
+  OpenLog(H, env)
   G.items[309] = { name = "Spätes Schwert", q = 4, il = 50, unloaded = true }
   recv("Dora Dunn", ("1;g;%d;951;Dora Dunn;33;5;309;50;4;40;16"):format(T()))
   advance(1)
@@ -814,7 +823,7 @@ do
   local s = H:Settings()
   local onlyHL = s.logOnlyHighlights
   s.logOnlyHighlights = false
-  H:ShowWindow()
+  OpenLog(H, env)
   H:Refresh()
   local msg = env.RavenquillExpeditionHighlightsFrame.msg
   msg._offset = 5
@@ -1174,7 +1183,7 @@ end
 Kit.section("An empty log points to the explanations")
 do
   local fresh = Character(); fresh.login(); advance(5)
-  fresh.H:ShowWindow()
+  OpenLog(fresh.H, fresh.env)
   local shown = lines[#lines] or ""
   check(shown:find("Was zählt, steht unter /rq hl.", 1, true) and shown:find("Testeinträge hinzufügen", 1, true)
     and not shown:find("Gegenstandsstufen", 1, true), "an empty log points to /rq hl for what counts instead of listing the rules")
@@ -1263,7 +1272,7 @@ do
   c.fire("PLAYER_LEVEL_UP", 40)
   hear("Bud Stone", ("1;v;%d;52;Bud Stone;40;9"):format(t))
   check(newCount() == 2, "two new before the log is opened (" .. newCount() .. ")")
-  c.H:ShowWindow()
+  OpenLog(c.H, c.env)
   local at, marks = divider()
   check(marks == 1 and lines[at + 1]:find("Cara Moss", 1, true) and lineOf("Bud Stone") > at,
     "the log marks the first new entry once, the newer ones below it")
@@ -1271,12 +1280,12 @@ do
   c.env.RavenquillExpeditionHighlightsFrame:Hide()
   hear("Dora Dunn", ("1;v;%d;53;Dora Dunn;30;5"):format(t - 300))
   check(newCount() == 1, "an entry older than the last look but heard after it is new (" .. newCount() .. ")")
-  c.H:ShowWindow()
+  OpenLog(c.H, c.env)
   at = divider()
   check(at and lines[at + 1]:find("Dora Dunn", 1, true) and lineOf("Cara Moss") < at and lineOf("Bud Stone") > at,
     "the mark sits right above it, between entries already seen")
   c.env.RavenquillExpeditionHighlightsFrame:Hide()
-  c.H:ShowWindow()
+  OpenLog(c.H, c.env)
   check(select(2, divider()) == 0 and newCount() == 0, "nothing new: no mark")
   hear("Abe Ash", ("1;v;%d;54;Abe Ash;60;1"):format(T()))
   advance(1)
@@ -1333,10 +1342,10 @@ do
   end
   local t = T()
   for i = 1, 5 do hear("Abe Ash", ("1;v;%d;%d;Abe Ash;%d;1"):format(t - 900 + i, 80 + i, 40 + i)) end
-  c.H:ShowWindow()
+  OpenLog(c.H, c.env)
   c.env.RavenquillExpeditionHighlightsFrame:Hide()
   for i = 1, 14 do hear("Cara Moss", ("1;v;%d;%d;Cara Moss;%d;7"):format(t - 600 + i, 90 + i, 40 + i)) end
-  c.H:ShowWindow()
+  OpenLog(c.H, c.env)
   local at = onScreen("neu seit deinem letzten Blick")
   check(at == top() and lines[at + 1]:find("Cara Moss", 1, true),
     "14 new entries do not fit: the log scrolls so the line opens the screen (line " .. tostring(at) .. " of " .. #lines
@@ -1348,7 +1357,7 @@ do
   c.env.RavenquillExpeditionHighlightsFrame:Hide()
   hear("Bud Stone", ("1;v;%d;121;Bud Stone;40;9"):format(T()))
   msg()._offset = 0
-  c.H:ShowWindow()
+  OpenLog(c.H, c.env)
   check(msg()._offset == 0 and onScreen("neu seit deinem letzten Blick") and onScreen("Bud Stone"),
     "one new entry fits at the bottom: the log stays at the bottom")
   c.env.RavenquillExpeditionHighlightsFrame:Hide()

@@ -281,6 +281,16 @@ function H:ItemText(e)
   return ("|cff%s[%s]|r"):format(hex, Plain(name, "string") or ("item:" .. id))
 end
 
+function H:CachedItem(id)
+  local name, _, _, il = self.ItemInfo(id)
+  name = Plain(name, "string")
+  if not name then
+    self.RequestItemData(id)
+    waitingItems = true
+  end
+  return name, Plain(il, "number")
+end
+
 H:RegisterEvent("GET_ITEM_INFO_RECEIVED", function(self)
   if not (self.db and waitingItems) or itemRefreshArmed then return end
   itemRefreshArmed = true

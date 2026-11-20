@@ -19,3 +19,4 @@ NewsLocale_enUS.lua
 NewsLocale_deDE.lua
 News.lua
 LogWindow.lua
+NewsWindow.lua

@@ -7,9 +7,11 @@ local win, refreshArmed
 local views = {}
 local WINDOW_INSETS = { 16, -32, -16, 32 }
 local PAGE_INSETS = { 4, -2, -4, 30 }
+local MODE_BUTTON_SPACE = 100
+H.WINDOW_W, H.WINDOW_H = 640, 640
 
 local function Chrome(f, native)
-  f:SetSize(560, 420)
+  f:SetSize(H.WINDOW_W, H.WINDOW_H)
   f:SetPoint("CENTER")
   f:SetFrameStrata("HIGH")
   f:SetToplevel(true)
@@ -66,16 +68,17 @@ local function MessageArea(f, insets)
   f.msg = msg
 end
 
-local function Footer(f, inPage)
+local function Footer(f, inPage, right)
+  right = right or 0
   local footer = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   footer:SetPoint("BOTTOMLEFT", inPage and 6 or 18, inPage and 6 or 12)
-  footer:SetPoint("BOTTOMRIGHT", -170, inPage and 6 or 12)
+  footer:SetPoint("BOTTOMRIGHT", -170 - right, inPage and 6 or 12)
   footer:SetJustifyH("LEFT")
   f.footer = footer
 
   local cb = CreateFrame("CheckButton", nil, f)
   cb:SetSize(22, 22)
-  cb:SetPoint("BOTTOMRIGHT", -130, inPage and 0 or 6)
+  cb:SetPoint("BOTTOMRIGHT", -130 - right, inPage and 0 or 6)
   cb:SetNormalTexture("Interface\\Buttons\\UI-CheckBox-Up")
   cb:SetPushedTexture("Interface\\Buttons\\UI-CheckBox-Down")
   cb:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight", "ADD")
@@ -87,7 +90,7 @@ local function Footer(f, inPage)
     H:Settings().logOnlyHighlights = self:GetChecked() and true or false
     GS:Call(H.Refresh, H)
   end)
-  f.onlyHL = cb
+  f.onlyHL, f.onlyHLText = cb, cbText
 end
 
 local function FirstUnseen(events)
@@ -98,6 +101,12 @@ local function ShowLog(view)
   view.firstUnseen = H.db and FirstUnseen(H:Log())
   view.opening = true
   H:Refresh()
+end
+
+local function OpenWindow(f)
+  f.mode, f.issueDay = "paper", nil
+  H:ApplyWindowMode(f)
+  ShowLog(f)
 end
 
 local function CreateWindow()
@@ -114,8 +123,10 @@ local function CreateWindow()
   end
   Chrome(f, native)
   MessageArea(f, WINDOW_INSETS)
-  Footer(f, false)
-  f:SetScript("OnShow", function() GS:Call(ShowLog, f) end)
+  Footer(f, false, MODE_BUTTON_SPACE)
+  f.logWidgets = { f.msg, f.footer, f.onlyHL, f.onlyHLText }
+  H:AttachPaper(f, WINDOW_INSETS)
+  f:SetScript("OnShow", function() GS:Call(OpenWindow, f) end)
   views[#views + 1] = f
   f:Hide()
   return f
@@ -222,7 +233,11 @@ function H:Refresh()
   if not (self.db and AnyViewShown()) then return end
   local list, nHL, nAct = self:LogLines()
   for _, view in ipairs(views) do
-    if view:IsVisible() then RenderLog(self, view, list, nHL, nAct) end
+    if view:IsVisible() and view.mode == "paper" then
+      self:RenderPaper(view)
+    elseif view:IsVisible() then
+      RenderLog(self, view, list, nHL, nAct)
+    end
   end
   for _, e in ipairs(self:Log()) do e.unseen = nil end
 end
@@ -236,6 +251,14 @@ end
 function H:ToggleWindow()
   if not win then win = CreateWindow() end
   if win:IsShown() then win:Hide() else win:Show() end
+end
+
+function H:SetWindowMode(mode)
+  if not win then return end
+  win.mode = mode
+  if mode == "log" then win.opening = true end
+  self:ApplyWindowMode(win)
+  self:Refresh()
 end
 
 function H:ShowWindow()
