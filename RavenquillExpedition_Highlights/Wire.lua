@@ -41,7 +41,7 @@ for code, fields in pairs(KIND_FIELDS) do
   ch:Define(code, { from = "guild", fields = fields })
   ch:Define(RELAY .. code, { from = "guild", fields = fields })
 end
-ch:Define("r", { from = "guild", fields = { { "since", "int", 0, 4102444800 } } })
+ch:Define("r", { from = "guild", fields = { { "since", "int", 0, 4102444800 }, { "before", "int", 0, 4102444800, opt = true } } })
 
 local function Num(v) return (type(v) == "number" and v == v) and math.floor(v) or nil end
 

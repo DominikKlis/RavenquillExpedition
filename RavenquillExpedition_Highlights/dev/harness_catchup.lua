@@ -302,6 +302,28 @@ do
     "only the member who asked gets the summary line, once, counting all 30")
 end
 
+Kit.section("120 entries missed: at most 5 pages, the newest entries without a hole")
+do
+  local w = NewWorld()
+  w.bus:member("Dave Rook", "WARRIOR", 50, false)
+  local missing = Series("Dave Rook", EPOCH - 86400, 120, 300)
+  local bert = w.join("Bert Hill")
+  w.sched:advance(300)
+  Hold(bert, missing)
+  local asked = w.sched.t
+  local anna = w.join("Anna Stone")
+  w.sched:advance(1800)
+  local has, oldest = #Ids(anna), nil
+  for i = #missing, 1, -1 do
+    if not Has(anna, missing[i].id) then break end
+    oldest = i
+  end
+  check(w.requests("Anna Stone", asked) == 5, ("Anna asked for 5 pages and stopped (%d)"):format(w.requests("Anna Stone", asked)))
+  check(oldest and has == #missing - oldest + 1 and has >= 90 and has <= 100,
+    ("she has the newest %d without a hole (from #%s)"):format(has, tostring(oldest)))
+  check(#w.relays(nil, asked) <= 100, ("%d relays on the wire"):format(#w.relays(nil, asked)))
+end
+
 Kit.section("Nobody online at login: the gap fills once a member who holds it comes online")
 do
   local w = NewWorld()
@@ -464,7 +486,8 @@ do
   check(ok, "Anna gets the 20 real entries and no test entry: " .. got)
   local tests = 0
   for _, id in ipairs(w.relays()) do if id:find("TEST", 1, true) then tests = tests + 1 end end
-  check(tests == 0 and #w.relays() == 20, "only the 20 real entries went out")
+  check(tests == 0 and #w.relays() >= 20 and #w.relays() <= 21,
+    ("only the 20 real entries went out, the page boundary at most twice (%d relays)"):format(#w.relays()))
 end
 
 Kit.finish()
