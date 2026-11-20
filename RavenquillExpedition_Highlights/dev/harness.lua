@@ -517,8 +517,12 @@ local function opt(label)
   for i, o in ipairs(H.options) do if o.label == label then return i, o end end
 end
 env.SlashCmdList.RAVENQUILL("hl")
+local paperFrame = env.RavenquillExpeditionHighlightsFrame
+check(paperFrame and paperFrame:IsShown() and paperFrame.mode == "paper", "/rq hl opens the newspaper")
+paperFrame:Hide()
+GS:OpenModule("Highlights")
 local ov = env.RavenquillExpeditionOverview
-check(ov and ov:IsShown() and GS.optionsModule == "Highlights", "/rq hl opens the Highlights options")
+check(ov and ov:IsShown() and GS.optionsModule == "Highlights", "the Highlights settings still open in /rq")
 local panel = ov.optView.panels.Highlights
 check(panel and #panel.controls == #H.options, "one control per option entry")
 local L = hlNS.L
@@ -762,7 +766,9 @@ do
   check(stripped == #homeRows and hlRow and hlRow.status:GetText() == H:OverviewStatus() and ov.home.recent ~= nil,
     "the overview lists every module with its status line, above the highlights feed (" .. stripped .. ")")
   rawget(hlRow, "_scripts").OnClick(hlRow)
-  check(GS.optionsModule == "Highlights" and not GS.moduleSettings, "clicking a module's line opens its tab")
+  local paperWin = env.RavenquillExpeditionHighlightsFrame
+  check(paperWin and paperWin:IsShown() and paperWin.mode == "paper", "clicking the Highlights line opens the newspaper")
+  paperWin:Hide()
   rawget(tabs[1], "_scripts").OnClick(tabs[1])
   check(ov.home.peers:GetText() == GS:OverviewPeersLine() and ov.home.sync:GetText() == GS:OverviewSyncLine()
     and ov.home.peersBar == nil, "the header states sync and peers as text, without a progress bar")

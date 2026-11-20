@@ -35,7 +35,7 @@ local function ModuleRow(mod, k)
   row.status = mod.OverviewStatus and GS:Call(mod.OverviewStatus, mod) or L.LOADED
   if type(row.status) ~= "string" then row.status = "" end
   if mod.Open then row.open = function() GS:Call(mod.Open, mod) end end
-  row.openLabel = mod.openLabel
+  row.openLabel, row.openFirst = mod.openLabel, mod.openFirst
   if ns.ModuleOptions(mod) then row.options = true end
   if HasModulePage(mod) then row.page = true end
   return row
@@ -187,7 +187,7 @@ end
 function Strip.Open(row)
   local d = row.data
   if not d then return end
-  if d.page or d.options then GS:ShowModulePage(d.name) elseif d.open then d.open() end
+  if (d.page or d.options) and not d.openFirst then GS:ShowModulePage(d.name) elseif d.open then d.open() end
 end
 
 function Strip.TipLines(row)

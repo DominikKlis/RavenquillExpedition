@@ -175,6 +175,7 @@ end
 
 local function OpenFromSlash(m, name, rest)
   if rest ~= "" and m.OnSlash then return GS:Call(m.OnSlash, m, rest) end
+  if m.openFirst and m.Open then return GS:Call(m.Open, m) end
   if ModuleOptions(m) then return GS:Call(GS.OpenModule, GS, name) end
   if m.Open then return GS:Call(m.Open, m) end
   if m.OnSlash then return GS:Call(m.OnSlash, m, "") end

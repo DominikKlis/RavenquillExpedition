@@ -8,7 +8,7 @@ local defaults = { share = true, chat = false, chatAll = false, echoOwn = true, 
 for k, v in pairs(RETIRED_SETTINGS) do defaults[k] = v end
 
 local H = GS:NewModule("Highlights", {
-  addon = ADDON, api = 2, slash = "hl", title = L.TITLE, icon = "Interface\\Icons\\INV_Misc_Note_01",
+  addon = ADDON, api = 2, slash = "hl", title = L.TITLE, icon = "Interface\\Icons\\INV_Misc_Note_01", openFirst = true,
   sv = "RavenquillExpeditionHighlightsDB", svChar = "RavenquillExpeditionHighlightsCharDB", dbVersion = 3,
   locale = ns.Locales,
   defaults = defaults,
@@ -538,9 +538,7 @@ end
 H.openLabel = L.OPEN_LABEL
 function H:OverviewDiagnostics() return self:DiagLines() end
 
-function H:Open()
-  self:ShowWindow()
-end
+function H:Open() self:ShowWindow(); self:SetWindowMode("paper") end
 
 function H:OverviewStatus()
   if not self.db then return end
