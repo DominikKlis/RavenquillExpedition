@@ -176,9 +176,26 @@ do
   M:BuildPage(page)
   page:Show()
   M:RenderPage()
+  local function ListRows()
+    local out = {}
+    for _, f in ipairs(w.frames) do
+      local p = f.parent
+      while p and p ~= page do p = p.parent end
+      if p == page and f.cells and f.shown then out[#out + 1] = f end
+    end
+    return out
+  end
+  local function RowsByName()
+    local byName, rowOf = {}, {}
+    for _, r in ipairs(ListRows()) do
+      local name = r.cells[1]:GetText()
+      byName[name], rowOf[name] = (byName[name] or 0) + 1, r
+    end
+    return byName, rowOf
+  end
   local shown, hansRow, fakeRow = 0, nil, nil
-  for _, r in ipairs(page.rows) do
-    if r.shown then shown = shown + 1 end
+  for _, r in ipairs(ListRows()) do
+    shown = shown + 1
     if r.key == "Hans Wurst" then hansRow = r elseif r.key == "~fake1" then fakeRow = r end
   end
   check(shown >= 7 and hansRow and hansRow.cells[1]:GetText() == "Hans Wurst" and hansRow.cells[2]:GetText() == "20",
@@ -197,14 +214,8 @@ do
     ["Otto Weg"] = { level = 50, class = "ROGUE", online = false },
   }
   M:RenderPage()
-  local byName = {}
-  for _, r in ipairs(page.rows) do
-    if r.shown then
-      local name = r.cells[1]:GetText()
-      byName[name] = (byName[name] or 0) + 1
-      if name == "Greta Stumm" then hansRow = r end
-    end
-  end
+  local byName, rowOf = RowsByName()
+  hansRow = rowOf["Greta Stumm"]
   check(byName["Greta Stumm"] == 1 and hansRow.cells[2]:GetText() == "33" and hansRow.cells[3]:GetText() == "Unknown"
     and hansRow.cells[4]:GetText() == "", "an online guildmate who doesn't share is listed with an unknown zone")
   check(byName["Hans Wurst"] == 1, "a sharing guildmate on the roster is listed once")
@@ -216,6 +227,28 @@ do
   check(invites[1] == "Greta Stumm", "right-clicking a guildmate who doesn't share still invites")
   hansRow._scripts.OnEnter(hansRow)
   check(table.concat(w.tip.lines, "|"):find("Not sharing a position", 1, true), "the tooltip says the guildmate isn't sharing")
+  local env, guild = w.env, {}
+  local realCount, realInfo = env.GetNumGuildMembers, env.GetGuildRosterInfo
+  for i = 1, 25 do guild[i] = { name = ("Gast%02d Weit"):format(i), level = 30, class = "MAGE", online = true } end
+  env.GetNumGuildMembers = function() return #guild end
+  env.GetGuildRosterInfo = function(i)
+    local r = guild[i]
+    if r then return r.name .. "-Realm", "Member", 1, r.level, r.class, r.zone, "", "", r.online, 0, r.class end
+  end
+  w.fire("GUILD_ROSTER_UPDATE")
+  byName = RowsByName()
+  local listed = 0
+  for i = 1, 25 do if byName[guild[i].name] == 1 then listed = listed + 1 end end
+  check(listed == 25 and page.note:GetText() == "",
+    "25 more online guildmates than fit: every one gets a row, no \"+N more\" (" .. listed .. " listed)")
+  local list = page.list
+  local last = list and list:FindY(function(m) return m.name == "Gast25 Weit" end)
+  check(list and list:VisibleRows() == 18 and last and last >= 18 * 22,
+    "the list shows 18 rows at a time and the last guildmate starts below them (" .. tostring(last) .. ")")
+  local bottom = list and list:ScrollTo(math.huge)
+  check(bottom and bottom > 0 and list:Offset() == bottom and last + 22 <= bottom + 18 * 22 and list:VisibleRows() == 18,
+    "scrolled to the end, the last guildmate is in view (offset " .. tostring(bottom) .. ")")
+  env.GetNumGuildMembers, env.GetGuildRosterInfo = realCount, realInfo
   core.roster = realRoster
   page:Hide()
 end

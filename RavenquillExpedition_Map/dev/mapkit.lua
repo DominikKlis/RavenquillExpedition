@@ -28,20 +28,28 @@ local function FrameFactory(c)
     GetFrameLevel = function(s) return s.level or 1 end,
     SetFrameLevel = function(s, l) s.level = l end,
     GetParent = function(s) return s.parent end,
+    SetScrollChild = function(s, child) s.scrollChild = child end,
+    SetVerticalScroll = function(s, v) s.vscroll = v end,
+    GetVerticalScroll = function(s) return s.vscroll or 0 end,
     GetChildren = function(s)
       local out = {}
       for _, x in ipairs(c.frames) do if x.parent == s then out[#out + 1] = x end end
       return table.unpack(out)
     end,
   }
-  local function NewFrame(_, _, parent)
+  local function NewFrame(_, _, parent, template)
     local f = { shown = true, alpha = 1, _scripts = {}, _events = {}, parent = parent }
-    return setmetatable(f, { __index = function(_, k)
+    setmetatable(f, { __index = function(_, k)
       if methods[k] then return methods[k] end
       if NOOP[k] then return function() end end
       if type(k) == "string" and k:match("^%u") then error("mock: unknown frame method " .. k, 2) end
       return nil
     end })
+    if template == "UIPanelScrollFrameTemplate" then
+      f.ScrollBar = NewFrame("Slider", nil, f)
+      f.ScrollBar.SetValue = function(_, v) f.vscroll = v end
+    end
+    return f
   end
   methods.CreateTexture = function() return NewFrame() end
   methods.CreateFontString = function() return NewFrame() end

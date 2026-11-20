@@ -5,7 +5,7 @@ local GS = RavenquillExpedition
 local SafeCall, IsSecret = GS.SafeCall, GS.IsSecret
 local ClassColor, AgeText = M.ClassColor, M.AgeText
 
-local Page = { ROWS = 18, ROW_H = 22 }
+local Page = { VISIBLE_ROWS = 18, ROW_H = 22, LIST_W = 606 }
 function Page.Columns()
   Page.columns = Page.columns or { { "COL_NAME", 8, 170 }, { "COL_LEVEL", 186, 44 }, { "COL_ZONE", 238, 190 }, { "COL_SEEN", 436, 170 } }
   return Page.columns
@@ -19,18 +19,15 @@ function Page.Cell(parent, font, col)
   return fs
 end
 
-function Page.PageRow(page, i)
-  local r = CreateFrame("Button", nil, page)
+function Page.CreateRow(content)
+  local r = CreateFrame("Button", nil, content)
   r:SetHeight(Page.ROW_H)
-  r:SetPoint("TOPLEFT", 0, -24 - (i - 1) * Page.ROW_H)
-  r:SetPoint("RIGHT", page, "RIGHT", 0, 0)
   local hover = r:CreateTexture(nil, "HIGHLIGHT")
   hover:SetAllPoints()
   hover:SetColorTexture(1, 1, 1, 0.08)
   r.cells = {}
   for c, col in ipairs(Page.Columns()) do r.cells[c] = Page.Cell(r, "GameFontHighlightSmall", col) end
   M.MemberButton(r)
-  r:Hide()
   return r
 end
 
@@ -40,8 +37,9 @@ function M:BuildPage(parent)
   head:SetPoint("TOPLEFT")
   head:SetPoint("RIGHT", parent, "RIGHT", 0, 0)
   for _, col in ipairs(Page.Columns()) do Page.Cell(head, "GameFontNormalSmall", col):SetText(L[col[1]]) end
-  parent.rows = {}
-  for i = 1, Page.ROWS do parent.rows[i] = Page.PageRow(parent, i) end
+  parent.list = GS.CreateScrollList(parent, Page.LIST_W, Page.VISIBLE_ROWS * Page.ROW_H,
+    { default = { create = Page.CreateRow, update = Page.RenderRow, height = Page.ROW_H } })
+  parent.list:SetPoint("TOPLEFT", 0, -24)
   parent.note = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   parent.note:SetPoint("BOTTOMLEFT", 8, 6)
   parent:SetScript("OnShow", function()
@@ -109,18 +107,14 @@ function Page.RenderRow(r, m)
   r.cells[3]:SetText(Page.WhereText(m))
   r.cells[4]:SetText(m.unshared and "" or Page.SeenText(m))
   r:SetAlpha(M:State(m) == "stale" and 0.5 or 1)
-  r:Show()
 end
 
 function M:RenderPage()
   local page = self.page
   if not (page and page:IsVisible()) then return end
   local list = Page.ListedMembers()
-  for i, r in ipairs(page.rows) do
-    if list[i] then Page.RenderRow(r, list[i]) else r:Hide() end
-  end
-  local more = #list - #page.rows
-  page.note:SetText(#list == 0 and L.PAGE_EMPTY or (more > 0 and L.PAGE_MORE:format(more) or ""))
+  page.list:SetData(list)
+  page.note:SetText(#list == 0 and L.PAGE_EMPTY or "")
 end
 
 function M:RefreshPage() self:RenderPage() end
