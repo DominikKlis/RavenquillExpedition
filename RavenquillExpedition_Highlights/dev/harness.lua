@@ -1200,6 +1200,50 @@ do
   LogOut(c)
 end
 
+Kit.section("New since you last looked: opening the log marks where new starts and clears the count")
+do
+  local c = Character(); c.login(); advance(40)
+  local function hear(sender, msg) c.fire("CHAT_MSG_ADDON", "RQE1", "H;" .. msg, "GUILD", sender) end
+  local function newCount(h) return tonumber((h or c.H):OverviewStatus():match("^(%d+) neu ·")) or 0 end
+  local function divider()
+    local at, found = nil, 0
+    for i, l in ipairs(lines) do if l:find("neu seit deinem letzten Blick", 1, true) then at, found = i, found + 1 end end
+    return at, found
+  end
+  local function lineOf(who) for i, l in ipairs(lines) do if l:find(who, 1, true) then return i end end end
+  local t = T()
+  hear("Cara Moss", ("1;v;%d;51;Cara Moss;40;7"):format(t - 600))
+  c.fire("PLAYER_LEVEL_UP", 40)
+  hear("Bud Stone", ("1;v;%d;52;Bud Stone;40;9"):format(t))
+  check(newCount() == 2, "two new before the log is opened (" .. newCount() .. ")")
+  c.H:ShowWindow()
+  local at, marks = divider()
+  check(marks == 1 and lines[at + 1]:find("Cara Moss", 1, true) and lineOf("Bud Stone") > at,
+    "the log marks the first new entry once, the newer ones below it")
+  check(newCount() == 0, "opening the log clears the count")
+  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  hear("Dora Dunn", ("1;v;%d;53;Dora Dunn;30;5"):format(t - 300))
+  check(newCount() == 1, "an entry older than the last look but heard after it is new (" .. newCount() .. ")")
+  c.H:ShowWindow()
+  at = divider()
+  check(at and lines[at + 1]:find("Dora Dunn", 1, true) and lineOf("Cara Moss") < at and lineOf("Bud Stone") > at,
+    "the mark sits right above it, between entries already seen")
+  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  c.H:ShowWindow()
+  check(select(2, divider()) == 0 and newCount() == 0, "nothing new: no mark")
+  hear("Abe Ash", ("1;v;%d;54;Abe Ash;60;1"):format(T()))
+  advance(1)
+  check(lineOf("Abe Ash") and newCount() == 0, "an entry that arrives while the log is open is seen there")
+  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  hear("Cara Moss", ("1;v;%d;55;Cara Moss;50;7"):format(T()))
+  local r = Reload(LogOut(c)); advance(5)
+  check(newCount(r.H) == 1, "the count survives a logout (" .. newCount(r.H) .. ")")
+  r.RQ:ShowModulePage("Highlights")
+  check(newCount(r.H) == 0 and not r.RQ:OverviewRows()[1].status:find("neu", 1, true),
+    "the log on the /rq Highlights tab clears it too, and the status line follows")
+  LogOut(r)
+end
+
 do
   local errs = 0
   for _, c in ipairs(characters) do errs = errs + #c.errors end

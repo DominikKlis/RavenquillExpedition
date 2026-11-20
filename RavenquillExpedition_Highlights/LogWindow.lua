@@ -90,6 +90,15 @@ local function Footer(f, inPage)
   f.onlyHL = cb
 end
 
+local function FirstUnseen(events)
+  for _, e in ipairs(events) do if e.unseen then return e end end
+end
+
+local function ShowLog(view)
+  view.firstUnseen = H.db and FirstUnseen(H:Log())
+  H:Refresh()
+end
+
 local function CreateWindow()
   local ok, f = pcall(CreateFrame, "Frame", "RavenquillExpeditionHighlightsFrame", UIParent, "ButtonFrameTemplate")
   local native = ok and f
@@ -105,7 +114,7 @@ local function CreateWindow()
   Chrome(f, native)
   MessageArea(f, WINDOW_INSETS)
   Footer(f, false)
-  f:SetScript("OnShow", function() GS:Call(H.Refresh, H) end)
+  f:SetScript("OnShow", function() GS:Call(ShowLog, f) end)
   views[#views + 1] = f
   f:Hide()
   return f
@@ -114,7 +123,7 @@ end
 function H:BuildPage(parent)
   MessageArea(parent, PAGE_INSETS)
   Footer(parent, true)
-  parent:SetScript("OnShow", function() GS:Call(H.Refresh, H) end)
+  parent:SetScript("OnShow", function() GS:Call(ShowLog, parent) end)
   views[#views + 1] = parent
 end
 
@@ -123,6 +132,7 @@ function H:RefreshPage() self:Refresh() end
 local SHOW_MAX = 1500
 local HL_MARK = "|cffffd100»|r "
 local ACT_MARK = "|cff555555·|r "
+local NEW_COLOR = { 0.25, 1, 0.4 }
 
 function H:LogLines()
   local events = self:Log()
@@ -136,7 +146,7 @@ function H:LogLines()
   return out, #events, #act
 end
 
-local function LogMessages(self, list)
+local function LogMessages(self, list, firstUnseen)
   local out, lastDay = {}, nil
   for k = math.max(1, #list - SHOW_MAX + 1), #list do
     local e = list[k]
@@ -146,6 +156,7 @@ local function LogMessages(self, list)
       out[#out + 1] = { text = date(L.FMT_DAY, e.t), color = { 1, 0.82, 0 } }
       lastDay = day
     end
+    if e == firstUnseen then out[#out + 1] = { text = L.LOG_NEW, color = NEW_COLOR } end
     local line = "|cff888888" .. date("%H:%M", e.t) .. "|r  " .. (e.act and ACT_MARK or HL_MARK) .. self:Format(e)
     out[#out + 1] = { text = line, color = e.act and { 0.75, 0.75, 0.75 } or nil, entry = e }
   end
@@ -175,7 +186,7 @@ end
 local function RenderLog(self, view, list, nHL, nAct)
   local m = view.msg
   local offset = m.GetScrollOffset and m:GetScrollOffset() or 0
-  local messages = LogMessages(self, list)
+  local messages = LogMessages(self, list, view.firstUnseen)
   m:Clear()
   view.onlyHL:SetChecked(self:Settings().logOnlyHighlights and true or false)
   if not list[1] then m:AddMessage(L.EMPTY, 0.7, 0.7, 0.7) end
@@ -198,6 +209,7 @@ function H:Refresh()
   for _, view in ipairs(views) do
     if view:IsVisible() then RenderLog(self, view, list, nHL, nAct) end
   end
+  for _, e in ipairs(self:Log()) do e.unseen = nil end
 end
 
 function H:RefreshSoon()
