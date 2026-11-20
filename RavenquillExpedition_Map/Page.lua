@@ -2,8 +2,7 @@ local ADDON, ns = ...
 local M = ns.Map
 local L = ns.L
 local GS = RavenquillExpedition
-local SafeCall, IsSecret = GS.SafeCall, GS.IsSecret
-local ClassColor, AgeText = M.ClassColor, M.AgeText
+local ClassColor, AgeText, ZoneText = M.ClassColor, M.AgeText, M.ZoneText
 
 local Page = { VISIBLE_ROWS = 18, ROW_H = 22, LIST_W = 606 }
 function Page.Columns()
@@ -49,16 +48,7 @@ function M:BuildPage(parent)
   self.page = parent
 end
 
-function Page.ZoneName(m)
-  local info = m.mapID and SafeCall(C_Map.GetMapInfo, m.mapID)
-  if info and type(info.name) == "string" and not IsSecret(info.name) then return info.name end
-  return "?"
-end
-
-function Page.WhereText(m)
-  if m.unshared then return L.ZONE_UNKNOWN end
-  return Page.ZoneName(m)
-end
+function Page.WhereText(m) return ZoneText(m) or L.ZONE_UNKNOWN end
 
 function Page.SeenText(m)
   local f, text = m.flags or {}, AgeText(M:Age(m))
@@ -75,7 +65,7 @@ function Page.UnsharedMembers(listed)
   local out = {}
   for key, e in GS:EachMember() do
     if e.online and not listed[key] and not GS:IsMe(key) then
-      out[#out + 1] = { key = key, name = key, class = e.class, level = e.level, unshared = true }
+      out[#out + 1] = { key = key, name = key, class = e.class, level = e.level, zone = e.zone, unshared = true }
     end
   end
   return out

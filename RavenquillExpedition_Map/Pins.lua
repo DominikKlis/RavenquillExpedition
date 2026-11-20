@@ -61,16 +61,20 @@ local function AgeText(sec)
   return L.TT_AGE_M:format(math.floor(sec / 60))
 end
 
+local function ZoneText(m)
+  if m.unshared then return m.zone end
+  local info = m.mapID and SafeCall(C_Map.GetMapInfo, m.mapID)
+  if info and type(info.name) == "string" and not IsSecret(info.name) then return info.name end
+end
+
 local function AddIdentityLines(m)
   local r, g, b = ClassColor(m.class)
   GameTooltip:AddLine(m.name or "?", r, g, b)
   if type(m.level) == "number" and m.level > 0 then
     GameTooltip:AddLine(L.TT_LEVEL_CLASS:format(m.level, ClassName(m.class)), 1, 1, 1)
   end
-  local info = m.mapID and SafeCall(C_Map.GetMapInfo, m.mapID)
-  if info and type(info.name) == "string" and not IsSecret(info.name) then
-    GameTooltip:AddLine(info.name, 0.8, 0.8, 0.8)
-  end
+  local zone = ZoneText(m)
+  if zone then GameTooltip:AddLine(zone, 0.8, 0.8, 0.8) end
 end
 
 local function AddFlagLines(f)
@@ -117,7 +121,7 @@ function M.MemberButton(f)
   f:SetScript("OnLeave", OnLeave)
   f:SetScript("OnClick", OnClick)
 end
-M.ClassColor, M.AgeText = ClassColor, AgeText
+M.ClassColor, M.AgeText, M.ZoneText = ClassColor, AgeText, ZoneText
 
 local function IsInsideMap(mapData, mapID, uiMapID)
   local parent = mapData[mapID] and mapData[mapID].parent

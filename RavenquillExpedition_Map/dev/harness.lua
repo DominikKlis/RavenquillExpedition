@@ -206,36 +206,42 @@ do
   rawget(hansRow, "_scripts").OnClick(hansRow, "RightButton")
   w.env.C_PartyInfo = nil
   check(hansRow.clicks == "RightButtonUp" and invites[1] == "Hans Wurst", "only right-clicking a guildmate in the list reaches the same actions")
-  local core = w.env.RavenquillExpedition
-  local realRoster = core.roster
-  core.roster = {
-    ["Hans Wurst"] = { level = 20, class = "MAGE", online = true },
-    ["Greta Stumm"] = { level = 33, class = "DRUID", online = true },
-    ["Otto Weg"] = { level = 50, class = "ROGUE", online = false },
-  }
-  M:RenderPage()
+  local core, env = w.env.RavenquillExpedition, w.env
+  local realRoster, realCount, realInfo = core.roster, env.GetNumGuildMembers, env.GetGuildRosterInfo
+  local function SetGuild(members)
+    env.GetNumGuildMembers = function() return #members end
+    env.GetGuildRosterInfo = function(i)
+      local r = members[i]
+      if r then return r.name .. "-Realm", "Member", 1, r.level, r.class, r.zone, "", "", r.online ~= false, 0, r.class end
+    end
+    w.fire("GUILD_ROSTER_UPDATE")
+  end
+  SetGuild({
+    { name = "Hans Wurst", level = 20, class = "MAGE", zone = "Elwynn Forest" },
+    { name = "Greta Stumm", level = 33, class = "DRUID", zone = "The Deadmines" },
+    { name = "Lars Leer", level = 12, class = "WARRIOR" },
+    { name = "Otto Weg", level = 50, class = "ROGUE", zone = "Duskwood", online = false },
+  })
   local byName, rowOf = RowsByName()
-  hansRow = rowOf["Greta Stumm"]
-  check(byName["Greta Stumm"] == 1 and hansRow.cells[2]:GetText() == "33" and hansRow.cells[3]:GetText() == "Unknown"
-    and hansRow.cells[4]:GetText() == "", "an online guildmate who doesn't share is listed with an unknown zone")
-  check(byName["Hans Wurst"] == 1, "a sharing guildmate on the roster is listed once")
+  local greta = rowOf["Greta Stumm"]
+  check(byName["Greta Stumm"] == 1 and greta.cells[2]:GetText() == "33" and greta.cells[3]:GetText() == "The Deadmines"
+    and greta.cells[4]:GetText() == "", "an online guildmate who doesn't share is listed with the zone from the guild roster")
+  check(rowOf["Lars Leer"] and rowOf["Lars Leer"].cells[3]:GetText() == "Unknown", "no zone on the roster: Unknown")
+  check(byName["Hans Wurst"] == 1 and rowOf["Hans Wurst"].cells[3]:GetText() == "Map1429",
+    "a sharing guildmate on the roster is listed once, with the zone of the dot")
   check(byName["Otto Weg"] == nil, "offline guildmates are not listed")
   invites = {}
-  w.env.C_PartyInfo = { InviteUnit = function(n) invites[#invites + 1] = n end }
-  rawget(hansRow, "_scripts").OnClick(hansRow, "RightButton")
-  w.env.C_PartyInfo = nil
+  env.C_PartyInfo = { InviteUnit = function(n) invites[#invites + 1] = n end }
+  rawget(greta, "_scripts").OnClick(greta, "RightButton")
+  env.C_PartyInfo = nil
   check(invites[1] == "Greta Stumm", "right-clicking a guildmate who doesn't share still invites")
-  hansRow._scripts.OnEnter(hansRow)
-  check(table.concat(w.tip.lines, "|"):find("Not sharing a position", 1, true), "the tooltip says the guildmate isn't sharing")
-  local env, guild = w.env, {}
-  local realCount, realInfo = env.GetNumGuildMembers, env.GetGuildRosterInfo
-  for i = 1, 25 do guild[i] = { name = ("Gast%02d Weit"):format(i), level = 30, class = "MAGE", online = true } end
-  env.GetNumGuildMembers = function() return #guild end
-  env.GetGuildRosterInfo = function(i)
-    local r = guild[i]
-    if r then return r.name .. "-Realm", "Member", 1, r.level, r.class, r.zone, "", "", r.online, 0, r.class end
-  end
-  w.fire("GUILD_ROSTER_UPDATE")
+  greta._scripts.OnEnter(greta)
+  local gretaTip = table.concat(w.tip.lines, "|")
+  check(gretaTip:find("Not sharing a position", 1, true) and gretaTip:find("The Deadmines", 1, true),
+    "the tooltip names the roster zone and says the guildmate isn't sharing: " .. gretaTip)
+  local guild = {}
+  for i = 1, 25 do guild[i] = { name = ("Gast%02d Weit"):format(i), level = 30, class = "MAGE" } end
+  SetGuild(guild)
   byName = RowsByName()
   local listed = 0
   for i = 1, 25 do if byName[guild[i].name] == 1 then listed = listed + 1 end end
@@ -248,8 +254,7 @@ do
   local bottom = list and list:ScrollTo(math.huge)
   check(bottom and bottom > 0 and list:Offset() == bottom and last + 22 <= bottom + 18 * 22 and list:VisibleRows() == 18,
     "scrolled to the end, the last guildmate is in view (offset " .. tostring(bottom) .. ")")
-  env.GetNumGuildMembers, env.GetGuildRosterInfo = realCount, realInfo
-  core.roster = realRoster
+  env.GetNumGuildMembers, env.GetGuildRosterInfo, core.roster = realCount, realInfo, realRoster
   page:Hide()
 end
 local function FakeMenus(env)

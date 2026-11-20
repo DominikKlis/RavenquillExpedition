@@ -80,9 +80,9 @@ function Kit.Bus(sched)
       end
     end)
   end
-  function b:member(name, class, level, online)
+  function b:member(name, class, level, online, zone)
     for _, r in ipairs(self.roster) do if r.name == name then return end end
-    self.roster[#self.roster + 1] = { name = name, class = class, level = level, online = online ~= false }
+    self.roster[#self.roster + 1] = { name = name, class = class, level = level, online = online ~= false, zone = zone }
   end
   function b:setOnline(name, online)
     for _, r in ipairs(self.roster) do if r.name == name then r.online = online end end
@@ -276,7 +276,7 @@ local function InstallPlayer(env, c, sched, bus, name, opts)
   env.GetGuildRosterInfo = function(i)
     local r = bus and bus.roster[i]
     if not r then return end
-    return r.name .. "-" .. c.realm, "Member", 1, r.level, r.class, "Zone", "", "", r.online, 0, r.class
+    return r.name .. "-" .. c.realm, "Member", 1, r.level, r.class, r.zone, "", "", r.online, 0, r.class
   end
   env.C_AddOns = { GetAddOnMetadata = function() return "dev" end, IsAddOnLoaded = function() return true end,
     GetAddOnInfo = function(n) return n, n, "", true, nil end }
