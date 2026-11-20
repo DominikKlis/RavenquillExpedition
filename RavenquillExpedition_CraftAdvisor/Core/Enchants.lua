@@ -8,7 +8,7 @@ GCA.ENCHANT_SLOTS = { [15] = "back", [5] = "chest", [9] = "wrist", [10] = "hands
 function GCA:EnchantKeysFor(slot, equipLoc)
   if self.ENCHANT_SLOTS[slot] then return { self.ENCHANT_SLOTS[slot] } end
   local rule = Scoring.EQUIP_LOCS[equipLoc or ""]
-  if rule and rule.enchant and rule.slots[1] == slot then return rule.enchant end
+  if rule and rule.enchant and (rule.slots[1] == slot or rule.slots[2] == slot) then return rule.enchant end
 end
 
 function GCA:EnchantIDOf(link)
@@ -51,19 +51,19 @@ end
 GCA.ENCHANT_SPEED = { weapon = 2.6, twohand = 3.5 }
 local DPS_KEY = { weapon = "MainHandDps", twohand = "TwoHandDps" }
 
-local function DpsKeyAndSpeed(self, worn)
+local function DpsKeyAndSpeed(self, worn, slot)
   local hand = worn and worn.equipLoc == "INVTYPE_2HWEAPON" and "twohand" or "weapon"
   local speed = worn and worn.speed
   if not (type(speed) == "number" and speed > 0) then speed = self.ENCHANT_SPEED[hand] end
-  return DPS_KEY[hand], speed
+  return slot == 17 and "OffHandDps" or DPS_KEY[hand], speed
 end
 
-function GCA:EnchantStats(row, worn)
+function GCA:EnchantStats(row, worn, slot)
   if row.kind ~= "damage" then return row.stats or EMPTY end
   local stats = {}
   for k, v in pairs(row.stats or EMPTY) do stats[k] = v end
   if row.damage and row.damage ~= 0 then
-    local key, speed = DpsKeyAndSpeed(self, worn)
+    local key, speed = DpsKeyAndSpeed(self, worn, slot)
     stats[key] = (stats[key] or 0) + row.damage / speed
   end
   return stats
@@ -114,7 +114,7 @@ local function ConsiderEnchant(self, scan, worn, row)
   local known = not scan.browse and self:IsKnown(row.spell, scan.prof)
   if not EnchantOffered(self, scan, worn, row, known) then return end
   local e = scan.e
-  local rowStats = self:EnchantStats(row, worn.info)
+  local rowStats = self:EnchantStats(row, worn.info, worn.slot)
   local value = Scoring.value(rowStats, e.set)
   local gain = value - worn.curValue
   local pts = self:ToPoints(e, gain)
@@ -132,9 +132,14 @@ local function ConsiderEnchant(self, scan, worn, row)
   GCA.KeepSuggestion(scan.best, scan.all, "E" .. worn.slot .. "|w" .. (known and "k" or "u"), worn.slot, sug)
 end
 
+local function WornScore(self, base, slot, e)
+  if slot ~= 17 then return self:Score(base, e) end
+  return Scoring.itemValue(Scoring.inOffHand(self:ScoreItem(base)), e.set)
+end
+
 local function ScoreWorn(self, worn, base, e)
-  worn.baseScore = self:Score(base, e)
-  worn.curStats = worn.curRow and self:EnchantStats(worn.curRow, worn.info)
+  worn.baseScore = WornScore(self, base, worn.slot, e)
+  worn.curStats = worn.curRow and self:EnchantStats(worn.curRow, worn.info, worn.slot)
   worn.curValue = worn.curRow and Scoring.value(worn.curStats, e.set) or 0
 end
 

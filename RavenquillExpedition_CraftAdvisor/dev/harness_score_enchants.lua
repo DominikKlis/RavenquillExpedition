@@ -316,6 +316,29 @@ do
   check(by[17] and by[17].enchant.slot == "offhand", "held off-hand: an Off-Hand enchant (" .. (by[17] and by[17].enchant.name or "none") .. ")")
   by = sugs({ [17] = lnk(910011) }, "WARRIOR", "PROTECTION", 58)
   check(by[17] and by[17].enchant.slot == "shield", "shield: a Shield enchant (" .. (by[17] and by[17].enchant.name or "none") .. ")")
+  do
+    local rogue = GCA:WeightSetFor("ROGUE", "COMBAT", 58)
+    addItem(910012, "Left Dagger", "INVTYPE_WEAPON", 40, { ITEM_MOD_AGILITY_SHORT = 4, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 30 }, 15)
+    addItem(910013, "Parrying Blade", "INVTYPE_WEAPONOFFHAND", 40, { ITEM_MOD_AGILITY_SHORT = 4, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 30 }, 7)
+    itemDB[910012].classID, itemDB[910013].classID = 2, 2
+    local asOff = Scoring.itemValue(Scoring.inOffHand(GCA:ScoreItem(GCA:GetInfo(lnk(910012)))), rogue.set)
+    local agi = Scoring.value({ Agility = 15 }, rogue.set)
+    for _, id in ipairs({ 910012, 910013 }) do
+      by = sugs({ [16] = lnk(910006), [17] = lnk(id) }, "ROGUE", "COMBAT", 58)
+      check(by[16] and by[16].cand.spellID == 23800 and by[17] and by[17].cand.spellID == 23800 and by[17].slot == 17
+        and math.abs(by[17].pct - agi / asOff) < 1e-9,
+        ("dual wield, %s in the off hand: Weapon - Agility for both hands, gain %% of the off-hand score (%.1f%%)")
+          :format(itemDB[id].equipLoc, by[17] and by[17].pct and by[17].pct * 100 or -1))
+    end
+    unlearn(23800)
+    learn(13693)
+    by = sugs({ [16] = lnk(910006), [17] = lnk(910012) }, "ROGUE", "COMBAT", 58)
+    check(by[17] and by[17].cand.spellID == 13693 and by[17].info.cstats.OffHandDps and not by[17].info.cstats.MainHandDps
+      and math.abs(by[17].gain - Scoring.value({ OffHandDps = 3 / 2.6 }, rogue.set)) < 1e-9,
+      "Striking in the off hand: 3 ÷ 2.6 scored as OffHandDps, not MainHandDps")
+    unlearn(13693)
+    learn(23800)
+  end
   local realStats = env.C_Item.GetItemStats
   GCA.ItemAPI.Stats = function(l)
     local raw = realStats(l)
