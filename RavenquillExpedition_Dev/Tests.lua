@@ -450,6 +450,28 @@ Dev:Register("craft.smoke", function(t)
   t:done()
 end, 60)
 
+local function TextureFacts(tex)
+  local out = {}
+  for _, method in ipairs({ "GetTexture", "GetTextureFileID", "GetTextureFilePath" }) do
+    local ok, v = pcall(function() return tex[method](tex) end)
+    out[#out + 1] = method .. "=" .. tostring(ok and v)
+  end
+  return table.concat(out, " ")
+end
+
+local function CheckNewspaper(t, H)
+  local frame = _G.RavenquillExpeditionHighlightsFrame
+  local paper = frame and frame.paper
+  t:ok(paper ~= nil and frame.mode == "paper", "the window opens on the newspaper")
+  if not paper then return end
+  local m, p = paper.masthead, paper.parchment
+  t:ok(m.loaded, ("masthead texture loaded (SetTexture returned %s; %s)"):format(tostring(m.result), TextureFacts(m.texture)))
+  t:ok(p.source == "texture", ("parchment texture loaded: %s (%s; %s)"):format(p.source, H.PARCHMENT, TextureFacts(p.texture)))
+  local issue = paper.issue
+  t:note(("issue %s of %s, lead: %s"):format(tostring(issue and issue.no), tostring(issue and issue.day),
+    tostring(issue and issue.lead and issue.lead.head)))
+end
+
 Dev:Register("highlights.smoke", function(t)
   local H = RQ:GetModule("Highlights")
   if not (H and H.db) then t:note("Highlights not loaded") t:done() return end
@@ -475,7 +497,10 @@ Dev:Register("highlights.smoke", function(t)
   end
   t:ok(back == sent, ("own entries survive encode/decode: %d of %d%s"):format(back, sent, differ and (", first difference " .. differ) or ""))
   local okWin, err = pcall(function() H:ShowWindow(); H:Refresh() end)
-  t:ok(okWin, "log window opens and fills" .. (okWin and "" or (": " .. tostring(err))))
+  t:ok(okWin, "newspaper window opens and fills" .. (okWin and "" or (": " .. tostring(err))))
+  CheckNewspaper(t, H)
+  local okLog, logErr = pcall(H.SetWindowMode, H, "log")
+  t:ok(okLog, "Chronik switches to the log" .. (okLog and "" or (": " .. tostring(logErr))))
   t:after(1, function()
     local frame = _G.RavenquillExpeditionHighlightsFrame
     local okVisible, visible = pcall(function() return frame.msg:GetNumVisibleLines() end)
