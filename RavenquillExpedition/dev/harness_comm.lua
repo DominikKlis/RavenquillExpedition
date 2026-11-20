@@ -196,6 +196,24 @@ sched:advance(300)
 check(a.RQ:CommState().slow and a.printedMatch("langsam") ~= nil and a.printedMatch("sending slowly") == nil,
   "two losses: slow mode, told in German")
 
+section("Slow mode: the /rq overview offers a way out")
+a.RQ:ToggleOverview()
+local ov = a.env.RavenquillExpeditionOverview
+local retry = ov and ov.home.retry
+check(retry and retry:IsShown() and retry:GetText() == "Jetzt erneut versuchen", "while slow, the sync line has a 'try again now' button")
+bus.drop = function() return false end
+local waitingAt = sched.t
+Send(a, "wartet")
+sched:advance(30)
+check(#bus:sentBy("Anna Stone", function(e) return e.msg == "wartet" end) == 0, "a new event waits while slow")
+if retry then retry._scripts.OnClick(retry) end
+sched:advance(10)
+local resent = bus:sentBy("Anna Stone", function(e) return e.msg == "wartet" end)[1]
+check(not a.RQ:CommState().slow and resent ~= nil, "clicking it leaves slow mode and the waiting event goes out ("
+  .. tostring(resent and resent.t - waitingAt) .. " s after it was queued)")
+check(retry and not retry:IsShown(), "and the button goes away")
+check(#a.errors == 0, "no Lua errors (" .. tostring(a.errors[1]) .. ")")
+
 section("Record lane: whole records, replace, drop")
 sched, bus, a, b = Kit.Two()
 local ra = a.newModule("RecA"):NewRawChannel({ prefix = "TstRec", lane = "record" })
