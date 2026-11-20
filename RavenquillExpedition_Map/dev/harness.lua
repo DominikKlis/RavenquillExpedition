@@ -254,6 +254,8 @@ do
   local bottom = list and list:ScrollTo(math.huge)
   check(bottom and bottom > 0 and list:Offset() == bottom and last + 22 <= bottom + 18 * 22 and list:VisibleRows() == 18,
     "scrolled to the end, the last guildmate is in view (offset " .. tostring(bottom) .. ")")
+  M:Refresh()
+  check(list and list:Offset() == bottom, "a refresh of the map keeps the list where the player scrolled it")
   env.GetNumGuildMembers, env.GetGuildRosterInfo, core.roster = realCount, realInfo, realRoster
   page:Hide()
 end
