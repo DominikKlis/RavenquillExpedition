@@ -173,6 +173,47 @@ Send(a, "back")
 sched:advance(700)
 check(not a.RQ:CommState().slow, "the next echo ends slow mode")
 
+section("Slow mode: one lost message is not enough")
+sched, bus, a = Kit.Two()
+bus.drop = function(sender) return sender == "Anna Stone" end
+local single
+Send(a, "hiccup", function(s) single = s end)
+sched:advance(300)
+check(single == "lost" and not a.RQ:CommState().slow, "one loss, then 300 s without an echo: still normal pace")
+check(a.printedMatch("sending slowly") == nil, "and no warning in chat")
+bus.drop = function() return false end
+local nextAt = sched.t
+Send(a, "after")
+sched:advance(30)
+local afterHiccup = bus:sentBy("Anna Stone", function(e) return e.msg == "after" end)[1]
+check(afterHiccup and afterHiccup.t - nextAt <= 2, "the next event goes out right away (" .. tostring(afterHiccup and afterHiccup.t - nextAt) .. " s)")
+
+section("Slow mode: the warning speaks the player's language")
+sched, bus, a = Kit.Two({ a = { locale = "deDE" } })
+bus.drop = function(sender) return sender == "Anna Stone" end
+for i = 1, 2 do Send(a, "verloren" .. i) end
+sched:advance(300)
+check(a.RQ:CommState().slow and a.printedMatch("langsam") ~= nil and a.printedMatch("sending slowly") == nil,
+  "two losses: slow mode, told in German")
+
+section("Slow mode: the /rq overview offers a way out")
+a.RQ:ToggleOverview()
+local ov = a.env.RavenquillExpeditionOverview
+local retry = ov and ov.home.retry
+check(retry and retry:IsShown() and retry:GetText() == "Jetzt erneut versuchen", "while slow, the sync line has a 'try again now' button")
+bus.drop = function() return false end
+local waitingAt = sched.t
+Send(a, "wartet")
+sched:advance(30)
+check(#bus:sentBy("Anna Stone", function(e) return e.msg == "wartet" end) == 0, "a new event waits while slow")
+if retry then retry._scripts.OnClick(retry) end
+sched:advance(10)
+local resent = bus:sentBy("Anna Stone", function(e) return e.msg == "wartet" end)[1]
+check(not a.RQ:CommState().slow and resent ~= nil, "clicking it leaves slow mode and the waiting event goes out ("
+  .. tostring(resent and resent.t - waitingAt) .. " s after it was queued)")
+check(retry and not retry:IsShown(), "and the button goes away")
+check(#a.errors == 0, "no Lua errors (" .. tostring(a.errors[1]) .. ")")
+
 section("Record lane: whole records, replace, drop")
 sched, bus, a, b = Kit.Two()
 local ra = a.newModule("RecA"):NewRawChannel({ prefix = "TstRec", lane = "record" })

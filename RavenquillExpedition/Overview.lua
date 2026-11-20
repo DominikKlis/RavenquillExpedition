@@ -168,6 +168,15 @@ local function BuildHeader(home)
   home.sync:SetPoint("TOPLEFT", home.guild, "BOTTOMLEFT", 0, -6)
   home.peers = Text(card, "GameFontHighlightSmall", "RIGHT")
   home.peers:SetPoint("TOPRIGHT", -24, -36)
+  home.retry = CreateFrame("Button", nil, card, "UIPanelButtonTemplate")
+  home.retry:SetSize(170, 20)
+  home.retry:SetPoint("TOPRIGHT", -20, -10)
+  home.retry:SetText(L.SYNC_RETRY)
+  home.retry:SetScript("OnClick", function()
+    GS:CommResume()
+    GS:RefreshOverview()
+  end)
+  home.retry:Hide()
   return card
 end
 
@@ -467,6 +476,7 @@ local function RenderHeader(home)
   local g = Plain(SafeCall(GetGuildInfo, "player"), "string")
   home.guild:SetText(g or L.NO_GUILD)
   home.sync:SetText(GS:OverviewSyncLine())
+  home.retry:SetShown(GS:OverviewSyncState() == "slow")
   home.peers:SetText(GS:OverviewPeersLine())
   home.version:SetText("v" .. GS.version)
 end
