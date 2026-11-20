@@ -58,7 +58,7 @@ function UI.DoAsk(d, cur)
   local target = UI.AskTarget(cur, d)
   if not target then return false end
   local msg = UI.AskText(d, target.key)
-  if IsShiftKeyDown() then P.SendWhisper(target.key, msg, L.ASK_SENT) else P.OpenWhisper(target.key, msg) end
+  if IsShiftKeyDown() then P.SendWhisper(target.key, msg, string.format(L.ASK_SENT, target.key)) else P.OpenWhisper(target.key, msg) end
   return true
 end
 
