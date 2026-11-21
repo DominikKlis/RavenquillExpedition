@@ -415,6 +415,35 @@ do
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
+Kit.section("Overview teaser: today's lead headline, else the latest one, else no issue yet")
+do
+  local c = Client("Lyra Distelbach")
+  local text, open = c.H:OverviewTeaser()
+  check(text == DE.TEASER_NONE and text == "Noch keine Ausgabe des Rabenblatts.", "no issue yet: the teaser says so")
+  open()
+  check(Frame(c):IsShown(), "and still opens the sheet")
+  Frame(c):Hide()
+  Heard(c, E("mount", "Mira Sturmfeder", At(18, 13, 24), { lvl = 40 }))
+  c.H:ShowWindow()
+  local head = Frame(c).paper.lead.head:GetText()
+  Frame(c):Hide()
+  text = c.H:OverviewTeaser()
+  check(text == "Zuletzt im Rabenblatt: " .. head, "an older issue is the latest one, not today's (" .. text .. ")")
+  Heard(c, E("loot", "Tamo Eichengrund", At(20, 20), { item = 5001, q = 4 }))
+  c.H:ShowWindow()
+  head = Frame(c).paper.lead.head:GetText()
+  Frame(c):Hide()
+  text, open = c.H:OverviewTeaser()
+  check(text == "Heute im Rabenblatt: " .. head, "today's issue: its lead headline (" .. text .. ")")
+  open()
+  check(Frame(c):IsShown() and Frame(c).paper.lead.head:GetText() == head, "its open function opens today's paper")
+  local en = Client("Mira Sturmfeder", "enUS")
+  check(en.H:OverviewTeaser() == "No Rabenblatt issue yet.", "English: no issue yet")
+  Heard(en, E("loot", "Tamo Eichengrund", At(20, 20), { item = 5001, q = 4 }))
+  check(en.H:OverviewTeaser():find("^Today in the Rabenblatt: "), "English: today's headline")
+  check(#c.errors == 0 and #en.errors == 0, "no Lua errors (" .. tostring(c.errors[1] or en.errors[1]) .. ")")
+end
+
 Kit.section("Window: empty log, masthead and parchment fallbacks")
 do
   local c = Client("Tamo Eichengrund", "deDE", function(env, cl)

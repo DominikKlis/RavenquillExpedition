@@ -3,7 +3,6 @@ local ADDON, ns = ...
 local L = {
   LOCALE = "enUS",
   TITLE = "Guild Highlights",
-  FMT_TIME = "%m/%d %H:%M",
   FMT_DAY = "%Y-%m-%d",
   EMPTY = "Nothing logged yet – nothing counted as a highlight since you installed it.\n\nWhat counts is explained under /rq hl. Guildies running Ravenquill show up here too.\n\nTo see how it looks: /rq hl > Add test entries.",
 
@@ -84,7 +83,6 @@ local L = {
 
 local deDE = {
   LOCALE = "deDE",
-  FMT_TIME = "%d.%m. %H:%M",
   FMT_DAY = "%d.%m.%Y",
   TITLE = "Gilden-Highlights",
   EMPTY = "Noch nichts protokolliert – seit der Installation zählte noch nichts als Highlight.\n\nWas zählt, steht unter /rq hl. Gildenmitglieder mit Ravenquill erscheinen hier auch.\n\nZum Ansehen: /rq hl > Testeinträge hinzufügen.",

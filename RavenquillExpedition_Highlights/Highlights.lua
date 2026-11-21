@@ -415,7 +415,6 @@ function H:Announce(e)
   self:Print(self:Format(e))
 end
 
-function H.TimeText(t) return date(L.FMT_TIME, t) end
 
 function H:AddTests()
   local me = GS:PlayerKey() or "Me"
@@ -552,12 +551,3 @@ function H:OverviewStatus()
   return s
 end
 
-function H:OverviewRecent(n)
-  if not self.db then return end
-  local events, out = self:Log(), {}
-  for i = math.max(1, #events - n + 1), #events do
-    local e = events[i]
-    out[#out + 1] = "|cff888888" .. self.TimeText(e.t) .. "|r  " .. self:Format(e)
-  end
-  return out
-end

@@ -69,17 +69,6 @@ function ns.Tip(frame, title, lines)
   frame:SetScript("OnLeave", function() GameTooltip:Hide() end)
 end
 
-function ns.ShowItemTooltip(self, link)
-  if type(link) ~= "string" or not link:match("^item:") then return end
-  GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
-  pcall(GameTooltip.SetHyperlink, GameTooltip, link)
-  GameTooltip:Show()
-end
-
-function ns.WheelLines(self, delta)
-  if delta > 0 then self:ScrollUp() else self:ScrollDown() end
-end
-
 function ns.SetAtlas(tex, atlas)
   local info = C_Texture and C_Texture.GetAtlasInfo and GS.SafeCall(C_Texture.GetAtlasInfo, atlas)
   if type(info) ~= "table" or type(tex.SetAtlas) ~= "function" then return false end

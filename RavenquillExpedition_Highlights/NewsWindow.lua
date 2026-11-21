@@ -532,6 +532,18 @@ function H:RenderPaper(f)
   SetNav(f, i, #days, issue)
 end
 
+local function OpenSheet() H:ShowWindow() end
+
+function H:OverviewTeaser()
+  if not self.db then return end
+  local days = self:Issues()
+  local last = days[#days]
+  if not last then return T.TEASER_NONE, OpenSheet end
+  local issue = News.Issue(last, T, self:NewsContext())
+  local today = last.day == DayOf(GS:Now())
+  return News.Fill(today and T.TEASER_TODAY or T.TEASER_LAST, { head = issue.lead.head }), OpenSheet
+end
+
 function H:StepIssue(f, delta)
   local days = self:Issues()
   local target = days[IssueIndex(days, f.issueDay) + delta]

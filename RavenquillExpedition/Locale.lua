@@ -17,7 +17,6 @@ end
 GS.OverviewL = GS.NewLocale({
   enUS = {
     TITLE = "Ravenquill Expedition",
-    RECENT = "Latest highlights", NO_RECENT = "Nothing yet.",
     OPEN = "Open", OPEN_WINDOW = "Open %s", BACK = "« Back", OVERVIEW = "Overview", SETTINGS = "Settings", COMMAND = "Chat command: %s",
     ENABLE_HINT = "Disabled – enable it in the AddOns list at character select.",
     MISSING = "Not installed.", DISABLED = "Disabled", NOT_INSTALLED = "Not installed",
@@ -38,7 +37,6 @@ GS.OverviewL = GS.NewLocale({
     API_TOO_OLD = "%s needs a newer Ravenquill Expedition core (API %d, this one has %d). Update the core addon.",
   },
   deDE = {
-    RECENT = "Neueste Highlights", NO_RECENT = "Noch nichts.",
     OPEN = "Öffnen", OPEN_WINDOW = "%s öffnen", BACK = "« Zurück", OVERVIEW = "Übersicht", SETTINGS = "Einstellungen", COMMAND = "Chatbefehl: %s",
     ENABLE_HINT = "Deaktiviert – in der AddOn-Liste bei der Charakterauswahl einschalten.",
     MISSING = "Nicht installiert.", DISABLED = "Deaktiviert", NOT_INSTALLED = "Nicht installiert",

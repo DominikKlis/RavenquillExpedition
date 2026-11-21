@@ -95,7 +95,7 @@ local WIDTH, HEIGHT, MAX_TABS = 673, 594, 7
 local SUITE_ICON = "Interface\\Icons\\INV_Misc_Book_09"
 local GEAR_ICON = "Interface\\Icons\\INV_Misc_Gear_01"
 local WIDE_CARD = "Profession-overview-Card"
-local SIZE = { edge = 24, header = 62, footer = 62, row = 22, title = 170, rows = 6, recent = 40 }
+local SIZE = { edge = 24, header = 62, footer = 62, row = 22, title = 170, rows = 6 }
 local Strip = {}
 local Text = ns.Text
 
@@ -185,25 +185,18 @@ function Strip.Build(card)
   return strip
 end
 
-local function BuildFeed(home, card)
-  home.recentHead = Text(card, "GameFontNormal")
-  home.recentHead:SetPoint("TOPLEFT", home.strip, "BOTTOMLEFT", 4, -18)
-  home.recentHead:SetText(L.RECENT)
-  ns.Rule(card, home.recentHead, -4)
-  local msg = CreateFrame("ScrollingMessageFrame", nil, card)
-  msg:SetPoint("TOPLEFT", home.recentHead, "BOTTOMLEFT", 0, -10)
-  msg:SetPoint("BOTTOMRIGHT", -24, 16)
-  msg:SetFontObject(GameFontHighlightSmall)
-  msg:SetJustifyH("LEFT")
-  msg:SetFading(false)
-  msg:SetMaxLines(100)
-  msg:SetHyperlinksEnabled(true)
-  msg:SetScript("OnHyperlinkClick", function(_, link, text, button) if SetItemRef then pcall(SetItemRef, link, text, button) end end)
-  msg:SetScript("OnHyperlinkEnter", ns.ShowItemTooltip)
-  msg:SetScript("OnHyperlinkLeave", function() GameTooltip:Hide() end)
-  msg:EnableMouseWheel(true)
-  msg:SetScript("OnMouseWheel", ns.WheelLines)
-  home.recent = msg
+local function BuildTeaser(home, card)
+  local b = CreateFrame("Button", nil, card)
+  b:SetPoint("TOPLEFT", home.strip, "BOTTOMLEFT", 4, -18)
+  b:SetPoint("RIGHT", card, "RIGHT", -24, 0)
+  b:SetHeight(SIZE.row)
+  b.text = Text(b, "GameFontNormal")
+  b.text:SetPoint("LEFT")
+  b.text:SetPoint("RIGHT")
+  b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+  b:SetScript("OnClick", function(self) GS:Call(self.open) end)
+  b:Hide()
+  home.teaser = b
 end
 
 local function BuildFooter(home)
@@ -227,7 +220,7 @@ local function BuildHome(f)
   body:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 5)
   body:SetPoint("BOTTOMRIGHT", -4, SIZE.footer + 5)
   home.strip = Strip.Build(body)
-  BuildFeed(home, body)
+  BuildTeaser(home, body)
   BuildFooter(home)
   return home
 end
@@ -429,23 +422,19 @@ function GS:ShowHome()
   if win:IsShown() then self:RefreshOverview() end
 end
 
-local function RecentLines()
+local function Teaser()
   for _, name in ipairs(GS.moduleOrder) do
     local mod = GS.modules[name]
-    if mod.OverviewRecent then return GS:Call(mod.OverviewRecent, mod, SIZE.recent) end
+    if mod.OverviewTeaser then return GS:Call(mod.OverviewTeaser, mod) end
   end
 end
 
-local function RenderRecent(m)
-  local lines = RecentLines()
-  local has = type(lines) == "table" and lines[1] ~= nil
-  local key = has and table.concat(lines, "\n") or ""
-  if m.shownKey == key then return end
-  m.shownKey = key
-  m:Clear()
-  if not has then m:AddMessage(L.NO_RECENT, 0.6, 0.6, 0.6) end
-  for _, line in ipairs(has and lines or {}) do m:AddMessage(line) end
-  if m.ScrollToBottom then m:ScrollToBottom() end
+local function RenderTeaser(b)
+  local text, open = Teaser()
+  text = Plain(text, "string")
+  b.open = type(open) == "function" and open or nil
+  b.text:SetText(text or "")
+  b:SetShown(text ~= nil)
 end
 
 local function RenderHeader(home)
@@ -484,7 +473,7 @@ function GS:RefreshOverview()
   local home = win.home
   RenderHeader(home)
   Strip.Render(home.strip, rows)
-  RenderRecent(home.recent)
+  RenderTeaser(home.teaser)
   home.options.refreshAll()
 end
 

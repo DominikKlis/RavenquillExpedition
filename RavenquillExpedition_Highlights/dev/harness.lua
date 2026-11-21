@@ -626,8 +626,6 @@ GS:ShowHome()
 local mapTab = false
 for _, tab in ipairs(ov.tabs) do if rawget(tab, "_shown") and tab.page == "Map" then mapTab = true end end
 check(not mapTab, "no tab for a module that is not installed")
-local recent = H:OverviewRecent(8)
-check(type(recent) == "table" and #recent == 8 and recent[8]:find("Stufe 50", 1, true), "recent highlights for the overview")
 local craft = GS:NewModule("Craft", { addon = "GuildCraftAdvisor", slash = "craft", title = "Guild Craft Advisor", icon = "Interface\\Icons\\Trade_LeatherWorking" })
 local crafted = false
 function craft:Open() crafted = true end
@@ -775,8 +773,19 @@ do
       if row.data.name == "Highlights" then hlRow = row end
     end
   end
-  check(stripped == #homeRows and hlRow and hlRow.status:GetText() == H:OverviewStatus() and ov.home.recent ~= nil,
-    "the overview lists every module with its status line, above the highlights feed (" .. stripped .. ")")
+  check(stripped == #homeRows and hlRow and hlRow.status:GetText() == H:OverviewStatus(),
+    "the overview lists every module with its status line (" .. stripped .. ")")
+  H:ShowWindow()
+  local head = env.RavenquillExpeditionHighlightsFrame.paper.lead.head:GetText()
+  env.RavenquillExpeditionHighlightsFrame:Hide()
+  rawget(tabs[1], "_scripts").OnClick(tabs[1])
+  local teaser = ov.home.teaser
+  check(ov.home.recent == nil and ov.home.recentHead == nil and rawget(teaser, "_shown")
+    and teaser.text:GetText() == "Heute im Rabenblatt: " .. head,
+    "under the list, one teaser line with today's lead headline instead of a feed of log lines (" .. teaser.text:GetText() .. ")")
+  rawget(teaser, "_scripts").OnClick(teaser)
+  check(env.RavenquillExpeditionHighlightsFrame:IsShown(), "clicking the teaser opens the newspaper")
+  env.RavenquillExpeditionHighlightsFrame:Hide()
   rawget(hlRow, "_scripts").OnClick(hlRow)
   local paperWin = env.RavenquillExpeditionHighlightsFrame
   check(paperWin and paperWin:IsShown() and paperWin.paper:IsShown(), "clicking the Highlights line opens the newspaper")
@@ -786,18 +795,6 @@ do
     and ov.home.peersBar == nil, "the header states sync and peers as text, without a progress bar")
   check(hlTab.status == H:OverviewStatus(), "a side tab's tooltip carries the module's status line")
   fm.SetTitle, fm.SetPortraitToAsset = nil, nil
-  local clears = 0
-  local clear = fm.Clear
-  fm.Clear = function(...) clears = clears + 1; return clear(...) end
-  GS:RefreshOverview()
-  GS:RefreshOverview()
-  local quiet = clears
-  H:AddTests()
-  GS:RefreshOverview()
-  H:ClearTests()
-  fm.Clear = clear
-  check(quiet == 0 and clears >= 1, "the highlights feed is only redrawn when it changed, so it keeps its scroll position ("
-    .. quiet .. " / " .. clears .. ")")
   env.SlashCmdList.RAVENQUILL("")
 end
 
@@ -1314,7 +1311,7 @@ do
   check(newCount(r.H) == 1, "the count survives a logout (" .. newCount(r.H) .. ")")
   r.RQ:ShowModulePage("Highlights")
   check(newCount(r.H) == 0 and not r.RQ:OverviewRows()[1].status:find("neu", 1, true),
-    "the newspaper on the /rq Highlights tab clears it too, and the status line follows")
+    "the Chronik on the /rq Highlights tab clears it too, and the status line follows")
   LogOut(r)
 end
 
@@ -1340,7 +1337,7 @@ do
   touchEverything()
   check(newCount() == 1, "the Highlights options in /rq hide the log: changing them keeps the count (" .. newCount() .. ")")
   c.RQ:ShowModulePage("Highlights")
-  check(newCount() == 0, "the newspaper on the /rq Highlights tab clears it")
+  check(newCount() == 0, "the Chronik on the /rq Highlights tab clears it")
   LogOut(c)
 end
 
