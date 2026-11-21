@@ -179,7 +179,7 @@ do
   check(#off == 0 and cut == nil and shortened, "a very short page drops whole paragraphs, then whole sentences, and keeps "
     .. "everything on the page (" .. (off[1] or tostring(cut)) .. ")")
   f:Hide()
-  _, paper = OpenSized(c, 500, 640)
+  _, paper = OpenSized(c, 460, 640)
   off = Offenders(c, paper)
   check(#off == 0 and not paper.lead.col2:IsShown() and paper.lead.col1:GetText():find(paper.issue.lead.body[1], 1, true),
     "a narrow page sets the lead body in one column, everything on the page (" .. (off[1] or "none") .. ")")
@@ -235,6 +235,97 @@ do
     sr.height))
   check(#Offenders(small, sf.paper) == 0 and Cut(sf.paper) == nil, "there too every text sits on the paper, none cut")
   check(#c.errors == 0 and #small.errors == 0, "no Lua errors (" .. tostring(c.errors[1] or small.errors[1]) .. ")")
+end
+
+local function InkClient()
+  local templates = {}
+  local c = LayoutClient("Lyra Distelbach", "deDE", function(env, cl)
+    local create = env.CreateFrame
+    env.CreateFrame = function(otype, name, parent, template)
+      local f = create(otype, name, parent, template)
+      templates[f] = template or false
+      return f
+    end
+    cl.frameMethods.SetTextColor = function(s, r, g, b) s._ink = { r, g, b } end
+  end)
+  return c, templates
+end
+
+local function ShadowSides(c, f)
+  local fr, sides = Layout.Rect(f), {}
+  for _, r in ipairs(c.regions) do
+    local col, rect = r._color, r._type == "Texture" and r._parent == f and Layout.Rect(r)
+    if rect and col and col[1] == 0 and col[2] == 0 and col[3] == 0 and col[4] < 1 then
+      if rect.right <= fr.left then sides.left = true end
+      if rect.left >= fr.right then sides.right = true end
+      if rect.bottom >= fr.top then sides.top = true end
+      if rect.top <= fr.bottom then sides.bottom = true end
+    end
+  end
+  return sides.left and sides.right and sides.top and sides.bottom
+end
+
+local function Darker(a, b) return a[1] + a[2] + a[3] < b[1] + b[2] + b[3] end
+
+local function InkFooter(f)
+  for _, b in ipairs({ f.prev, f.next, f.modeButton }) do
+    if not (b.label and b.underline and b.label._ink) then return false end
+  end
+  return true
+end
+
+Kit.section("Window: a frameless sheet of paper with a soft shadow, an inked close mark and an inked footer")
+do
+  local c, templates = InkClient()
+  Heard(c, BUSY_DAY)
+  Heard(c, { E("level", "Bodo Kesselring", At(18, 10), { lvl = 20 }) })
+  c.H:ShowWindow()
+  local f = c.env.RavenquillExpeditionHighlightsFrame
+  local fr, pr = Layout.Rect(f), Layout.Rect(f.paper)
+  check(templates[f] == false and not rawget(f, "NineSlice") and not rawget(f, "CloseButton") and not rawget(f, "portrait"),
+    "the window is a plain frame: no template, no portrait, no title bar")
+  check(OpaqueBase(c, f) ~= nil and pr.left == fr.left and pr.right == fr.right and pr.top == fr.top and pr.bottom == fr.bottom,
+    "the whole window is paper: its own paper base and the newspaper cover it edge to edge")
+  check(ShadowSides(c, f), "translucent black shadow strips lie outside the sheet on all four sides")
+  local inUI = false
+  for _, name in ipairs(c.env.UISpecialFrames) do inUI = inUI or name == "RavenquillExpeditionHighlightsFrame" end
+  check(inUI and rawget(f, "_scripts").OnDragStart ~= nil, "Esc closes the sheet and it can be dragged")
+  local close = f.close
+  local cr = Layout.Rect(close)
+  check(close:GetText() == "×" and templates[close] == false and cr.right <= fr.right and cr.top <= fr.top
+    and cr.left > fr.left + fr.width * 0.9 and cr.bottom > fr.top - 40, "a small inked × sits at the paper's top right")
+  local off = Offenders(c, f.paper)
+  local lowest = math.huge
+  for _, fs in ipairs(Layout.Texts(c, f.paper)) do lowest = math.min(lowest, Layout.Rect(fs).bottom) end
+  check(#off == 0 and Cut(f.paper) == nil and lowest >= Layout.Rect(f.prev).top,
+    "every text of the issue stays on the paper, above the footer (" .. (off[1] or "none") .. ")")
+  check(InkFooter(f) and templates[f.prev] == false and templates[f.modeButton] == false and f.prev:GetText() == "« Vorherige Ausgabe"
+    and f.next:GetText() == "Nächste Ausgabe »" and f.modeButton:GetText() == "Chronik"
+    and f.issueLabel:GetText() == "Ausgabe vom 20. November", "the footer is printed in ink: no red buttons")
+  check(not f.next:IsEnabled() and f.prev:IsEnabled() and Darker(f.prev.label._ink, f.next.label._ink),
+    "on the newest issue 'Nächste Ausgabe' is greyed ink, 'Vorherige Ausgabe' full ink")
+  local idle = f.prev.label._ink
+  f.prev:GetScript("OnEnter")(f.prev)
+  check(Darker(f.prev.label._ink, idle) and f.prev.underline:IsShown(), "hovering an ink button darkens and underlines it")
+  f.prev:GetScript("OnLeave")(f.prev)
+  check(not f.prev.underline:IsShown(), "leaving it takes the underline away")
+  Click(f.prev)
+  check(f.issueLabel:GetText() == "Ausgabe vom 18. November" and f.next:IsEnabled() and not f.prev:IsEnabled()
+    and Darker(f.next.label._ink, f.prev.label._ink), "the ink buttons page back an issue, and the greyed one follows")
+  Click(f.next)
+  check(f.issueLabel:GetText() == "Ausgabe vom 20. November", "and forward again")
+  Click(f.modeButton)
+  local panel = f.logPanel
+  check(f.mode == "log" and f.msg:IsShown() and not f.paper:IsShown() and f.modeButton:GetText() == "Zeitung"
+    and panel._color[4] > 0.9 and panel._color[1] < 0.2 and Layout.Inside(fr, Layout.Rect(panel)),
+    "Chronik sets the log on a dark inset panel on the paper, the button reads Zeitung")
+  check(Darker(f.footer._ink, { 0.6, 0.6, 0.6 }) and Darker(f.onlyHLText._ink, { 0.6, 0.6, 0.6 }),
+    "the log's footer line and checkbox label are printed in ink, readable on the paper")
+  Click(f.modeButton)
+  check(f.mode == "paper" and f.paper:IsShown(), "Zeitung goes back to the newspaper")
+  Click(close)
+  check(not f:IsShown(), "the × closes the sheet")
+  check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
 Kit.section("Paper on the /rq Highlights tab")

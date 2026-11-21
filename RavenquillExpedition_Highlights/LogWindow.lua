@@ -5,9 +5,11 @@ local L = ns.L
 
 local win, refreshArmed
 local views = {}
-local WINDOW_INSETS, WINDOW_NAV = { 16, -32, -16, 32 }, { 16, 6 }
-local PAGE_INSETS, PAGE_NAV = { 4, -2, -4, 30 }, { 4, 2 }
+local WINDOW = { log = { 24, -36, -24, 40 }, paper = { 0, 0, 0, 0 }, nav = { 14, 6, ink = true, reserve = 30 } }
+local PAGE = { log = { 4, -2, -4, 30 }, paper = { 4, -2, -4, 30 }, nav = { 4, 2 } }
 local MODE_BUTTON_SPACE = 100
+local SHADOW_RINGS, SHADOW_ALPHA = 10, 0.4
+local LOG_PANEL = { 0.10, 0.08, 0.06, 0.94 }
 H.WINDOW_W, H.WINDOW_H, H.WINDOW_SHARE = 900, 780, 0.9
 
 local function Within(size, room)
@@ -21,7 +23,25 @@ local function WindowSize()
   return Within(H.WINDOW_W, w), Within(H.WINDOW_H, h)
 end
 
-local function Chrome(f, native)
+local function ShadowStrip(f, alpha, rel1, x1, y1, rel2, x2, y2)
+  local t = f:CreateTexture(nil, "BACKGROUND", nil, -8)
+  t:SetColorTexture(0, 0, 0, alpha)
+  t:SetPoint("TOPLEFT", f, rel1, x1, y1)
+  t:SetPoint("BOTTOMRIGHT", f, rel2, x2, y2)
+end
+
+local function Shadow(f)
+  f.shadow = SHADOW_RINGS
+  for i = 1, SHADOW_RINGS do
+    local a, o = SHADOW_ALPHA * (SHADOW_RINGS + 1 - i) / SHADOW_RINGS, i - 1
+    ShadowStrip(f, a, "TOPLEFT", -i, i, "TOPRIGHT", i, o)
+    ShadowStrip(f, a, "BOTTOMLEFT", -i, -o, "BOTTOMRIGHT", i, -i)
+    ShadowStrip(f, a, "TOPLEFT", -i, o, "BOTTOMLEFT", -o, -o)
+    ShadowStrip(f, a, "TOPRIGHT", o, o, "BOTTOMRIGHT", i, -o)
+  end
+end
+
+local function Chrome(f)
   f:SetSize(WindowSize())
   f:SetPoint("CENTER")
   f:SetFrameStrata("HIGH")
@@ -32,19 +52,27 @@ local function Chrome(f, native)
   f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", f.StartMoving)
   f:SetScript("OnDragStop", f.StopMovingOrSizing)
-  if native then
-    if ButtonFrameTemplate_HidePortrait then pcall(ButtonFrameTemplate_HidePortrait, f) end
-    if ButtonFrameTemplate_HideButtonBar then pcall(ButtonFrameTemplate_HideButtonBar, f) end
-    if f.CloseButton then f.CloseButton:SetScript("OnClick", function() f:Hide() end) end
-  end
-  if f.SetTitle then
-    pcall(f.SetTitle, f, L.TITLE)
-  else
-    local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    title:SetPoint("TOP", 0, native and -5 or -16)
-    title:SetText(L.TITLE)
-  end
+  Shadow(f)
+  H.PaperSheet(f)
   tinsert(UISpecialFrames, "RavenquillExpeditionHighlightsFrame")
+end
+
+local function CloseMark(f)
+  local close = H.InkButton(f.inkLayer, "×", 24, 20)
+  close:SetPoint("TOPRIGHT", -6, -4)
+  close:SetScript("OnClick", function() f:Hide() end)
+  f.close = close
+end
+
+local function InkLog(f)
+  local panel = f.msg:CreateTexture(nil, "BACKGROUND")
+  panel:SetPoint("TOPLEFT", -8, 8)
+  panel:SetPoint("BOTTOMRIGHT", 8, -8)
+  panel:SetColorTexture(LOG_PANEL[1], LOG_PANEL[2], LOG_PANEL[3], LOG_PANEL[4])
+  f.logPanel = panel
+  f.footer:SetTextColor(H.INK_SOFT[1], H.INK_SOFT[2], H.INK_SOFT[3])
+  f.onlyHLText:SetTextColor(H.INK[1], H.INK[2], H.INK[3])
+  f.onlyHLText:SetShadowOffset(0, 0)
 end
 
 local function MessageArea(f, insets)
@@ -121,29 +149,21 @@ local function OpenView(view)
 end
 
 local function Views(f, inPage)
-  local insets = inPage and PAGE_INSETS or WINDOW_INSETS
-  MessageArea(f, insets)
+  local layout = inPage and PAGE or WINDOW
+  MessageArea(f, layout.log)
   Footer(f, inPage, MODE_BUTTON_SPACE)
   f.logWidgets = { f.msg, f.footer, f.onlyHL, f.onlyHLText }
-  H:AttachPaper(f, insets, inPage and PAGE_NAV or WINDOW_NAV)
+  H:AttachPaper(f, layout.paper, layout.nav)
   f:SetScript("OnShow", function() GS:Call(OpenView, f) end)
   views[#views + 1] = f
 end
 
 local function CreateWindow()
-  local ok, f = pcall(CreateFrame, "Frame", "RavenquillExpeditionHighlightsFrame", UIParent, "ButtonFrameTemplate")
-  local native = ok and f
-  if not native then
-    f = CreateFrame("Frame", "RavenquillExpeditionHighlightsFrame", UIParent, "BackdropTemplate")
-    if f.SetBackdrop then
-      f:SetBackdrop({ bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background", edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 32, insets = { left = 11, right = 12, top = 12, bottom = 11 } })
-    end
-    local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", -4, -4)
-  end
-  Chrome(f, native)
+  local f = CreateFrame("Frame", "RavenquillExpeditionHighlightsFrame", UIParent)
+  Chrome(f)
   Views(f, false)
+  CloseMark(f)
+  InkLog(f)
   f:Hide()
   return f
 end

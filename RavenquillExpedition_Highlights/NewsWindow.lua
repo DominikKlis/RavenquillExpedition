@@ -12,7 +12,8 @@ local GRAIN_ALPHA = 0.5
 local MASTHEAD_FONT = "Fonts\\MORPHEUS.TTF"
 local BASE_FONT = "Fonts\\FRIZQT__.TTF"
 local INK, INK_SOFT, RULE, PAPER = { 0.17, 0.13, 0.09 }, { 0.36, 0.29, 0.22 }, { 0.48, 0.40, 0.29 }, { 0.92, 0.86, 0.72 }
-local LABEL = { 0.85, 0.78, 0.62 }
+local Ink = { LABEL = { 0.85, 0.78, 0.62 }, DARK = { 0.04, 0.03, 0.02 }, FADED = { 0.62, 0.56, 0.46 } }
+H.INK, H.INK_SOFT = INK, INK_SOFT
 local TIME_HEX = "6b5a45"
 local SIZE = { pad = 16, photoW = 64, photoH = 52, gutter = 16, briefGap = 24, leadTop = 97, minColumn = 180, secondMin = 110,
   leftShare = 0.57, defaultW = 868, defaultH = 716, wideW = 760, wideH = 600,
@@ -279,12 +280,56 @@ end
 
 local function Flow(paper)
   local w, h = PaperSize(paper)
+  h = h - (paper.reserve or 0)
   Scale(paper, w, h)
   FlowRow(paper, FlowLead(paper, w, h), w, h)
 end
 
-local function NavButtons(f, nav)
+function Ink.Style(b)
+  local enabled = b:IsEnabled() and true or false
+  local c = (not enabled and Ink.FADED) or (b.hover and Ink.DARK) or INK
+  b.label:SetTextColor(c[1], c[2], c[3])
+  b.underline:SetShown(enabled and b.hover or false)
+end
+
+function H.InkButton(parent, text, width, size)
+  local b = CreateFrame("Button", nil, parent)
+  b:SetSize(width, size + 8)
+  local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  SetSize(fs, size)
+  fs:SetShadowOffset(0, 0)
+  fs:SetPoint("CENTER")
+  if b.SetFontString then b:SetFontString(fs) end
+  local line = b:CreateTexture(nil, "ARTWORK")
+  line:SetColorTexture(Ink.DARK[1], Ink.DARK[2], Ink.DARK[3], 1)
+  line:SetHeight(1)
+  line:SetPoint("TOPLEFT", fs, "BOTTOMLEFT", 0, -1)
+  line:SetPoint("TOPRIGHT", fs, "BOTTOMRIGHT", 0, -1)
+  b.label, b.underline, b.Restyle = fs, line, Ink.Style
+  b:SetText(text)
+  b:SetScript("OnEnter", function() b.hover = true; Ink.Style(b) end)
+  b:SetScript("OnLeave", function() b.hover = false; Ink.Style(b) end)
+  Ink.Style(b)
+  return b
+end
+
+function Ink.SetEnabled(b, on)
+  if on then b:Enable() else b:Disable() end
+  if b.Restyle then b:Restyle() end
+end
+
+function Ink.Layer(f, paper)
+  local layer = CreateFrame("Frame", nil, f)
+  layer:SetAllPoints()
+  layer:SetFrameLevel((Plain(paper:GetFrameLevel(), "number") or 0) + 3)
+  f.inkLayer = layer
+  return layer
+end
+
+local function NavButtons(f, nav, ink)
+  local host = ink or f
   local function Button(text, width)
+    if ink then return H.InkButton(ink, text, width, 13) end
     local b = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     b:SetSize(width, 22)
     b:SetText(text)
@@ -296,28 +341,32 @@ local function NavButtons(f, nav)
   f.modeButton:SetPoint("BOTTOMRIGHT", -nav[1], nav[2])
   f.next = Button(T.NEXT, 168)
   f.next:SetPoint("RIGHT", f.modeButton, "LEFT", -10, 0)
-  f.issueLabel = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  f.issueLabel = host:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   f.issueLabel:SetPoint("LEFT", f.prev, "RIGHT", 4, 0)
   f.issueLabel:SetPoint("RIGHT", f.next, "LEFT", -4, 0)
   f.issueLabel:SetJustifyH("CENTER")
-  f.issueLabel:SetTextColor(LABEL[1], LABEL[2], LABEL[3])
+  local label = ink and INK_SOFT or Ink.LABEL
+  f.issueLabel:SetTextColor(label[1], label[2], label[3])
   f.prev:SetScript("OnClick", function() GS:Call(H.StepIssue, H, f, -1) end)
   f.next:SetScript("OnClick", function() GS:Call(H.StepIssue, H, f, 1) end)
   f.modeButton:SetScript("OnClick", function() GS:Call(H.SetViewMode, H, f, f.mode == "paper" and "log" or "paper") end)
 end
+
+H.PaperSheet = Parchment
 
 function H:AttachPaper(f, insets, nav)
   local paper = CreateFrame("Frame", nil, f)
   paper:SetPoint("TOPLEFT", insets[1], insets[2])
   paper:SetPoint("BOTTOMRIGHT", insets[3], insets[4])
   if paper.SetClipsChildren then paper:SetClipsChildren(true) end
+  paper.reserve = nav.reserve
   Parchment(paper)
   Masthead(paper)
   Meta(paper)
   Stories(paper)
   paper:SetScript("OnSizeChanged", function() GS:Call(Flow, paper) end)
   f.paper = paper
-  NavButtons(f, nav)
+  NavButtons(f, nav, nav.ink and Ink.Layer(f, paper))
   f.paperWidgets = { paper, f.prev, f.next, f.issueLabel }
 end
 
@@ -405,8 +454,8 @@ local function IssueIndex(days, day)
 end
 
 local function SetNav(f, i, n, issue)
-  if i > 1 then f.prev:Enable() else f.prev:Disable() end
-  if i < n then f.next:Enable() else f.next:Disable() end
+  Ink.SetEnabled(f.prev, i > 1)
+  Ink.SetEnabled(f.next, i < n)
   local label = issue and News.Fill(T.ISSUE_OF, { date = News.Fill(T.SHORT_DATE, DateVars(issue.t)) })
   f.issueLabel:SetText(label or T.NO_ISSUE)
 end
