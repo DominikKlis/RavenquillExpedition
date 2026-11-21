@@ -412,8 +412,8 @@ do
   check(f.mode == "paper" and paper.metaRight:GetText() == "Nr. 3 · Preis: 1 Kupfer", "reopening starts on the latest issue again")
   Heard(c, E("level", "Mira Sturmfeder", At(20, 21, 15), { lvl = 60 }))
   sched:advance(1)
-  check(paper.issue.brief[1] and paper.brief.lines[1]:GetText():find("Mira Sturmfeder", 1, true),
-    "an entry arriving while the paper is open goes into today's issue")
+  local told = paper.brief.lines[1]:GetText() .. " " .. (paper.extras[1].head:GetText() or "")
+  check(told:find("Mira Sturmfeder", 1, true), "an entry arriving while the paper is open goes into today's issue")
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 

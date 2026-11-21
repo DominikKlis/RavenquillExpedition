@@ -168,9 +168,18 @@ function Layout.Inside(outer, inner, slack)
     and inner.top <= outer.top + slack
 end
 
+local function WordTooWide(s, width)
+  if not width then return false end
+  for word in Plain(s._text or ""):gmatch("%S+") do
+    if Chars(word) * (s._fontSize or 12) * Layout.CHAR_EM > width + 0.5 then return true end
+  end
+  return false
+end
+
 function Layout.Truncated(s)
-  if not (s._maxLines and s._maxLines > 0) then return false end
   local _, width = Axis(s, true)
+  if WordTooWide(s, width) then return true end
+  if not (s._maxLines and s._maxLines > 0) then return false end
   return Layout.Lines(s._text or "", s._fontSize or 12, width) > s._maxLines
 end
 

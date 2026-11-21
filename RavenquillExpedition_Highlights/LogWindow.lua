@@ -11,7 +11,7 @@ local MODE_BUTTON_SPACE = 100
 local SHADOW_RINGS, SHADOW_ALPHA = 10, 0.4
 local LOG_PANEL = { 0.10, 0.08, 0.06, 0.94 }
 local INK_DARK, INK_FADED = { 0.04, 0.03, 0.02 }, { 0.62, 0.56, 0.46 }
-H.WINDOW_W, H.WINDOW_H, H.WINDOW_SHARE = 900, 780, 0.9
+H.WINDOW_W, H.WINDOW_H, H.WINDOW_SHARE, H.WINDOW_MIN_H = 900, 780, 0.9, 480
 
 local function Within(size, room)
   room = GS.Plain(room, "number")
@@ -97,6 +97,22 @@ local function Chrome(f)
   Shadow(f)
   H.PaperSheet(f)
   tinsert(UISpecialFrames, "RavenquillExpeditionHighlightsFrame")
+end
+
+local function FitSheet(f)
+  local w, full = WindowSize()
+  f:SetSize(w, full)
+  f.paper.room = full
+  if f.mode ~= "paper" then return end
+  local used, shape = H.FlowPaper(f.paper, w, full)
+  local h = math.min(full, math.max(H.WINDOW_MIN_H, math.ceil(used)))
+  if h >= full then return end
+  f:SetHeight(h)
+  local _, again = H.FlowPaper(f.paper, w, h)
+  if again ~= shape then
+    f:SetHeight(full)
+    H.FlowPaper(f.paper, w, full)
+  end
 end
 
 local function CloseMark(f)
@@ -206,6 +222,7 @@ local function CreateWindow()
   Views(f, false)
   CloseMark(f)
   InkLog(f)
+  f.fit = FitSheet
   f:Hide()
   return f
 end
@@ -329,6 +346,7 @@ end
 function H:SetViewMode(view, mode)
   view.mode = mode
   if mode == "log" then view.opening = true end
+  if view.fit then view.fit(view) end
   self:ApplyWindowMode(view)
   self:Refresh()
 end
