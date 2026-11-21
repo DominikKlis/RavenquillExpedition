@@ -1,7 +1,7 @@
 return {
   metrics = {
     cached_trace = 0,
-    checks_passed = 2499,
+    checks_passed = 2526,
     checks_skipped = 0,
     comments = 0,
     core_internals = 0,
@@ -12,7 +12,7 @@ return {
     global_writes = 0,
     goal_module_lines = 37,
     health_clean_pct = 96.8,
-    health_debt = 148.8,
+    health_debt = 148.5,
     luacheck_warnings = 0,
     main_slots = 61,
     max_file_lines = 626,
