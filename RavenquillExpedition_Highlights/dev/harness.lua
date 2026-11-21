@@ -596,7 +596,15 @@ check(rawget(missingRow, "_shown") and missingRow.data.state == "missing" and mi
 GS:ShowModulePage("Highlights")
 local hlPage = ov.optView.pages.Highlights
 check(GS.optionsModule == "Highlights" and not GS.moduleSettings and hlPage and hlPage:IsShown() and not ov.optView.scroll:IsShown()
-  and hlPage.footer:GetText():find("Highlights", 1, true), "the Highlights tab opens on its log, not on its settings")
+  and hlPage.mode == "paper" and hlPage.paper:IsShown() and not hlPage.msg:IsShown() and hlPage.prev:IsShown()
+  and hlPage.modeButton:GetText() == "Chronik" and hlPage.issueLabel:GetText():find("Ausgabe vom", 1, true),
+  "the Highlights tab opens on the newspaper with its issue footer and a Chronik button, not on its settings")
+rawget(hlPage.modeButton, "_scripts").OnClick(hlPage.modeButton)
+check(hlPage.mode == "log" and hlPage.msg:IsShown() and not hlPage.paper:IsShown() and not hlPage.prev:IsShown()
+  and hlPage.footer:GetText():find("Highlights", 1, true) and hlPage.modeButton:GetText() == "Zeitung",
+  "Chronik on the tab shows the log with its footer, and the button turns into Zeitung")
+rawget(hlPage.modeButton, "_scripts").OnClick(hlPage.modeButton)
+check(hlPage.mode == "paper" and hlPage.paper:IsShown(), "Zeitung on the tab goes back to the newspaper")
 local gear = ov.optView.gear
 check(rawget(gear, "_shown") and gear:GetText() == "Einstellungen" and gear:IsEnabled() and hlPage.open == nil,
   "a module page shows a labelled settings button and its own page, no open button")
@@ -604,12 +612,13 @@ rawget(gear, "_scripts").OnClick(gear)
 check(GS.moduleSettings and ov.optView.panels.Highlights:IsShown() and not hlPage:IsShown(), "the settings button shows the settings")
 check(gear:GetText() == "« Zurück" and gear:IsEnabled(), "in the settings the same button reads '« Zurück'")
 rawget(gear, "_scripts").OnClick(gear)
-check(not GS.moduleSettings and hlPage:IsShown() and gear:GetText() == "Einstellungen", "'« Zurück' goes back to the log")
+check(not GS.moduleSettings and hlPage:IsShown() and hlPage.mode == "paper" and gear:GetText() == "Einstellungen",
+  "'« Zurück' goes back to the newspaper")
 GS:ShowModuleOptions("Highlights")
 local hlSideTab
 for _, tab in ipairs(ov.tabs) do if tab.page == "Highlights" then hlSideTab = tab end end
 rawget(hlSideTab, "_scripts").OnClick(hlSideTab)
-check(not GS.moduleSettings and hlPage:IsShown(), "the module's side tab goes back to the log")
+check(not GS.moduleSettings and hlPage:IsShown() and hlPage.mode == "paper", "the module's side tab goes back to the newspaper")
 GS:ShowHome()
 local mapTab = false
 for _, tab in ipairs(ov.tabs) do if rawget(tab, "_shown") and tab.page == "Map" then mapTab = true end end
@@ -1302,11 +1311,11 @@ do
   check(newCount(r.H) == 1, "the count survives a logout (" .. newCount(r.H) .. ")")
   r.RQ:ShowModulePage("Highlights")
   check(newCount(r.H) == 0 and not r.RQ:OverviewRows()[1].status:find("neu", 1, true),
-    "the log on the /rq Highlights tab clears it too, and the status line follows")
+    "the newspaper on the /rq Highlights tab clears it too, and the status line follows")
   LogOut(r)
 end
 
-Kit.section("New since you last looked: only a log on screen clears the count")
+Kit.section("New since you last looked: only the paper or the log on screen clears the count")
 do
   local c = Character(); c.login(); advance(40)
   local function hear(sender, msg) c.fire("CHAT_MSG_ADDON", "RQE1", "H;" .. msg, "GUILD", sender) end
@@ -1328,7 +1337,7 @@ do
   touchEverything()
   check(newCount() == 1, "the Highlights options in /rq hide the log: changing them keeps the count (" .. newCount() .. ")")
   c.RQ:ShowModulePage("Highlights")
-  check(newCount() == 0, "the log on the /rq Highlights tab clears it")
+  check(newCount() == 0, "the newspaper on the /rq Highlights tab clears it")
   LogOut(c)
 end
 

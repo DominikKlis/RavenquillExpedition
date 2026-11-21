@@ -5,8 +5,8 @@ local L = ns.L
 
 local win, refreshArmed
 local views = {}
-local WINDOW_INSETS = { 16, -32, -16, 32 }
-local PAGE_INSETS = { 4, -2, -4, 30 }
+local WINDOW_INSETS, WINDOW_NAV = { 16, -32, -16, 32 }, { 16, 6 }
+local PAGE_INSETS, PAGE_NAV = { 4, -2, -4, 30 }, { 4, 2 }
 local MODE_BUTTON_SPACE = 100
 H.WINDOW_W, H.WINDOW_H = 640, 640
 
@@ -103,10 +103,20 @@ local function ShowLog(view)
   H:Refresh()
 end
 
-local function OpenWindow(f)
-  f.mode, f.issueDay = "paper", nil
-  H:ApplyWindowMode(f)
-  ShowLog(f)
+local function OpenView(view)
+  view.mode, view.issueDay = "paper", nil
+  H:ApplyWindowMode(view)
+  ShowLog(view)
+end
+
+local function Views(f, inPage)
+  local insets = inPage and PAGE_INSETS or WINDOW_INSETS
+  MessageArea(f, insets)
+  Footer(f, inPage, MODE_BUTTON_SPACE)
+  f.logWidgets = { f.msg, f.footer, f.onlyHL, f.onlyHLText }
+  H:AttachPaper(f, insets, inPage and PAGE_NAV or WINDOW_NAV)
+  f:SetScript("OnShow", function() GS:Call(OpenView, f) end)
+  views[#views + 1] = f
 end
 
 local function CreateWindow()
@@ -122,22 +132,12 @@ local function CreateWindow()
     close:SetPoint("TOPRIGHT", -4, -4)
   end
   Chrome(f, native)
-  MessageArea(f, WINDOW_INSETS)
-  Footer(f, false, MODE_BUTTON_SPACE)
-  f.logWidgets = { f.msg, f.footer, f.onlyHL, f.onlyHLText }
-  H:AttachPaper(f, WINDOW_INSETS)
-  f:SetScript("OnShow", function() GS:Call(OpenWindow, f) end)
-  views[#views + 1] = f
+  Views(f, false)
   f:Hide()
   return f
 end
 
-function H:BuildPage(parent)
-  MessageArea(parent, PAGE_INSETS)
-  Footer(parent, true)
-  parent:SetScript("OnShow", function() GS:Call(ShowLog, parent) end)
-  views[#views + 1] = parent
-end
+function H:BuildPage(parent) Views(parent, true) end
 
 function H:RefreshPage() self:Refresh() end
 
@@ -253,12 +253,15 @@ function H:ToggleWindow()
   if win:IsShown() then win:Hide() else win:Show() end
 end
 
-function H:SetWindowMode(mode)
-  if not win then return end
-  win.mode = mode
-  if mode == "log" then win.opening = true end
-  self:ApplyWindowMode(win)
+function H:SetViewMode(view, mode)
+  view.mode = mode
+  if mode == "log" then view.opening = true end
+  self:ApplyWindowMode(view)
   self:Refresh()
+end
+
+function H:SetWindowMode(mode)
+  if win then self:SetViewMode(win, mode) end
 end
 
 function H:ShowWindow()

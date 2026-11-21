@@ -178,4 +178,52 @@ do
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
+local PAGE_W, PAGE_H = 632, 480
+
+local function Click(b) b:GetScript("OnClick")(b) end
+
+local function OpenTab(c, w, h)
+  local GS = c.env.RavenquillExpedition
+  GS:ShowModulePage("Highlights")
+  local opt = c.env.RavenquillExpeditionOverview.optView
+  Layout.Pin(opt.body, 100, 100, w, h)
+  c.H:Refresh()
+  return opt.pages.Highlights, opt
+end
+
+local function Below(upper, lower) return Layout.Rect(lower).top <= Layout.Rect(upper).bottom + 0.5 end
+
+Kit.section("Paper on the /rq Highlights tab")
+do
+  local c = LayoutClient("Lyra Distelbach")
+  Heard(c, BUSY_DAY)
+  Heard(c, { E("level", "Bodo Kesselring", At(18, 10), { lvl = 20 }) })
+  local page, opt = OpenTab(c, PAGE_W, PAGE_H)
+  local paper = page.paper
+  check(page.mode == "paper" and paper:IsShown() and not page.msg:IsShown() and page.prev:IsShown() and page.next:IsShown()
+    and page.modeButton:GetText() == "Chronik" and page.issueLabel:GetText() == "Ausgabe vom 20. November",
+    "the tab shows the newspaper with Vorherige/Nächste Ausgabe and Chronik")
+  local off = Offenders(c, paper)
+  check(Layout.Inside(Layout.Rect(page), Layout.Rect(paper)) and #off == 0 and Cut(paper) == nil,
+    "on the tab every text is on the page, shown in full, no sentence cut (" .. (off[1] or "none") .. ")")
+  check(Below(paper, page.prev) and Below(paper, page.next) and Below(paper, page.modeButton)
+    and Layout.Inside(Layout.Rect(page), Layout.Rect(page.modeButton)), "the issue buttons sit under the paper, inside the tab")
+  check(paper.lead.col2:IsShown() and OpaqueBase(c, paper) ~= nil, "the tab is wide enough for two lead columns, on full paper")
+  Click(page.prev)
+  local win = c.env.RavenquillExpeditionHighlightsFrame
+  check(page.issueLabel:GetText() == "Ausgabe vom 18. November" and not (win and win:IsShown()),
+    "Vorherige Ausgabe turns the tab's own paper back a day")
+  Click(opt.gear)
+  check(c.env.RavenquillExpedition.moduleSettings and opt.panels.Highlights:IsShown() and not page:IsShown(),
+    "the settings button above the paper still opens the settings")
+  Click(opt.gear)
+  check(page:IsShown() and page.mode == "paper" and page.issueLabel:GetText() == "Ausgabe vom 20. November",
+    "back from the settings the tab opens today's paper again")
+  local narrow = OpenTab(c, 470, PAGE_H)
+  off = Offenders(c, narrow.paper)
+  check(#off == 0 and not narrow.paper.lead.col2:IsShown(), "a narrow tab sets the lead in one column, all text on the page ("
+    .. (off[1] or "none") .. ")")
+  check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
+end
+
 Kit.finish()

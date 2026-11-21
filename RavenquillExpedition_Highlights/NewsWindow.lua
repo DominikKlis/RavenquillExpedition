@@ -256,7 +256,7 @@ local function Flow(paper)
   FlowRow(paper, FlowLead(paper, w, h), w, h)
 end
 
-local function NavButtons(f)
+local function NavButtons(f, nav)
   local function Button(text, width)
     local b = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     b:SetSize(width, 22)
@@ -264,9 +264,9 @@ local function NavButtons(f)
     return b
   end
   f.prev = Button(T.PREV, 168)
-  f.prev:SetPoint("BOTTOMLEFT", 16, 6)
+  f.prev:SetPoint("BOTTOMLEFT", nav[1], nav[2])
   f.modeButton = Button(T.CHRONICLE, 90)
-  f.modeButton:SetPoint("BOTTOMRIGHT", -16, 6)
+  f.modeButton:SetPoint("BOTTOMRIGHT", -nav[1], nav[2])
   f.next = Button(T.NEXT, 168)
   f.next:SetPoint("RIGHT", f.modeButton, "LEFT", -10, 0)
   f.issueLabel = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -276,10 +276,10 @@ local function NavButtons(f)
   f.issueLabel:SetTextColor(LABEL[1], LABEL[2], LABEL[3])
   f.prev:SetScript("OnClick", function() GS:Call(H.StepIssue, H, f, -1) end)
   f.next:SetScript("OnClick", function() GS:Call(H.StepIssue, H, f, 1) end)
-  f.modeButton:SetScript("OnClick", function() GS:Call(H.SetWindowMode, H, f.mode == "paper" and "log" or "paper") end)
+  f.modeButton:SetScript("OnClick", function() GS:Call(H.SetViewMode, H, f, f.mode == "paper" and "log" or "paper") end)
 end
 
-function H:AttachPaper(f, insets)
+function H:AttachPaper(f, insets, nav)
   local paper = CreateFrame("Frame", nil, f)
   paper:SetPoint("TOPLEFT", insets[1], insets[2])
   paper:SetPoint("BOTTOMRIGHT", insets[3], insets[4])
@@ -290,7 +290,7 @@ function H:AttachPaper(f, insets)
   Stories(paper)
   paper:SetScript("OnSizeChanged", function() GS:Call(Flow, paper) end)
   f.paper = paper
-  NavButtons(f)
+  NavButtons(f, nav)
   f.paperWidgets = { paper, f.prev, f.next, f.issueLabel }
 end
 
