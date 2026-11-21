@@ -379,26 +379,25 @@ do
   c.H:ShowWindow()
   local f = Frame(c)
   local paper = f.paper
-  check(paper:IsShown() and f.msg == nil and f.chronicle:GetText() == "CHRONIK",
+  check(paper:IsShown() and f.msg == nil and f.chronicle:GetText() == "Chronik",
     "the window opens as the newspaper with a Chronik link and no log of its own")
-  check(paper.metaLeft:GetText() == "Gildenblatt der Ravenquill Expedition" and paper.metaDate:GetText() == "20. November"
-    and paper.ears[1].top:GetText() == "Nr. 3" and paper.ears[1].bottom:GetText() == "Freitag" and paper.ears[2].top:GetText() == "Preis",
-    "masthead: issue number and weekday in the left ear, price in the right, paper and date under it")
+  check(paper.meta.left:GetText() == "Gildenblatt der Ravenquill Expedition" and paper.meta.mid:GetText() == "Freitag, 20. November"
+    and paper.meta.right:GetText() == "Nr. 3 · 1 Kupfer", "meta line: the paper's name, weekday and date, issue number and price")
   check(paper.issue.lead.kind == "epic" and paper.lead.head:GetText() == paper.issue.lead.head and paper.second.head:GetText() == paper.issue.second.head,
     "the latest issue leads with the epic, the run is the second story")
   check(f.issueLabel:GetText() == "Ausgabe vom 20. November" and f.prev:IsEnabled() and not f.next:IsEnabled(),
     "footer: issue date, previous enabled, next disabled on the latest issue")
   check(not c.H:OverviewStatus():find("neu", 1, true), "opening the newspaper counts as looking: nothing new left")
   Click(f.prev)
-  check(paper.ears[1].top:GetText() == "Nr. 2" and f.issueLabel:GetText() == "Ausgabe vom 18. November"
+  check(paper.meta.right:GetText() == "Nr. 2 · 1 Kupfer" and f.issueLabel:GetText() == "Ausgabe vom 18. November"
     and paper.issue.lead.kind == "mount" and f.next:IsEnabled(), "previous issue: the 18th with the mount")
   check(paper.second.head:GetText() == DE.NO_SECOND_HEAD and paper.brief.more:GetText() == DE.NO_BRIEF,
     "a one-story day says so in the second column and the brief box")
   Click(f.prev)
-  check(paper.ears[1].top:GetText() == "Nr. 1" and not f.prev:IsEnabled(), "first issue: previous disabled")
+  check(paper.meta.right:GetText() == "Nr. 1 · 1 Kupfer" and not f.prev:IsEnabled(), "first issue: previous disabled")
   Click(f.next)
   Click(f.next)
-  check(paper.ears[1].top:GetText() == "Nr. 3" and not f.next:IsEnabled(), "next twice: back on the latest issue")
+  check(paper.meta.right:GetText() == "Nr. 3 · 1 Kupfer" and not f.next:IsEnabled(), "next twice: back on the latest issue")
   Click(f.prev)
   Click(f.chronicle)
   local page = c.env.RavenquillExpeditionOverview.optView.pages.Highlights
@@ -407,10 +406,10 @@ do
     and not lines:find("neu seit deinem letzten Blick", 1, true),
     "Chronik closes the sheet and shows the plain log in /rq; the paper was the last look, so no new-entries line")
   c.H:ShowWindow()
-  check(f:IsShown() and paper.ears[1].top:GetText() == "Nr. 3", "reopening starts on the latest issue again")
+  check(f:IsShown() and paper.meta.right:GetText() == "Nr. 3 · 1 Kupfer", "reopening starts on the latest issue again")
   Heard(c, E("level", "Mira Sturmfeder", At(20, 21, 15), { lvl = 60 }))
   sched:advance(1)
-  local told = paper.brief.lines[1]:GetText() .. " " .. (paper.third.head:GetText() or "")
+  local told = paper.brief.items[1].text:GetText() .. " " .. (paper.third.head:GetText() or "")
   check(told:find("Mira Sturmfeder", 1, true), "an entry arriving while the paper is open goes into today's issue")
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
@@ -463,7 +462,7 @@ do
   local pf = Frame(plain)
   check(pf.paper.masthead.loaded and pf.paper.masthead.texture:IsShown() and not pf.paper.masthead.text:IsShown(),
     "with the texture available the masthead is the texture")
-  check(pf.chronicle:GetText() == "CHRONICLE" and pf.prev:GetText() == "« PREVIOUS ISSUE" and pf.paper.lead.head:GetText() == EN.EMPTY_HEAD,
+  check(pf.chronicle:GetText() == "Chronicle" and pf.prev:GetText() == "« Previous issue" and pf.paper.lead.head:GetText() == EN.EMPTY_HEAD,
     "English clients get the English paper")
   check(#c.errors == 0 and #plain.errors == 0, "no Lua errors")
 end
