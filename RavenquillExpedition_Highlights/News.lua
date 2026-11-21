@@ -6,14 +6,16 @@ ns.News = News
 News.RANK = { raid = 100, epic = 90, run = 80, boss = 75, levelmax = 70, mount = 56, gear = 52, level = 46, quest = 40,
   rep = 38, skill = 34, pvp = 32, duel = 24 }
 News.LEVEL_RANK = { [50] = 66, [40] = 64 }
-News.BRIEF_MAX, News.QUEST_LIST_MAX, News.SAME_OUTING, News.EXTRA_MAX = 8, 3, 300, 2
+News.BRIEF_MAX, News.QUEST_LIST_MAX, News.SAME_OUTING, News.EXTRA_MAX, News.HOME_STRETCH = 8, 3, 300, 2, 10
 News.PAPER_HEX = { [2] = "1f6b12", [3] = "0b5cad", [4] = "7b2cbf", [5] = "b35900" }
 News.SUBJECT, News.PERSONAL = { name = true, names = true }, { clvl = true, lo = true, hi = true }
-News.KEY = { raid = "n boss", boss = "n boss", run = "n nf first lastboss", epic = "il item", gear = "il item",
-  quest = "n rest", rep = "standing", skill = "rank", level = "left", levelmax = "people" }
-News.FACT_OF = { thingnom = "thing", gain = "oldil", quests = "quest rest", lastquest = "quest", before = "boss middle",
-  lead = "order time", leadtime = "order time", lastname = "order time", lasttime = "order time", soon = "worn",
-  weartime = "worn", clvl = "levels", lo = "levels", hi = "levels" }
+News.KEY = { raid = "n boss lastboss night", boss = "n boss lastboss night", run = "n nf first lastboss night", epic = "il item night",
+  gear = "il item gain night", quest = "n rest night", rep = "standing night", skill = "rank night", level = "left night",
+  levelmax = "people night", mount = "night", pvp = "night", duel = "night" }
+News.FACT_OF = { thingnom = "thing", quests = "quest rest", lastquest = "quest", before = "boss middle prev",
+  middle = "middle prev", timeline = "boss start middle prev", lead = "order time", leadtime = "order time",
+  lastname = "order time", lasttime = "order time", soon = "worn", weartime = "worn", clvl = "levels", lo = "levels",
+  hi = "levels", plain = "mount", epic = "mount" }
 
 local SLOT_NOUN = { [1] = "head", [2] = "neck", [3] = "shoulder", [5] = "chest", [6] = "waist", [7] = "legs", [8] = "feet",
   [9] = "wrist", [10] = "hands", [11] = "ring", [12] = "ring", [13] = "trinket", [14] = "trinket", [15] = "back",
@@ -25,27 +27,16 @@ local EQUIP_NOUN = { INVTYPE_HEAD = "head", INVTYPE_NECK = "neck", INVTYPE_SHOUL
   INVTYPE_WEAPONOFFHAND = "weapon", INVTYPE_SHIELD = "shield", INVTYPE_HOLDABLE = "offhand", INVTYPE_RANGED = "ranged",
   INVTYPE_RANGEDRIGHT = "ranged", INVTYPE_THROWN = "ranged", INVTYPE_RELIC = "relic", INVTYPE_BAG = "bag" }
 
-News.NAMES = {
-  leatherworking = { enUS = "Leatherworking", deDE = "Lederverarbeitung" }, fishing = { enUS = "Fishing", deDE = "Angeln" },
-  warsong = { enUS = "Warsong Gulch", deDE = "Kriegshymnenschlucht" }, cooking = { enUS = "Cooking", deDE = "Kochkunst" },
-  blacksmithing = { enUS = "Blacksmithing", deDE = "Schmiedekunst" }, alchemy = { enUS = "Alchemy", deDE = "Alchemie" },
-  engineering = { enUS = "Engineering", deDE = "Ingenieurskunst" }, firstaid = { enUS = "First Aid", deDE = "Erste Hilfe" },
-  enchanting = { enUS = "Enchanting", deDE = "Verzauberkunst" }, alterac = { enUS = "Alterac Valley", deDE = "Alteractal" },
-  herbalism = { enUS = "Herbalism", deDE = "Kräuterkunde" }, arathi = { enUS = "Arathi Basin", deDE = "Arathibecken" },
-  tailoring = { enUS = "Tailoring", deDE = "Schneiderei" }, skinning = { enUS = "Skinning", deDE = "Kürschnerei" },
-  mining = { enUS = "Mining", deDE = "Bergbau" },
-}
-
 local nameKey
 function News.LocalName(name, locale)
   if not nameKey then
     nameKey = {}
-    for key, names in pairs(News.NAMES) do
-      for _, n in pairs(names) do nameKey[n] = key end
+    for _, L in pairs(ns.NewsLocales) do
+      for key, n in pairs(L.NAMES) do nameKey[n] = key end
     end
   end
   local key = name and nameKey[name]
-  return key and News.NAMES[key][locale] or name
+  return key and ns.NewsLocales[locale].NAMES[key] or name
 end
 
 function News.Fill(text, vars)
@@ -60,6 +51,8 @@ function News.Fill(text, vars)
   if missing then return nil end
   return out
 end
+
+local function Upper(s) return (s:gsub("^%l", string.upper):gsub("([%.!?] )(%l)", function(a, c) return a .. c:upper() end)) end
 
 function News.Hash(s)
   local h = 5381
@@ -105,9 +98,10 @@ do
 
   local function Marks(text, out, vars, desk, st)
     local marks, who = News.Sentences(out), vars.name or vars.names or ""
+    for _, motif in ipairs(desk.T.ONCE or {}) do if out:lower():find(motif:lower(), 1, true) then marks[#marks + 1] = motif end end
+    if not st then return marks end
     marks[#marks + 1] = text
-    for _, motif in ipairs(desk.T.ONCE or {}) do if out:find(motif, 1, true) then marks[#marks + 1] = motif end end
-    for _, key in ipairs(st and Parse(text).printed or {}) do
+    for _, key in ipairs(Parse(text).printed) do
       if News.PERSONAL[key] then marks[#marks + 1] = who .. "|" .. key .. "|" .. tostring(vars[key]) end
     end
     return marks
@@ -152,7 +146,7 @@ do
       pool = Filter(pool, function(c) return c.facts[1] ~= nil end)
       pool = Filter(pool, function(c) return Covers(c.facts, st.key) end)
     end
-    return pool[News.Hash(seed) % #pool + 1]
+    return pool[seed and News.Hash(seed) % #pool + 1 or 1]
   end
 
   function News.Pick(list, seed, vars, st, desk)
@@ -165,7 +159,7 @@ do
     end
     if st then for _, f in ipairs(c.facts) do st.used[f] = true end end
     for _, m in ipairs(c.marks) do desk.said[m] = true end
-    return (c.out:gsub("^%l", string.upper))
+    return Upper(c.out)
   end
 end
 
@@ -174,11 +168,6 @@ local function Fit(list, vars)
     local out = News.Fill(text, vars)
     if out then return out end
   end
-end
-
-function News.First(list, vars)
-  local out = Fit(list, vars)
-  return out and (out:gsub("^%l", string.upper))
 end
 
 function News.Count(n, T) return T.NUMBERS[n] or tostring(n) end
@@ -363,12 +352,12 @@ local function Levels(v, g)
   if lo ~= hi then v.lo, v.hi = lo, hi end
 end
 
-local function BossList(g, from, to, T)
+local function BossList(g, from, to, T, ctx)
   local names = {}
   for i = from, to do
-    local boss = g.entries[i].boss
-    if not boss then return nil end
-    names[#names + 1] = boss
+    local e = g.entries[i]
+    if not e.boss then return nil end
+    names[#names + 1] = ctx and News.Fill(T.TIMED, { boss = e.boss, time = ctx.time(e.t) }) or e.boss
   end
   return Join(names, T)
 end
@@ -387,9 +376,9 @@ local function Kills(v, g, ctx, T)
   if n < 2 then return end
   v.n, v.lastboss, v.start = Count(n, T), last.boss, ctx.time(first.t)
   v.before = BossList(g, 1, n - 1, T)
-  if n >= 3 then v.middle = BossList(g, 2, n - 1, T) end
+  if n >= 3 then v.middle, v.prev, v.timeline = BossList(g, 2, n - 1, T), g.entries[n - 1].boss, BossList(g, 1, n - 1, T, ctx) end
   local min = math.floor((last.t - first.t) / 60 + 0.5)
-  if min >= 1 then v.min = min end
+  if min >= 2 then v.min = Count(min, T) end
 end
 
 local function SameNf(g)
@@ -431,10 +420,10 @@ local function ItemNoun(gear, facts)
   return SLOT_NOUN[gear and gear.slot or 0] or EQUIP_NOUN[facts.equipLoc or ""] or "item"
 end
 
-local function ItemLevels(v, gear, facts)
+local function ItemLevels(v, gear, facts, T)
   v.il = gear and gear.il or facts.il
   v.oldil = gear and gear.oil
-  if v.il and v.oldil and v.il > v.oldil then v.gain = v.il - v.oldil end
+  if v.il and v.oldil and v.il - v.oldil >= 2 then v.gain = Count(v.il - v.oldil, T) end
 end
 
 local LOOT_FLAG = { craft = "crafted", bag = "received" }
@@ -448,18 +437,18 @@ local function Item(v, g, ctx, T)
   local gear, loot = OfKind(g, "gear"), OfKind(g, "loot")
   local facts = ctx.item(g.first.item) or {}
   local q, noun = TopQuality(g), ItemNoun(gear, facts)
-  v.thing, v.thingnom = Phrase(T, q, noun, "acc"), Phrase(T, q, noun, "nom")
+  v.thing, v.thingnom, v.glow, v.where = Phrase(T, q, noun, "acc"), Phrase(T, q, noun, "nom"), T.GLOW[q], gear and T.WHERE[noun]
   v.item, v.icon = facts.name and ItemName(facts.name, q), facts.icon
-  ItemLevels(v, gear, facts)
+  ItemLevels(v, gear, facts, T)
   if loot then v[LOOT_FLAG[loot.src or ""] or "looted"] = "" end
   if gear then v.worn = "" end
   if loot and gear then Worn(v, loot, gear, ctx) end
 end
 
-local function Level(v, g, ctx)
+local function Level(v, g, ctx, T)
   v.lvl = g.first.lvl
-  local left = ctx.maxLevel and v.lvl and ctx.maxLevel - v.lvl
-  if left and left >= 2 then v.left = left end
+  local left = ctx.maxLevel and v.lvl and ctx.maxLevel - v.lvl or 0
+  if left >= 2 then v.left, v.half, v.home = Count(left, T), left == v.lvl and "" or nil, left <= News.HOME_STRETCH and "" or nil end
   if #g.people < 2 then return end
   v.lead, v.leadtime = g.first.who, ctx.time(g.first.t)
   v.lastname, v.lasttime = g.last.who, ctx.time(g.last.t)
@@ -488,7 +477,7 @@ end
 
 local function Mount(v, g, _, T)
   v.mount = g.first.epic and T.MOUNT_EPIC or T.MOUNT
-  if g.first.epic then v.epic = "" end
+  v[g.first.epic and "epic" or "plain"] = ""
 end
 
 local function Rep(v, g, ctx)
@@ -520,56 +509,65 @@ function News.Vars(g, ctx, T)
   if #people >= 2 then v.name, v.names, v.people = nil, Join(people, T), Count(#people, T) end
   local fill = VARS[g.kind]
   if fill then fill(v, g, ctx, T) end
+  local hour = tonumber(v.time:match("^(%d+):"))
+  v.night, v.midnight = T.NIGHT[hour], T.NIGHT[hour] and hour <= 1 and "" or nil
   return v
 end
 
-local function KeySet(kind)
-  local set = {}
-  for f in (News.KEY[kind] or ""):gmatch("%S+") do set[f] = true end
-  return set
+local function Tell(Slot, st, long)
+  local body, detail = Slot("body", st), long and Slot("detail", st) or nil
+  local out = { body and detail and body .. " " .. detail or body or detail }
+  out[#out + 1] = Slot("more", st) or not long and Slot("detail", st) or nil
+  return out
 end
 
-local function Paragraph(Slot, st)
-  local plain = st.flavour
-  local body, detail = Slot("body", st), Slot("detail", st)
-  if st.flavour and not plain then body, detail = detail, body end
-  if body and detail then return body .. " " .. detail end
-  return body or detail
-end
-
-function News.Story(g, T, ctx, desk)
+function News.Story(g, T, ctx, desk, long)
   local v, st = News.Vars(g, ctx, T), { used = {}, key = {} }
   local texts = T.KINDS[g.kind] or {}
   local function Slot(slot, state) return News.Pick(texts[slot], g.id .. "|" .. slot, v, state, desk) end
-  local story = { kind = g.kind, k = g.first.k, id = g.id, time = v.time, icon = v.icon, body = {} }
+  local story = { kind = g.kind, k = g.first.k, id = g.id, time = v.time, icon = v.icon }
   story.kicker = g.first.test and T.TEST_KICKER or Slot("kicker")
   story.head = Slot("head", { used = st.used, key = {} }) or ""
-  st.key = KeySet(g.kind)
+  for f in (News.KEY[g.kind] or ""):gmatch("%S+") do st.key[f] = true end
   story.dek = Slot("dek", st)
-  story.body[#story.body + 1] = Paragraph(Slot, st)
-  story.body[#story.body + 1] = Slot("more", st)
+  story.body = Tell(Slot, st, long)
   story.caption = Slot("caption")
   return story
 end
 
-function News.Brief(g, T, ctx)
-  local v = News.Vars(g, ctx, T)
-  return { id = g.id, time = ctx.time(g.first.t), text = News.First((T.KINDS[g.kind] or {}).brief, v) or "" }
+local function Solo(g) return g and #g.people == 1 and g.people[1] end
+
+local function Gap(g, prev, T)
+  local who = Solo(g)
+  if not who or who ~= Solo(prev) then return nil end
+  local min = math.floor(g.first.t / 60) - math.floor(prev.first.t / 60)
+  return Fit(T.GAP, { n = Count(min, T), now = min < 1 and "" or nil, one = min == 1 and "" or nil, few = min < 60 and "" or nil })
 end
 
-local function ByTime(a, b) return Earlier(a.first, b.first) end
+function News.Brief(g, T, ctx, desk, prev)
+  local v, texts, time = News.Vars(g, ctx, T), T.KINDS[g.kind] or {}, ctx.time(g.first.t)
+  v.gap = Gap(g, prev, T)
+  local text = v.gap and News.Pick(texts.again, nil, v, nil, desk) or News.Pick(texts.brief, nil, v, nil, desk)
+    or Upper(Fit(texts.brief, v) or "")
+  local late = desk and g.first == g.last and News.Pick(T.LATE, nil, v, nil, desk)
+  return { id = g.id, time = time, clock = News.Fill(T.BRIEF_TIME, { time = time }), text = late and text .. " " .. late or text }
+end
 
-function News.Issue(day, T, ctx)
-  local groups, desk = News.Groups(day.entries, ctx), News.Desk(T)
-  local issue = { day = day.day, no = day.no, t = day.entries[1] and day.entries[1].t, brief = {}, more = 0, extra = {} }
-  issue.lead = groups[1] and News.Story(groups[1], T, ctx, desk)
-  issue.second = groups[2] and News.Story(groups[2], T, ctx, desk)
-  for i = 3, math.min(#groups, 2 + News.EXTRA_MAX) do issue.extra[#issue.extra + 1] = News.Story(groups[i], T, ctx, desk) end
+local function InBrief(issue, groups, told, T, ctx, desk)
   local shown = {}
   for i = 3, #groups do
     if #shown < News.BRIEF_MAX then shown[#shown + 1] = groups[i] else issue.more = issue.more + 1 end
   end
-  table.sort(shown, ByTime)
-  for i, g in ipairs(shown) do issue.brief[i] = News.Brief(g, T, ctx) end
+  table.sort(shown, function(a, b) return Earlier(a.first, b.first) end)
+  for i, g in ipairs(shown) do issue.brief[i] = News.Brief(g, T, ctx, not told[g] and desk or nil, not told[shown[i - 1]] and shown[i - 1] or nil) end
+end
+
+function News.Issue(day, T, ctx)
+  local groups, desk, told = News.Groups(day.entries, ctx), News.Desk(T), {}
+  local issue = { day = day.day, no = day.no, t = day.entries[1] and day.entries[1].t, brief = {}, more = 0, extra = {} }
+  issue.lead = groups[1] and News.Story(groups[1], T, ctx, desk, true)
+  issue.second = groups[2] and News.Story(groups[2], T, ctx, desk)
+  for i = 3, math.min(#groups, 2 + News.EXTRA_MAX) do issue.extra[#issue.extra + 1], told[groups[i]] = News.Story(groups[i], T, ctx, desk), true end
+  InBrief(issue, groups, told, T, ctx, desk)
   return issue
 end

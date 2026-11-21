@@ -57,10 +57,10 @@ do
   check(groups[4].first.lvl == 50 and #groups[5].entries == 2, "two guildies reaching level 40 share a story")
   check(#groups[8].entries == 2, "two notable quests of one person on one day are one story")
   local raid = News.Vars(groups[1], Ctx(), DE)
-  check(raid.n == "drei" and raid.min == 45 and raid.start == "21:20" and raid.time == "22:05" and raid.lastboss == "Gehennas"
+  check(raid.n == "drei" and raid.min == "45" and raid.start == "21:20" and raid.time == "22:05" and raid.lastboss == "Gehennas"
     and raid.grp == "14", "raid night: three bosses, 45 minutes from 21:20 to 22:05, last Gehennas, 14 guildies")
   local item = News.Vars(groups[2], Ctx(), DE)
-  check(item.thing == "eine epische Waffe" and item.gain == 5 and item.item == "|cff7b2cbf[Klinge der Morgenröte]|r",
+  check(item.thing == "eine epische Waffe" and item.gain == "fünf" and item.item == "|cff7b2cbf[Klinge der Morgenröte]|r",
     "epic item: a weapon phrase, five levels gained, name in the paper's epic colour")
   local levels = News.Vars(groups[5], Ctx(), DE)
   check(levels.names == "Lyra Distelbach und Tamo Eichengrund" and levels.name == nil and levels.lasttime == "12:30",
@@ -107,18 +107,19 @@ do
   check(News.Story(g, DE, Ctx()).head == News.Story(g, DE, Ctx()).head, "the same entry always gets the same headline")
 end
 
-local OUTING = "inst boss lastboss n min start grp first before middle lo hi"
-local ITEM = "item thing thingnom il oldil gain crafted received looted worn soon weartime"
+local OUTING = "inst boss lastboss n min start grp first before middle prev timeline lo hi"
+local ITEM = "item thing thingnom il oldil gain glow where crafted received looted worn soon weartime"
+local LEVEL = "lvl left half home lead leadtime lastname lasttime"
 local KNOWN = {
-  raid = OUTING, boss = OUTING, run = "inst lastboss n nf first lo hi", epic = ITEM, gear = ITEM,
-  levelmax = "lvl left lead leadtime lastname lasttime", level = "lvl left lead leadtime lastname lasttime",
-  mount = "mount epic", quest = "quest quests rest n lastquest legend", rep = "fac standing exalted", skill = "skill rank top",
+  raid = OUTING, boss = OUTING, run = "inst lastboss n nf first lo hi", epic = ITEM, gear = ITEM, levelmax = LEVEL, level = LEVEL,
+  mount = "mount epic plain", quest = "quest quests rest n lastquest legend", rep = "fac standing exalted", skill = "skill rank top",
   pvp = "bg prank", duel = "foe",
 }
 local REQUIRED_SLOTS = { "kicker", "head", "dek", "body", "caption", "brief" }
 
 local function KnownSet(kind)
-  local set = { name = true, names = true, people = true, time = true, clvl = true }
+  local set = { name = true, names = true, people = true, time = true, clvl = true, night = true, midnight = true, gap = true,
+    sure = true }
   for key in KNOWN[kind]:gmatch("%S+") do set[key] = true end
   return set
 end
@@ -328,12 +329,11 @@ end
 
 Kit.section("Names from the sender's client: professions and battlegrounds in the reader's language")
 do
-  local names = News.NAMES or {}
   local complete, seen, clash, n = true, {}, nil, 0
-  for key, pair in pairs(names) do
+  for key in pairs(EN.NAMES) do
     n = n + 1
-    if not (pair.enUS and pair.deDE) then complete = false end
-    for _, name in pairs(pair) do
+    if not (EN.NAMES[key] and DE.NAMES[key]) then complete = false end
+    for _, name in ipairs({ EN.NAMES[key], DE.NAMES[key] }) do
       if seen[name] and seen[name] ~= key then clash = name end
       seen[name] = key
     end
