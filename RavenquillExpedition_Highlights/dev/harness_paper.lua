@@ -18,13 +18,13 @@ local function Heard(c, entries)
 end
 
 local BUSY_DAY = {
-  E("boss", "Fantastic Frank", At(20, 0, 23), { inst = "Dalaran", boss = "Atrexis der Grabritter", enc = 1 }),
-  E("boss", "Fantastic Frank", At(20, 0, 40), { inst = "Dalaran", boss = "Mortis", enc = 2 }),
-  E("boss", "Fantastic Frank", At(20, 1, 16), { inst = "Dalaran", boss = "Schemen des Erzmagiers", enc = 3 }),
-  E("gear", "Faro Berangias", At(20, 2, 49), { item = 5004, q = 3, il = 55, oil = 44, slot = 17 }),
-  E("level", "Daesha Tandaryel", At(20, 1, 5), { lvl = 10 }),
-  E("skill", "Daesha Tandaryel", At(20, 3, 11), { skill = "Alchemy", rank = 150 }),
-  E("skill", "Daesha Tandaryel", At(20, 3, 13), { skill = "Leatherworking", rank = 150 }),
+  E("boss", "Rika Steinbeck", At(20, 0, 23), { inst = "Dalaran", boss = "Atrexis der Grabritter", enc = 1 }),
+  E("boss", "Rika Steinbeck", At(20, 0, 40), { inst = "Dalaran", boss = "Mortis", enc = 2 }),
+  E("boss", "Rika Steinbeck", At(20, 1, 16), { inst = "Dalaran", boss = "Schemen des Erzmagiers", enc = 3 }),
+  E("gear", "Hanne Moosgrund", At(20, 2, 49), { item = 5004, q = 3, il = 55, oil = 44, slot = 17 }),
+  E("level", "Ole Fichtental", At(20, 1, 5), { lvl = 10 }),
+  E("skill", "Ole Fichtental", At(20, 3, 11), { skill = "Alchemy", rank = 150 }),
+  E("skill", "Ole Fichtental", At(20, 3, 13), { skill = "Leatherworking", rank = 150 }),
   E("quest", "Mira Sturmfeder", At(20, 9), { qid = 11, title = "Die Köpfe der Bande des Defias-Rudels", tag = "special" }),
   E("mount", "Tamo Eichengrund", At(20, 11), { lvl = 40 }),
   E("rep", "Bodo Kesselring", At(20, 12), { st = 7, fac = "Argentumdämmerung" }),
@@ -326,7 +326,7 @@ do
   local function CaptionOf(inst, bosses)
     local c = LayoutClient("Lyra Distelbach")
     for i, name in ipairs(bosses) do
-      Heard(c, { E("boss", "Elyria Elderleaf", At(20, 1, 5) + i * 300, { inst = inst, boss = name, enc = i, first = true }) })
+      Heard(c, { E("boss", "Jori Wolkenfeld", At(20, 1, 5) + i * 300, { inst = inst, boss = name, enc = i, first = true }) })
     end
     c.H:ShowWindow()
     local cap = c.env.RavenquillExpeditionHighlightsFrame.paper.lead.photo.caption
@@ -337,7 +337,9 @@ do
   check(text:find("Scharlachrotes", 1, true) and not Layout.Truncated(cap) and LineCount(cap) <= 2,
     "a long word in the caption widens the photo column instead of being cut (" .. text .. ")")
   local long = select(2, CaptionOf("Schattenfangfestungsruinenkeller", { "Herod", "Mograine", "Whitemane" }))
-  check((long:GetText() or "") == "" and not Layout.Truncated(long), "a caption that cannot fit under the photo is left out")
+  local longText = long:IsShown() and long:GetText() or ""
+  check(not longText:find("Schattenfang", 1, true) and not Layout.Truncated(long),
+    "a caption that cannot fit under the photo is replaced by one that fits, or left out (" .. longText .. ")")
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 

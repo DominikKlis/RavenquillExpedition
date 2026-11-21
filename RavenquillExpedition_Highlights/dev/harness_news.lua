@@ -216,7 +216,7 @@ do
   local de, en = Doubled(DE, PREPOSITION.deDE), Doubled(EN, PREPOSITION.enUS)
   check(#de == 0, "no German variant, with any item noun, has 'für' twice in a clause (" .. (de[1] or "none") .. ")")
   check(#en == 0, "no English variant, with any item noun, has 'for' twice in a clause (" .. (en[1] or "none") .. ")")
-  local g = News.Groups({ E("gear", "Faro Berangias", At(20, 2, 49), { item = 5004, q = 3, il = 55, oil = 44, slot = 17 }) }, Ctx())[1]
+  local g = News.Groups({ E("gear", "Hanne Moosgrund", At(20, 2, 49), { item = 5004, q = 3, il = 55, oil = 44, slot = 17 }) }, Ctx())[1]
   check(News.Vars(g, Ctx(), DE).thingnom == "ein seltener Nebenhandgegenstand",
     "an off-hand item is 'ein seltener Nebenhandgegenstand' (" .. tostring(News.Vars(g, Ctx(), DE).thingnom) .. ")")
 end
@@ -341,7 +341,7 @@ do
   check(n >= 15 and complete and clash == nil, "every profession, secondary skill and battleground has an English and a "
     .. "German name, no name belongs to two keys (" .. tostring(clash) .. ")")
   local function SkillVars(name, L)
-    local g = News.Groups({ E("skill", "Daesha Tandaryel", At(20, 3, 11), { skill = name, rank = 150 }) }, Ctx())[1]
+    local g = News.Groups({ E("skill", "Ole Fichtental", At(20, 3, 11), { skill = name, rank = 150 }) }, Ctx())[1]
     return News.Vars(g, Ctx(), L).skill
   end
   check(SkillVars("Alchemy", DE) == "Alchemie" and SkillVars("Lederverarbeitung", EN) == "Leatherworking"
@@ -349,17 +349,17 @@ do
     and SkillVars("Juwelenschleifen", DE) == "Juwelenschleifen",
     "a skill name from either language is printed in the reader's, an unknown one as it came")
   local issue = News.Issue({ day = "2026-11-20", no = 7, entries = {
-    E("level", "Daesha Tandaryel", At(20, 1, 5), { lvl = 10 }),
+    E("level", "Ole Fichtental", At(20, 1, 5), { lvl = 10 }),
     E("mount", "Tamo Eichengrund", At(20, 2), { lvl = 40 }),
-    E("skill", "Daesha Tandaryel", At(20, 3, 11), { skill = "Alchemy", rank = 150 }),
-    E("skill", "Daesha Tandaryel", At(20, 3, 13), { skill = "Leatherworking", rank = 150 }),
+    E("skill", "Ole Fichtental", At(20, 3, 11), { skill = "Alchemy", rank = 150 }),
+    E("skill", "Ole Fichtental", At(20, 3, 13), { skill = "Leatherworking", rank = 150 }),
     E("pvp", "Bodo Kesselring", At(20, 4), { pk = "win", name = "Warsong Gulch" }),
   } }, DE, Ctx())
   local text = Flatten(issue)
   check(text:find("Alchemie", 1, true) and text:find("Lederverarbeitung", 1, true) and text:find("Kriegshymnenschlucht", 1, true)
     and not text:find("Alchemy", 1, true) and not text:find("Leatherworking", 1, true) and not text:find("Warsong", 1, true),
     "a German paper prints German profession and battleground names, whatever client sent them")
-  local log = reader.H:Format(E("skill", "Daesha Tandaryel", At(20, 3, 11), { skill = "Leatherworking", rank = 150 }))
+  local log = reader.H:Format(E("skill", "Ole Fichtental", At(20, 3, 11), { skill = "Leatherworking", rank = 150 }))
   check(log:find("Lederverarbeitung", 1, true) and not log:find("Leatherworking", 1, true),
     "the chronicle prints the reader's profession name too (" .. log .. ")")
 end
