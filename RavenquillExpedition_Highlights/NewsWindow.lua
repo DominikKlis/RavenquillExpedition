@@ -14,9 +14,8 @@ local BASE_FONT = "Fonts\\FRIZQT__.TTF"
 local INK, INK_SOFT, RULE, PAPER = { 0.17, 0.13, 0.09 }, { 0.36, 0.29, 0.22 }, { 0.48, 0.40, 0.29 }, { 0.92, 0.86, 0.72 }
 local LABEL = { 0.85, 0.78, 0.62 }
 local TIME_HEX = "6b5a45"
-local PAD, PHOTO_W, PHOTO_H, GUTTER, BRIEF_GAP = 16, 64, 52, 16, 24
-local LEAD_TOP, MIN_COLUMN, SECOND_MIN, LEFT_SHARE = 97, 180, 110, 0.57
-local DEFAULT_W, DEFAULT_H = 608, 576
+local SIZE = { pad = 16, photoW = 64, photoH = 52, gutter = 16, briefGap = 24, leadTop = 97, minColumn = 180, secondMin = 110,
+  leftShare = 0.57, defaultW = 608, defaultH = 576 }
 
 local function BaseFont()
   local obj = GameFontHighlightSmall
@@ -45,8 +44,8 @@ end
 
 local function TopRule(paper, y)
   local t = Rule(paper)
-  t:SetPoint("TOPLEFT", PAD, y)
-  t:SetPoint("TOPRIGHT", -PAD, y)
+  t:SetPoint("TOPLEFT", SIZE.pad, y)
+  t:SetPoint("TOPRIGHT", -SIZE.pad, y)
   return t
 end
 
@@ -90,18 +89,18 @@ local function Meta(paper)
   TopRule(paper, -66)
   TopRule(paper, -69)
   paper.metaLeft = Text(paper, 10, { color = INK_SOFT })
-  paper.metaLeft:SetPoint("TOPLEFT", PAD, -74)
+  paper.metaLeft:SetPoint("TOPLEFT", SIZE.pad, -74)
   paper.metaDate = Text(paper, 10, { color = INK_SOFT, justify = "CENTER" })
   paper.metaDate:SetPoint("TOP", 0, -74)
   paper.metaRight = Text(paper, 10, { color = INK_SOFT, justify = "RIGHT" })
-  paper.metaRight:SetPoint("TOPRIGHT", -PAD, -74)
+  paper.metaRight:SetPoint("TOPRIGHT", -SIZE.pad, -74)
   TopRule(paper, -89)
 end
 
 local function Photo(paper)
   local frame = paper:CreateTexture(nil, "BORDER")
   frame:SetColorTexture(0.11, 0.08, 0.05, 1)
-  frame:SetSize(PHOTO_H, PHOTO_H)
+  frame:SetSize(SIZE.photoH, SIZE.photoH)
   local icon = paper:CreateTexture(nil, "ARTWORK")
   icon:SetSize(48, 48)
   icon:SetPoint("CENTER", frame, "CENTER")
@@ -109,17 +108,18 @@ local function Photo(paper)
   icon:SetVertexColor(0.92, 0.80, 0.62)
   local caption = Text(paper, 9, { color = INK_SOFT, justify = "CENTER" })
   caption:SetPoint("TOP", frame, "BOTTOM", 0, -3)
-  caption:SetWidth(PHOTO_W - 4)
+  caption:SetWidth(SIZE.photoW - 4)
   return { frame = frame, icon = icon, caption = caption }
 end
 
 local function Stories(paper)
-  paper.lead = { kicker = Text(paper, 10, { color = INK_SOFT }), head = Text(paper, 20), dek = Text(paper, 13, { color = INK_SOFT }),
+  local soft = { color = INK_SOFT }
+  paper.lead = { kicker = Text(paper, 10, soft), head = Text(paper, 20), dek = Text(paper, 13, soft),
     col1 = Text(paper, 12), col2 = Text(paper, 12), colRule = Rule(paper, 1), photo = Photo(paper), body = {} }
   paper.rowRules = { Rule(paper), Rule(paper) }
   paper.vrule = Rule(paper, 1)
-  paper.second = { kicker = Text(paper, 10, { color = INK_SOFT }), head = Text(paper, 16), body = Text(paper, 12), paragraphs = {} }
-  local brief = { title = Text(paper, 18, { file = MASTHEAD_FONT }), more = Text(paper, 10, { color = INK_SOFT }), lines = {} }
+  paper.second = { kicker = Text(paper, 10, soft), head = Text(paper, 16), body = Text(paper, 12), paragraphs = {} }
+  local brief = { title = Text(paper, 18, { file = MASTHEAD_FONT }), more = Text(paper, 10, soft), lines = {} }
   brief.title:SetText(T.IN_BRIEF)
   for i = 1, News.BRIEF_MAX do brief.lines[i] = Text(paper, 11) end
   paper.brief = brief
@@ -165,42 +165,42 @@ local function Fit(fs, paragraphs, maxH)
 end
 
 local function Columns(body, width)
-  local colW = math.floor((width - GUTTER) / 2)
-  if body[2] ~= nil and colW >= MIN_COLUMN then return colW, { body[1] }, { body[2] } end
+  local colW = math.floor((width - SIZE.gutter) / 2)
+  if body[2] ~= nil and colW >= SIZE.minColumn then return colW, { body[1] }, { body[2] } end
   return width, body, {}
 end
 
 local function FlowColumns(paper, lead, top, inner, maxH)
-  local x = PAD + PHOTO_W
-  local colW, first, second = Columns(lead.body, inner - PHOTO_W)
+  local x = SIZE.pad + SIZE.photoW
+  local colW, first, second = Columns(lead.body, inner - SIZE.photoW)
   Anchor(paper, lead.col1, x, top, colW)
   Fit(lead.col1, first, maxH)
-  Anchor(paper, lead.col2, x + colW + GUTTER, top, colW)
+  Anchor(paper, lead.col2, x + colW + SIZE.gutter, top, colW)
   Fit(lead.col2, second, maxH)
   local split = Height(lead.col2) > 0
   lead.col2:SetShown(split)
   lead.colRule:SetShown(split)
   local bottom = top + math.max(Height(lead.col1), Height(lead.col2))
-  Anchor(paper, lead.colRule, x + colW + GUTTER / 2, top)
+  Anchor(paper, lead.colRule, x + colW + SIZE.gutter / 2, top)
   lead.colRule:SetHeight(math.max(1, bottom - top))
   return bottom
 end
 
 local function FlowLead(paper, w, h)
-  local lead, inner = paper.lead, w - 2 * PAD
-  local y = Place(paper, lead.kicker, PAD, LEAD_TOP, inner) + 4
-  y = Place(paper, lead.head, PAD, y, inner) + 5
-  y = Place(paper, lead.dek, PAD, y, inner) + 8
-  Anchor(paper, lead.photo.frame, PAD + 2, y)
-  local photoBottom = y + PHOTO_H + 3 + Height(lead.photo.caption)
-  return math.max(photoBottom, FlowColumns(paper, lead, y, inner, h - PAD - SECOND_MIN - y))
+  local lead, inner = paper.lead, w - 2 * SIZE.pad
+  local y = Place(paper, lead.kicker, SIZE.pad, SIZE.leadTop, inner) + 4
+  y = Place(paper, lead.head, SIZE.pad, y, inner) + 5
+  y = Place(paper, lead.dek, SIZE.pad, y, inner) + 8
+  Anchor(paper, lead.photo.frame, SIZE.pad + 2, y)
+  local photoBottom = y + SIZE.photoH + 3 + Height(lead.photo.caption)
+  return math.max(photoBottom, FlowColumns(paper, lead, y, inner, h - SIZE.pad - SIZE.secondMin - y))
 end
 
 local function FlowStory(paper, top, width, bottom)
   local sec = paper.second
-  local y = Place(paper, sec.kicker, PAD, top, width) + 4
-  y = Place(paper, sec.head, PAD, y, width) + 5
-  Anchor(paper, sec.body, PAD, y, width)
+  local y = Place(paper, sec.kicker, SIZE.pad, top, width) + 4
+  y = Place(paper, sec.head, SIZE.pad, y, width) + 5
+  Anchor(paper, sec.body, SIZE.pad, y, width)
   Fit(sec.body, sec.paragraphs, bottom - y)
 end
 
@@ -234,20 +234,20 @@ local function FlowBrief(paper, x, top, width, bottom)
 end
 
 local function FlowRow(paper, top, w, h)
-  local inner = w - 2 * PAD
-  local leftW, bottom = math.floor(inner * LEFT_SHARE), h - PAD
-  Anchor(paper, paper.rowRules[1], PAD, top + 6, inner)
-  Anchor(paper, paper.rowRules[2], PAD, top + 9, inner)
+  local inner = w - 2 * SIZE.pad
+  local leftW, bottom = math.floor(inner * SIZE.leftShare), h - SIZE.pad
+  Anchor(paper, paper.rowRules[1], SIZE.pad, top + 6, inner)
+  Anchor(paper, paper.rowRules[2], SIZE.pad, top + 9, inner)
   local y = top + 20
   FlowStory(paper, y, leftW, bottom)
-  Anchor(paper, paper.vrule, PAD + leftW + BRIEF_GAP / 2, y)
+  Anchor(paper, paper.vrule, SIZE.pad + leftW + SIZE.briefGap / 2, y)
   paper.vrule:SetHeight(math.max(1, bottom - y))
-  FlowBrief(paper, PAD + leftW + BRIEF_GAP, y, inner - leftW - BRIEF_GAP, bottom)
+  FlowBrief(paper, SIZE.pad + leftW + SIZE.briefGap, y, inner - leftW - SIZE.briefGap, bottom)
 end
 
 local function PaperSize(paper)
   local w, h = Plain(paper:GetWidth(), "number"), Plain(paper:GetHeight(), "number")
-  if not (w and w > 0 and h and h > 0) then return DEFAULT_W, DEFAULT_H end
+  if not (w and w > 0 and h and h > 0) then return SIZE.defaultW, SIZE.defaultH end
   return w, h
 end
 
