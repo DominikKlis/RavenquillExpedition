@@ -274,3 +274,46 @@ frame:SetScript("OnEvent", function(_, event, arg1)
   local handle = CoreEvents[event]
   if handle then handle(arg1) end
 end)
+
+local function PlainText(text) return (tostring(text):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
+
+local function PeerList(peers, versions)
+  local out = {}
+  for k, t in pairs(peers or {}) do out[#out + 1] = k .. " " .. (versions[k] or "?") .. " (" .. date("%d.%m. %H:%M", t) .. ")" end
+  table.sort(out)
+  return out[1] and table.concat(out, ", ") or "-"
+end
+
+local function AppendLastError(out, e)
+  if not e then return end
+  out[#out + 1] = "last error: " .. date("%d.%m. %H:%M", e.t or 0) .. " " .. tostring(e.msg)
+  if e.trace then out[#out + 1] = tostring(e.trace) end
+end
+
+function GS:DiagLines()
+  local out = {
+    "Ravenquill Expedition v" .. self.version .. "  build " .. tostring((select(4, GetBuildInfo()))),
+    "player: " .. tostring(self:PlayerKey()) .. "  guild: " .. tostring(self:GuildKey()),
+    "sync: " .. PlainText(self:CommStatus()),
+    "roster members: " .. (function() local n = 0; for _ in pairs(self.roster) do n = n + 1 end; return n end)(),
+  }
+  out[#out + 1] = "peers: " .. PeerList(self:Peers(), self:PeerVersions() or {})
+  local names = {}
+  for _, name in ipairs(self.moduleOrder) do names[#names + 1] = name .. "=" .. tostring(self.modules[name].addon) end
+  out[#out + 1] = "modules: " .. table.concat(names, ", ")
+  AppendLastError(out, (self.db or {}).lastError)
+  out[#out + 1] = ""
+  out[#out + 1] = "== minimap button"
+  self:Call(self.LauncherDebug, self, function(line) out[#out + 1] = PlainText(line) end)
+  for _, name in ipairs(self.moduleOrder) do self:AppendModuleDiagnostics(out, self.modules[name]) end
+  return out
+end
+
+function GS:AppendModuleDiagnostics(out, mod)
+  if not mod.OverviewDiagnostics then return end
+  local lines = self:Call(mod.OverviewDiagnostics, mod)
+  if type(lines) ~= "table" then return end
+  out[#out + 1] = ""
+  out[#out + 1] = "== " .. tostring(mod.title or mod.name)
+  for _, line in ipairs(lines) do out[#out + 1] = tostring(line) end
+end

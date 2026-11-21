@@ -607,7 +607,15 @@ rawget(hlPage.modeButton, "_scripts").OnClick(hlPage.modeButton)
 check(hlPage.mode == "paper" and hlPage.paper:IsShown(), "Zeitung on the tab goes back to the newspaper")
 local gear = ov.optView.gear
 check(rawget(gear, "_shown") and gear:GetText() == "Einstellungen" and gear:IsEnabled() and hlPage.open == nil,
-  "a module page shows a labelled settings button and its own page, no open button")
+  "a module page shows a labelled settings button and its own page, no open page")
+local openPaper = ov.optView.openWindow
+hlFrame:Hide()
+check(rawget(openPaper, "_shown") and openPaper:GetText() == "Zeitung öffnen" and not hlFrame:IsShown(),
+  "the Highlights tab's header row offers 'Zeitung öffnen' next to the settings button")
+rawget(openPaper, "_scripts").OnClick(openPaper)
+check(hlFrame:IsShown() and hlFrame.mode == "paper" and hlFrame.paper:IsShown() and hlPage:IsShown(),
+  "'Zeitung öffnen' opens the paper sheet on the newspaper and leaves the tab shown")
+hlFrame:Hide()
 rawget(gear, "_scripts").OnClick(gear)
 check(GS.moduleSettings and ov.optView.panels.Highlights:IsShown() and not hlPage:IsShown(), "the settings button shows the settings")
 check(gear:GetText() == "« Zurück" and gear:IsEnabled(), "in the settings the same button reads '« Zurück'")
@@ -658,8 +666,8 @@ local mapOpen = ov.optView.pages.Map and ov.optView.pages.Map.open
 check(not GS.moduleSettings and ov.optView.pages.Map:IsShown() and not ov.optView.scroll:IsShown() and mapOpen,
   "a module with a window but no page of its own opens on a page with its open button")
 check(mapOpen:GetText() == "Karte öffnen", "the open button names the module's window (" .. tostring(mapOpen:GetText()) .. ")")
-check(rawget(ov.optView.gear, "_shown") and ov.optView.gear:GetText() == "Einstellungen",
-  "its settings sit behind the settings button at the top right")
+check(rawget(ov.optView.gear, "_shown") and ov.optView.gear:GetText() == "Einstellungen" and not ov.optView.openWindow:IsShown(),
+  "its settings sit behind the settings button at the top right, no header open button for other modules")
 rawget(mapOpen, "_scripts").OnClick(mapOpen)
 check(opened and not GS.moduleSettings, "the open button calls mod:Open() and leaves the page shown")
 rawget(ov.optView.gear, "_scripts").OnClick(ov.optView.gear)

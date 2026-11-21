@@ -35,7 +35,7 @@ local function ModuleRow(mod, k)
   row.status = mod.OverviewStatus and GS:Call(mod.OverviewStatus, mod) or L.LOADED
   if type(row.status) ~= "string" then row.status = "" end
   if mod.Open then row.open = function() GS:Call(mod.Open, mod) end end
-  row.openLabel, row.openFirst = mod.openLabel, mod.openFirst
+  row.openLabel, row.openFirst, row.openInHeader = mod.openLabel, mod.openFirst, mod.openInHeader
   if ns.ModuleOptions(mod) then row.options = true end
   if HasModulePage(mod) then row.page = true end
   return row
@@ -88,49 +88,6 @@ function GS:OverviewSyncLine()
 end
 
 function GS:OverviewPeersLine() return L.PEERS:format(ns.PeersOnRoster()) end
-
-local function PlainText(text) return (tostring(text):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
-
-local function PeerList(peers, versions)
-  local out = {}
-  for k, t in pairs(peers or {}) do out[#out + 1] = k .. " " .. (versions[k] or "?") .. " (" .. date("%d.%m. %H:%M", t) .. ")" end
-  table.sort(out)
-  return out[1] and table.concat(out, ", ") or "-"
-end
-
-local function AppendLastError(out, e)
-  if not e then return end
-  out[#out + 1] = "last error: " .. date("%d.%m. %H:%M", e.t or 0) .. " " .. tostring(e.msg)
-  if e.trace then out[#out + 1] = tostring(e.trace) end
-end
-
-function GS:DiagLines()
-  local out = {
-    "Ravenquill Expedition v" .. self.version .. "  build " .. tostring((select(4, GetBuildInfo()))),
-    "player: " .. tostring(self:PlayerKey()) .. "  guild: " .. tostring(self:GuildKey()),
-    "sync: " .. PlainText(self:CommStatus()),
-    "roster members: " .. (function() local n = 0; for _ in pairs(self.roster) do n = n + 1 end; return n end)(),
-  }
-  out[#out + 1] = "peers: " .. PeerList(self:Peers(), self:PeerVersions() or {})
-  local names = {}
-  for _, name in ipairs(self.moduleOrder) do names[#names + 1] = name .. "=" .. tostring(self.modules[name].addon) end
-  out[#out + 1] = "modules: " .. table.concat(names, ", ")
-  AppendLastError(out, (self.db or {}).lastError)
-  out[#out + 1] = ""
-  out[#out + 1] = "== minimap button"
-  self:Call(self.LauncherDebug, self, function(line) out[#out + 1] = PlainText(line) end)
-  for _, name in ipairs(self.moduleOrder) do self:AppendModuleDiagnostics(out, self.modules[name]) end
-  return out
-end
-
-function GS:AppendModuleDiagnostics(out, mod)
-  if not mod.OverviewDiagnostics then return end
-  local lines = self:Call(mod.OverviewDiagnostics, mod)
-  if type(lines) ~= "table" then return end
-  out[#out + 1] = ""
-  out[#out + 1] = "== " .. tostring(mod.title or mod.name)
-  for _, line in ipairs(lines) do out[#out + 1] = tostring(line) end
-end
 
 
 local win
@@ -302,6 +259,9 @@ local function BuildOptionsView(f)
   opt.gear:SetPoint("TOPRIGHT", -20, -14)
   opt.gear.icon:SetTexture(GEAR_ICON)
   opt.gear:SetText(L.SETTINGS)
+  opt.openWindow = IconButton(inset, SETTINGS_BUTTON_WIDTH, 26)
+  opt.openWindow:SetPoint("RIGHT", opt.gear, "LEFT", -10, 0)
+  opt.openWindow:Hide()
   local line = ns.Rule(inset, opt.status, -14)
   opt.body = CreateFrame("Frame", nil, inset)
   opt.body:SetPoint("TOPLEFT", line, "BOTTOMLEFT", -4, -8)
@@ -372,9 +332,20 @@ local function RenderGear(gear, d, settings)
   end)
 end
 
+local function RenderOpenWindow(opt, d)
+  local b, shown = opt.openWindow, (d.openInHeader and d.open) and true or false
+  b:SetShown(shown)
+  opt.status:SetPoint("RIGHT", shown and b or opt.gear, "LEFT", -10, 0)
+  if not shown then return end
+  b.icon:SetTexture(d.icon)
+  b:SetText(d.openLabel and L.OPEN_WINDOW:format(d.openLabel) or L.OPEN)
+  b:SetScript("OnClick", function() d.open() end)
+end
+
 local function RenderModuleHeader(opt, d, settings)
   opt.status:SetText(d.status)
   RenderGear(opt.gear, d, settings)
+  RenderOpenWindow(opt, d)
 end
 
 local function OptionsPanel(opt, name, mod)
