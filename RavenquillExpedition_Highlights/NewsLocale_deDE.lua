@@ -6,7 +6,6 @@ ns.NewsLocales.deDE = {
   MASTHEAD = "Rabenblatt",
   META_LEFT = "Gildenblatt der Ravenquill Expedition",
   EAR_NO = "Nr. {no}",
-  EAR_PRICE = "Preis",
   EAR_COST = "1 Kupfer",
   SHORT_DATE = "{day}. {month}",
   WEEKDAYS = { "Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag" },

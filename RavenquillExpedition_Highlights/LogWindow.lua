@@ -6,9 +6,9 @@ local T = GS.NewLocale(ns.NewsLocales)
 
 local win, refreshArmed
 local views = {}
-local WINDOW_NAV, PAGE_LOG = { 32, 8, reserve = 26, rule = 34 }, { 4, -2, -4, 30 }
+local WINDOW_NAV, PAGE_LOG = { 34, 14, reserve = 57, rule = 41, size = 13 }, { 4, -2, -4, 30 }
 local SHADOW_RINGS, SHADOW_ALPHA = 10, 0.4
-local INK_DARK, INK_FADED = { 0.04, 0.03, 0.02 }, { 0.62, 0.56, 0.46 }
+local INK_DARK, INK_FADED = { 0.04, 0.03, 0.02 }, { 0.663, 0.58, 0.455 }
 local GRAIN_ALPHA = 0.5
 H.WINDOW_W, H.WINDOW_H, H.WINDOW_SHARE, H.WINDOW_MIN_H = 900, 780, 0.9, 480
 
@@ -27,16 +27,10 @@ local function InkStyle(b)
   local enabled = b:IsEnabled() and true or false
   local c = (not enabled and INK_FADED) or (b.hover and INK_DARK) or H.INK
   b.label:SetTextColor(c[1], c[2], c[3])
-  b.underline:SetShown(enabled and (b.link or b.hover) or false)
+  b.underline:SetShown(enabled and b.hover or false)
 end
 
-local function Label(b, text)
-  if not b.link then return b:SetText(text) end
-  b:SetText(H.Upper(text))
-  b:SetWidth(math.ceil(GS.Plain(b.label:GetStringWidth(), "number") or 0) + 4)
-end
-
-function H.InkButton(parent, text, size, link)
+function H.InkButton(parent, text, size)
   local b = CreateFrame("Button", nil, parent)
   b:SetSize(size + 4, size + 8)
   local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -45,13 +39,13 @@ function H.InkButton(parent, text, size, link)
   fs:SetPoint("CENTER")
   if b.SetFontString then b:SetFontString(fs) end
   local line = b:CreateTexture(nil, "ARTWORK")
-  local c = link and H.RULE or INK_DARK
-  line:SetColorTexture(c[1], c[2], c[3], 1)
+  line:SetColorTexture(INK_DARK[1], INK_DARK[2], INK_DARK[3], 1)
   line:SetHeight(1)
   line:SetPoint("TOPLEFT", fs, "BOTTOMLEFT", 0, -2)
   line:SetPoint("TOPRIGHT", fs, "BOTTOMRIGHT", 0, -2)
-  b.label, b.underline, b.restyle, b.link = fs, line, InkStyle, link
-  Label(b, text)
+  b.label, b.underline, b.restyle = fs, line, InkStyle
+  b:SetText(text)
+  b:SetWidth(math.ceil(GS.Plain(fs:GetStringWidth(), "number") or 0) + 4)
   b:SetScript("OnEnter", function() b.hover = true; InkStyle(b) end)
   b:SetScript("OnLeave", function() b.hover = false; InkStyle(b) end)
   InkStyle(b)
@@ -96,13 +90,13 @@ function H.PaperSheet(paper)
   paper.parchment = { base = base, texture = grain, vignette = vignette, source = loaded and "texture" or "color" }
 end
 
-local function FooterRules(host, nav)
-  local rules = H.DoubleRule(host)
-  rules.thin:SetPoint("BOTTOMLEFT", nav[1], nav.rule + 4)
-  rules.thin:SetPoint("BOTTOMRIGHT", -nav[1], nav.rule + 4)
-  rules.thick:SetPoint("BOTTOMLEFT", nav[1], nav.rule)
-  rules.thick:SetPoint("BOTTOMRIGHT", -nav[1], nav.rule)
-  return rules
+local function FooterRule(host, nav)
+  local rule = host:CreateTexture(nil, "ARTWORK")
+  rule:SetColorTexture(H.INK[1], H.INK[2], H.INK[3], 1)
+  rule:SetHeight(2)
+  rule:SetPoint("BOTTOMLEFT", nav[1], nav.rule)
+  rule:SetPoint("BOTTOMRIGHT", -nav[1], nav.rule)
+  return rule
 end
 
 local function OpenChronicle(f)
@@ -110,19 +104,30 @@ local function OpenChronicle(f)
   GS:ShowModulePage(H.name)
 end
 
+function H.SpreadNav(f)
+  local nav, items, used = f.nav, { f.prev, f.issueLabel, f.next, f.chronicle }, 0
+  f.issueLabel:SetWidth(math.ceil(GS.Plain(f.issueLabel:GetStringWidth(), "number") or 0) + 4)
+  for _, item in ipairs(items) do used = used + (GS.Plain(item:GetWidth(), "number") or 0) end
+  local x = nav[1]
+  local gap = ((GS.Plain(f:GetWidth(), "number") or H.WINDOW_W) - 2 * nav[1] - used) / 3
+  for _, item in ipairs(items) do
+    item:ClearAllPoints()
+    item:SetPoint("LEFT", f, "BOTTOMLEFT", x, nav[2] + (nav.size + 8) / 2)
+    x = x + (GS.Plain(item:GetWidth(), "number") or 0) + gap
+  end
+end
+
 function H.NavButtons(f, nav, ink)
-  f.prev = H.InkButton(ink, T.PREV, 12, true)
-  f.prev:SetPoint("BOTTOMLEFT", nav[1], nav[2])
-  f.chronicle = H.InkButton(ink, T.CHRONICLE, 12, true)
-  f.chronicle:SetPoint("BOTTOMRIGHT", -nav[1], nav[2])
-  f.next = H.InkButton(ink, T.NEXT, 12, true)
-  f.next:SetPoint("RIGHT", f.chronicle, "LEFT", -24, 0)
+  f.nav = nav
+  f.prev = H.InkButton(ink, T.PREV, nav.size)
+  f.next = H.InkButton(ink, T.NEXT, nav.size)
+  f.chronicle = H.InkButton(ink, T.CHRONICLE, nav.size)
   f.issueLabel = ink:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  f.issueLabel:SetPoint("LEFT", f.prev, "RIGHT", 4, 0)
-  f.issueLabel:SetPoint("RIGHT", f.next, "LEFT", -4, 0)
-  f.issueLabel:SetJustifyH("CENTER")
-  f.issueLabel:SetTextColor(H.INK_SOFT[1], H.INK_SOFT[2], H.INK_SOFT[3])
-  f.footerRules = FooterRules(ink, nav)
+  H.SetFontSize(f.issueLabel, nav.size)
+  f.issueLabel:SetShadowOffset(0, 0)
+  f.issueLabel:SetTextColor(H.INK[1], H.INK[2], H.INK[3])
+  f.footerRule = FooterRule(ink, nav)
+  H.SpreadNav(f)
   f.prev:SetScript("OnClick", function() GS:Call(H.StepIssue, H, f, -1) end)
   f.next:SetScript("OnClick", function() GS:Call(H.StepIssue, H, f, 1) end)
   f.chronicle:SetScript("OnClick", function() GS:Call(OpenChronicle, f) end)
@@ -178,8 +183,8 @@ local function FitSheet(f)
 end
 
 local function CloseMark(f)
-  local close = H.InkButton(f.inkLayer, "×", 20)
-  close:SetPoint("TOPRIGHT", -6, -4)
+  local close = H.InkButton(f.inkLayer, "×", 22)
+  close:SetPoint("TOPRIGHT", -12, -6)
   close:SetScript("OnClick", function() f:Hide() end)
   f.close = close
 end

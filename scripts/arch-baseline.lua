@@ -1,7 +1,7 @@
 return {
   metrics = {
     cached_trace = 0,
-    checks_passed = 2564,
+    checks_passed = 2579,
     checks_skipped = 0,
     comments = 0,
     core_internals = 0,

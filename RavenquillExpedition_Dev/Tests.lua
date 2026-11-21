@@ -467,9 +467,9 @@ local function CheckNewspaper(t, H)
   local m, p = paper.masthead, paper.parchment
   t:ok(m.loaded, ("masthead texture loaded (SetTexture returned %s; %s)"):format(tostring(m.result), TextureFacts(m.texture)))
   t:ok(p.source == "texture", ("parchment texture loaded: %s (%s; %s)"):format(p.source, H.PARCHMENT, TextureFacts(p.texture)))
-  local cap, heading = paper.lead.cap, paper.brief.title
-  t:ok(cap.loaded and heading.loaded and p.vignette:IsShown(), ("drop caps, In Kurze heading and vignette loaded (%s; %s; %s)"):format(
-    TextureFacts(cap), TextureFacts(heading.texture), TextureFacts(p.vignette)))
+  t:ok(p.vignette:IsShown(), ("vignette loaded (%s)"):format(TextureFacts(p.vignette)))
+  local font = paper.lead.head:GetFont()
+  t:ok(type(font) == "string" and font:upper():find("MORPHEUS", 1, true) ~= nil, "headline font: " .. tostring(font))
   local off = Dev.TextOutside(paper)
   t:ok(off == nil, ("window paper %dx%d: every text on the paper, none cut%s"):format(math.floor(paper:GetWidth() + 0.5),
     math.floor(paper:GetHeight() + 0.5), off and (": " .. off:sub(1, 60)) or ""))

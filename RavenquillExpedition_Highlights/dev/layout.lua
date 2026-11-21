@@ -33,14 +33,21 @@ local function TextWidth(s)
   return widest * (s._fontSize or 12) * Layout.CHAR_EM
 end
 
-local Axis
+local Axis, Fixes
+
+local function WrapWidth(s)
+  local fixes = Fixes(s, true)
+  if not (s._w or (fixes and #fixes > 1)) then return nil end
+  local _, width = Axis(s, true)
+  return width
+end
 
 local function StringHeight(s)
   if not s._text or s._text == "" then return 0 end
-  local _, width = Axis(s, true)
+  local width = WrapWidth(s)
   local lines = Layout.Lines(s._text, s._fontSize or 12, width)
   if s._maxLines and s._maxLines > 0 then lines = math.min(lines, s._maxLines) end
-  return lines * (s._fontSize or 12) * Layout.LINE_EM
+  return lines * (s._fontSize or 12) * Layout.LINE_EM + (lines - 1) * (s._spacing or 0)
 end
 
 local function Intrinsic(s, horizontal)
@@ -51,7 +58,7 @@ local function Intrinsic(s, horizontal)
   return StringHeight(s)
 end
 
-local function Fixes(s, horizontal)
+Fixes = function(s, horizontal)
   local fixes, fracs = {}, horizontal and FX or FY
   for point, a in pairs(s._points or {}) do
     local lo, size = Axis(a.rel or s._parent, horizontal)
@@ -117,7 +124,8 @@ function Layout.Install(c)
     fs._fontSize = 12
     return fs
   end
-  fm.SetFont = function(s, _, size) s._fontSize = size; return true end
+  fm.SetFont = function(s, file, size) s._fontSize, s._fontFile = size, file; return true end
+  fm.SetSpacing = function(s, px) s._spacing = px end
   fm.SetMaxLines = function(s, n) s._maxLines = n end
   fm.SetPoint = SetPoint
   fm.ClearAllPoints = function(s) s._points = {} end

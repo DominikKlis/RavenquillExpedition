@@ -6,7 +6,6 @@ ns.NewsLocales.enUS = {
   MASTHEAD = "Rabenblatt",
   META_LEFT = "Guild paper of the Ravenquill Expedition",
   EAR_NO = "No. {no}",
-  EAR_PRICE = "Price",
   EAR_COST = "1 copper",
   SHORT_DATE = "{month} {day}",
   WEEKDAYS = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" },
