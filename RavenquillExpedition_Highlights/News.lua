@@ -82,6 +82,14 @@ end
 function News.Count(n, T) return T.NUMBERS[n] or tostring(n) end
 local Count = News.Count
 
+function News.Counted(list, n, T)
+  local vars = { n = Count(n, T), one = n == 1 and "" or nil }
+  for _, text in ipairs(list) do
+    local out = News.Fill(text, vars)
+    if out then return out end
+  end
+end
+
 local function Join(list, T)
   if #list < 2 then return list[1] end
   return table.concat(list, T.COMMA, 1, #list - 1) .. T.AND .. list[#list]
@@ -263,7 +271,7 @@ local function Quest(v, g, _, T)
   v.n, v.lastquest = Count(#titles, T), titles[#titles]
   local shown = {}
   for i = 1, math.min(#titles, News.QUEST_LIST_MAX) do shown[i] = titles[i] end
-  if #titles > #shown then shown[#shown + 1] = News.Fill(T.MORE_QUESTS, { n = Count(#titles - #shown, T) }) end
+  if #titles > #shown then shown[#shown + 1] = News.Counted(T.MORE_QUESTS, #titles - #shown, T) end
   v.quests = Join(shown, T)
 end
 

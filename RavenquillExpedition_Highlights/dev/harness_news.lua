@@ -218,6 +218,19 @@ do
     "an off-hand item is 'ein seltener Nebenhandgegenstand' (" .. tostring(News.Vars(g, Ctx(), DE).thingnom) .. ")")
 end
 
+Kit.section("Counts: one more is singular, more than one is plural")
+do
+  local function More(L, n) return News.Counted and News.Counted(L.MORE_BRIEF, n, L) end
+  check(More(DE, 1) == "eine weitere Meldung steht in der Chronik." and More(DE, 2) == "zwei weitere Meldungen stehen in der Chronik."
+    and More(EN, 1) == "one more report is in the chronicle." and More(EN, 13) == "13 more reports are in the chronicle.",
+    "the line about the chronicle counts in words with the right number (" .. tostring(More(DE, 1)) .. ")")
+  local entries = {}
+  for i = 1, 4 do entries[i] = E("quest", "Mira Sturmfeder", At(18, 9, i), { qid = i, title = "Auftrag " .. i, tag = "special" }) end
+  local quests = News.Vars(News.Groups(entries, Ctx())[1], Ctx(), DE).quests
+  check(quests == "„Auftrag 1“, „Auftrag 2“, „Auftrag 3“ und ein weiterer", "one quest past the list is 'ein weiterer' ("
+    .. tostring(quests) .. ")")
+end
+
 local MINIMAL = {
   raid = { "boss", { raid = true } }, boss = { "boss", {} }, run = { "run", { n = 1, nf = 1 } },
   epic = { "loot", { item = 9999, q = 4 } }, gear = { "gear", { item = 9998, q = 3 } }, levelmax = { "level", { lvl = 60 } },

@@ -161,7 +161,7 @@ do
   check(cut == nil, "bodies keep whole paragraphs or whole sentences, never a cut one (" .. tostring(cut) .. ")")
   local dropped = #paper.issue.brief - ShownBrief(paper)
   local more = paper.brief.more:GetText() or ""
-  check(dropped > 0 and more:find(c.ns[NK.HL].News.Count(paper.issue.more + dropped, c.ns[NK.HL].NewsLocales.deDE), 1, true),
+  check(dropped > 0 and more:lower():find(c.ns[NK.HL].News.Count(paper.issue.more + dropped, c.ns[NK.HL].NewsLocales.deDE), 1, true),
     "brief lines that do not fit are dropped whole and counted in the line about the chronicle (" .. more .. ")")
   f:Hide()
   f, paper = OpenSized(c, 640, 430)

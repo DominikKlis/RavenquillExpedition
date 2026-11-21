@@ -206,7 +206,7 @@ end
 
 local function MoreText(issue, dropped)
   local extra = (issue and issue.more or 0) + dropped
-  if extra > 0 then return News.Pick({ T.MORE_BRIEF }, "more", { n = News.Count(extra, T) }) end
+  if extra > 0 then return (News.Counted(T.MORE_BRIEF, extra, T):gsub("^%l", string.upper)) end
   return (issue and issue.brief[1]) and "" or T.NO_BRIEF
 end
 
