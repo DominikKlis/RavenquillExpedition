@@ -272,7 +272,8 @@ fire("PLAYER_ENTERING_WORLD")
 local run = last()
 check(count() == n + 1 and run.k == "run" and run.first and run.n == 2 and run.nf == 2 and run.inst == "Die Todesminen"
   and run.boss == "Rhahk'Zor" and H.cdb.run == nil, "entering another instance ends the run: one highlight for the dungeon")
-check(printedSince(runMark):find("Die Todesminen|r – erster Lauf, 2 Bosse", 1, true) ~= nil, "the run is printed in chat")
+check(printedSince(runMark):find("Die Todesminen|r zum ersten Mal geschafft: 2 Bosse, zuletzt Rhahk'Zor", 1, true) ~= nil,
+  "a first run is printed in chat with the boss count and the last boss")
 fire("ENCOUNTER_END", 663, "Lucifron", 9, 40, 1)
 local luci = last()
 check(luci.k == "boss" and luci.grp and luci.n == 3 and H.cdb.outbox[luci.id] and H.cdb.outbox[luci.id].rank == 1,
@@ -317,7 +318,9 @@ check(count() == n, "the run stays open for a while after leaving")
 advance(20)
 run = last()
 check(count() == n + 1 and run.k == "run" and not run.first and run.nf == 1 and run.n == 2, "a later run with one new boss")
-check(H:Format(run):find("1 von 2 Bossen neu", 1, true), "new-bosses line text")
+check(H:Format(run):find("Die Todesminen|r geschafft: 2 Bosse, davon 1 zum ersten Mal", 1, true), "a repeat run says how many bosses were new")
+check(H:Format({ k = "run", who = "Me Smith", first = true, n = 1, inst = "Die Todesminen" }):find("geschafft: ein Boss", 1, true)
+  and not H:Format(run):find("1 Bosse", 1, true), "one boss reads 'ein Boss', never '1 Bosse'")
 local runBack = H.Decode("Me Smith", H.Encode(run))
 check(runBack and runBack.k == "run" and runBack.n == 2 and runBack.nf == 1 and runBack.boss == "Mr. Smite"
   and runBack.inst == "Die Todesminen" and not runBack.first, "run round trip")

@@ -337,9 +337,9 @@ H.KINDS = {
   run = {
     code = "d", chat = true, icon = "INV_Misc_Key_03",
     format = function(_, e)
-      local inst = Gold(NonEmpty(e.inst, L.AN_INSTANCE))
-      if e.first then return L.RUN_FIRST:format(inst, e.n or 1) end
-      return L.RUN_NEW:format(inst, e.nf or 1, e.n or 1)
+      local inst, bosses = Gold(NonEmpty(e.inst, L.AN_INSTANCE)), (e.n or 1) == 1 and L.ONE_BOSS or L.N_BOSSES:format(e.n)
+      if e.first then return L.RUN_FIRST:format(inst, bosses) .. (NonEmpty(e.boss) and L.RUN_LAST:format(e.boss) or "") end
+      return L.RUN_NEW:format(inst, bosses, e.nf or 1)
     end,
   },
   quest = {
