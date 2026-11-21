@@ -70,8 +70,10 @@ do
   local issue = News.Issue({ day = "2026-11-18", no = 7, entries = BIG_DAY }, DE, Ctx())
   check(issue.no == 7 and issue.lead.kind == "raid" and issue.second.kind == "epic" and #issue.brief == News.BRIEF_MAX
     and issue.more == 1, "lead raid, second epic, five briefs, one more in the chronicle")
-  check(issue.brief[1].time == "14:00" and issue.brief[1].text:find("Zul'Farrak", 1, true) ~= nil,
-    "briefs carry the time and the facts (" .. issue.brief[1].text .. ")")
+  local run
+  for _, b in ipairs(issue.brief) do if b.text:find("Zul'Farrak", 1, true) then run = b end end
+  check(run and run.time == "14:00" and run.text:find("sieben Bosse", 1, true) ~= nil,
+    "briefs carry the time and the facts (" .. tostring(run and run.text) .. ")")
 end
 
 local function Flatten(issue)
@@ -104,18 +106,18 @@ do
   check(News.Story(g, DE, Ctx()).head == News.Story(g, DE, Ctx()).head, "the same entry always gets the same headline")
 end
 
+local OUTING = "inst boss lastboss n min start grp first before middle lo hi"
+local ITEM = "item thing thingnom il oldil gain crafted received looted worn soon weartime"
 local KNOWN = {
-  raid = "inst boss lastboss n min start grp first", boss = "inst boss lastboss n min start grp first",
-  run = "inst lastboss n nf first", epic = "item thing thingnom il oldil gain crafted received worn",
-  gear = "item thing thingnom il oldil gain crafted received worn",
-  levelmax = "lvl left names n lead leadtime lastname lasttime", level = "lvl left names n lead leadtime lastname lasttime",
-  mount = "mount epic", quest = "quest quests n lastquest legend", rep = "fac standing exalted", skill = "skill rank top",
+  raid = OUTING, boss = OUTING, run = "inst lastboss n nf first lo hi", epic = ITEM, gear = ITEM,
+  levelmax = "lvl left lead leadtime lastname lasttime", level = "lvl left lead leadtime lastname lasttime",
+  mount = "mount epic", quest = "quest quests rest n lastquest legend", rep = "fac standing exalted", skill = "skill rank top",
   pvp = "bg prank", duel = "foe",
 }
 local REQUIRED_SLOTS = { "kicker", "head", "dek", "body", "caption", "brief" }
 
 local function KnownSet(kind)
-  local set = { name = true, time = true, clvl = true }
+  local set = { name = true, names = true, people = true, time = true, clvl = true }
   for key in KNOWN[kind]:gmatch("%S+") do set[key] = true end
   return set
 end

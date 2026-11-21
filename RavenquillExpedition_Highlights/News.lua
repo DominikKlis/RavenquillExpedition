@@ -6,9 +6,14 @@ ns.News = News
 News.RANK = { raid = 100, epic = 90, run = 80, boss = 75, levelmax = 70, mount = 56, gear = 52, level = 46, quest = 40,
   rep = 38, skill = 34, pvp = 32, duel = 24 }
 News.LEVEL_RANK = { [50] = 66, [40] = 64 }
-News.BRIEF_MAX = 5
-News.QUEST_LIST_MAX = 3
+News.BRIEF_MAX, News.QUEST_LIST_MAX, News.SAME_OUTING = 5, 3, 300
 News.PAPER_HEX = { [2] = "1f6b12", [3] = "0b5cad", [4] = "7b2cbf", [5] = "b35900" }
+News.SUBJECT, News.PERSONAL = { name = true, names = true }, { clvl = true, lo = true, hi = true }
+News.KEY = { raid = "n boss", boss = "n boss", run = "n nf first lastboss", epic = "il item", gear = "il item",
+  quest = "n rest", rep = "standing", skill = "rank", level = "left", levelmax = "people" }
+News.FACT_OF = { thingnom = "thing", gain = "oldil", quests = "quest rest", lastquest = "quest", before = "boss middle",
+  lead = "order time", leadtime = "order time", lastname = "order time", lasttime = "order time", soon = "worn",
+  weartime = "worn", clvl = "levels", lo = "levels", hi = "levels" }
 
 local SLOT_NOUN = { [1] = "head", [2] = "neck", [3] = "shoulder", [5] = "chest", [6] = "waist", [7] = "legs", [8] = "feet",
   [9] = "wrist", [10] = "hands", [11] = "ring", [12] = "ring", [13] = "trinket", [14] = "trinket", [15] = "back",
@@ -21,21 +26,14 @@ local EQUIP_NOUN = { INVTYPE_HEAD = "head", INVTYPE_NECK = "neck", INVTYPE_SHOUL
   INVTYPE_RANGEDRIGHT = "ranged", INVTYPE_THROWN = "ranged", INVTYPE_RELIC = "relic", INVTYPE_BAG = "bag" }
 
 News.NAMES = {
-  alchemy = { enUS = "Alchemy", deDE = "Alchemie" },
-  blacksmithing = { enUS = "Blacksmithing", deDE = "Schmiedekunst" },
-  enchanting = { enUS = "Enchanting", deDE = "Verzauberkunst" },
-  engineering = { enUS = "Engineering", deDE = "Ingenieurskunst" },
-  herbalism = { enUS = "Herbalism", deDE = "Kräuterkunde" },
-  leatherworking = { enUS = "Leatherworking", deDE = "Lederverarbeitung" },
+  leatherworking = { enUS = "Leatherworking", deDE = "Lederverarbeitung" }, fishing = { enUS = "Fishing", deDE = "Angeln" },
+  warsong = { enUS = "Warsong Gulch", deDE = "Kriegshymnenschlucht" }, cooking = { enUS = "Cooking", deDE = "Kochkunst" },
+  blacksmithing = { enUS = "Blacksmithing", deDE = "Schmiedekunst" }, alchemy = { enUS = "Alchemy", deDE = "Alchemie" },
+  engineering = { enUS = "Engineering", deDE = "Ingenieurskunst" }, firstaid = { enUS = "First Aid", deDE = "Erste Hilfe" },
+  enchanting = { enUS = "Enchanting", deDE = "Verzauberkunst" }, alterac = { enUS = "Alterac Valley", deDE = "Alteractal" },
+  herbalism = { enUS = "Herbalism", deDE = "Kräuterkunde" }, arathi = { enUS = "Arathi Basin", deDE = "Arathibecken" },
+  tailoring = { enUS = "Tailoring", deDE = "Schneiderei" }, skinning = { enUS = "Skinning", deDE = "Kürschnerei" },
   mining = { enUS = "Mining", deDE = "Bergbau" },
-  skinning = { enUS = "Skinning", deDE = "Kürschnerei" },
-  tailoring = { enUS = "Tailoring", deDE = "Schneiderei" },
-  cooking = { enUS = "Cooking", deDE = "Kochkunst" },
-  firstaid = { enUS = "First Aid", deDE = "Erste Hilfe" },
-  fishing = { enUS = "Fishing", deDE = "Angeln" },
-  warsong = { enUS = "Warsong Gulch", deDE = "Kriegshymnenschlucht" },
-  arathi = { enUS = "Arathi Basin", deDE = "Arathibecken" },
-  alterac = { enUS = "Alterac Valley", deDE = "Alteractal" },
 }
 
 local nameKey
@@ -69,26 +67,124 @@ function News.Hash(s)
   return h
 end
 
-function News.Pick(list, seed, vars)
-  local fits = {}
+do
+  local parsed = {}
+  local function Parse(text)
+    local p = parsed[text]
+    if p then return p end
+    p = { printed = {}, required = {} }
+    for mode, key in text:gmatch("{([?!]?)([%w_]+)}") do
+      if mode == "" then p.printed[#p.printed + 1] = key elseif mode == "?" then p.required[#p.required + 1] = key end
+    end
+    parsed[text] = p
+    return p
+  end
+
+  local function AddFacts(out, key)
+    if News.SUBJECT[key] then return end
+    for fact in (News.FACT_OF[key] or key):gmatch("%S+") do out[#out + 1] = fact end
+  end
+
+  function News.Facts(text, vars)
+    local p, out = Parse(text), {}
+    for _, key in ipairs(p.printed) do AddFacts(out, key) end
+    for _, key in ipairs(p.required) do if vars[key] == "" then AddFacts(out, key) end end
+    return out
+  end
+
+  function News.Sentences(text)
+    local out = {}
+    for s in text:gmatch("[^%.!?]+[%.!?]*") do
+      s = s:match("^%s*(.-)%s*$")
+      if s ~= "" then out[#out + 1] = s end
+    end
+    return out
+  end
+
+  function News.Desk(T) return { T = T, said = {} } end
+
+  local function Marks(text, out, vars, desk, st)
+    local marks, who = News.Sentences(out), vars.name or vars.names or ""
+    marks[#marks + 1] = text
+    for _, motif in ipairs(desk.T.ONCE or {}) do if out:find(motif, 1, true) then marks[#marks + 1] = motif end end
+    for _, key in ipairs(st and Parse(text).printed or {}) do
+      if News.PERSONAL[key] then marks[#marks + 1] = who .. "|" .. key .. "|" .. tostring(vars[key]) end
+    end
+    return marks
+  end
+
+  local function Seen(said, marks)
+    for _, m in ipairs(marks) do if said[m] then return true end end
+    return false
+  end
+
+  local function Covers(facts, set)
+    for _, f in ipairs(facts) do if set[f] then return true end end
+    return false
+  end
+
+  local function Fresh(facts, marks, st, desk)
+    if st and Covers(facts, st.used) then return false end
+    return not (desk and Seen(desk.said, marks))
+  end
+
+  local function Candidates(list, vars, st, desk)
+    local fits = {}
+    for _, text in ipairs(list or {}) do
+      local out = News.Fill(text, vars)
+      if out then
+        local facts, marks = News.Facts(text, vars), desk and Marks(text, out, vars, desk, st) or {}
+        if Fresh(facts, marks, st, desk) then fits[#fits + 1] = { out = out, facts = facts, marks = marks } end
+      end
+    end
+    return fits
+  end
+
+  local function Filter(list, keep)
+    local out = {}
+    for _, c in ipairs(list) do if keep(c) then out[#out + 1] = c end end
+    return out[1] and out or list
+  end
+
+  local function Choose(fits, seed, st)
+    local pool = fits
+    if st then
+      pool = Filter(pool, function(c) return c.facts[1] ~= nil end)
+      pool = Filter(pool, function(c) return Covers(c.facts, st.key) end)
+    end
+    return pool[News.Hash(seed) % #pool + 1]
+  end
+
+  function News.Pick(list, seed, vars, st, desk)
+    local fits = Candidates(list, vars, st, desk)
+    if not fits[1] then return nil end
+    local c = Choose(fits, seed, st)
+    if st and not c.facts[1] then
+      if st.flavour then return nil end
+      st.flavour = true
+    end
+    if st then for _, f in ipairs(c.facts) do st.used[f] = true end end
+    for _, m in ipairs(c.marks) do desk.said[m] = true end
+    return (c.out:gsub("^%l", string.upper))
+  end
+end
+
+local function Fit(list, vars)
   for _, text in ipairs(list or {}) do
     local out = News.Fill(text, vars)
-    if out then fits[#fits + 1] = out end
+    if out then return out end
   end
-  if not fits[1] then return nil end
-  return (fits[News.Hash(seed) % #fits + 1]:gsub("^%l", string.upper))
+end
+
+function News.First(list, vars)
+  local out = Fit(list, vars)
+  return out and (out:gsub("^%l", string.upper))
 end
 
 function News.Count(n, T) return T.NUMBERS[n] or tostring(n) end
 local Count = News.Count
 
-function News.Counted(list, n, T)
-  local vars = { n = Count(n, T), one = n == 1 and "" or nil }
-  for _, text in ipairs(list) do
-    local out = News.Fill(text, vars)
-    if out then return out end
-  end
-end
+function News.Counted(list, n, T) return Fit(list, { n = Count(n, T), one = n == 1 and "" or nil }) end
 
 local function Join(list, T)
   if #list < 2 then return list[1] end
@@ -127,6 +223,13 @@ local function Earlier(a, b)
   return tostring(a.id) < tostring(b.id)
 end
 
+local function AddPeople(people, g)
+  for _, e in ipairs(g.entries) do
+    if not people[e.who] then people[e.who] = true; people[#people + 1] = e.who end
+  end
+  return people
+end
+
 local function Finish(g, ctx)
   table.sort(g.entries, Earlier)
   g.first, g.last = g.entries[1], g.entries[#g.entries]
@@ -134,12 +237,78 @@ local function Finish(g, ctx)
   local kindOf = GROUP_KIND[g.first.k]
   g.kind = kindOf and kindOf(g, ctx) or g.first.k
   g.rank = (g.kind == "level" and News.LEVEL_RANK[g.first.lvl]) or News.RANK[g.kind] or 0
+  g.people = g.kind == "raid" and {} or AddPeople({}, g)
 end
 
 local function Ahead(a, b)
   if a.rank ~= b.rank then return a.rank > b.rank end
+  if #a.people ~= #b.people then return #a.people > #b.people end
   if #a.entries ~= #b.entries then return #a.entries > #b.entries end
   return Earlier(a.first, b.first)
+end
+
+local MergeOutings
+do
+  local function Outing(g) return g.first.k == "run" or (g.first.k == "boss" and not g.first.raid) end
+  local function KillCount(g) return g.first.k == "run" and (g.first.n or 1) or #g.entries end
+
+  local function ShareWord(a, b)
+    local seen = {}
+    for w in (a or ""):gmatch("[%w\128-\255']+") do if #w >= 4 then seen[w:lower()] = true end end
+    for w in (b or ""):gmatch("[%w\128-\255']+") do if seen[w:lower()] then return true end end
+    return false
+  end
+
+  local function SamePlace(a, b)
+    local ea, eb = a.last.enc, b.last.enc
+    if ea and eb then return ea == eb end
+    return (a.first.inst ~= nil and a.first.inst == b.first.inst) or ShareWord(a.last.boss, b.last.boss)
+  end
+
+  local function Apart(cluster, g)
+    for _, member in ipairs(cluster) do
+      for _, who in ipairs(member.people) do if g.people[who] then return false end end
+    end
+    return true
+  end
+
+  local function SameOuting(cluster, g)
+    local h = cluster[1]
+    return h.first.k == g.first.k and KillCount(h) == KillCount(g) and math.abs(h.last.t - g.last.t) <= News.SAME_OUTING
+      and SamePlace(h, g) and Apart(cluster, g)
+  end
+
+  local function ClusterFor(clusters, g)
+    for _, c in ipairs(clusters) do if SameOuting(c, g) then return c end end
+  end
+
+  local function Settle(reports)
+    local votes, people = {}, {}
+    for _, r in ipairs(reports) do votes[r.first.inst or ""] = (votes[r.first.inst or ""] or 0) + 1 end
+    table.sort(reports, function(a, b)
+      local va, vb = votes[a.first.inst or ""], votes[b.first.inst or ""]
+      if va ~= vb then return va > vb end
+      return Earlier(a.first, b.first)
+    end)
+    for _, r in ipairs(reports) do AddPeople(people, r) end
+    reports[1].reports, reports[1].people = reports, people
+    return reports[1]
+  end
+
+  MergeOutings = function(groups)
+    local out, clusters = {}, {}
+    for _, g in ipairs(groups) do
+      local c = Outing(g) and ClusterFor(clusters, g)
+      if c then
+        c[#c + 1] = g
+      else
+        out[#out + 1] = g
+        if Outing(g) then clusters[#clusters + 1] = { g, slot = #out } end
+      end
+    end
+    for _, c in ipairs(clusters) do if c[2] then out[c.slot] = Settle(c) end end
+    return out
+  end
 end
 
 function News.Groups(entries, ctx)
@@ -155,6 +324,7 @@ function News.Groups(entries, ctx)
     g.entries[#g.entries + 1] = e
   end
   for _, g in ipairs(groups) do Finish(g, ctx) end
+  groups = MergeOutings(groups)
   table.sort(groups, Ahead)
   return groups
 end
@@ -175,25 +345,66 @@ function News.Days(entries, dayOf)
   return days
 end
 
+local function AllFirst(g)
+  for _, r in ipairs(g.reports or { g }) do
+    for _, e in ipairs(r.entries) do if not e.first then return false end end
+  end
+  return true
+end
+
+local function Levels(v, g)
+  if not g.reports then return end
+  local lo, hi
+  for _, r in ipairs(g.reports) do
+    local l = r.first.lvl
+    if l then lo, hi = math.min(lo or l, l), math.max(hi or l, l) end
+  end
+  v.clvl = lo == hi and lo or nil
+  if lo ~= hi then v.lo, v.hi = lo, hi end
+end
+
+local function BossList(g, from, to, T)
+  local names = {}
+  for i = from, to do
+    local boss = g.entries[i].boss
+    if not boss then return nil end
+    names[#names + 1] = boss
+  end
+  return Join(names, T)
+end
+
+local function Guildies(g, T)
+  local n = 0
+  for _, e in ipairs(g.entries) do n = math.max(n, e.grp and e.n or 0) end
+  if n >= 2 then return Count(n, T) end
+end
+
 local function Kills(v, g, ctx, T)
   local first, last, n = g.first, g.last, #g.entries
-  v.inst, v.boss, v.time = first.inst, first.boss, ctx.time(last.t)
-  if first.first then v.first = "" end
-  local guildies = 0
-  for _, e in ipairs(g.entries) do guildies = math.max(guildies, e.grp and e.n or 0) end
-  if guildies >= 2 then v.grp = Count(guildies, T) end
+  v.inst, v.boss, v.time, v.grp = first.inst, first.boss, ctx.time(last.t), Guildies(g, T)
+  if AllFirst(g) then v.first = "" end
+  Levels(v, g)
   if n < 2 then return end
   v.n, v.lastboss, v.start = Count(n, T), last.boss, ctx.time(first.t)
+  v.before = BossList(g, 1, n - 1, T)
+  if n >= 3 then v.middle = BossList(g, 2, n - 1, T) end
   local min = math.floor((last.t - first.t) / 60 + 0.5)
   if min >= 1 then v.min = min end
 end
 
+local function SameNf(g)
+  local nf = g.first.nf
+  for _, r in ipairs(g.reports or {}) do if r.first.nf ~= nf then return nil end end
+  return nf
+end
+
 local function Run(v, g, _, T)
-  local e = g.first
+  local e, nf = g.first, SameNf(g)
   v.inst, v.lastboss = e.inst, e.boss
-  if e.first then v.first = "" end
+  if AllFirst(g) then v.first = "" end
   if (e.n or 1) >= 2 then v.n = Count(e.n, T) end
-  if e.n and e.nf and e.nf >= 2 and e.nf < e.n then v.nf = Count(e.nf, T) end
+  if e.n and nf and nf >= 2 and nf < e.n then v.nf = Count(nf, T) end
+  Levels(v, g)
 end
 
 local function OfKind(g, k)
@@ -228,6 +439,11 @@ end
 
 local LOOT_FLAG = { craft = "crafted", bag = "received" }
 
+local function Worn(v, loot, gear, ctx)
+  local after = gear.t - loot.t
+  if after >= 0 and after < 60 then v.soon = "" elseif after >= 60 then v.weartime = ctx.time(gear.t) end
+end
+
 local function Item(v, g, ctx, T)
   local gear, loot = OfKind(g, "gear"), OfKind(g, "loot")
   local facts = ctx.item(g.first.item) or {}
@@ -235,30 +451,28 @@ local function Item(v, g, ctx, T)
   v.thing, v.thingnom = Phrase(T, q, noun, "acc"), Phrase(T, q, noun, "nom")
   v.item, v.icon = facts.name and ItemName(facts.name, q), facts.icon
   ItemLevels(v, gear, facts)
-  local flag = loot and LOOT_FLAG[loot.src or ""]
-  if flag then v[flag] = "" end
+  if loot then v[LOOT_FLAG[loot.src or ""] or "looted"] = "" end
   if gear then v.worn = "" end
+  if loot and gear then Worn(v, loot, gear, ctx) end
 end
 
-local function People(v, g, ctx, T)
-  local names, seen = {}, {}
-  for _, e in ipairs(g.entries) do
-    if not seen[e.who] then seen[e.who] = true; names[#names + 1] = e.who end
-  end
-  if #names < 2 then return end
-  v.name, v.names, v.n = nil, Join(names, T), Count(#names, T)
+local function Level(v, g, ctx)
+  v.lvl = g.first.lvl
+  local left = ctx.maxLevel and v.lvl and ctx.maxLevel - v.lvl
+  if left and left >= 2 then v.left = left end
+  if #g.people < 2 then return end
   v.lead, v.leadtime = g.first.who, ctx.time(g.first.t)
   v.lastname, v.lasttime = g.last.who, ctx.time(g.last.t)
 end
 
-local function Level(v, g, ctx, T)
-  v.lvl = g.first.lvl
-  local left = ctx.maxLevel and v.lvl and ctx.maxLevel - v.lvl
-  if left and left >= 2 then v.left = left end
-  People(v, g, ctx, T)
-end
-
 local function Quoted(e, T) return News.Fill(T.QUOTE, { title = e.title or ("#" .. tostring(e.qid)) }) end
+
+local function Listed(titles, from, T)
+  local shown, last = {}, math.min(#titles, from + News.QUEST_LIST_MAX - 1)
+  for i = from, last do shown[#shown + 1] = titles[i] end
+  if #titles > last then shown[#shown + 1] = News.Counted(T.MORE_QUESTS, #titles - last, T) end
+  return Join(shown, T)
+end
 
 local function Quest(v, g, _, T)
   local titles = {}
@@ -269,10 +483,7 @@ local function Quest(v, g, _, T)
   v.quest = titles[1]
   if #titles < 2 then return end
   v.n, v.lastquest = Count(#titles, T), titles[#titles]
-  local shown = {}
-  for i = 1, math.min(#titles, News.QUEST_LIST_MAX) do shown[i] = titles[i] end
-  if #titles > #shown then shown[#shown + 1] = News.Counted(T.MORE_QUESTS, #titles - #shown, T) end
-  v.quests = Join(shown, T)
+  v.quests, v.rest = Listed(titles, 1, T), Listed(titles, 2, T)
 end
 
 local function Mount(v, g, _, T)
@@ -305,38 +516,59 @@ local VARS = {
 
 function News.Vars(g, ctx, T)
   local v = { name = g.first.who, time = ctx.time(g.first.t), clvl = g.first.lvl }
+  local people = g.people or {}
+  if #people >= 2 then v.name, v.names, v.people = nil, Join(people, T), Count(#people, T) end
   local fill = VARS[g.kind]
   if fill then fill(v, g, ctx, T) end
   return v
 end
 
-local function Slot(texts, g, slot, v) return News.Pick(texts[slot], g.id .. "|" .. slot, v) end
+local function KeySet(kind)
+  local set = {}
+  for f in (News.KEY[kind] or ""):gmatch("%S+") do set[f] = true end
+  return set
+end
 
-function News.Story(g, T, ctx)
-  local v = News.Vars(g, ctx, T)
+local function Paragraph(Slot, st)
+  local plain = st.flavour
+  local body, detail = Slot("body", st), Slot("detail", st)
+  if st.flavour and not plain then body, detail = detail, body end
+  if body and detail then return body .. " " .. detail end
+  return body or detail
+end
+
+function News.Story(g, T, ctx, desk)
+  local v, st = News.Vars(g, ctx, T), { used = {}, key = {} }
   local texts = T.KINDS[g.kind] or {}
-  local story = { kind = g.kind, k = g.first.k, id = g.id, time = v.time, icon = v.icon,
-    kicker = g.first.test and T.TEST_KICKER or Slot(texts, g, "kicker", v),
-    head = Slot(texts, g, "head", v) or "", dek = Slot(texts, g, "dek", v), caption = Slot(texts, g, "caption", v),
-    body = {} }
-  story.body[#story.body + 1] = Slot(texts, g, "body", v)
-  story.body[#story.body + 1] = Slot(texts, g, "more", v)
+  local function Slot(slot, state) return News.Pick(texts[slot], g.id .. "|" .. slot, v, state, desk) end
+  local story = { kind = g.kind, k = g.first.k, id = g.id, time = v.time, icon = v.icon, body = {} }
+  story.kicker = g.first.test and T.TEST_KICKER or Slot("kicker")
+  story.head = Slot("head", { used = st.used, key = {} }) or ""
+  st.key = KeySet(g.kind)
+  story.dek = Slot("dek", st)
+  story.body[#story.body + 1] = Paragraph(Slot, st)
+  story.body[#story.body + 1] = Slot("more", st)
+  story.caption = Slot("caption")
   return story
 end
 
 function News.Brief(g, T, ctx)
   local v = News.Vars(g, ctx, T)
-  return { time = ctx.time(g.first.t), text = Slot(T.KINDS[g.kind] or {}, g, "brief", v) or "" }
+  return { time = ctx.time(g.first.t), text = News.First((T.KINDS[g.kind] or {}).brief, v) or "" }
 end
 
+local function ByTime(a, b) return Earlier(a.first, b.first) end
+
 function News.Issue(day, T, ctx)
-  local groups = News.Groups(day.entries, ctx)
+  local groups, desk = News.Groups(day.entries, ctx), News.Desk(T)
   local issue = { day = day.day, no = day.no, t = day.entries[1] and day.entries[1].t, brief = {}, more = 0 }
-  issue.lead = groups[1] and News.Story(groups[1], T, ctx)
-  issue.second = groups[2] and News.Story(groups[2], T, ctx)
+  issue.lead = groups[1] and News.Story(groups[1], T, ctx, desk)
+  issue.second = groups[2] and News.Story(groups[2], T, ctx, desk)
+  local shown = {}
   for i = 3, #groups do
-    if #issue.brief < News.BRIEF_MAX then issue.brief[#issue.brief + 1] = News.Brief(groups[i], T, ctx)
-    else issue.more = issue.more + 1 end
+    if #shown < News.BRIEF_MAX then shown[#shown + 1] = groups[i] else issue.more = issue.more + 1 end
   end
+  table.sort(shown, ByTime)
+  for i, g in ipairs(shown) do issue.brief[i] = News.Brief(g, T, ctx) end
   return issue
 end
