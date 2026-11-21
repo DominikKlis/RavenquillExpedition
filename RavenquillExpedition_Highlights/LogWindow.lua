@@ -10,6 +10,7 @@ local PAGE = { log = { 4, -2, -4, 30 }, paper = { 4, -2, -4, 30 }, nav = { 4, 2 
 local MODE_BUTTON_SPACE = 100
 local SHADOW_RINGS, SHADOW_ALPHA = 10, 0.4
 local LOG_PANEL = { 0.10, 0.08, 0.06, 0.94 }
+local INK_DARK, INK_FADED = { 0.04, 0.03, 0.02 }, { 0.62, 0.56, 0.46 }
 H.WINDOW_W, H.WINDOW_H, H.WINDOW_SHARE = 900, 780, 0.9
 
 local function Within(size, room)
@@ -21,6 +22,47 @@ end
 local function WindowSize()
   local w, h = GS.SafeCall(UIParent.GetWidth, UIParent), GS.SafeCall(UIParent.GetHeight, UIParent)
   return Within(H.WINDOW_W, w), Within(H.WINDOW_H, h)
+end
+
+local function InkStyle(b)
+  local enabled = b:IsEnabled() and true or false
+  local c = (not enabled and INK_FADED) or (b.hover and INK_DARK) or H.INK
+  b.label:SetTextColor(c[1], c[2], c[3])
+  b.underline:SetShown(enabled and b.hover or false)
+end
+
+function H.InkButton(parent, text, width, size)
+  local b = CreateFrame("Button", nil, parent)
+  b:SetSize(width, size + 8)
+  local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  H.SetFontSize(fs, size)
+  fs:SetShadowOffset(0, 0)
+  fs:SetPoint("CENTER")
+  if b.SetFontString then b:SetFontString(fs) end
+  local line = b:CreateTexture(nil, "ARTWORK")
+  line:SetColorTexture(INK_DARK[1], INK_DARK[2], INK_DARK[3], 1)
+  line:SetHeight(1)
+  line:SetPoint("TOPLEFT", fs, "BOTTOMLEFT", 0, -1)
+  line:SetPoint("TOPRIGHT", fs, "BOTTOMRIGHT", 0, -1)
+  b.label, b.underline, b.restyle = fs, line, InkStyle
+  b:SetText(text)
+  b:SetScript("OnEnter", function() b.hover = true; InkStyle(b) end)
+  b:SetScript("OnLeave", function() b.hover = false; InkStyle(b) end)
+  InkStyle(b)
+  return b
+end
+
+function H.SetEnabled(b, on)
+  if on then b:Enable() else b:Disable() end
+  if b.restyle then b.restyle(b) end
+end
+
+function H.InkLayer(f, paper)
+  local layer = CreateFrame("Frame", nil, f)
+  layer:SetAllPoints()
+  layer:SetFrameLevel((GS.Plain(paper:GetFrameLevel(), "number") or 0) + 3)
+  f.inkLayer = layer
+  return layer
 end
 
 local function ShadowStrip(f, alpha, rel1, x1, y1, rel2, x2, y2)
