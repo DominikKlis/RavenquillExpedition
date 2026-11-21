@@ -6,7 +6,9 @@ local T = GS.NewLocale(ns.NewsLocales)
 
 H.MASTHEAD = "Interface\\AddOns\\RavenquillExpedition_Highlights\\Media\\masthead"
 H.PARCHMENT = "Interface\\QuestFrame\\QuestBG"
+H.PARCHMENT_CROP = { 0.03, 0.54, 0.03, 0.6 }
 H.FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
+local GRAIN_ALPHA = 0.5
 local MASTHEAD_FONT = "Fonts\\MORPHEUS.TTF"
 local BASE_FONT = "Fonts\\FRIZQT__.TTF"
 local INK, INK_SOFT, RULE, PAPER = { 0.17, 0.13, 0.09 }, { 0.36, 0.29, 0.22 }, { 0.48, 0.40, 0.29 }, { 0.92, 0.86, 0.72 }
@@ -60,17 +62,19 @@ local function FileOK(path)
 end
 
 local function Parchment(paper)
-  local bg = paper:CreateTexture(nil, "BACKGROUND")
-  bg:SetAllPoints()
-  local source = "color"
-  if FileOK(H.PARCHMENT) and bg:SetTexture(H.PARCHMENT) ~= false then
-    bg:SetTexCoord(0, 1, 0, 1)
-    bg:SetVertexColor(1, 0.96, 0.86)
-    source = "texture"
-  else
-    bg:SetColorTexture(PAPER[1], PAPER[2], PAPER[3], 1)
+  local base = paper:CreateTexture(nil, "BACKGROUND", nil, -8)
+  base:SetAllPoints()
+  base:SetColorTexture(PAPER[1], PAPER[2], PAPER[3], 1)
+  local grain = paper:CreateTexture(nil, "BACKGROUND", nil, -7)
+  grain:SetAllPoints()
+  local loaded = FileOK(H.PARCHMENT) and grain:SetTexture(H.PARCHMENT) ~= false
+  local crop = H.PARCHMENT_CROP
+  if loaded then
+    grain:SetTexCoord(crop[1], crop[2], crop[3], crop[4])
+    grain:SetAlpha(GRAIN_ALPHA)
   end
-  paper.parchment = { texture = bg, source = source }
+  grain:SetShown(loaded)
+  paper.parchment = { base = base, texture = grain, source = loaded and "texture" or "color" }
 end
 
 local function Masthead(paper)
