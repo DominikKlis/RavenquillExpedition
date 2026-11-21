@@ -48,7 +48,7 @@ ns.NewsLocales.deDE = {
     back = { g = "m", n = "Umhang" }, chest = { g = "n", n = "Brustteil" }, wrist = { g = "pl", n = "Armschienen" },
     hands = { g = "pl", n = "Handschuhe" }, waist = { g = "m", n = "Gürtel" }, legs = { g = "pl", n = "Beinschützer" },
     feet = { g = "pl", n = "Stiefel" }, ring = { g = "m", n = "Ring" }, trinket = { g = "n", n = "Schmuckstück" },
-    weapon = { g = "f", n = "Waffe" }, shield = { g = "m", n = "Schild" }, offhand = { g = "m", n = "Gegenstand für die Nebenhand" },
+    weapon = { g = "f", n = "Waffe" }, shield = { g = "m", n = "Schild" }, offhand = { g = "m", n = "Nebenhandgegenstand" },
     ranged = { g = "f", n = "Fernkampfwaffe" }, relic = { g = "n", n = "Relikt" }, bag = { g = "f", n = "Tasche" },
     item = { g = "m", n = "Gegenstand" },
   },

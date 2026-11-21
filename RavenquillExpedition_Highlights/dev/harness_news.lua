@@ -172,6 +172,52 @@ do
   check(genders, "every item noun has an article pattern for its gender")
 end
 
+local PREPOSITION = { deDE = " für ", enUS = " for " }
+
+local function Renderings(L, text)
+  local out, base = {}, {}
+  for mode, key in text:gmatch("{([?!]?)([%w_]+)}") do if mode ~= "!" then base[key] = mode == "?" and "" or "Wert" end end
+  local nouns = text:find("{thing", 1, true) and L.NOUNS or { item = L.NOUNS.item }
+  for _, noun in pairs(nouns) do
+    for q = 2, 5 do
+      local vars = setmetatable({}, { __index = base })
+      vars.thing = News.Fill(L.ARTICLE[noun.g].acc, { adj = L.QUALITY[q], noun = noun.n })
+      vars.thingnom = News.Fill(L.ARTICLE[noun.g].nom, { adj = L.QUALITY[q], noun = noun.n })
+      out[#out + 1] = News.Fill(text, vars)
+    end
+  end
+  return out
+end
+
+local function Doubled(L, word)
+  local hits = {}
+  for kind, texts in pairs(L.KINDS) do
+    for slot, list in pairs(texts) do
+      for _, text in ipairs(list) do
+        for _, s in ipairs(Renderings(L, text)) do
+          for clause in (s .. " "):gmatch("[^%.!?,;:]+") do
+            local _, n = (" " .. clause .. " "):gsub(word, "")
+            if n > 1 then hits[#hits + 1] = kind .. "." .. slot .. ": " .. s end
+          end
+        end
+      end
+    end
+  end
+  return hits
+end
+
+Kit.section("Texts never say 'für ... für' or 'for ... for' in one clause")
+do
+  check(#Doubled({ KINDS = { x = { head = { "{thingnom} für {name}" } } }, NOUNS = { item = { g = "m", n = "Hut für Regen" } },
+    ARTICLE = DE.ARTICLE, QUALITY = DE.QUALITY }, PREPOSITION.deDE) > 0, "the check catches a doubled 'für'")
+  local de, en = Doubled(DE, PREPOSITION.deDE), Doubled(EN, PREPOSITION.enUS)
+  check(#de == 0, "no German variant, with any item noun, has 'für' twice in a clause (" .. (de[1] or "none") .. ")")
+  check(#en == 0, "no English variant, with any item noun, has 'for' twice in a clause (" .. (en[1] or "none") .. ")")
+  local g = News.Groups({ E("gear", "Faro Berangias", At(20, 2, 49), { item = 5004, q = 3, il = 55, oil = 44, slot = 17 }) }, Ctx())[1]
+  check(News.Vars(g, Ctx(), DE).thingnom == "ein seltener Nebenhandgegenstand",
+    "an off-hand item is 'ein seltener Nebenhandgegenstand' (" .. tostring(News.Vars(g, Ctx(), DE).thingnom) .. ")")
+end
+
 local MINIMAL = {
   raid = { "boss", { raid = true } }, boss = { "boss", {} }, run = { "run", { n = 1, nf = 1 } },
   epic = { "loot", { item = 9999, q = 4 } }, gear = { "gear", { item = 9998, q = 3 } }, levelmax = { "level", { lvl = 60 } },
