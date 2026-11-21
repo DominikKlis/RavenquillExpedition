@@ -467,9 +467,28 @@ local function CheckNewspaper(t, H)
   local m, p = paper.masthead, paper.parchment
   t:ok(m.loaded, ("masthead texture loaded (SetTexture returned %s; %s)"):format(tostring(m.result), TextureFacts(m.texture)))
   t:ok(p.source == "texture", ("parchment texture loaded: %s (%s; %s)"):format(p.source, H.PARCHMENT, TextureFacts(p.texture)))
+  local off = Dev.TextOutside(paper)
+  t:ok(off == nil, ("window paper %dx%d: every text on the paper, none cut%s"):format(math.floor(paper:GetWidth() + 0.5),
+    math.floor(paper:GetHeight() + 0.5), off and (": " .. off:sub(1, 60)) or ""))
   local issue = paper.issue
   t:note(("issue %s of %s, lead: %s"):format(tostring(issue and issue.no), tostring(issue and issue.day),
     tostring(issue and issue.lead and issue.lead.head)))
+end
+
+local function CheckTab(t)
+  RQ:ShowModulePage("Highlights")
+  local ov = _G.RavenquillExpeditionOverview
+  local page = ov and ov.optView.pages.Highlights
+  t:ok(page and page.paper and page.mode == "paper", "the /rq Highlights tab shows the newspaper")
+  if not (page and page.paper) then t:done() return end
+  t:after(1, function()
+    local off = Dev.TextOutside(page.paper)
+    t:ok(off == nil, ("tab paper %dx%d: every text on the paper, none cut%s"):format(math.floor(page.paper:GetWidth() + 0.5),
+      math.floor(page.paper:GetHeight() + 0.5), off and (": " .. off:sub(1, 60)) or ""))
+    if RQ:OverviewShown() then RQ:ToggleOverview() end
+    if RQ:OverviewShown() then RQ:ToggleOverview() end
+    t:done()
+  end)
 end
 
 Dev:Register("highlights.smoke", function(t)
@@ -506,7 +525,7 @@ Dev:Register("highlights.smoke", function(t)
     local okVisible, visible = pcall(function() return frame.msg:GetNumVisibleLines() end)
     t:note("log lines on screen (scrolls to the new-entries line on open): " .. tostring(okVisible and visible or "no GetNumVisibleLines"))
     pcall(H.ToggleWindow, H)
-    t:done()
+    CheckTab(t)
   end)
 end, 30)
 

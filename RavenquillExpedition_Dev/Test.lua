@@ -99,3 +99,20 @@ function Dev:OnLoginTests()
     end)
   end)
 end
+
+local function Truncated(fs) return fs.IsTruncated and fs:IsTruncated() or false end
+
+local function Outside(fs, box)
+  local l, b, w, h = fs:GetRect()
+  if not l then return true end
+  return l < box[1] - 0.5 or b < box[2] - 0.5 or l + w > box[1] + box[3] + 0.5 or b + h > box[2] + box[4] + 0.5 or Truncated(fs)
+end
+
+function Dev.TextOutside(frame)
+  local box = { frame:GetRect() }
+  if not box[1] then return "no rect" end
+  for _, r in ipairs({ frame:GetRegions() }) do
+    local text = r:GetObjectType() == "FontString" and r:IsVisible() and r:GetText()
+    if text and text ~= "" and Outside(r, box) then return text end
+  end
+end
