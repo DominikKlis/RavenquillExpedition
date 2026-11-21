@@ -365,7 +365,7 @@ local function Click(button) button:GetScript("OnClick")(button) end
 local function Frame(c) return c.env.RavenquillExpeditionHighlightsFrame end
 local function Heard(c, e) return c.H:Add(e, "wire") end
 
-Kit.section("Window: the Kurier opens on the latest issue, with previous and next issues")
+Kit.section("Window: the Rabenblatt opens on the latest issue, with previous and next issues")
 do
   local c = Client("Lyra Distelbach")
   Heard(c, E("level", "Bodo Kesselring", At(16, 10), { lvl = 20, cls = "WARRIOR" }))
@@ -424,7 +424,7 @@ do
   local f = Frame(c)
   local paper = f.paper
   check(not paper.masthead.loaded and paper.masthead.text:IsShown() and not paper.masthead.texture:IsShown()
-    and paper.masthead.text:GetText() == "Der Ravenquiller Kurier", "a masthead texture that fails to load falls back to the Morpheus title")
+    and paper.masthead.text:GetText() == "Rabenblatt", "a masthead texture that fails to load falls back to the Morpheus title")
   check(paper.parchment.source == "color", "a missing parchment texture falls back to a paper colour")
   check(paper.lead.head:GetText() == DE.EMPTY_HEAD and f.issueLabel:GetText() == DE.NO_ISSUE and not f.prev:IsEnabled()
     and not f.next:IsEnabled(), "an empty log prints the editors' note and disables both buttons")

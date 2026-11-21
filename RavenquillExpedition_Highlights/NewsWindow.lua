@@ -73,7 +73,7 @@ end
 
 local function Masthead(paper)
   local tex = paper:CreateTexture(nil, "ARTWORK")
-  tex:SetSize(448, 56)
+  tex:SetSize(224, 56)
   tex:SetPoint("TOP", 0, -6)
   local result = tex:SetTexture(H.MASTHEAD)
   local fs = Text(paper, 30, { file = MASTHEAD_FONT, justify = "CENTER" })

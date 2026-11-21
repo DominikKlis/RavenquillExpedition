@@ -2,8 +2,8 @@ import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
-TITLE = "Der Ravenquiller Kurier"
-WIDTH, HEIGHT = 1024, 128
+TITLE = "Rabenblatt"
+WIDTH, HEIGHT = 512, 128
 SUPERSAMPLE = 4
 PAD_X, PAD_Y = 24, 10
 INK = (43, 33, 24)
