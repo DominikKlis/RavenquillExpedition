@@ -6,7 +6,7 @@ ns.News = News
 News.RANK = { raid = 100, epic = 90, run = 80, boss = 75, levelmax = 70, mount = 56, gear = 52, level = 46, quest = 40,
   rep = 38, skill = 34, pvp = 32, duel = 24 }
 News.LEVEL_RANK = { [50] = 66, [40] = 64 }
-News.BRIEF_MAX, News.QUEST_LIST_MAX, News.SAME_OUTING = 5, 3, 300
+News.BRIEF_MAX, News.QUEST_LIST_MAX, News.SAME_OUTING = 8, 3, 300
 News.PAPER_HEX = { [2] = "1f6b12", [3] = "0b5cad", [4] = "7b2cbf", [5] = "b35900" }
 News.SUBJECT, News.PERSONAL = { name = true, names = true }, { clvl = true, lo = true, hi = true }
 News.KEY = { raid = "n boss", boss = "n boss", run = "n nf first lastboss", epic = "il item", gear = "il item",

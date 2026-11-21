@@ -68,8 +68,9 @@ do
   local quests = News.Vars(groups[8], Ctx(), DE)
   check(quests.n == "zwei" and quests.quests == "„Die Köpfe der Bande“ und „Ein Brief für Sturmwind“", "quest story lists both titles")
   local issue = News.Issue({ day = "2026-11-18", no = 7, entries = BIG_DAY }, DE, Ctx())
-  check(issue.no == 7 and issue.lead.kind == "raid" and issue.second.kind == "epic" and #issue.brief == News.BRIEF_MAX
-    and issue.more == 1, "lead raid, second epic, five briefs, one more in the chronicle")
+  local briefs = math.min(News.BRIEF_MAX, 6)
+  check(issue.no == 7 and issue.lead.kind == "raid" and issue.second.kind == "epic" and #issue.brief == briefs
+    and issue.more == 6 - briefs, "lead raid, second epic, the other six in the brief box or counted for the chronicle")
   local run
   for _, b in ipairs(issue.brief) do if b.text:find("Zul'Farrak", 1, true) then run = b end end
   check(run and run.time == "14:00" and run.text:find("sieben Bosse", 1, true) ~= nil,

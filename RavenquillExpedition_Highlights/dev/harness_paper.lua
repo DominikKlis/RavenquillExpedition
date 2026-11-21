@@ -103,27 +103,33 @@ local function Offenders(c, paper)
   return out
 end
 
-local function WholeUnits(text, paragraphs)
-  if text == "" then return true end
-  for n = 1, #paragraphs do if text == table.concat(paragraphs, "\n", 1, n) then return true end end
-  local first = paragraphs[1] or ""
-  return first:sub(1, #text) == text and text:find("[%.!?]$") ~= nil and first:sub(#text + 1, #text + 1) == " "
+local function SentencePrefix(shown, full)
+  if shown == "" then return true end
+  local after = full:sub(#shown + 1, #shown + 1)
+  return full:sub(1, #shown) == shown and shown:find("[%.!?]$") ~= nil and (after == "" or after:find("%s") ~= nil)
 end
 
-local function StoryTexts(paper)
-  local issue, lead, sec = paper.issue, paper.lead, paper.second
-  local leadBody = issue.lead.body
-  return {
-    { lead.col1:GetText(), lead.col2:IsShown() and { leadBody[1] } or leadBody },
-    { lead.col2:IsShown() and lead.col2:GetText() or "", { leadBody[2] } },
-    { sec.body:GetText(), issue.second.body },
-  }
+local function WholeUnits(text, paragraphs)
+  for n = 1, #paragraphs do if text == table.concat(paragraphs, "\n", 1, n) then return true end end
+  return SentencePrefix(text, paragraphs[1] or "")
+end
+
+local function LeadCut(paper)
+  local lead, body = paper.lead, paper.issue.lead.body
+  if not lead.col2:IsShown() then return not WholeUnits(lead.col1:GetText() or "", body) and lead.col1:GetText() end
+  local shown = (lead.col1:GetText() or "") .. " " .. (lead.col2:GetText() or "")
+  return not SentencePrefix(shown, table.concat(body, " ")) and shown
 end
 
 local function Cut(paper)
-  for _, pair in ipairs(StoryTexts(paper)) do
-    if not WholeUnits(pair[1] or "", pair[2]) then return pair[1] end
-  end
+  local text = paper.second.body:GetText() or ""
+  if not WholeUnits(text, paper.issue.second.body) then return text end
+  return LeadCut(paper) or nil
+end
+
+local function Balanced(lead)
+  local h1, h2 = lead.col1:GetStringHeight(), lead.col2:GetStringHeight()
+  return math.abs(h1 - h2) <= lead.col1._fontSize * NK.Layout.LINE_EM + 0.5
 end
 
 local function ShownBrief(paper)
@@ -151,7 +157,9 @@ do
   check(#off == 0, "in the window every text is on the page and shown in full (" .. (off[1] or "none") .. ")")
   check(Cut(paper) == nil and paper.second.body:GetText() == table.concat(paper.issue.second.body, "\n"),
     "the window has room for both paragraphs of the second story (" .. tostring(paper.second.body:GetText()) .. ")")
-  check(paper.lead.col2:IsShown() and paper.lead.col1:GetText() == paper.issue.lead.body[1], "the lead body runs in two columns")
+  check(paper.lead.col2:IsShown() and paper.lead.col1:GetText() .. " " .. paper.lead.col2:GetText()
+    == table.concat(paper.issue.lead.body, " ") and Balanced(paper.lead),
+    "the lead body runs in two balanced columns, split between sentences")
   check(ShownBrief(paper) == #paper.issue.brief, "every brief line fits in the window")
   f:Hide()
   f, paper = OpenSized(c, 640, 470)
@@ -192,6 +200,42 @@ local function OpenTab(c, w, h)
 end
 
 local function Below(upper, lower) return Layout.Rect(lower).top <= Layout.Rect(upper).bottom + 0.5 end
+
+Kit.section("Window: 900x780 by default, at most 90% of the screen, larger type than the tab")
+do
+  local c = LayoutClient("Lyra Distelbach")
+  Heard(c, BUSY_DAY)
+  c.H:ShowWindow()
+  local f = c.env.RavenquillExpeditionHighlightsFrame
+  local r = Layout.Rect(f)
+  check(r.width == 900 and r.height == 780, ("on a 1920x1080 screen the window opens at 900x780 (%dx%d)"):format(r.width, r.height))
+  local off, cut = Offenders(c, f.paper), Cut(f.paper)
+  check(#off == 0 and cut == nil, "every text on the paper, none cut (" .. (off[1] or tostring(cut)) .. ")")
+  check(f.paper.lead.col2:IsShown() and ShownBrief(f.paper) == #f.paper.issue.brief, "two lead columns and every brief line")
+  local page = OpenTab(c, PAGE_W, PAGE_H)
+  local lead, tab = f.paper.lead, page.paper.lead
+  check(lead.head._fontSize > tab.head._fontSize and lead.col1._fontSize > tab.col1._fontSize,
+    ("the window sets the lead headline and body larger than the tab (%d/%d against %d/%d)"):format(lead.head._fontSize,
+      lead.col1._fontSize, tab.head._fontSize, tab.col1._fontSize))
+  check(#Offenders(c, page.paper) == 0 and Cut(page.paper) == nil, "the tab keeps its size and fits as before")
+  local long = LayoutClient("Mira Sturmfeder")
+  for i, boss in ipairs({ "Schlingwurzler", "Noxxion", "Celebras der Verfluchte", "Erdrutsch", "Prinzessin Theradras", "Faulschnapper" }) do
+    Heard(long, { E("boss", "Bodo Kesselring", At(20, 18, 20) + i * 400, { inst = "Maraudon", boss = boss, first = true, lvl = 52 }) })
+  end
+  long.H:ShowWindow()
+  local lp = long.env.RavenquillExpeditionHighlightsFrame.paper.lead
+  check(lp.col2:IsShown() and Balanced(lp), ("a long lead story is split evenly over both columns (%.0f and %.0f px)")
+    :format(lp.col1:GetStringHeight(), lp.col2:GetStringHeight()))
+  local small = LayoutClient("Tamo Eichengrund", "deDE", function(env) Layout.Pin(env.UIParent, 0, 0, 1024, 600) end)
+  Heard(small, BUSY_DAY)
+  small.H:ShowWindow()
+  local sf = small.env.RavenquillExpeditionHighlightsFrame
+  local sr = Layout.Rect(sf)
+  check(sr.width == 900 and sr.height == 540, ("on a 1024x600 screen the window keeps to 90%% of the height (%dx%d)"):format(sr.width,
+    sr.height))
+  check(#Offenders(small, sf.paper) == 0 and Cut(sf.paper) == nil, "there too every text sits on the paper, none cut")
+  check(#c.errors == 0 and #small.errors == 0, "no Lua errors (" .. tostring(c.errors[1] or small.errors[1]) .. ")")
+end
 
 Kit.section("Paper on the /rq Highlights tab")
 do

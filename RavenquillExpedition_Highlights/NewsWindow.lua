@@ -15,17 +15,27 @@ local INK, INK_SOFT, RULE, PAPER = { 0.17, 0.13, 0.09 }, { 0.36, 0.29, 0.22 }, {
 local LABEL = { 0.85, 0.78, 0.62 }
 local TIME_HEX = "6b5a45"
 local SIZE = { pad = 16, photoW = 64, photoH = 52, gutter = 16, briefGap = 24, leadTop = 97, minColumn = 180, secondMin = 110,
-  leftShare = 0.57, defaultW = 608, defaultH = 576 }
+  leftShare = 0.57, defaultW = 868, defaultH = 716, wideW = 760, wideH = 600,
+  font = { masthead = { 30, 30 }, meta = { 10, 11 }, caption = { 9, 10 }, kicker = { 10, 11 }, head = { 20, 28 },
+    dek = { 13, 16 }, body = { 12, 14 }, secondHead = { 16, 20 }, briefTitle = { 18, 22 }, brief = { 11, 13 },
+    note = { 10, 11 } } }
 
 local function BaseFont()
   local obj = GameFontHighlightSmall
   return Plain(obj and obj.GetFont and obj:GetFont(), "string") or BASE_FONT
 end
 
-local function Text(parent, size, opts)
+local function SetSize(fs, size)
+  if fs:SetFont(fs.fontFile or BaseFont(), size, "") == false then fs:SetFontObject("GameFontHighlightSmall") end
+end
+
+local function Text(paper, role, opts)
   opts = opts or {}
-  local fs = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  if fs:SetFont(opts.file or BaseFont(), size, "") == false then fs:SetFontObject("GameFontHighlightSmall") end
+  local fs = paper:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  fs.fontRole, fs.fontFile = role, opts.file
+  SetSize(fs, SIZE.font[role][1])
+  paper.texts = paper.texts or {}
+  paper.texts[#paper.texts + 1] = fs
   local c = opts.color or INK
   fs:SetTextColor(c[1], c[2], c[3])
   fs:SetShadowOffset(0, 0)
@@ -76,7 +86,7 @@ local function Masthead(paper)
   tex:SetSize(224, 56)
   tex:SetPoint("TOP", 0, -6)
   local result = tex:SetTexture(H.MASTHEAD)
-  local fs = Text(paper, 30, { file = MASTHEAD_FONT, justify = "CENTER" })
+  local fs = Text(paper, "masthead", { file = MASTHEAD_FONT, justify = "CENTER" })
   fs:SetPoint("TOP", 0, -16)
   fs:SetText(T.MASTHEAD)
   local loaded = result ~= false
@@ -88,11 +98,11 @@ end
 local function Meta(paper)
   TopRule(paper, -66)
   TopRule(paper, -69)
-  paper.metaLeft = Text(paper, 10, { color = INK_SOFT })
+  paper.metaLeft = Text(paper, "meta", { color = INK_SOFT })
   paper.metaLeft:SetPoint("TOPLEFT", SIZE.pad, -74)
-  paper.metaDate = Text(paper, 10, { color = INK_SOFT, justify = "CENTER" })
+  paper.metaDate = Text(paper, "meta", { color = INK_SOFT, justify = "CENTER" })
   paper.metaDate:SetPoint("TOP", 0, -74)
-  paper.metaRight = Text(paper, 10, { color = INK_SOFT, justify = "RIGHT" })
+  paper.metaRight = Text(paper, "meta", { color = INK_SOFT, justify = "RIGHT" })
   paper.metaRight:SetPoint("TOPRIGHT", -SIZE.pad, -74)
   TopRule(paper, -89)
 end
@@ -106,7 +116,7 @@ local function Photo(paper)
   icon:SetPoint("CENTER", frame, "CENTER")
   icon:SetDesaturated(true)
   icon:SetVertexColor(0.92, 0.80, 0.62)
-  local caption = Text(paper, 9, { color = INK_SOFT, justify = "CENTER" })
+  local caption = Text(paper, "caption", { color = INK_SOFT, justify = "CENTER" })
   caption:SetPoint("TOP", frame, "BOTTOM", 0, -3)
   caption:SetWidth(SIZE.photoW - 4)
   return { frame = frame, icon = icon, caption = caption }
@@ -114,14 +124,16 @@ end
 
 local function Stories(paper)
   local soft = { color = INK_SOFT }
-  paper.lead = { kicker = Text(paper, 10, soft), head = Text(paper, 20), dek = Text(paper, 13, soft),
-    col1 = Text(paper, 12), col2 = Text(paper, 12), colRule = Rule(paper, 1), photo = Photo(paper), body = {} }
+  paper.lead = { kicker = Text(paper, "kicker", soft), head = Text(paper, "head"), dek = Text(paper, "dek", soft),
+    col1 = Text(paper, "body"), col2 = Text(paper, "body"), colRule = Rule(paper, 1), photo = Photo(paper), body = {} }
   paper.rowRules = { Rule(paper), Rule(paper) }
   paper.vrule = Rule(paper, 1)
-  paper.second = { kicker = Text(paper, 10, soft), head = Text(paper, 16), body = Text(paper, 12), paragraphs = {} }
-  local brief = { title = Text(paper, 18, { file = MASTHEAD_FONT }), more = Text(paper, 10, soft), lines = {} }
+  paper.second = { kicker = Text(paper, "kicker", soft), head = Text(paper, "secondHead"), body = Text(paper, "body"),
+    paragraphs = {} }
+  local brief = { title = Text(paper, "briefTitle", { file = MASTHEAD_FONT }), more = Text(paper, "note", soft),
+    lines = {} }
   brief.title:SetText(T.IN_BRIEF)
-  for i = 1, News.BRIEF_MAX do brief.lines[i] = Text(paper, 11) end
+  for i = 1, News.BRIEF_MAX do brief.lines[i] = Text(paper, "brief") end
   paper.brief = brief
 end
 
@@ -142,12 +154,6 @@ local function Place(paper, fs, x, y, width)
   return y + Height(fs)
 end
 
-local function Sentences(text)
-  local out = {}
-  for s in (text .. " "):gmatch("(.-[%.!?])%s+") do out[#out + 1] = s end
-  return out
-end
-
 local function Fits(fs, text, maxH)
   fs:SetText(text)
   return Height(fs) <= maxH
@@ -157,17 +163,30 @@ local function Fit(fs, paragraphs, maxH)
   for n = #paragraphs, 1, -1 do
     if Fits(fs, table.concat(paragraphs, "\n", 1, n), maxH) then return end
   end
-  local sentences = Sentences(paragraphs[1] or "")
+  local sentences = News.Sentences(paragraphs[1] or "")
   for n = #sentences - 1, 1, -1 do
     if Fits(fs, table.concat(sentences, " ", 1, n), maxH) then return end
   end
   fs:SetText("")
 end
 
-local function Columns(body, width)
-  local colW = math.floor((width - SIZE.gutter) / 2)
-  if body[2] ~= nil and colW >= SIZE.minColumn then return colW, { body[1] }, { body[2] } end
-  return width, body, {}
+local Columns
+do
+  local function Halves(text)
+    local sentences, run, best, gap = News.Sentences(text), 0, nil, math.huge
+    for i = 1, #sentences - 1 do
+      run = run + #sentences[i] + 1
+      if math.abs(#text - 2 * run) < gap then best, gap = i, math.abs(#text - 2 * run) end
+    end
+    if best then return table.concat(sentences, " ", 1, best), table.concat(sentences, " ", best + 1) end
+  end
+
+  Columns = function(body, width)
+    local colW = math.floor((width - SIZE.gutter) / 2)
+    local first, second = Halves(table.concat(body, " "))
+    if second and colW >= SIZE.minColumn then return colW, { first }, { second } end
+    return width, body, {}
+  end
 end
 
 local function FlowColumns(paper, lead, top, inner, maxH)
@@ -176,7 +195,7 @@ local function FlowColumns(paper, lead, top, inner, maxH)
   Anchor(paper, lead.col1, x, top, colW)
   Fit(lead.col1, first, maxH)
   Anchor(paper, lead.col2, x + colW + SIZE.gutter, top, colW)
-  Fit(lead.col2, second, maxH)
+  Fit(lead.col2, lead.col1:GetText() == first[1] and second or {}, maxH)
   local split = Height(lead.col2) > 0
   lead.col2:SetShown(split)
   lead.colRule:SetShown(split)
@@ -251,8 +270,16 @@ local function PaperSize(paper)
   return w, h
 end
 
+local function Scale(paper, w, h)
+  local wide = w >= SIZE.wideW and h >= SIZE.wideH
+  if paper.wide == wide then return end
+  paper.wide = wide
+  for _, fs in ipairs(paper.texts) do SetSize(fs, SIZE.font[fs.fontRole][wide and 2 or 1]) end
+end
+
 local function Flow(paper)
   local w, h = PaperSize(paper)
+  Scale(paper, w, h)
   FlowRow(paper, FlowLead(paper, w, h), w, h)
 end
 

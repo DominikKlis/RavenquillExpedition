@@ -8,10 +8,21 @@ local views = {}
 local WINDOW_INSETS, WINDOW_NAV = { 16, -32, -16, 32 }, { 16, 6 }
 local PAGE_INSETS, PAGE_NAV = { 4, -2, -4, 30 }, { 4, 2 }
 local MODE_BUTTON_SPACE = 100
-H.WINDOW_W, H.WINDOW_H = 640, 640
+H.WINDOW_W, H.WINDOW_H, H.WINDOW_SHARE = 900, 780, 0.9
+
+local function Within(size, room)
+  room = GS.Plain(room, "number")
+  if room and room > 0 then return math.min(size, math.floor(room * H.WINDOW_SHARE)) end
+  return size
+end
+
+local function WindowSize()
+  local w, h = GS.SafeCall(UIParent.GetWidth, UIParent), GS.SafeCall(UIParent.GetHeight, UIParent)
+  return Within(H.WINDOW_W, w), Within(H.WINDOW_H, h)
+end
 
 local function Chrome(f, native)
-  f:SetSize(H.WINDOW_W, H.WINDOW_H)
+  f:SetSize(WindowSize())
   f:SetPoint("CENTER")
   f:SetFrameStrata("HIGH")
   f:SetToplevel(true)
