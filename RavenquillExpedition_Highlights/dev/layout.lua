@@ -133,6 +133,11 @@ function Layout.Install(c)
   fm.GetHeight = function(s) local _, h = Axis(s, false); return h or 0 end
   fm.GetStringHeight = StringHeight
   fm.GetStringWidth = TextWidth
+  fm.SetFontString = function(s, fs) s._fontString = fs end
+  fm.SetText = function(s, v)
+    s._text = v
+    if s._fontString then s._fontString._text = v end
+  end
   fm.SetColorTexture = function(s, r, g, b, a) s._color, s._file = { r, g, b, a or 1 }, nil end
   fm.SetTexture = function(s, path) s._file, s._color = path, nil end
   fm.SetTexCoord = function(s, l, r, t, b) s._tc = { l, r, t, b } end

@@ -2,15 +2,17 @@ local ADDON, ns = ...
 local GS = RavenquillExpedition
 local H = ns.H
 local L = ns.L
+local T = GS.NewLocale(ns.NewsLocales)
 
 local win, refreshArmed
 local views = {}
-local WINDOW = { log = { 24, -36, -24, 40 }, paper = { 0, 0, 0, 0 }, nav = { 14, 6, ink = true, reserve = 30 } }
+local WINDOW = { log = { 24, -36, -24, 50 }, paper = { 0, 0, 0, 0 }, nav = { 32, 8, ink = true, reserve = 26, rule = 34 } }
 local PAGE = { log = { 4, -2, -4, 30 }, paper = { 4, -2, -4, 30 }, nav = { 4, 2 } }
 local MODE_BUTTON_SPACE = 100
 local SHADOW_RINGS, SHADOW_ALPHA = 10, 0.4
 local LOG_PANEL = { 0.10, 0.08, 0.06, 0.94 }
 local INK_DARK, INK_FADED = { 0.04, 0.03, 0.02 }, { 0.62, 0.56, 0.46 }
+local LABEL, GRAIN_ALPHA = { 0.85, 0.78, 0.62 }, 0.5
 H.WINDOW_W, H.WINDOW_H, H.WINDOW_SHARE, H.WINDOW_MIN_H = 900, 780, 0.9, 480
 
 local function Within(size, room)
@@ -28,24 +30,31 @@ local function InkStyle(b)
   local enabled = b:IsEnabled() and true or false
   local c = (not enabled and INK_FADED) or (b.hover and INK_DARK) or H.INK
   b.label:SetTextColor(c[1], c[2], c[3])
-  b.underline:SetShown(enabled and b.hover or false)
+  b.underline:SetShown(enabled and (b.link or b.hover) or false)
 end
 
-function H.InkButton(parent, text, width, size)
+function H.SetLabel(b, text)
+  if not b.link then return b:SetText(text) end
+  b:SetText(H.Upper(text))
+  b:SetWidth(math.ceil(GS.Plain(b.label:GetStringWidth(), "number") or 0) + 4)
+end
+
+function H.InkButton(parent, text, size, link)
   local b = CreateFrame("Button", nil, parent)
-  b:SetSize(width, size + 8)
+  b:SetSize(size + 4, size + 8)
   local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   H.SetFontSize(fs, size)
   fs:SetShadowOffset(0, 0)
   fs:SetPoint("CENTER")
   if b.SetFontString then b:SetFontString(fs) end
   local line = b:CreateTexture(nil, "ARTWORK")
-  line:SetColorTexture(INK_DARK[1], INK_DARK[2], INK_DARK[3], 1)
+  local c = link and H.RULE or INK_DARK
+  line:SetColorTexture(c[1], c[2], c[3], 1)
   line:SetHeight(1)
-  line:SetPoint("TOPLEFT", fs, "BOTTOMLEFT", 0, -1)
-  line:SetPoint("TOPRIGHT", fs, "BOTTOMRIGHT", 0, -1)
-  b.label, b.underline, b.restyle = fs, line, InkStyle
-  b:SetText(text)
+  line:SetPoint("TOPLEFT", fs, "BOTTOMLEFT", 0, -2)
+  line:SetPoint("TOPRIGHT", fs, "BOTTOMRIGHT", 0, -2)
+  b.label, b.underline, b.restyle, b.link = fs, line, InkStyle, link
+  H.SetLabel(b, text)
   b:SetScript("OnEnter", function() b.hover = true; InkStyle(b) end)
   b:SetScript("OnLeave", function() b.hover = false; InkStyle(b) end)
   InkStyle(b)
@@ -63,6 +72,67 @@ function H.InkLayer(f, paper)
   layer:SetFrameLevel((GS.Plain(paper:GetFrameLevel(), "number") or 0) + 3)
   f.inkLayer = layer
   return layer
+end
+
+local function FileOK(path)
+  if type(GetFileIDFromPath) ~= "function" then return true end
+  local ok, id = pcall(GetFileIDFromPath, path)
+  return ok and GS.Plain(id) ~= nil
+end
+
+function H.PaperSheet(paper)
+  local base = paper:CreateTexture(nil, "BACKGROUND", nil, -8)
+  base:SetAllPoints()
+  base:SetColorTexture(H.PAPER[1], H.PAPER[2], H.PAPER[3], 1)
+  local grain = paper:CreateTexture(nil, "BACKGROUND", nil, -7)
+  grain:SetAllPoints()
+  local loaded = FileOK(H.PARCHMENT) and grain:SetTexture(H.PARCHMENT) ~= false
+  local crop = H.PARCHMENT_CROP
+  if loaded then
+    grain:SetTexCoord(crop[1], crop[2], crop[3], crop[4])
+    grain:SetAlpha(GRAIN_ALPHA)
+  end
+  grain:SetShown(loaded)
+  local vignette = paper:CreateTexture(nil, "BACKGROUND", nil, -6)
+  vignette:SetAllPoints()
+  vignette:SetShown(vignette:SetTexture(H.VIGNETTE) ~= false)
+  paper.parchment = { base = base, texture = grain, vignette = vignette, source = loaded and "texture" or "color" }
+end
+
+local function FooterRules(host, nav)
+  local rules = H.DoubleRule(host)
+  rules.thin:SetPoint("BOTTOMLEFT", nav[1], nav.rule + 4)
+  rules.thin:SetPoint("BOTTOMRIGHT", -nav[1], nav.rule + 4)
+  rules.thick:SetPoint("BOTTOMLEFT", nav[1], nav.rule)
+  rules.thick:SetPoint("BOTTOMRIGHT", -nav[1], nav.rule)
+  return rules
+end
+
+function H.NavButtons(f, nav, ink)
+  local host = ink or f
+  local function Button(text, width)
+    if ink then return H.InkButton(ink, text, 12, true) end
+    local b = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    b:SetSize(width, 22)
+    b:SetText(text)
+    return b
+  end
+  f.prev = Button(T.PREV, 168)
+  f.prev:SetPoint("BOTTOMLEFT", nav[1], nav[2])
+  f.modeButton = Button(T.CHRONICLE, 90)
+  f.modeButton:SetPoint("BOTTOMRIGHT", -nav[1], nav[2])
+  f.next = Button(T.NEXT, 168)
+  f.next:SetPoint("RIGHT", f.modeButton, "LEFT", -24, 0)
+  f.issueLabel = host:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  f.issueLabel:SetPoint("LEFT", f.prev, "RIGHT", 4, 0)
+  f.issueLabel:SetPoint("RIGHT", f.next, "LEFT", -4, 0)
+  f.issueLabel:SetJustifyH("CENTER")
+  local label = ink and H.INK_SOFT or LABEL
+  f.issueLabel:SetTextColor(label[1], label[2], label[3])
+  f.footerRules = ink and FooterRules(ink, nav)
+  f.prev:SetScript("OnClick", function() GS:Call(H.StepIssue, H, f, -1) end)
+  f.next:SetScript("OnClick", function() GS:Call(H.StepIssue, H, f, 1) end)
+  f.modeButton:SetScript("OnClick", function() GS:Call(H.SetViewMode, H, f, f.mode == "paper" and "log" or "paper") end)
 end
 
 local function ShadowStrip(f, alpha, rel1, x1, y1, rel2, x2, y2)
@@ -116,7 +186,7 @@ local function FitSheet(f)
 end
 
 local function CloseMark(f)
-  local close = H.InkButton(f.inkLayer, "×", 24, 20)
+  local close = H.InkButton(f.inkLayer, "×", 20)
   close:SetPoint("TOPRIGHT", -6, -4)
   close:SetScript("OnClick", function() f:Hide() end)
   f.close = close

@@ -4,32 +4,42 @@ local H, News = ns.H, ns.News
 local SafeCall, Plain = GS.SafeCall, GS.Plain
 local T = GS.NewLocale(ns.NewsLocales)
 
-H.MASTHEAD = "Interface\\AddOns\\RavenquillExpedition_Highlights\\Media\\masthead"
+local MEDIA = "Interface\\AddOns\\RavenquillExpedition_Highlights\\Media\\"
+H.MASTHEAD, H.DROP_CAPS, H.VIGNETTE, H.DOTTED = MEDIA .. "masthead", MEDIA .. "dropcaps", MEDIA .. "vignette", MEDIA .. "dotted"
+H.IN_BRIEF_ART = { deDE = MEDIA .. "inbrief_deDE", enUS = MEDIA .. "inbrief_enUS" }
 H.PARCHMENT = "Interface\\QuestFrame\\QuestBG"
 H.PARCHMENT_CROP = { 0.03, 0.54, 0.03, 0.6 }
 H.FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
-local GRAIN_ALPHA = 0.5
-local MASTHEAD_FONT = "Fonts\\MORPHEUS.TTF"
-local BASE_FONT = "Fonts\\FRIZQT__.TTF"
+local FONT = { masthead = "Fonts\\MORPHEUS.TTF", base = "Fonts\\FRIZQT__.TTF" }
 local INK, INK_SOFT, RULE, PAPER = { 0.17, 0.13, 0.09 }, { 0.36, 0.29, 0.22 }, { 0.48, 0.40, 0.29 }, { 0.92, 0.86, 0.72 }
-local LABEL = { 0.85, 0.78, 0.62 }
-H.INK, H.INK_SOFT = INK, INK_SOFT
+local WOODCUT = { tint = { 0.86, 0.68, 0.46 }, border = 3, crop = { 0.08, 0.92, 0.08, 0.92 } }
+H.INK, H.INK_SOFT, H.RULE, H.PAPER = INK, INK_SOFT, RULE, PAPER
 local TIME_HEX = "6b5a45"
-local SIZE = { pad = 16, photoW = 64, photoMax = 100, photoH = 52, gutter = 16, briefGap = 24, leadTop = 97, minColumn = 180,
-  secondMin = 110, leftShare = 0.57, defaultW = 868, defaultH = 716, wideW = 760, wideH = 600, columnLines = 2.8,
-  captionLines = 2.8,
-  font = { masthead = { 30, 30 }, meta = { 10, 11 }, caption = { 9, 10 }, kicker = { 10, 11 }, head = { 20, 28 },
-    dek = { 13, 16 }, body = { 12, 14 }, secondHead = { 16, 20 }, extraHead = { 14, 17 }, briefTitle = { 18, 22 },
+local DROP_CAP = { cols = 8, rows = 4, umlauts = { ["\195\132"] = 27, ["\195\150"] = 28, ["\195\156"] = 29 },
+  width = { 0.73, 0.8, 0.63, 0.73, 0.64, 0.68, 0.7, 0.67, 0.63, 0.65, 0.73, 0.54, 0.97, 0.79, 0.68, 0.8, 0.72, 0.83, 0.69,
+    0.68, 0.65, 0.79, 0.95, 0.66, 0.77, 0.61, 0.73, 0.68, 0.65 } }
+local SIZE = { gutter = 24, minColumn = 150, sidebarMin = 560, mainShare = 0.67, secondMin = 110, briefMin = 60,
+  defaultW = 868, defaultH = 716, wideW = 760, wideH = 600, captionLines = 3.8, capLines = 3, dotsW = 512,
+  dim = { pad = { 16, 32 }, mast = { 224, 288 }, mastTop = { 4, 10 }, wood = { 68, 100 }, woodGap = { 12, 16 },
+    briefArt = { 96, 124 }, earPad = { 6, 8 } },
+  font = { masthead = { 30, 38 }, meta = { 10, 12 }, ear = { 9, 11 }, caption = { 9, 11 }, kicker = { 9, 11 },
+    head = { 20, 28 }, dek = { 13, 16 }, body = { 12, 14 }, storyHead = { 15, 20 }, briefTitle = { 18, 22 },
     brief = { 11, 13 }, note = { 10, 11 } } }
+
+function H.Upper(text)
+  return (text:upper():gsub("\195([\160-\182\184-\190])", function(b) return "\195" .. string.char(b:byte() - 32) end))
+end
 
 local function BaseFont()
   local obj = GameFontHighlightSmall
-  return Plain(obj and obj.GetFont and obj:GetFont(), "string") or BASE_FONT
+  return Plain(obj and obj.GetFont and obj:GetFont(), "string") or FONT.base
 end
 
 local function SetSize(fs, size)
   if fs:SetFont(fs.fontFile or BaseFont(), size, "") == false then fs:SetFontObject("GameFontHighlightSmall") end
 end
+
+local function Dim(paper, key) return SIZE.dim[key][paper.wide and 2 or 1] end
 
 local function Text(paper, role, opts)
   opts = opts or {}
@@ -46,107 +56,26 @@ local function Text(paper, role, opts)
   return fs
 end
 
-local function Rule(parent, w, h)
+local function Rule(parent, w, h, color)
+  local c = color or RULE
   local t = parent:CreateTexture(nil, "ARTWORK")
-  t:SetColorTexture(RULE[1], RULE[2], RULE[3], 0.9)
+  t:SetColorTexture(c[1], c[2], c[3], 0.9)
   if w then t:SetWidth(w) end
   t:SetHeight(h or 1)
   return t
 end
 
-local function TopRule(paper, y)
-  local t = Rule(paper)
-  t:SetPoint("TOPLEFT", SIZE.pad, y)
-  t:SetPoint("TOPRIGHT", -SIZE.pad, y)
-  return t
-end
-
-local function FileOK(path)
-  if type(GetFileIDFromPath) ~= "function" then return true end
-  local ok, id = pcall(GetFileIDFromPath, path)
-  return ok and Plain(id) ~= nil
-end
-
-local function Parchment(paper)
-  local base = paper:CreateTexture(nil, "BACKGROUND", nil, -8)
-  base:SetAllPoints()
-  base:SetColorTexture(PAPER[1], PAPER[2], PAPER[3], 1)
-  local grain = paper:CreateTexture(nil, "BACKGROUND", nil, -7)
-  grain:SetAllPoints()
-  local loaded = FileOK(H.PARCHMENT) and grain:SetTexture(H.PARCHMENT) ~= false
-  local crop = H.PARCHMENT_CROP
-  if loaded then
-    grain:SetTexCoord(crop[1], crop[2], crop[3], crop[4])
-    grain:SetAlpha(GRAIN_ALPHA)
-  end
-  grain:SetShown(loaded)
-  paper.parchment = { base = base, texture = grain, source = loaded and "texture" or "color" }
-end
-
-local function Masthead(paper)
-  local tex = paper:CreateTexture(nil, "ARTWORK")
-  tex:SetSize(224, 56)
-  tex:SetPoint("TOP", 0, -6)
-  local result = tex:SetTexture(H.MASTHEAD)
-  local fs = Text(paper, "masthead", { file = MASTHEAD_FONT, justify = "CENTER" })
-  fs:SetPoint("TOP", 0, -16)
-  fs:SetText(T.MASTHEAD)
-  local loaded = result ~= false
-  tex:SetShown(loaded)
-  fs:SetShown(not loaded)
-  paper.masthead = { texture = tex, text = fs, loaded = loaded, result = result }
-end
-
-local function Meta(paper)
-  TopRule(paper, -66)
-  TopRule(paper, -69)
-  paper.metaLeft = Text(paper, "meta", { color = INK_SOFT })
-  paper.metaLeft:SetPoint("TOPLEFT", SIZE.pad, -74)
-  paper.metaDate = Text(paper, "meta", { color = INK_SOFT, justify = "CENTER" })
-  paper.metaDate:SetPoint("TOP", 0, -74)
-  paper.metaRight = Text(paper, "meta", { color = INK_SOFT, justify = "RIGHT" })
-  paper.metaRight:SetPoint("TOPRIGHT", -SIZE.pad, -74)
-  TopRule(paper, -89)
-end
-
-local function Photo(paper)
-  local frame = paper:CreateTexture(nil, "BORDER")
-  frame:SetColorTexture(0.11, 0.08, 0.05, 1)
-  frame:SetSize(SIZE.photoH, SIZE.photoH)
-  local icon = paper:CreateTexture(nil, "ARTWORK")
-  icon:SetSize(48, 48)
-  icon:SetPoint("CENTER", frame, "CENTER")
-  icon:SetDesaturated(true)
-  icon:SetVertexColor(0.92, 0.80, 0.62)
-  local caption = Text(paper, "caption", { color = INK_SOFT, justify = "CENTER" })
-  caption:SetPoint("TOP", frame, "BOTTOM", 0, -3)
-  return { frame = frame, icon = icon, caption = caption }
-end
-
-local function Stories(paper)
-  local soft = { color = INK_SOFT }
-  paper.lead = { kicker = Text(paper, "kicker", soft), head = Text(paper, "head"), dek = Text(paper, "dek", soft),
-    col1 = Text(paper, "body"), col2 = Text(paper, "body"), colRule = Rule(paper, 1), photo = Photo(paper), body = {} }
-  paper.rowRules = { Rule(paper), Rule(paper) }
-  paper.vrule = Rule(paper, 1)
-  paper.second = { kicker = Text(paper, "kicker", soft), head = Text(paper, "secondHead"), body = Text(paper, "body"),
-    paragraphs = {} }
-  local brief = { title = Text(paper, "briefTitle", { file = MASTHEAD_FONT }), more = Text(paper, "note", soft),
-    lines = {} }
-  brief.title:SetText(T.IN_BRIEF)
-  for i = 1, News.BRIEF_MAX do brief.lines[i] = Text(paper, "brief") end
-  paper.brief = brief
-  paper.extras = {}
-  for i = 1, News.EXTRA_MAX do
-    paper.extras[i] = { rule = Rule(paper), kicker = Text(paper, "kicker", soft), head = Text(paper, "extraHead"),
-      dek = Text(paper, "body", soft), body = Text(paper, "body") }
-  end
-end
+local function DoubleRule(parent) return { thin = Rule(parent), thick = Rule(parent, nil, 2) } end
 
 local function Height(fs)
   local text = fs:GetText()
   if not text or text == "" then return 0 end
   return Plain(fs:GetStringHeight(), "number") or 0
+end
+
+local function Unbounded(fs)
+  local width = fs.GetUnboundedStringWidth and Plain(fs:GetUnboundedStringWidth(), "number")
+  return width or Plain(fs:GetStringWidth(), "number") or 0
 end
 
 local function Lines(paper, fs, n) return Height(fs) >= n * SIZE.font[fs.fontRole][paper.wide and 2 or 1] end
@@ -162,130 +91,239 @@ local function Place(paper, fs, x, y, width)
   return y + Height(fs)
 end
 
-local function Fits(fs, text, maxH)
-  fs:SetText(text)
-  return Height(fs) <= maxH
+local function PlaceDouble(paper, rules, x, y, width)
+  Anchor(paper, rules.thin, x, y, width)
+  Anchor(paper, rules.thick, x, y + 3, width)
+  return y + 5
 end
 
-local function Fit(fs, paragraphs, maxH)
+local BuildPaper
+do
+  local function Art(paper, path, role, text)
+    local tex = paper:CreateTexture(nil, "ARTWORK")
+    local result = tex:SetTexture(path)
+    local fs = Text(paper, role, { file = FONT.masthead, justify = "CENTER" })
+    fs:SetText(text)
+    local loaded = result ~= false
+    tex:SetShown(loaded)
+    fs:SetShown(not loaded)
+    return { texture = tex, text = fs, loaded = loaded, result = result }
+  end
+
+  local function Ear(paper)
+    local ear = { top = Text(paper, "ear", { justify = "CENTER" }), bottom = Text(paper, "ear", { justify = "CENTER" }), lines = {} }
+    for i = 1, 4 do ear.lines[i] = Rule(paper, nil, nil, INK_SOFT) end
+    return ear
+  end
+
+  local function Head(paper)
+    paper.masthead = Art(paper, H.MASTHEAD, "masthead", T.MASTHEAD)
+    paper.ears = { Ear(paper), Ear(paper) }
+    paper.mastRules = DoubleRule(paper)
+    paper.metaLeft = Text(paper, "meta", { color = INK_SOFT })
+    paper.metaDate = Text(paper, "meta", { color = INK_SOFT, justify = "RIGHT" })
+  end
+
+  local function Woodcut(paper)
+    local frame = paper:CreateTexture(nil, "BORDER")
+    frame:SetColorTexture(INK[1], INK[2], INK[3], 1)
+    local icon = paper:CreateTexture(nil, "ARTWORK")
+    icon:SetPoint("TOPLEFT", frame, "TOPLEFT", WOODCUT.border, -WOODCUT.border)
+    icon:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -WOODCUT.border, WOODCUT.border)
+    icon:SetTexCoord(WOODCUT.crop[1], WOODCUT.crop[2], WOODCUT.crop[3], WOODCUT.crop[4])
+    icon:SetDesaturated(true)
+    icon:SetVertexColor(WOODCUT.tint[1], WOODCUT.tint[2], WOODCUT.tint[3])
+    local caption = Text(paper, "caption", { color = INK_SOFT, justify = "CENTER" })
+    caption:SetPoint("TOP", frame, "BOTTOM", 0, -4)
+    return { frame = frame, icon = icon, caption = caption }
+  end
+
+  local function Story(paper)
+    return { kicker = Text(paper, "kicker", { color = INK_SOFT }), head = Text(paper, "storyHead"), body = Text(paper, "body"),
+      paragraphs = {} }
+  end
+
+  local function Brief(paper)
+    local brief = { title = Art(paper, H.IN_BRIEF_ART[T.LOCALE] or H.IN_BRIEF_ART.enUS, "briefTitle", T.IN_BRIEF),
+      underline = Rule(paper), more = Text(paper, "note", { color = INK_SOFT }), lines = {}, dots = {} }
+    for i = 1, News.BRIEF_MAX do
+      brief.lines[i] = Text(paper, "brief")
+      local dots = paper:CreateTexture(nil, "ARTWORK")
+      if dots:SetTexture(H.DOTTED) == false then dots:SetColorTexture(RULE[1], RULE[2], RULE[3], 0.5) end
+      dots:SetHeight(1)
+      brief.dots[i] = dots
+    end
+    return brief
+  end
+
+  local function Stories(paper)
+    local cap = paper:CreateTexture(nil, "ARTWORK")
+    cap.loaded = cap:SetTexture(H.DROP_CAPS) ~= false
+    paper.lead = { kicker = Text(paper, "kicker", { color = INK_SOFT }), head = Text(paper, "head"),
+      dek = Text(paper, "dek", { color = INK_SOFT }), photo = Woodcut(paper), cap = cap, beside = Text(paper, "body"),
+      rest = Text(paper, "body"), body = {} }
+    paper.pairRule, paper.pairColumnRule, paper.sideRule = Rule(paper), Rule(paper, 1), Rule(paper, 1)
+    paper.second, paper.third = Story(paper), Story(paper)
+    paper.brief = Brief(paper)
+  end
+  BuildPaper = function(paper)
+    Head(paper)
+    Stories(paper)
+  end
+end
+
+local function Setter(fs)
+  return function(text)
+    fs:SetText(text)
+    return Height(fs)
+  end
+end
+
+local function Fit(set, paragraphs, maxH)
   for n = #paragraphs, 1, -1 do
-    if Fits(fs, table.concat(paragraphs, "\n", 1, n), maxH) then return end
+    if set(table.concat(paragraphs, "\n", 1, n)) <= maxH then return end
   end
   local sentences = News.Sentences(paragraphs[1] or "")
   for n = #sentences - 1, 1, -1 do
-    if Fits(fs, table.concat(sentences, " ", 1, n), maxH) then return end
+    if set(table.concat(sentences, " ", 1, n)) <= maxH then return end
   end
-  fs:SetText("")
+  set("")
 end
 
-local Columns
+local function PlaceEar(paper, ear, x, mid, side)
+  local pad = Dim(paper, "earPad")
+  local inner = math.ceil(math.max(Unbounded(ear.top), Unbounded(ear.bottom))) + 2
+  local w, h = inner + 2 * pad, Height(ear.top) + Height(ear.bottom) + pad
+  local left, top = side == "RIGHT" and x - w or x, math.floor(mid - h / 2)
+  local y = Place(paper, ear.top, left + pad, top + pad / 2, inner)
+  Place(paper, ear.bottom, left + pad, y, inner)
+  local l = ear.lines
+  Anchor(paper, l[1], left, top, w)
+  Anchor(paper, l[2], left, top + h - 1, w)
+  l[3]:SetHeight(h)
+  l[4]:SetHeight(h)
+  Anchor(paper, l[3], left, top, 1)
+  Anchor(paper, l[4], left + w - 1, top, 1)
+end
+
+local function FlowHead(paper, w)
+  local pad, m, mw, top = Dim(paper, "pad"), paper.masthead, Dim(paper, "mast"), Dim(paper, "mastTop")
+  m.texture:SetSize(mw, mw / 4)
+  Anchor(paper, m.texture, (w - mw) / 2, top)
+  Anchor(paper, m.text, pad, top + 10, w - 2 * pad)
+  PlaceEar(paper, paper.ears[1], pad, top + mw / 8, "LEFT")
+  PlaceEar(paper, paper.ears[2], w - pad, top + mw / 8, "RIGHT")
+  local y = PlaceDouble(paper, paper.mastRules, pad, top + mw / 4 + 2, w - 2 * pad) + 6
+  paper.metaDate:ClearAllPoints()
+  paper.metaDate:SetPoint("TOPRIGHT", paper, "TOPRIGHT", -pad, -y)
+  return Place(paper, paper.metaLeft, pad, y) + 12
+end
+
+local DropCap
 do
-  local function Halves(text)
-    local sentences, run, best, gap = News.Sentences(text), 0, nil, math.huge
-    for i = 1, #sentences - 1 do
-      run = run + #sentences[i] + 1
-      if math.abs(#text - 2 * run) < gap then best, gap = i, math.abs(#text - 2 * run) end
+  local function Index(text)
+    local letter = text:match("^[A-Z]")
+    if letter then return letter:byte() - 64, 1 end
+    return DROP_CAP.umlauts[text:sub(1, 2)], 2
+  end
+
+  local function Words(fs, words, n)
+    fs:SetText(table.concat(words, " ", 1, n))
+    return Height(fs)
+  end
+
+  local function Beside(fs, first, maxH)
+    local words = {}
+    for word in first:gmatch("%S+") do words[#words + 1] = word end
+    local lo, hi = math.min(1, #words), #words
+    while lo < hi do
+      local mid = math.ceil((lo + hi) / 2)
+      if Words(fs, words, mid) <= maxH then lo = mid else hi = mid - 1 end
     end
-    if best then return table.concat(sentences, " ", 1, best), table.concat(sentences, " ", best + 1) end
+    Words(fs, words, lo)
+    return table.concat(words, " ", lo + 1)
   end
 
-  Columns = function(body, width)
-    local colW = math.floor((width - SIZE.gutter) / 2)
-    local first, second = Halves(table.concat(body, " "))
-    if second and colW >= SIZE.minColumn then return colW, { first }, { second } end
-    return width, body, {}
+  local function SetCap(cap, index, h)
+    local col, row, share = (index - 1) % DROP_CAP.cols, math.floor((index - 1) / DROP_CAP.cols), DROP_CAP.width[index]
+    cap:SetTexCoord(col / DROP_CAP.cols, (col + share) / DROP_CAP.cols, row / DROP_CAP.rows, (row + 1) / DROP_CAP.rows)
+    cap:SetSize(math.ceil(h * share), h)
+    return math.ceil(h * share) + 3
   end
-end
 
-local function FlowColumns(paper, lead, top, inner, maxH, photoCol)
-  local x, width = SIZE.pad + photoCol, inner - photoCol
-  local colW, first, second = Columns(lead.body, width)
-  Anchor(paper, lead.col1, x, top, colW)
-  Fit(lead.col1, first, maxH)
-  Anchor(paper, lead.col2, x + colW + SIZE.gutter, top, colW)
-  Fit(lead.col2, lead.col1:GetText() == first[1] and second or {}, maxH)
-  if Height(lead.col2) > 0 and not (Lines(paper, lead.col1, SIZE.columnLines) and Lines(paper, lead.col2, SIZE.columnLines)) then
-    Anchor(paper, lead.col1, x, top, width)
-    Fit(lead.col1, lead.body, maxH)
-    lead.col2:SetText("")
-  end
-  local split = Height(lead.col2) > 0
-  lead.col2:SetShown(split)
-  lead.colRule:SetShown(split)
-  local bottom = top + math.max(Height(lead.col1), Height(lead.col2))
-  Anchor(paper, lead.colRule, x + colW + SIZE.gutter / 2, top)
-  lead.colRule:SetHeight(math.max(1, bottom - top))
-  return bottom
-end
-
-local PhotoColumn
-do
-  local function WidestWord(fs, text)
-    local widest = 0
-    for word in text:gmatch("%S+") do
-      fs:SetText(word)
-      local unbounded = fs.GetUnboundedStringWidth and Plain(fs:GetUnboundedStringWidth(), "number")
-      widest = math.max(widest, unbounded or Plain(fs:GetStringWidth(), "number") or 0)
+  DropCap = function(paper, lead, text, x, y, width)
+    local index, len = Index(text)
+    if not lead.cap.loaded then index = nil end
+    lead.cap:SetShown(index ~= nil)
+    lead.cap.letter = index and text:sub(1, len)
+    lead.beside:SetText("")
+    if not index then
+      lead.rest:SetText(text)
+      return Place(paper, lead.rest, x, y, width) - y
     end
-    return widest
-  end
-
-  PhotoColumn = function(paper, photo)
-    local caption, text = photo.caption, photo.text or ""
-    local col = math.max(SIZE.photoW, math.ceil(WidestWord(caption, text)) + 4)
-    if col > SIZE.photoMax then col, text = SIZE.photoW, "" end
-    caption:SetWidth(col - 4)
-    caption:SetText(text)
-    if Lines(paper, caption, SIZE.captionLines) then caption:SetText("") end
-    return col
+    local capH = Words(lead.beside, { "X" }, 1) * SIZE.capLines
+    local capW = SetCap(lead.cap, index, capH)
+    Anchor(paper, lead.cap, x, y)
+    Anchor(paper, lead.beside, x + capW, y, width - capW)
+    local first, more = text:sub(len + 1):match("^([^\n]*)\n?(.*)$")
+    local left = Beside(lead.beside, first, capH + 1)
+    lead.rest:SetText(left ~= "" and more ~= "" and (left .. "\n" .. more) or (left .. more))
+    return Place(paper, lead.rest, x, y + math.max(capH, Height(lead.beside)), width) - y
   end
 end
 
-local function FlowLead(paper, w, h)
-  local lead, inner = paper.lead, w - 2 * SIZE.pad
-  local y = Place(paper, lead.kicker, SIZE.pad, SIZE.leadTop, inner) + 4
-  y = Place(paper, lead.head, SIZE.pad, y, inner) + 5
-  y = Place(paper, lead.dek, SIZE.pad, y, inner) + 8
-  local col = PhotoColumn(paper, lead.photo)
-  Anchor(paper, lead.photo.frame, SIZE.pad + (col - 4 - SIZE.photoH) / 2, y)
-  local photoBottom = y + SIZE.photoH + 3 + Height(lead.photo.caption)
-  return math.max(photoBottom, FlowColumns(paper, lead, y, inner, h - SIZE.pad - SIZE.secondMin - y, col))
+local function SetCaption(paper, caption, text, width)
+  local widest = 0
+  for word in (text or ""):gmatch("%S+") do
+    caption:SetText(word)
+    widest = math.max(widest, Unbounded(caption))
+  end
+  caption:SetWidth(width)
+  caption:SetText(widest <= width and text or "")
+  if Lines(paper, caption, SIZE.captionLines) then caption:SetText("") end
 end
 
-local function FlowStory(paper, top, width, bottom)
-  local sec = paper.second
-  local y = Place(paper, sec.kicker, SIZE.pad, top, width) + 4
-  y = Place(paper, sec.head, SIZE.pad, y, width) + 5
-  Anchor(paper, sec.body, SIZE.pad, y, width)
-  Fit(sec.body, sec.paragraphs, bottom - y)
-  return y + Height(sec.body), sec.body:GetText() == table.concat(sec.paragraphs, "\n")
+local function FlowLead(paper, x, top, width, limit)
+  local lead, wood = paper.lead, Dim(paper, "wood")
+  local y = Place(paper, lead.kicker, x, top, width) + 4
+  y = Place(paper, lead.head, x, y, width) + 4
+  y = Place(paper, lead.dek, x, y, width) + 10
+  lead.photo.frame:SetSize(wood, wood)
+  Anchor(paper, lead.photo.frame, x, y)
+  SetCaption(paper, lead.photo.caption, lead.photo.text, wood)
+  local woodEnd = y + wood + 4 + Height(lead.photo.caption)
+  local bodyX = x + wood + Dim(paper, "woodGap")
+  local bodyH = 0
+  Fit(function(text)
+    lead.shown = text
+    bodyH = DropCap(paper, lead, text, bodyX, y, x + width - bodyX)
+    return bodyH
+  end, lead.body, limit - y)
+  return math.max(woodEnd, y + bodyH)
 end
 
-local FlowExtras
-do
-  local function PlaceExtra(paper, ex, story, top, width, bottom)
-    ex.kicker:SetText(story.kicker or "")
-    ex.head:SetText(story.head or "")
-    ex.dek:SetText(story.dek or "")
-    Anchor(paper, ex.rule, SIZE.pad, top + 10, width)
-    local y = Place(paper, ex.kicker, SIZE.pad, top + 18, width) + 3
-    y = Place(paper, ex.head, SIZE.pad, y, width) + 4
-    y = Place(paper, ex.dek, SIZE.pad, y, width) + 4
-    Anchor(paper, ex.body, SIZE.pad, y, width)
-    Fit(ex.body, { story.body[1] }, bottom - y)
-    return ex.head:GetText() ~= "" and ex.body:GetText() ~= "", y + Height(ex.body)
-  end
+local function FlowStory(paper, st, x, top, width, bottom)
+  local y = Place(paper, st.kicker, x, top, width) + 4
+  y = Place(paper, st.head, x, y, width) + 5
+  Anchor(paper, st.body, x, y, width)
+  Fit(Setter(st.body), st.paragraphs, bottom - y)
+  return y + Height(st.body)
+end
 
-  FlowExtras = function(paper, top, width, bottom, open)
-    local placed, stories = {}, paper.issue and paper.issue.extra or {}
-    for i, ex in ipairs(paper.extras) do
-      local story, fits, last = open and stories[i], false, top
-      if story then fits, last = PlaceExtra(paper, ex, story, top, width, bottom) end
-      for _, region in pairs(ex) do region:SetShown(fits) end
-      if fits then placed[story.id], top = true, last else open = false end
-    end
-    return placed, top
+local function FlowPair(paper, x, top, width, bottom)
+  local sec, third = paper.second, paper.third
+  Anchor(paper, paper.pairRule, x, top + 10, width)
+  local y, colW = top + 20, math.floor((width - SIZE.gutter) / 2)
+  local thirdEnd, shown = y, colW >= SIZE.minColumn and third.id ~= nil
+  if shown then
+    thirdEnd = FlowStory(paper, third, x + colW + SIZE.gutter, y, colW, bottom)
+    shown = third.body:GetText() ~= ""
   end
+  for _, region in ipairs({ third.kicker, third.head, third.body, paper.pairColumnRule }) do region:SetShown(shown) end
+  local secEnd = FlowStory(paper, sec, x, y, shown and colW or width, bottom)
+  Anchor(paper, paper.pairColumnRule, x + colW + SIZE.gutter / 2, y)
+  paper.pairColumnRule:SetHeight(math.max(1, math.max(secEnd, thirdEnd) - y))
+  return math.max(secEnd, shown and thirdEnd or y), shown and { [third.id] = true } or {}
 end
 
 local FlowBrief
@@ -314,35 +352,59 @@ do
     return out
   end
 
+  local function Title(paper, x, top, width)
+    local brief, art = paper.brief, paper.brief.title
+    local aw = math.min(width, Dim(paper, "briefArt"))
+    art.texture:SetSize(aw, aw / 4)
+    Anchor(paper, art.texture, x + (width - aw) / 2, top)
+    local y = art.loaded and top + aw / 4 or Place(paper, art.text, x, top, width) + 2
+    local rw = math.floor(width * 0.4)
+    Anchor(paper, brief.underline, x + (width - rw) / 2, y + 3, rw)
+    return y + 4
+  end
+
   FlowBrief = function(paper, x, top, width, bottom, placed)
     local brief, list = paper.brief, BriefList(paper.issue, placed)
-    local ends = { [0] = Place(paper, brief.title, x, top, width) }
+    local ends = { [0] = Title(paper, x, top, width) }
     for i, fs in ipairs(brief.lines) do
-      local line = list[i]
+      local line, dots = list[i], brief.dots[i]
       fs:SetText(line and ("|cff%s%s|r  %s"):format(TIME_HEX, line.time, line.text) or "")
-      Anchor(paper, fs, x, ends[i - 1] + 6, width)
-      ends[i] = ends[i - 1] + 6 + Height(fs)
+      local y = Place(paper, fs, x, ends[i - 1] + 7, width) + 5
+      Anchor(paper, dots, x, y, width)
+      dots:SetTexCoord(0, width / SIZE.dotsW, 0, 1)
+      ends[i] = y + 1
     end
     local kept = KeptLines(paper, list, ends, bottom)
-    for i, fs in ipairs(brief.lines) do fs:SetShown(i <= kept and fs:GetText() ~= "") end
+    for i, fs in ipairs(brief.lines) do
+      local shown = i <= kept and fs:GetText() ~= ""
+      fs:SetShown(shown)
+      brief.dots[i]:SetShown(shown)
+    end
     return Place(paper, brief.more, x, ends[kept] + 8, width), kept
   end
 end
 
-local function FlowRow(paper, top, w, h)
-  local inner = w - 2 * SIZE.pad
-  local leftW, bottom = math.floor(inner * SIZE.leftShare), h - SIZE.pad
-  Anchor(paper, paper.rowRules[1], SIZE.pad, top + 6, inner)
-  Anchor(paper, paper.rowRules[2], SIZE.pad, top + 9, inner)
-  local y = top + 20
-  local storyEnd, whole = FlowStory(paper, y, leftW, bottom)
-  local placed, left = FlowExtras(paper, storyEnd, leftW, bottom, whole)
-  Anchor(paper, paper.vrule, SIZE.pad + leftW + SIZE.briefGap / 2, y)
-  paper.vrule:SetHeight(math.max(1, bottom - y))
-  local right, kept = FlowBrief(paper, SIZE.pad + leftW + SIZE.briefGap, y, inner - leftW - SIZE.briefGap, bottom, placed)
-  local n = 0
-  for _ in pairs(placed) do n = n + 1 end
-  return math.max(left, right), n .. "/" .. kept
+local function FlowGrid(paper, top, w, h)
+  local pad = Dim(paper, "pad")
+  local inner, bottom = w - 2 * pad, h - pad
+  local side = inner >= SIZE.sidebarMin
+  local mainW = side and math.floor(inner * SIZE.mainShare) or inner
+  local mainBottom = side and bottom or bottom - SIZE.briefMin
+  local leadEnd = FlowLead(paper, pad, top, mainW, mainBottom - SIZE.secondMin)
+  local pairEnd, placed = FlowPair(paper, pad, leadEnd, mainW, mainBottom)
+  local rule, bx, by, bw = paper.sideRule, pad + mainW + SIZE.gutter, top, inner - mainW - SIZE.gutter
+  if side then
+    Anchor(paper, rule, pad + mainW + SIZE.gutter / 2, top, 1)
+    rule:SetHeight(math.max(1, bottom - top))
+  else
+    bx, by, bw = pad, pairEnd + 16, inner
+    Anchor(paper, rule, pad, pairEnd + 8, inner)
+    rule:SetHeight(1)
+  end
+  local briefEnd, kept = FlowBrief(paper, bx, by, bw, bottom, placed)
+  local used = math.max(pairEnd, briefEnd, leadEnd + SIZE.secondMin)
+  return used, table.concat({ kept, tostring(next(placed)), paper.lead.shown or "", paper.second.body:GetText() or "",
+    paper.third.body:GetText() or "", paper.lead.photo.caption:GetText() or "" }, "|")
 end
 
 local function PaperSize(paper)
@@ -363,41 +425,11 @@ local function Flow(paper, w, h)
   local reserve = paper.reserve or 0
   h = h - reserve
   Scale(paper, w, math.max(h, (paper.room or 0) - reserve))
-  local leadEnd = FlowLead(paper, w, h)
-  local rowEnd, shape = FlowRow(paper, leadEnd, w, h)
-  local lead, sec = paper.lead, paper.second
-  shape = table.concat({ shape, lead.col1:GetText() or "", lead.col2:GetText() or "", sec.body:GetText() or "",
-    lead.photo.caption:GetText() or "" }, "|")
-  return math.max(rowEnd, leadEnd + SIZE.secondMin) + SIZE.pad + reserve, shape
+  local used, shape = FlowGrid(paper, FlowHead(paper, w), w, h)
+  return used + Dim(paper, "pad") + reserve, shape
 end
 
-local function NavButtons(f, nav, ink)
-  local host = ink or f
-  local function Button(text, width)
-    if ink then return H.InkButton(ink, text, width, 13) end
-    local b = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    b:SetSize(width, 22)
-    b:SetText(text)
-    return b
-  end
-  f.prev = Button(T.PREV, 168)
-  f.prev:SetPoint("BOTTOMLEFT", nav[1], nav[2])
-  f.modeButton = Button(T.CHRONICLE, 90)
-  f.modeButton:SetPoint("BOTTOMRIGHT", -nav[1], nav[2])
-  f.next = Button(T.NEXT, 168)
-  f.next:SetPoint("RIGHT", f.modeButton, "LEFT", -10, 0)
-  f.issueLabel = host:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  f.issueLabel:SetPoint("LEFT", f.prev, "RIGHT", 4, 0)
-  f.issueLabel:SetPoint("RIGHT", f.next, "LEFT", -4, 0)
-  f.issueLabel:SetJustifyH("CENTER")
-  local label = ink and INK_SOFT or LABEL
-  f.issueLabel:SetTextColor(label[1], label[2], label[3])
-  f.prev:SetScript("OnClick", function() GS:Call(H.StepIssue, H, f, -1) end)
-  f.next:SetScript("OnClick", function() GS:Call(H.StepIssue, H, f, 1) end)
-  f.modeButton:SetScript("OnClick", function() GS:Call(H.SetViewMode, H, f, f.mode == "paper" and "log" or "paper") end)
-end
-
-H.PaperSheet, H.SetFontSize, H.FlowPaper = Parchment, SetSize, Flow
+H.SetFontSize, H.FlowPaper, H.DoubleRule = SetSize, Flow, DoubleRule
 
 function H:AttachPaper(f, insets, nav)
   local paper = CreateFrame("Frame", nil, f)
@@ -405,13 +437,11 @@ function H:AttachPaper(f, insets, nav)
   paper:SetPoint("BOTTOMRIGHT", insets[3], insets[4])
   if paper.SetClipsChildren then paper:SetClipsChildren(true) end
   paper.reserve = nav.reserve
-  Parchment(paper)
-  Masthead(paper)
-  Meta(paper)
-  Stories(paper)
+  H.PaperSheet(paper)
+  BuildPaper(paper)
   paper:SetScript("OnSizeChanged", function() GS:Call(Flow, paper) end)
   f.paper = paper
-  NavButtons(f, nav, nav.ink and H.InkLayer(f, paper))
+  H.NavButtons(f, nav, nav.ink and H.InkLayer(f, paper))
   f.paperWidgets = { paper, f.prev, f.next, f.issueLabel }
 end
 
@@ -419,7 +449,7 @@ function H:ApplyWindowMode(f)
   local paperMode = f.mode == "paper"
   for _, w in ipairs(f.paperWidgets) do w:SetShown(paperMode) end
   for _, w in ipairs(f.logWidgets) do w:SetShown(not paperMode) end
-  f.modeButton:SetText(paperMode and T.CHRONICLE or T.PAPER)
+  H.SetLabel(f.modeButton, paperMode and T.CHRONICLE or T.PAPER)
 end
 
 local function DayOf(t) return date("%Y-%m-%d", t) end
@@ -446,42 +476,56 @@ end
 
 function H:Issues() return News.Days(self:Log(), DayOf) end
 
-local function KindIcon(k)
-  local kind = H.KINDS[k]
-  return kind and ("Interface\\Icons\\" .. kind.icon) or H.FALLBACK_ICON
-end
+local FillPaper
+do
+  local function KindIcon(k)
+    local kind = H.KINDS[k]
+    return kind and ("Interface\\Icons\\" .. kind.icon) or H.FALLBACK_ICON
+  end
 
-local function SetPhoto(photo, story)
-  if photo.icon:SetTexture(story.icon or KindIcon(story.k)) == false then photo.icon:SetTexture(H.FALLBACK_ICON) end
-  photo.text = story.caption
-end
+  local function SetPhoto(photo, story)
+    if photo.icon:SetTexture(story.icon or KindIcon(story.k)) == false then photo.icon:SetTexture(H.FALLBACK_ICON) end
+    photo.text = story.caption
+  end
 
-local function SetLead(lead, story)
-  lead.kicker:SetText(story.kicker or "")
-  lead.head:SetText(story.head)
-  lead.dek:SetText(story.dek or "")
-  lead.body = story.body
-  SetPhoto(lead.photo, story)
-end
+  local function SetLead(lead, story)
+    lead.kicker:SetText(H.Upper(story.kicker or ""))
+    lead.head:SetText(story.head)
+    lead.dek:SetText(story.dek or "")
+    lead.body = story.body
+    SetPhoto(lead.photo, story)
+  end
 
-local function SetSecond(sec, story)
-  sec.kicker:SetText(story and story.kicker or T.NO_SECOND_KICKER)
-  sec.head:SetText(story and story.head or T.NO_SECOND_HEAD)
-  sec.paragraphs = story and story.body or { T.NO_SECOND_BODY }
-end
+  local function SetStory(st, story)
+    st.id = story and story.id
+    st.kicker:SetText(H.Upper(story and story.kicker or ""))
+    st.head:SetText(story and story.head or "")
+    st.paragraphs = story and story.body or {}
+  end
 
-local function EmptyStory()
-  return { k = "quest", kicker = T.EMPTY_KICKER, head = T.EMPTY_HEAD, dek = T.EMPTY_DEK, body = { T.EMPTY_BODY, T.EMPTY_MORE } }
-end
+  local function NoSecond() return { kicker = T.NO_SECOND_KICKER, head = T.NO_SECOND_HEAD, body = { T.NO_SECOND_BODY } } end
 
-local function FillPaper(paper, issue)
-  paper.issue = issue
-  paper.metaLeft:SetText(T.META_LEFT)
-  paper.metaDate:SetText(News.Fill(T.DATE, DateVars(issue and issue.t or GS:Now())))
-  paper.metaRight:SetText(News.Fill(T.META_RIGHT, { no = issue and issue.no or 0 }))
-  SetLead(paper.lead, issue and issue.lead or EmptyStory())
-  SetSecond(paper.second, issue and issue.second)
-  Flow(paper)
+  local function EmptyStory()
+    return { k = "quest", kicker = T.EMPTY_KICKER, head = T.EMPTY_HEAD, dek = T.EMPTY_DEK, body = { T.EMPTY_BODY, T.EMPTY_MORE } }
+  end
+
+  local function SetEar(ear, top, bottom)
+    ear.top:SetText(top)
+    ear.bottom:SetText(bottom)
+  end
+
+  FillPaper = function(paper, issue)
+    paper.issue = issue
+    local when = DateVars(issue and issue.t or GS:Now())
+    paper.metaLeft:SetText(T.META_LEFT)
+    paper.metaDate:SetText(News.Fill(T.SHORT_DATE, when))
+    SetEar(paper.ears[1], News.Fill(T.EAR_NO, { no = issue and issue.no or 0 }), when.weekday)
+    SetEar(paper.ears[2], T.EAR_PRICE, T.EAR_COST)
+    SetLead(paper.lead, issue and issue.lead or EmptyStory())
+    SetStory(paper.second, issue and issue.second or NoSecond())
+    SetStory(paper.third, issue and issue.extra[1])
+    Flow(paper)
+  end
 end
 
 local function IssueIndex(days, day)
