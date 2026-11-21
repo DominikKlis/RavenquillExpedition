@@ -264,6 +264,44 @@ do
   check(#hits == 0, "no deDE newspaper text uses a gendered person noun or pronoun (" .. (hits[1] or "none") .. ")")
 end
 
+Kit.section("Names from the sender's client: professions and battlegrounds in the reader's language")
+do
+  local names = News.NAMES or {}
+  local complete, seen, clash, n = true, {}, nil, 0
+  for key, pair in pairs(names) do
+    n = n + 1
+    if not (pair.enUS and pair.deDE) then complete = false end
+    for _, name in pairs(pair) do
+      if seen[name] and seen[name] ~= key then clash = name end
+      seen[name] = key
+    end
+  end
+  check(n >= 15 and complete and clash == nil, "every profession, secondary skill and battleground has an English and a "
+    .. "German name, no name belongs to two keys (" .. tostring(clash) .. ")")
+  local function SkillVars(name, L)
+    local g = News.Groups({ E("skill", "Daesha Tandaryel", At(20, 3, 11), { skill = name, rank = 150 }) }, Ctx())[1]
+    return News.Vars(g, Ctx(), L).skill
+  end
+  check(SkillVars("Alchemy", DE) == "Alchemie" and SkillVars("Lederverarbeitung", EN) == "Leatherworking"
+    and SkillVars("Erste Hilfe", DE) == "Erste Hilfe" and SkillVars("First Aid", DE) == "Erste Hilfe"
+    and SkillVars("Juwelenschleifen", DE) == "Juwelenschleifen",
+    "a skill name from either language is printed in the reader's, an unknown one as it came")
+  local issue = News.Issue({ day = "2026-11-20", no = 7, entries = {
+    E("level", "Daesha Tandaryel", At(20, 1, 5), { lvl = 10 }),
+    E("mount", "Tamo Eichengrund", At(20, 2), { lvl = 40 }),
+    E("skill", "Daesha Tandaryel", At(20, 3, 11), { skill = "Alchemy", rank = 150 }),
+    E("skill", "Daesha Tandaryel", At(20, 3, 13), { skill = "Leatherworking", rank = 150 }),
+    E("pvp", "Bodo Kesselring", At(20, 4), { pk = "win", name = "Warsong Gulch" }),
+  } }, DE, Ctx())
+  local text = Flatten(issue)
+  check(text:find("Alchemie", 1, true) and text:find("Lederverarbeitung", 1, true) and text:find("Kriegshymnenschlucht", 1, true)
+    and not text:find("Alchemy", 1, true) and not text:find("Leatherworking", 1, true) and not text:find("Warsong", 1, true),
+    "a German paper prints German profession and battleground names, whatever client sent them")
+  local log = reader.H:Format(E("skill", "Daesha Tandaryel", At(20, 3, 11), { skill = "Leatherworking", rank = 150 }))
+  check(log:find("Lederverarbeitung", 1, true) and not log:find("Leatherworking", 1, true),
+    "the chronicle prints the reader's profession name too (" .. log .. ")")
+end
+
 local function Click(button) button:GetScript("OnClick")(button) end
 local function Frame(c) return c.env.RavenquillExpeditionHighlightsFrame end
 local function Heard(c, e) return c.H:Add(e, "wire") end

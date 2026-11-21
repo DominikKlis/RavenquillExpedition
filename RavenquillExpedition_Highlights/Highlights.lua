@@ -370,13 +370,13 @@ H.KINDS = {
   },
   skill = {
     code = "s", chat = false, icon = "Trade_BlackSmithing",
-    format = function(_, e) return L.SKILL:format(Gold(NonEmpty(e.skill, "?")), e.rank or 0) end,
+    format = function(_, e) return L.SKILL:format(Gold(NonEmpty(ns.News.LocalName(e.skill, L.LOCALE), "?")), e.rank or 0) end,
   },
   pvp = {
     code = "p", chat = true, icon = "INV_BannerPVP_02",
     format = function(_, e)
       if e.pk == "rank" then return L.PVP_RANK:format(e.pr or 0, NonEmpty(e.name, "?")) end
-      return L.PVP_WIN:format(Gold(NonEmpty(e.name, "?")))
+      return L.PVP_WIN:format(Gold(NonEmpty(ns.News.LocalName(e.name, L.LOCALE), "?")))
     end,
   },
   duel = {

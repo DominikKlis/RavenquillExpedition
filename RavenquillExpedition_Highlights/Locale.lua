@@ -1,6 +1,7 @@
 local ADDON, ns = ...
 
 local L = {
+  LOCALE = "enUS",
   TITLE = "Guild Highlights",
   FMT_TIME = "%m/%d %H:%M",
   FMT_DAY = "%Y-%m-%d",
@@ -82,6 +83,7 @@ local L = {
 }
 
 local deDE = {
+  LOCALE = "deDE",
   FMT_TIME = "%d.%m. %H:%M",
   FMT_DAY = "%d.%m.%Y",
   TITLE = "Gilden-Highlights",

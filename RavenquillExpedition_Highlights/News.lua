@@ -20,6 +20,36 @@ local EQUIP_NOUN = { INVTYPE_HEAD = "head", INVTYPE_NECK = "neck", INVTYPE_SHOUL
   INVTYPE_WEAPONOFFHAND = "weapon", INVTYPE_SHIELD = "shield", INVTYPE_HOLDABLE = "offhand", INVTYPE_RANGED = "ranged",
   INVTYPE_RANGEDRIGHT = "ranged", INVTYPE_THROWN = "ranged", INVTYPE_RELIC = "relic", INVTYPE_BAG = "bag" }
 
+News.NAMES = {
+  alchemy = { enUS = "Alchemy", deDE = "Alchemie" },
+  blacksmithing = { enUS = "Blacksmithing", deDE = "Schmiedekunst" },
+  enchanting = { enUS = "Enchanting", deDE = "Verzauberkunst" },
+  engineering = { enUS = "Engineering", deDE = "Ingenieurskunst" },
+  herbalism = { enUS = "Herbalism", deDE = "Kräuterkunde" },
+  leatherworking = { enUS = "Leatherworking", deDE = "Lederverarbeitung" },
+  mining = { enUS = "Mining", deDE = "Bergbau" },
+  skinning = { enUS = "Skinning", deDE = "Kürschnerei" },
+  tailoring = { enUS = "Tailoring", deDE = "Schneiderei" },
+  cooking = { enUS = "Cooking", deDE = "Kochkunst" },
+  firstaid = { enUS = "First Aid", deDE = "Erste Hilfe" },
+  fishing = { enUS = "Fishing", deDE = "Angeln" },
+  warsong = { enUS = "Warsong Gulch", deDE = "Kriegshymnenschlucht" },
+  arathi = { enUS = "Arathi Basin", deDE = "Arathibecken" },
+  alterac = { enUS = "Alterac Valley", deDE = "Alteractal" },
+}
+
+local nameKey
+function News.LocalName(name, locale)
+  if not nameKey then
+    nameKey = {}
+    for key, names in pairs(News.NAMES) do
+      for _, n in pairs(names) do nameKey[n] = key end
+    end
+  end
+  local key = name and nameKey[name]
+  return key and News.NAMES[key][locale] or name
+end
+
 function News.Fill(text, vars)
   local missing = false
   local out = text:gsub("{([?!]?)([%w_]+)}", function(mode, key)
@@ -248,15 +278,15 @@ local function Rep(v, g, ctx)
   if e.st == 8 then v.exalted = "" end
 end
 
-local function Skill(v, g)
+local function Skill(v, g, _, T)
   local e = g.first
-  v.skill, v.rank = e.skill, e.rank
+  v.skill, v.rank = News.LocalName(e.skill, T.LOCALE), e.rank
   if (e.rank or 0) >= 300 then v.top = "" end
 end
 
-local function Pvp(v, g)
+local function Pvp(v, g, _, T)
   local e = g.first
-  if e.pk == "rank" then v.prank = e.pr else v.bg = e.name end
+  if e.pk == "rank" then v.prank = e.pr else v.bg = News.LocalName(e.name, T.LOCALE) end
 end
 
 local VARS = {

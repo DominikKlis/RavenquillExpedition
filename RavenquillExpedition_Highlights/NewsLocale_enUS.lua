@@ -2,6 +2,7 @@ local ADDON, ns = ...
 
 ns.NewsLocales = ns.NewsLocales or {}
 ns.NewsLocales.enUS = {
+  LOCALE = "enUS",
   MASTHEAD = "Der Ravenquiller Kurier",
   META_LEFT = "Guild paper of the Ravenquill Expedition",
   META_RIGHT = "No. {no} · Price: 1 copper",
