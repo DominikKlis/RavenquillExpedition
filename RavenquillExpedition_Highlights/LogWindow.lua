@@ -6,13 +6,10 @@ local T = GS.NewLocale(ns.NewsLocales)
 
 local win, refreshArmed
 local views = {}
-local WINDOW = { log = { 24, -36, -24, 50 }, paper = { 0, 0, 0, 0 }, nav = { 32, 8, ink = true, reserve = 26, rule = 34 } }
-local PAGE = { log = { 4, -2, -4, 30 }, paper = { 4, -2, -4, 30 }, nav = { 4, 2 } }
-local MODE_BUTTON_SPACE = 100
+local WINDOW_NAV, PAGE_LOG = { 32, 8, reserve = 26, rule = 34 }, { 4, -2, -4, 30 }
 local SHADOW_RINGS, SHADOW_ALPHA = 10, 0.4
-local LOG_PANEL = { 0.10, 0.08, 0.06, 0.94 }
 local INK_DARK, INK_FADED = { 0.04, 0.03, 0.02 }, { 0.62, 0.56, 0.46 }
-local LABEL, GRAIN_ALPHA = { 0.85, 0.78, 0.62 }, 0.5
+local GRAIN_ALPHA = 0.5
 H.WINDOW_W, H.WINDOW_H, H.WINDOW_SHARE, H.WINDOW_MIN_H = 900, 780, 0.9, 480
 
 local function Within(size, room)
@@ -33,7 +30,7 @@ local function InkStyle(b)
   b.underline:SetShown(enabled and (b.link or b.hover) or false)
 end
 
-function H.SetLabel(b, text)
+local function Label(b, text)
   if not b.link then return b:SetText(text) end
   b:SetText(H.Upper(text))
   b:SetWidth(math.ceil(GS.Plain(b.label:GetStringWidth(), "number") or 0) + 4)
@@ -54,7 +51,7 @@ function H.InkButton(parent, text, size, link)
   line:SetPoint("TOPLEFT", fs, "BOTTOMLEFT", 0, -2)
   line:SetPoint("TOPRIGHT", fs, "BOTTOMRIGHT", 0, -2)
   b.label, b.underline, b.restyle, b.link = fs, line, InkStyle, link
-  H.SetLabel(b, text)
+  Label(b, text)
   b:SetScript("OnEnter", function() b.hover = true; InkStyle(b) end)
   b:SetScript("OnLeave", function() b.hover = false; InkStyle(b) end)
   InkStyle(b)
@@ -108,31 +105,27 @@ local function FooterRules(host, nav)
   return rules
 end
 
+local function OpenChronicle(f)
+  f:Hide()
+  GS:ShowModulePage(H.name)
+end
+
 function H.NavButtons(f, nav, ink)
-  local host = ink or f
-  local function Button(text, width)
-    if ink then return H.InkButton(ink, text, 12, true) end
-    local b = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    b:SetSize(width, 22)
-    b:SetText(text)
-    return b
-  end
-  f.prev = Button(T.PREV, 168)
+  f.prev = H.InkButton(ink, T.PREV, 12, true)
   f.prev:SetPoint("BOTTOMLEFT", nav[1], nav[2])
-  f.modeButton = Button(T.CHRONICLE, 90)
-  f.modeButton:SetPoint("BOTTOMRIGHT", -nav[1], nav[2])
-  f.next = Button(T.NEXT, 168)
-  f.next:SetPoint("RIGHT", f.modeButton, "LEFT", -24, 0)
-  f.issueLabel = host:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  f.chronicle = H.InkButton(ink, T.CHRONICLE, 12, true)
+  f.chronicle:SetPoint("BOTTOMRIGHT", -nav[1], nav[2])
+  f.next = H.InkButton(ink, T.NEXT, 12, true)
+  f.next:SetPoint("RIGHT", f.chronicle, "LEFT", -24, 0)
+  f.issueLabel = ink:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   f.issueLabel:SetPoint("LEFT", f.prev, "RIGHT", 4, 0)
   f.issueLabel:SetPoint("RIGHT", f.next, "LEFT", -4, 0)
   f.issueLabel:SetJustifyH("CENTER")
-  local label = ink and H.INK_SOFT or LABEL
-  f.issueLabel:SetTextColor(label[1], label[2], label[3])
-  f.footerRules = ink and FooterRules(ink, nav)
+  f.issueLabel:SetTextColor(H.INK_SOFT[1], H.INK_SOFT[2], H.INK_SOFT[3])
+  f.footerRules = FooterRules(ink, nav)
   f.prev:SetScript("OnClick", function() GS:Call(H.StepIssue, H, f, -1) end)
   f.next:SetScript("OnClick", function() GS:Call(H.StepIssue, H, f, 1) end)
-  f.modeButton:SetScript("OnClick", function() GS:Call(H.SetViewMode, H, f, f.mode == "paper" and "log" or "paper") end)
+  f.chronicle:SetScript("OnClick", function() GS:Call(OpenChronicle, f) end)
 end
 
 local function ShadowStrip(f, alpha, rel1, x1, y1, rel2, x2, y2)
@@ -173,7 +166,6 @@ local function FitSheet(f)
   local w, full = WindowSize()
   f:SetSize(w, full)
   f.paper.room = full
-  if f.mode ~= "paper" then return end
   local used, shape = H.FlowPaper(f.paper, w, full)
   local h = math.min(full, math.max(H.WINDOW_MIN_H, math.ceil(used)))
   if h >= full then return end
@@ -190,17 +182,6 @@ local function CloseMark(f)
   close:SetPoint("TOPRIGHT", -6, -4)
   close:SetScript("OnClick", function() f:Hide() end)
   f.close = close
-end
-
-local function InkLog(f)
-  local panel = f.msg:CreateTexture(nil, "BACKGROUND")
-  panel:SetPoint("TOPLEFT", -8, 8)
-  panel:SetPoint("BOTTOMRIGHT", 8, -8)
-  panel:SetColorTexture(LOG_PANEL[1], LOG_PANEL[2], LOG_PANEL[3], LOG_PANEL[4])
-  f.logPanel = panel
-  f.footer:SetTextColor(H.INK_SOFT[1], H.INK_SOFT[2], H.INK_SOFT[3])
-  f.onlyHLText:SetTextColor(H.INK[1], H.INK[2], H.INK[3])
-  f.onlyHLText:SetShadowOffset(0, 0)
 end
 
 local function MessageArea(f, insets)
@@ -235,17 +216,16 @@ local function MessageArea(f, insets)
   f.msg = msg
 end
 
-local function Footer(f, inPage, right)
-  right = right or 0
+local function Footer(f)
   local footer = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  footer:SetPoint("BOTTOMLEFT", inPage and 6 or 18, inPage and 6 or 12)
-  footer:SetPoint("BOTTOMRIGHT", -170 - right, inPage and 6 or 12)
+  footer:SetPoint("BOTTOMLEFT", 6, 6)
+  footer:SetPoint("BOTTOMRIGHT", -170, 6)
   footer:SetJustifyH("LEFT")
   f.footer = footer
 
   local cb = CreateFrame("CheckButton", nil, f)
   cb:SetSize(22, 22)
-  cb:SetPoint("BOTTOMRIGHT", -130 - right, inPage and 0 or 6)
+  cb:SetPoint("BOTTOMRIGHT", -130, 0)
   cb:SetNormalTexture("Interface\\Buttons\\UI-CheckBox-Up")
   cb:SetPushedTexture("Interface\\Buttons\\UI-CheckBox-Down")
   cb:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight", "ADD")
@@ -264,40 +244,35 @@ local function FirstUnseen(events)
   for _, e in ipairs(events) do if e.unseen then return e end end
 end
 
-local function ShowLog(view)
+local function OpenLog(view)
   view.firstUnseen = H.db and FirstUnseen(H:Log())
   view.opening = true
   H:Refresh()
 end
 
-local function OpenView(view)
-  view.mode, view.issueDay = "paper", nil
-  H:ApplyWindowMode(view)
-  ShowLog(view)
-end
-
-local function Views(f, inPage)
-  local layout = inPage and PAGE or WINDOW
-  MessageArea(f, layout.log)
-  Footer(f, inPage, MODE_BUTTON_SPACE)
-  f.logWidgets = { f.msg, f.footer, f.onlyHL, f.onlyHLText }
-  H:AttachPaper(f, layout.paper, layout.nav)
-  f:SetScript("OnShow", function() GS:Call(OpenView, f) end)
-  views[#views + 1] = f
+local function OpenPaper(view)
+  view.issueDay = nil
+  H:Refresh()
 end
 
 local function CreateWindow()
   local f = CreateFrame("Frame", "RavenquillExpeditionHighlightsFrame", UIParent)
   Chrome(f)
-  Views(f, false)
+  H:AttachPaper(f, WINDOW_NAV)
   CloseMark(f)
-  InkLog(f)
   f.fit = FitSheet
+  f:SetScript("OnShow", function() GS:Call(OpenPaper, f) end)
+  views[#views + 1] = f
   f:Hide()
   return f
 end
 
-function H:BuildPage(parent) Views(parent, true) end
+function H:BuildPage(parent)
+  MessageArea(parent, PAGE_LOG)
+  Footer(parent)
+  parent:SetScript("OnShow", function() GS:Call(OpenLog, parent) end)
+  views[#views + 1] = parent
+end
 
 function H:RefreshPage() self:Refresh() end
 
@@ -393,7 +368,7 @@ function H:Refresh()
   if not (self.db and AnyViewShown()) then return end
   local list, nHL, nAct = self:LogLines()
   for _, view in ipairs(views) do
-    if view:IsVisible() and view.mode == "paper" then
+    if view:IsVisible() and view.paper then
       self:RenderPaper(view)
     elseif view:IsVisible() then
       RenderLog(self, view, list, nHL, nAct)
@@ -411,18 +386,6 @@ end
 function H:ToggleWindow()
   if not win then win = CreateWindow() end
   if win:IsShown() then win:Hide() else win:Show() end
-end
-
-function H:SetViewMode(view, mode)
-  view.mode = mode
-  if mode == "log" then view.opening = true end
-  if view.fit then view.fit(view) end
-  self:ApplyWindowMode(view)
-  self:Refresh()
-end
-
-function H:SetWindowMode(mode)
-  if win then self:SetViewMode(win, mode) end
 end
 
 function H:ShowWindow()

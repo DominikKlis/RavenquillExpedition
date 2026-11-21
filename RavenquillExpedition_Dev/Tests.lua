@@ -462,11 +462,14 @@ end
 local function CheckNewspaper(t, H)
   local frame = _G.RavenquillExpeditionHighlightsFrame
   local paper = frame and frame.paper
-  t:ok(paper ~= nil and frame.mode == "paper", "the window opens on the newspaper")
+  t:ok(paper ~= nil and paper:IsVisible(), "the window opens on the newspaper")
   if not paper then return end
   local m, p = paper.masthead, paper.parchment
   t:ok(m.loaded, ("masthead texture loaded (SetTexture returned %s; %s)"):format(tostring(m.result), TextureFacts(m.texture)))
   t:ok(p.source == "texture", ("parchment texture loaded: %s (%s; %s)"):format(p.source, H.PARCHMENT, TextureFacts(p.texture)))
+  local cap, heading = paper.lead.cap, paper.brief.title
+  t:ok(cap.loaded and heading.loaded and p.vignette:IsShown(), ("drop caps, In Kurze heading and vignette loaded (%s; %s; %s)"):format(
+    TextureFacts(cap), TextureFacts(heading.texture), TextureFacts(p.vignette)))
   local off = Dev.TextOutside(paper)
   t:ok(off == nil, ("window paper %dx%d: every text on the paper, none cut%s"):format(math.floor(paper:GetWidth() + 0.5),
     math.floor(paper:GetHeight() + 0.5), off and (": " .. off:sub(1, 60)) or ""))
@@ -476,15 +479,13 @@ local function CheckNewspaper(t, H)
 end
 
 local function CheckTab(t)
-  RQ:ShowModulePage("Highlights")
   local ov = _G.RavenquillExpeditionOverview
   local page = ov and ov.optView.pages.Highlights
-  t:ok(page and page.paper and page.mode == "paper", "the /rq Highlights tab shows the newspaper")
-  if not (page and page.paper) then t:done() return end
+  t:ok(page and page:IsVisible() and page.msg and not page.paper, "CHRONIK opened the /rq Highlights tab on the log, no paper there")
+  if not (page and page.msg) then t:done() return end
   t:after(1, function()
-    local off = Dev.TextOutside(page.paper)
-    t:ok(off == nil, ("tab paper %dx%d: every text on the paper, none cut%s"):format(math.floor(page.paper:GetWidth() + 0.5),
-      math.floor(page.paper:GetHeight() + 0.5), off and (": " .. off:sub(1, 60)) or ""))
+    local okVisible, visible = pcall(function() return page.msg:GetNumVisibleLines() end)
+    t:note("log lines on screen (scrolls to the new-entries line on open): " .. tostring(okVisible and visible or "no GetNumVisibleLines"))
     if RQ:OverviewShown() then RQ:ToggleOverview() end
     if RQ:OverviewShown() then RQ:ToggleOverview() end
     t:done()
@@ -518,15 +519,10 @@ Dev:Register("highlights.smoke", function(t)
   local okWin, err = pcall(function() H:ShowWindow(); H:Refresh() end)
   t:ok(okWin, "newspaper window opens and fills" .. (okWin and "" or (": " .. tostring(err))))
   CheckNewspaper(t, H)
-  local okLog, logErr = pcall(H.SetWindowMode, H, "log")
-  t:ok(okLog, "Chronik switches to the log" .. (okLog and "" or (": " .. tostring(logErr))))
-  t:after(1, function()
-    local frame = _G.RavenquillExpeditionHighlightsFrame
-    local okVisible, visible = pcall(function() return frame.msg:GetNumVisibleLines() end)
-    t:note("log lines on screen (scrolls to the new-entries line on open): " .. tostring(okVisible and visible or "no GetNumVisibleLines"))
-    pcall(H.ToggleWindow, H)
-    CheckTab(t)
-  end)
+  local frame = _G.RavenquillExpeditionHighlightsFrame
+  local okLog, logErr = pcall(function() frame.chronicle:Click() end)
+  t:ok(okLog and not frame:IsShown(), "CHRONIK closes the sheet" .. (okLog and "" or (": " .. tostring(logErr))))
+  t:after(1, function() CheckTab(t) end)
 end, 30)
 
 local MILESTONE_APIS = { "IsMounted", "GetUnitSpeed", "UnitOnTaxi", "GetBattlefieldWinner", "UnitFactionGroup",

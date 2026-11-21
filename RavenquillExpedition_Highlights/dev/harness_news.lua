@@ -379,8 +379,8 @@ do
   c.H:ShowWindow()
   local f = Frame(c)
   local paper = f.paper
-  check(f.mode == "paper" and paper:IsShown() and not f.msg:IsShown() and f.modeButton:GetText() == "CHRONIK",
-    "the window opens as the newspaper with a Chronik link")
+  check(paper:IsShown() and f.msg == nil and f.chronicle:GetText() == "CHRONIK",
+    "the window opens as the newspaper with a Chronik link and no log of its own")
   check(paper.metaLeft:GetText() == "Gildenblatt der Ravenquill Expedition" and paper.metaDate:GetText() == "20. November"
     and paper.ears[1].top:GetText() == "Nr. 3" and paper.ears[1].bottom:GetText() == "Freitag" and paper.ears[2].top:GetText() == "Preis",
     "masthead: issue number and weekday in the left ear, price in the right, paper and date under it")
@@ -400,17 +400,14 @@ do
   Click(f.next)
   check(paper.ears[1].top:GetText() == "Nr. 3" and not f.next:IsEnabled(), "next twice: back on the latest issue")
   Click(f.prev)
-  Click(f.modeButton)
-  local lines = table.concat(f.msg._lines or {}, "\n")
-  check(f.mode == "log" and f.msg:IsShown() and not paper:IsShown() and f.modeButton:GetText() == "ZEITUNG"
-    and lines:find("Zul'Farrak", 1, true) and lines:find("neu seit deinem letzten Blick", 1, true),
-    "Chronik shows the plain log with the new-entries line, and the button turns into Zeitung")
-  Click(f.modeButton)
-  check(f.mode == "paper" and paper:IsShown() and not f.msg:IsShown(), "Zeitung switches back to the newspaper")
-  f:Hide()
-  Click(f.modeButton)
+  Click(f.chronicle)
+  local page = c.env.RavenquillExpeditionOverview.optView.pages.Highlights
+  local lines = table.concat(page.msg._lines or {}, "\n")
+  check(not f:IsShown() and page:IsShown() and lines:find("Zul'Farrak", 1, true)
+    and not lines:find("neu seit deinem letzten Blick", 1, true),
+    "Chronik closes the sheet and shows the plain log in /rq; the paper was the last look, so no new-entries line")
   c.H:ShowWindow()
-  check(f.mode == "paper" and paper.ears[1].top:GetText() == "Nr. 3", "reopening starts on the latest issue again")
+  check(f:IsShown() and paper.ears[1].top:GetText() == "Nr. 3", "reopening starts on the latest issue again")
   Heard(c, E("level", "Mira Sturmfeder", At(20, 21, 15), { lvl = 60 }))
   sched:advance(1)
   local told = paper.brief.lines[1]:GetText() .. " " .. (paper.third.head:GetText() or "")
@@ -437,7 +434,7 @@ do
   local pf = Frame(plain)
   check(pf.paper.masthead.loaded and pf.paper.masthead.texture:IsShown() and not pf.paper.masthead.text:IsShown(),
     "with the texture available the masthead is the texture")
-  check(pf.modeButton:GetText() == "CHRONICLE" and pf.prev:GetText() == "« PREVIOUS ISSUE" and pf.paper.lead.head:GetText() == EN.EMPTY_HEAD,
+  check(pf.chronicle:GetText() == "CHRONICLE" and pf.prev:GetText() == "« PREVIOUS ISSUE" and pf.paper.lead.head:GetText() == EN.EMPTY_HEAD,
     "English clients get the English paper")
   check(#c.errors == 0 and #plain.errors == 0, "no Lua errors")
 end

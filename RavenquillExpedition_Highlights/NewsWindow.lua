@@ -18,7 +18,7 @@ local TIME_HEX = "6b5a45"
 local DROP_CAP = { cols = 8, rows = 4, umlauts = { ["\195\132"] = 27, ["\195\150"] = 28, ["\195\156"] = 29 },
   width = { 0.73, 0.8, 0.63, 0.73, 0.64, 0.68, 0.7, 0.67, 0.63, 0.65, 0.73, 0.54, 0.97, 0.79, 0.68, 0.8, 0.72, 0.83, 0.69,
     0.68, 0.65, 0.79, 0.95, 0.66, 0.77, 0.61, 0.73, 0.68, 0.65 } }
-local SIZE = { gutter = 24, minColumn = 150, sidebarMin = 560, mainShare = 0.67, secondMin = 110, briefMin = 60,
+local SIZE = { gutter = 24, mainShare = 0.67, secondMin = 110,
   defaultW = 868, defaultH = 716, wideW = 760, wideH = 600, captionLines = 3.8, capLines = 3, dotsW = 512,
   dim = { pad = { 16, 32 }, mast = { 224, 288 }, mastTop = { 4, 10 }, wood = { 68, 100 }, woodGap = { 12, 16 },
     briefArt = { 96, 124 }, earPad = { 6, 8 } },
@@ -314,7 +314,7 @@ local function FlowPair(paper, x, top, width, bottom)
   local sec, third = paper.second, paper.third
   Anchor(paper, paper.pairRule, x, top + 10, width)
   local y, colW = top + 20, math.floor((width - SIZE.gutter) / 2)
-  local thirdEnd, shown = y, colW >= SIZE.minColumn and third.id ~= nil
+  local thirdEnd, shown = y, third.id ~= nil
   if shown then
     thirdEnd = FlowStory(paper, third, x + colW + SIZE.gutter, y, colW, bottom)
     shown = third.body:GetText() ~= ""
@@ -387,21 +387,12 @@ end
 local function FlowGrid(paper, top, w, h)
   local pad = Dim(paper, "pad")
   local inner, bottom = w - 2 * pad, h - pad
-  local side = inner >= SIZE.sidebarMin
-  local mainW = side and math.floor(inner * SIZE.mainShare) or inner
-  local mainBottom = side and bottom or bottom - SIZE.briefMin
-  local leadEnd = FlowLead(paper, pad, top, mainW, mainBottom - SIZE.secondMin)
-  local pairEnd, placed = FlowPair(paper, pad, leadEnd, mainW, mainBottom)
-  local rule, bx, by, bw = paper.sideRule, pad + mainW + SIZE.gutter, top, inner - mainW - SIZE.gutter
-  if side then
-    Anchor(paper, rule, pad + mainW + SIZE.gutter / 2, top, 1)
-    rule:SetHeight(math.max(1, bottom - top))
-  else
-    bx, by, bw = pad, pairEnd + 16, inner
-    Anchor(paper, rule, pad, pairEnd + 8, inner)
-    rule:SetHeight(1)
-  end
-  local briefEnd, kept = FlowBrief(paper, bx, by, bw, bottom, placed)
+  local mainW = math.floor(inner * SIZE.mainShare)
+  local leadEnd = FlowLead(paper, pad, top, mainW, bottom - SIZE.secondMin)
+  local pairEnd, placed = FlowPair(paper, pad, leadEnd, mainW, bottom)
+  Anchor(paper, paper.sideRule, pad + mainW + SIZE.gutter / 2, top)
+  paper.sideRule:SetHeight(math.max(1, bottom - top))
+  local briefEnd, kept = FlowBrief(paper, pad + mainW + SIZE.gutter, top, inner - mainW - SIZE.gutter, bottom, placed)
   local used = math.max(pairEnd, briefEnd, leadEnd + SIZE.secondMin)
   return used, table.concat({ kept, tostring(next(placed)), paper.lead.shown or "", paper.second.body:GetText() or "",
     paper.third.body:GetText() or "", paper.lead.photo.caption:GetText() or "" }, "|")
@@ -431,25 +422,17 @@ end
 
 H.SetFontSize, H.FlowPaper, H.DoubleRule = SetSize, Flow, DoubleRule
 
-function H:AttachPaper(f, insets, nav)
+function H:AttachPaper(f, nav)
   local paper = CreateFrame("Frame", nil, f)
-  paper:SetPoint("TOPLEFT", insets[1], insets[2])
-  paper:SetPoint("BOTTOMRIGHT", insets[3], insets[4])
+  paper:SetAllPoints()
   if paper.SetClipsChildren then paper:SetClipsChildren(true) end
   paper.reserve = nav.reserve
   H.PaperSheet(paper)
   BuildPaper(paper)
   paper:SetScript("OnSizeChanged", function() GS:Call(Flow, paper) end)
   f.paper = paper
-  H.NavButtons(f, nav, nav.ink and H.InkLayer(f, paper))
-  f.paperWidgets = { paper, f.prev, f.next, f.issueLabel }
-end
-
-function H:ApplyWindowMode(f)
-  local paperMode = f.mode == "paper"
-  for _, w in ipairs(f.paperWidgets) do w:SetShown(paperMode) end
-  for _, w in ipairs(f.logWidgets) do w:SetShown(not paperMode) end
-  H.SetLabel(f.modeButton, paperMode and T.CHRONICLE or T.PAPER)
+  paper:Show()
+  H.NavButtons(f, nav, H.InkLayer(f, paper))
 end
 
 local function DayOf(t) return date("%Y-%m-%d", t) end

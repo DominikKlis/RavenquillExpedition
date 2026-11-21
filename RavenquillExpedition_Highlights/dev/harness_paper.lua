@@ -172,15 +172,6 @@ local function SidebarRight(paper)
   return left > main and rule.left > main and rule.right < left and rule.height > rule.width
 end
 
-local function Stacked(paper)
-  local low = math.huge
-  for _, fs in ipairs({ paper.second.body, paper.third.body }) do
-    if fs:IsShown() and (fs:GetText() or "") ~= "" then low = math.min(low, R(fs).bottom) end
-  end
-  local more, rule = R(paper.brief.more), R(paper.sideRule)
-  return more.top <= low and rule.width > rule.height and R(paper.brief.title.texture).top <= rule.bottom
-end
-
 local function SideBySide(paper)
   local sec, third = paper.second, paper.third
   local s, t, rule = R(sec.head), R(third.head), R(paper.pairColumnRule)
@@ -206,7 +197,7 @@ do
   local cut = Cut(paper)
   check(cut == nil, "bodies keep whole paragraphs or whole sentences, never a cut one (" .. tostring(cut) .. ")")
   f:Hide()
-  f, paper = OpenSized(c, 640, 395)
+  _, paper = OpenSized(c, 640, 395)
   off, cut = Offenders(c, paper), Cut(paper)
   local shortened = LeadText(paper.lead) ~= Squash(table.concat(paper.issue.lead.body, " "))
     or paper.second.body:GetText() ~= table.concat(paper.issue.second.body, "\n")
@@ -216,28 +207,10 @@ do
   local more = paper.brief.more:GetText() or ""
   check(dropped > 0 and more:lower():find(c.ns[NK.HL].News.Count(paper.issue.more + dropped, c.ns[NK.HL].NewsLocales.deDE), 1, true),
     "brief lines that do not fit are dropped whole and counted in the line about the chronicle (" .. more .. ")")
-  f:Hide()
-  _, paper = OpenSized(c, 460, 640)
-  off = Offenders(c, paper)
-  check(#off == 0 and Cut(paper) == nil and Stacked(paper),
-    "a narrow page sets In Kürze under the stories, everything on the page (" .. (off[1] or "none") .. ")")
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
-local PAGE_W, PAGE_H = 632, 480
-
 local function Click(b) b:GetScript("OnClick")(b) end
-
-local function OpenTab(c, w, h)
-  local GS = c.env.RavenquillExpedition
-  GS:ShowModulePage("Highlights")
-  local opt = c.env.RavenquillExpeditionOverview.optView
-  Layout.Pin(opt.body, 100, 100, w, h)
-  c.H:Refresh()
-  return opt.pages.Highlights, opt
-end
-
-local function Below(upper, lower) return Layout.Rect(lower).top <= Layout.Rect(upper).bottom + 0.5 end
 
 local function Bottom(c, paper)
   local low = math.huge
@@ -396,7 +369,7 @@ do
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
-Kit.section("Window: 900 wide, at most 780 high and 90% of the screen, sized to the issue, larger type than the tab")
+Kit.section("Window: 900 wide, at most 780 high and 90% of the screen, sized to the issue, smaller type on a small screen")
 do
   local c = LayoutClient("Lyra Distelbach")
   Heard(c, BUSY_DAY)
@@ -421,17 +394,6 @@ do
       r.height))
   check(not qf.paper.third.head:IsShown() and R(qf.paper.second.body).right > R(qf.paper.lead.beside).left,
     "without a third story the second one takes the whole width of the main column")
-  quiet.H:SetWindowMode("log")
-  check(Layout.Rect(qf).height == 780, "the Chronik gets the full height again")
-  quiet.H:SetWindowMode("paper")
-  check(Layout.Rect(qf).height == qr.height, "and the paper shrinks back to its issue")
-  local page = OpenTab(c, PAGE_W, PAGE_H)
-  local lead, tab = f.paper.lead, page.paper.lead
-  check(lead.head._fontSize > tab.head._fontSize and lead.rest._fontSize > tab.rest._fontSize
-    and R(lead.photo.frame).width > R(tab.photo.frame).width,
-    ("the window sets the lead headline, body and woodcut larger than the tab (%d/%d against %d/%d)"):format(lead.head._fontSize,
-      lead.rest._fontSize, tab.head._fontSize, tab.rest._fontSize))
-  check(#Offenders(c, page.paper) == 0 and Cut(page.paper) == nil, "the tab keeps its size and fits as before")
   local long = LayoutClient("Mira Sturmfeder")
   for i, boss in ipairs({ "Schlingwurzler", "Noxxion", "Celebras der Verfluchte", "Erdrutsch", "Prinzessin Theradras", "Faulschnapper" }) do
     Heard(long, { E("boss", "Bodo Kesselring", At(20, 18, 20) + i * 400, { inst = "Maraudon", boss = boss, first = true, lvl = 52 }) })
@@ -448,6 +410,12 @@ do
   check(sr.width == 900 and sr.height <= 540, ("on a 1024x600 screen the window keeps to 90%% of the height (%dx%d)"):format(sr.width,
     sr.height))
   check(#Offenders(small, sf.paper) == 0 and Cut(sf.paper) == nil, "there too every text sits on the paper, none cut")
+  local lead, low = f.paper.lead, sf.paper.lead
+  sf.paper.dotsFile = small.H.DOTTED
+  check(low.head._fontSize < lead.head._fontSize and low.rest._fontSize < lead.rest._fontSize and Woodcut(small.H, low.photo, 68)
+    and low.cap:IsShown() and SidebarRight(sf.paper) and DotsUnder(sf.paper) and SideBySide(sf.paper),
+    ("there the same parts come smaller: headline and body %d/%d against %d/%d, a 68 px woodcut"):format(low.head._fontSize,
+      low.rest._fontSize, lead.head._fontSize, lead.rest._fontSize))
   check(#c.errors == 0 and #small.errors == 0, "no Lua errors (" .. tostring(c.errors[1] or small.errors[1]) .. ")")
 end
 
@@ -482,7 +450,7 @@ end
 local function Darker(a, b) return a[1] + a[2] + a[3] < b[1] + b[2] + b[3] end
 
 local function InkFooter(f)
-  for _, b in ipairs({ f.prev, f.next, f.modeButton }) do
+  for _, b in ipairs({ f.prev, f.next, f.chronicle }) do
     if not (b.label and b.underline and b.label._ink) then return false end
   end
   return true
@@ -540,10 +508,10 @@ do
   check(#off == 0 and Cut(f.paper) == nil and lowest >= Layout.Rect(f.prev).top,
     "every text of the issue stays on the paper, above the footer (" .. (off[1] or "none") .. ")")
   check(DoubleRule(f.footerRules, lowest, R(f.prev).top), "a thin and a thick rule run between the issue and the footer")
-  check(InkFooter(f) and templates[f.prev] == false and templates[f.modeButton] == false and f.prev:GetText() == "« VORHERIGE AUSGABE"
-    and f.next:GetText() == "NÄCHSTE AUSGABE »" and f.modeButton:GetText() == "CHRONIK"
+  check(InkFooter(f) and templates[f.prev] == false and templates[f.chronicle] == false and f.prev:GetText() == "« VORHERIGE AUSGABE"
+    and f.next:GetText() == "NÄCHSTE AUSGABE »" and f.chronicle:GetText() == "CHRONIK"
     and f.issueLabel:GetText() == "Ausgabe vom 20. November", "the footer links are printed in ink capitals: no red buttons")
-  check(not f.next:IsEnabled() and not f.next.underline:IsShown() and Linked(f.prev) and Linked(f.modeButton)
+  check(not f.next:IsEnabled() and not f.next.underline:IsShown() and Linked(f.prev) and Linked(f.chronicle)
     and Darker(f.prev.label._ink, f.next.label._ink), "on the newest issue the live links are underlined, 'Nächste Ausgabe' is greyed")
   check(R(f.prev).width >= utf8.len("« VORHERIGE AUSGABE") * 12 * Layout.CHAR_EM - 0.5, "each link is as wide as its words")
   local idle = f.prev.label._ink
@@ -557,55 +525,14 @@ do
     "the links page back an issue, and the greyed one follows")
   Click(f.next)
   check(f.issueLabel:GetText() == "Ausgabe vom 20. November", "and forward again")
-  Click(f.modeButton)
-  local panel = f.logPanel
-  fr = Layout.Rect(f)
-  check(f.mode == "log" and f.msg:IsShown() and not f.paper:IsShown() and f.modeButton:GetText() == "ZEITUNG"
-    and panel._color[4] > 0.9 and panel._color[1] < 0.2 and Layout.Inside(fr, Layout.Rect(panel))
-    and R(panel).bottom > R(f.footerRules.thin).top, "Chronik sets the log on a dark inset panel above the footer, the link reads Zeitung")
-  check(Darker(f.footer._ink, { 0.6, 0.6, 0.6 }) and Darker(f.onlyHLText._ink, { 0.6, 0.6, 0.6 }),
-    "the log's footer line and checkbox label are printed in ink, readable on the paper")
-  Click(f.modeButton)
-  check(f.mode == "paper" and f.paper:IsShown(), "Zeitung goes back to the newspaper")
+  check(f.msg == nil and f.logPanel == nil, "the sheet holds the newspaper only: no log and no dark log panel")
+  Click(f.chronicle)
+  local page = c.env.RavenquillExpeditionOverview.optView.pages.Highlights
+  check(not f:IsShown() and c.env.RavenquillExpedition.optionsModule == "Highlights" and page:IsShown() and page.msg ~= nil,
+    "CHRONIK closes the sheet and opens the Chronik in the /rq Highlights tab")
+  c.H:ShowWindow()
   Click(close)
   check(not f:IsShown(), "the × closes the sheet")
-  check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
-end
-
-Kit.section("Paper on the /rq Highlights tab")
-do
-  local c = LayoutClient("Lyra Distelbach")
-  Heard(c, BUSY_DAY)
-  Heard(c, { E("level", "Bodo Kesselring", At(18, 10), { lvl = 20 }) })
-  local page, opt = OpenTab(c, PAGE_W, PAGE_H)
-  local paper = page.paper
-  paper.dotsFile = c.H.DOTTED
-  check(page.mode == "paper" and paper:IsShown() and not page.msg:IsShown() and page.prev:IsShown() and page.next:IsShown()
-    and page.modeButton:GetText() == "Chronik" and page.issueLabel:GetText() == "Ausgabe vom 20. November",
-    "the tab shows the newspaper with Vorherige/Nächste Ausgabe and Chronik")
-  local off = Offenders(c, paper)
-  check(Layout.Inside(Layout.Rect(page), Layout.Rect(paper)) and #off == 0 and Cut(paper) == nil,
-    "on the tab every text is on the page, shown in full, no sentence cut (" .. (off[1] or "none") .. ")")
-  check(Below(paper, page.prev) and Below(paper, page.next) and Below(paper, page.modeButton)
-    and Layout.Inside(Layout.Rect(page), Layout.Rect(page.modeButton)), "the issue buttons sit under the paper, inside the tab")
-  check(Woodcut(c.H, paper.lead.photo, 68) and paper.lead.cap:IsShown() and SidebarRight(paper) and DotsUnder(paper)
-    and OpaqueBase(c, paper) ~= nil, "the tab has the same parts, smaller: woodcut, drop cap, In Kürze as a sidebar, on full paper")
-  check(Ears(paper, paper.masthead.texture) and DoubleRule(paper.mastRules, R(paper.masthead.texture).bottom + 0.5,
-    R(paper.metaLeft).top), "and the same masthead with its ears and double rule")
-  Click(page.prev)
-  local win = c.env.RavenquillExpeditionHighlightsFrame
-  check(page.issueLabel:GetText() == "Ausgabe vom 18. November" and not (win and win:IsShown()),
-    "Vorherige Ausgabe turns the tab's own paper back a day")
-  Click(opt.gear)
-  check(c.env.RavenquillExpedition.moduleSettings and opt.panels.Highlights:IsShown() and not page:IsShown(),
-    "the settings button above the paper still opens the settings")
-  Click(opt.gear)
-  check(page:IsShown() and page.mode == "paper" and page.issueLabel:GetText() == "Ausgabe vom 20. November",
-    "back from the settings the tab opens today's paper again")
-  local narrow = OpenTab(c, 470, PAGE_H)
-  off = Offenders(c, narrow.paper)
-  check(#off == 0 and Cut(narrow.paper) == nil and Stacked(narrow.paper),
-    "a narrow tab sets In Kürze under the stories, all text on the page (" .. (off[1] or "none") .. ")")
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 

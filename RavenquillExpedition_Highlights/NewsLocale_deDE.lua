@@ -17,7 +17,6 @@ ns.NewsLocales.deDE = {
   PREV = "« Vorherige Ausgabe",
   NEXT = "Nächste Ausgabe »",
   CHRONICLE = "Chronik",
-  PAPER = "Zeitung",
   IN_BRIEF = "In Kürze",
   MORE_BRIEF = { "{?one}eine weitere Meldung steht in der Chronik.", "{!one}{n} weitere Meldungen stehen in der Chronik." },
   NO_BRIEF = "Keine weiteren Meldungen.",

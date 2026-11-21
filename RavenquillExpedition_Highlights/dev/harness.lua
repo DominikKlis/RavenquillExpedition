@@ -134,11 +134,12 @@ local function lastPrinted() local p = printed[#printed]; return p and p.text or
 local printedSince = me.printedSince
 local hlNS = me.ns.RavenquillExpedition_Highlights
 local GS, H = me.RQ, hlNS.H
-local function OpenLog(h, e)
-  h:ShowWindow()
-  local f = e.RavenquillExpeditionHighlightsFrame
-  if f.mode ~= "log" then f.modeButton:GetScript("OnClick")(f.modeButton) end
+local function LogPage(e) return e.RavenquillExpeditionOverview.optView.pages.Highlights end
+local function OpenLog(e)
+  e.RavenquillExpedition:ShowModulePage("Highlights")
+  return LogPage(e)
 end
+local function CloseLog(e) LogPage(e):Hide() end
 
 fire("ADDON_LOADED", "RavenquillExpedition")
 fire("ADDON_LOADED", "RavenquillExpedition_Highlights")
@@ -518,7 +519,7 @@ local function opt(label)
 end
 env.SlashCmdList.RAVENQUILL("hl")
 local paperFrame = env.RavenquillExpeditionHighlightsFrame
-check(paperFrame and paperFrame:IsShown() and paperFrame.mode == "paper", "/rq hl opens the newspaper")
+check(paperFrame and paperFrame:IsShown() and paperFrame.paper:IsShown(), "/rq hl opens the newspaper")
 paperFrame:Hide()
 GS:OpenModule("Highlights")
 local ov = env.RavenquillExpeditionOverview
@@ -554,11 +555,12 @@ rawget(panel.controls[opt(L.OPT_TEST)], "_scripts").OnClick()
 check(lastPrinted():find("11 Testeinträge", 1, true), "test button adds 11 test entries")
 H:Open()
 local hlFrame = env.RavenquillExpeditionHighlightsFrame
-check(H.openLabel == "Zeitung" and hlFrame:IsShown() and hlFrame.mode == "paper" and hlFrame.paper:IsShown()
-  and not hlFrame.msg:IsShown(), "the card's 'Zeitung' entry opens the window on the newspaper")
-OpenLog(H, env)
-check(hlFrame.msg:IsShown() and lines[#lines]:find("Stufe 60 – Höchststufe!", 1, true),
-  "its Chronik button shows the log, test entry last")
+check(H.openLabel == "Zeitung" and hlFrame:IsShown() and hlFrame.paper:IsShown() and hlFrame.msg == nil
+  and hlFrame.mode == nil, "the card's 'Zeitung' entry opens the sheet: the newspaper only, no log mode")
+rawget(hlFrame.chronicle, "_scripts").OnClick(hlFrame.chronicle)
+check(not hlFrame:IsShown() and GS.optionsModule == "Highlights" and not GS.moduleSettings and LogPage(env):IsShown()
+  and lines[#lines]:find("Stufe 60 – Höchststufe!", 1, true),
+  "its CHRONIK link closes the sheet and opens the /rq Highlights tab on the log, test entry last")
 local noClutter = true
 for _, o in ipairs(H.options) do
   if o.type == "text" or o.key == "logOnlyHighlights" or o.label == "Protokoll öffnen" then noClutter = false end
@@ -596,15 +598,8 @@ check(rawget(missingRow, "_shown") and missingRow.data.state == "missing" and mi
 GS:ShowModulePage("Highlights")
 local hlPage = ov.optView.pages.Highlights
 check(GS.optionsModule == "Highlights" and not GS.moduleSettings and hlPage and hlPage:IsShown() and not ov.optView.scroll:IsShown()
-  and hlPage.mode == "paper" and hlPage.paper:IsShown() and not hlPage.msg:IsShown() and hlPage.prev:IsShown()
-  and hlPage.modeButton:GetText() == "Chronik" and hlPage.issueLabel:GetText():find("Ausgabe vom", 1, true),
-  "the Highlights tab opens on the newspaper with its issue footer and a Chronik button, not on its settings")
-rawget(hlPage.modeButton, "_scripts").OnClick(hlPage.modeButton)
-check(hlPage.mode == "log" and hlPage.msg:IsShown() and not hlPage.paper:IsShown() and not hlPage.prev:IsShown()
-  and hlPage.footer:GetText():find("Highlights", 1, true) and hlPage.modeButton:GetText() == "Zeitung",
-  "Chronik on the tab shows the log with its footer, and the button turns into Zeitung")
-rawget(hlPage.modeButton, "_scripts").OnClick(hlPage.modeButton)
-check(hlPage.mode == "paper" and hlPage.paper:IsShown(), "Zeitung on the tab goes back to the newspaper")
+  and hlPage.msg ~= nil and hlPage.paper == nil and hlPage.prev == nil and hlPage.footer:GetText():find("Highlights", 1, true)
+  and hlPage.onlyHL ~= nil, "the Highlights tab is the Chronik: the log with its footer and checkbox, no newspaper, not its settings")
 local gear = ov.optView.gear
 check(rawget(gear, "_shown") and gear:GetText() == "Einstellungen" and gear:IsEnabled() and hlPage.open == nil,
   "a module page shows a labelled settings button and its own page, no open page")
@@ -613,20 +608,20 @@ hlFrame:Hide()
 check(rawget(openPaper, "_shown") and openPaper:GetText() == "Zeitung öffnen" and not hlFrame:IsShown(),
   "the Highlights tab's header row offers 'Zeitung öffnen' next to the settings button")
 rawget(openPaper, "_scripts").OnClick(openPaper)
-check(hlFrame:IsShown() and hlFrame.mode == "paper" and hlFrame.paper:IsShown() and hlPage:IsShown(),
+check(hlFrame:IsShown() and hlFrame.paper:IsShown() and hlPage:IsShown(),
   "'Zeitung öffnen' opens the paper sheet on the newspaper and leaves the tab shown")
 hlFrame:Hide()
 rawget(gear, "_scripts").OnClick(gear)
 check(GS.moduleSettings and ov.optView.panels.Highlights:IsShown() and not hlPage:IsShown(), "the settings button shows the settings")
 check(gear:GetText() == "« Zurück" and gear:IsEnabled(), "in the settings the same button reads '« Zurück'")
 rawget(gear, "_scripts").OnClick(gear)
-check(not GS.moduleSettings and hlPage:IsShown() and hlPage.mode == "paper" and gear:GetText() == "Einstellungen",
-  "'« Zurück' goes back to the newspaper")
+check(not GS.moduleSettings and hlPage:IsShown() and hlPage.msg ~= nil and gear:GetText() == "Einstellungen",
+  "'« Zurück' goes back to the Chronik")
 GS:ShowModuleOptions("Highlights")
 local hlSideTab
 for _, tab in ipairs(ov.tabs) do if tab.page == "Highlights" then hlSideTab = tab end end
 rawget(hlSideTab, "_scripts").OnClick(hlSideTab)
-check(not GS.moduleSettings and hlPage:IsShown() and hlPage.mode == "paper", "the module's side tab goes back to the newspaper")
+check(not GS.moduleSettings and hlPage:IsShown() and hlPage.msg ~= nil, "the module's side tab goes back to the Chronik")
 GS:ShowHome()
 local mapTab = false
 for _, tab in ipairs(ov.tabs) do if rawget(tab, "_shown") and tab.page == "Map" then mapTab = true end end
@@ -725,7 +720,7 @@ do
 end
 
 do
-  OpenLog(H, env)
+  OpenLog(env)
   G.items[309] = { name = "Spätes Schwert", q = 4, il = 50, unloaded = true }
   recv("Dora Dunn", ("1;g;%d;951;Dora Dunn;33;5;309;50;4;40;16"):format(T()))
   advance(1)
@@ -738,7 +733,7 @@ do
   local arrived = lines[#lines] or ""
   check(waiting:find("[item:309]", 1, true) and quiet == waiting and arrived:find("[Spätes Schwert]", 1, true),
     "a received item without data shows its id, and its name once the item data arrives (" .. arrived .. ")")
-  local footer = env.RavenquillExpeditionHighlightsFrame.footer
+  local footer = LogPage(env).footer
   G.guild = nil
   H:Refresh()
   local cachedLast, cachedFooter = lines[#lines], footer._text
@@ -784,7 +779,7 @@ do
     "the overview lists every module with its status line, above the highlights feed (" .. stripped .. ")")
   rawget(hlRow, "_scripts").OnClick(hlRow)
   local paperWin = env.RavenquillExpeditionHighlightsFrame
-  check(paperWin and paperWin:IsShown() and paperWin.mode == "paper", "clicking the Highlights line opens the newspaper")
+  check(paperWin and paperWin:IsShown() and paperWin.paper:IsShown(), "clicking the Highlights line opens the newspaper")
   paperWin:Hide()
   rawget(tabs[1], "_scripts").OnClick(tabs[1])
   check(ov.home.peers:GetText() == GS:OverviewPeersLine() and ov.home.sync:GetText() == GS:OverviewSyncLine()
@@ -846,9 +841,9 @@ do
   local s = H:Settings()
   local onlyHL = s.logOnlyHighlights
   s.logOnlyHighlights = false
-  OpenLog(H, env)
+  OpenLog(env)
   H:Refresh()
-  local msg = env.RavenquillExpeditionHighlightsFrame.msg
+  local msg = LogPage(env).msg
   msg._offset = 5
   local reading = lines[#lines - 5]
   H:Activity({ k = "loot", item = 300, q = 2 })
@@ -861,7 +856,7 @@ do
   check(msg._offset == 0 and lines[#lines]:find("Grünes Ding", 1, true), "at the bottom the log follows new entries")
   s.logOnlyHighlights = onlyHL
   fm.ScrollToBottom, fm.GetScrollOffset, fm.SetScrollOffset = nil, nil, nil
-  env.RavenquillExpeditionHighlightsFrame:Hide()
+  CloseLog(env)
 end
 
 do
@@ -1206,7 +1201,7 @@ end
 Kit.section("An empty log points to the explanations")
 do
   local fresh = Character(); fresh.login(); advance(5)
-  OpenLog(fresh.H, fresh.env)
+  OpenLog(fresh.env)
   local shown = lines[#lines] or ""
   check(shown:find("Was zählt, steht unter /rq hl.", 1, true) and shown:find("Testeinträge hinzufügen", 1, true)
     and not shown:find("Gegenstandsstufen", 1, true), "an empty log points to /rq hl for what counts instead of listing the rules")
@@ -1295,25 +1290,25 @@ do
   c.fire("PLAYER_LEVEL_UP", 40)
   hear("Bud Stone", ("1;v;%d;52;Bud Stone;40;9"):format(t))
   check(newCount() == 2, "two new before the log is opened (" .. newCount() .. ")")
-  OpenLog(c.H, c.env)
+  OpenLog(c.env)
   local at, marks = divider()
   check(marks == 1 and lines[at + 1]:find("Cara Moss", 1, true) and lineOf("Bud Stone") > at,
     "the log marks the first new entry once, the newer ones below it")
   check(newCount() == 0, "opening the log clears the count")
-  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  CloseLog(c.env)
   hear("Dora Dunn", ("1;v;%d;53;Dora Dunn;30;5"):format(t - 300))
   check(newCount() == 1, "an entry older than the last look but heard after it is new (" .. newCount() .. ")")
-  OpenLog(c.H, c.env)
+  OpenLog(c.env)
   at = divider()
   check(at and lines[at + 1]:find("Dora Dunn", 1, true) and lineOf("Cara Moss") < at and lineOf("Bud Stone") > at,
     "the mark sits right above it, between entries already seen")
-  c.env.RavenquillExpeditionHighlightsFrame:Hide()
-  OpenLog(c.H, c.env)
+  CloseLog(c.env)
+  OpenLog(c.env)
   check(select(2, divider()) == 0 and newCount() == 0, "nothing new: no mark")
   hear("Abe Ash", ("1;v;%d;54;Abe Ash;60;1"):format(T()))
   advance(1)
   check(lineOf("Abe Ash") and newCount() == 0, "an entry that arrives while the log is open is seen there")
-  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  CloseLog(c.env)
   hear("Cara Moss", ("1;v;%d;55;Cara Moss;50;7"):format(T()))
   local r = Reload(LogOut(c)); advance(5)
   check(newCount(r.H) == 1, "the count survives a logout (" .. newCount(r.H) .. ")")
@@ -1358,17 +1353,17 @@ do
   c.frameMethods.SetScrollOffset = function(f, v) f._offset = v end
   c.frameMethods.GetNumVisibleLines = function() return VISIBLE end
   local function hear(sender, msg) c.fire("CHAT_MSG_ADDON", "RQE1", "H;" .. msg, "GUILD", sender) end
-  local function msg() return c.env.RavenquillExpeditionHighlightsFrame.msg end
+  local function msg() return LogPage(c.env).msg end
   local function top() return #lines - msg()._offset - VISIBLE + 1 end
   local function onScreen(pattern)
     for i = math.max(1, top()), #lines - msg()._offset do if lines[i]:find(pattern, 1, true) then return i end end
   end
   local t = T()
   for i = 1, 5 do hear("Abe Ash", ("1;v;%d;%d;Abe Ash;%d;1"):format(t - 900 + i, 80 + i, 40 + i)) end
-  OpenLog(c.H, c.env)
-  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  OpenLog(c.env)
+  CloseLog(c.env)
   for i = 1, 14 do hear("Cara Moss", ("1;v;%d;%d;Cara Moss;%d;7"):format(t - 600 + i, 90 + i, 40 + i)) end
-  OpenLog(c.H, c.env)
+  OpenLog(c.env)
   local at = onScreen("neu seit deinem letzten Blick")
   check(at == top() and lines[at + 1]:find("Cara Moss", 1, true),
     "14 new entries do not fit: the log scrolls so the line opens the screen (line " .. tostring(at) .. " of " .. #lines
@@ -1377,13 +1372,13 @@ do
   advance(1)
   check(onScreen("neu seit deinem letzten Blick") and onScreen("Cara Moss"),
     "an entry arriving while reading keeps the line where it was")
-  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  CloseLog(c.env)
   hear("Bud Stone", ("1;v;%d;121;Bud Stone;40;9"):format(T()))
   msg()._offset = 0
-  OpenLog(c.H, c.env)
+  OpenLog(c.env)
   check(msg()._offset == 0 and onScreen("neu seit deinem letzten Blick") and onScreen("Bud Stone"),
     "one new entry fits at the bottom: the log stays at the bottom")
-  c.env.RavenquillExpeditionHighlightsFrame:Hide()
+  CloseLog(c.env)
   LogOut(c)
 end
 

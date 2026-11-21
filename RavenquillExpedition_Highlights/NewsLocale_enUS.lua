@@ -17,7 +17,6 @@ ns.NewsLocales.enUS = {
   PREV = "« Previous issue",
   NEXT = "Next issue »",
   CHRONICLE = "Chronicle",
-  PAPER = "Newspaper",
   IN_BRIEF = "In brief",
   MORE_BRIEF = { "{?one}one more report is in the chronicle.", "{!one}{n} more reports are in the chronicle." },
   NO_BRIEF = "No further reports.",

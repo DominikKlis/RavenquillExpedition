@@ -538,7 +538,7 @@ end
 H.openLabel, H.openInHeader = L.OPEN_LABEL, true
 function H:OverviewDiagnostics() return self:DiagLines() end
 
-function H:Open() self:ShowWindow(); self:SetWindowMode("paper") end
+function H:Open() self:ShowWindow() end
 
 function H:OverviewStatus()
   if not self.db then return end
