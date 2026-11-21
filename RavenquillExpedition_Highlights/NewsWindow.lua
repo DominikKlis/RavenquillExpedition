@@ -14,7 +14,9 @@ local BASE_FONT = "Fonts\\FRIZQT__.TTF"
 local INK, INK_SOFT, RULE, PAPER = { 0.17, 0.13, 0.09 }, { 0.36, 0.29, 0.22 }, { 0.48, 0.40, 0.29 }, { 0.92, 0.86, 0.72 }
 local LABEL = { 0.85, 0.78, 0.62 }
 local TIME_HEX = "6b5a45"
-local PAD, PHOTO_W, GUTTER, LEFT_W, BRIEF_GAP = 16, 64, 16, 330, 24
+local PAD, PHOTO_W, PHOTO_H, GUTTER, BRIEF_GAP = 16, 64, 52, 16, 24
+local LEAD_TOP, MIN_COLUMN, SECOND_MIN, LEFT_SHARE = 97, 180, 110, 0.57
+local DEFAULT_W, DEFAULT_H = 608, 576
 
 local function BaseFont()
   local obj = GameFontHighlightSmall
@@ -30,14 +32,7 @@ local function Text(parent, size, opts)
   fs:SetShadowOffset(0, 0)
   fs:SetJustifyH(opts.justify or "LEFT")
   fs:SetJustifyV("TOP")
-  if opts.lines then fs:SetMaxLines(opts.lines) end
   return fs
-end
-
-local function Below(region, anchor, gap, width)
-  region:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -gap)
-  if width then region:SetWidth(width) else region:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -gap) end
-  return region
 end
 
 local function Rule(parent, w, h)
@@ -100,69 +95,165 @@ local function Meta(paper)
   paper.metaDate:SetPoint("TOP", 0, -74)
   paper.metaRight = Text(paper, 10, { color = INK_SOFT, justify = "RIGHT" })
   paper.metaRight:SetPoint("TOPRIGHT", -PAD, -74)
-  return TopRule(paper, -89)
+  TopRule(paper, -89)
 end
 
-local function Photo(box)
-  local frame = box:CreateTexture(nil, "BORDER")
+local function Photo(paper)
+  local frame = paper:CreateTexture(nil, "BORDER")
   frame:SetColorTexture(0.11, 0.08, 0.05, 1)
-  frame:SetSize(52, 52)
-  frame:SetPoint("TOPLEFT", 2, 0)
-  local icon = box:CreateTexture(nil, "ARTWORK")
+  frame:SetSize(PHOTO_H, PHOTO_H)
+  local icon = paper:CreateTexture(nil, "ARTWORK")
   icon:SetSize(48, 48)
   icon:SetPoint("CENTER", frame, "CENTER")
   icon:SetDesaturated(true)
   icon:SetVertexColor(0.92, 0.80, 0.62)
-  local caption = Text(box, 9, { color = INK_SOFT, justify = "CENTER", lines = 3 })
+  local caption = Text(paper, 9, { color = INK_SOFT, justify = "CENTER" })
   caption:SetPoint("TOP", frame, "BOTTOM", 0, -3)
   caption:SetWidth(PHOTO_W - 4)
-  return { icon = icon, caption = caption }
+  return { frame = frame, icon = icon, caption = caption }
 end
 
-local function Lead(paper, rule, inner)
-  local lead = {}
-  lead.kicker = Text(paper, 10, { color = INK_SOFT, lines = 1 })
-  lead.kicker:SetPoint("TOPLEFT", rule, "BOTTOMLEFT", 0, -8)
-  lead.kicker:SetPoint("TOPRIGHT", rule, "BOTTOMRIGHT", 0, -8)
-  lead.head = Below(Text(paper, 20, { lines = 2 }), lead.kicker, 4)
-  lead.dek = Below(Text(paper, 13, { color = INK_SOFT, lines = 2 }), lead.head, 5)
-  lead.box = Below(CreateFrame("Frame", nil, paper), lead.dek, 8)
-  lead.box:SetHeight(122)
-  lead.photo = Photo(lead.box)
-  lead.colW = (inner - PHOTO_W - GUTTER) / 2
-  lead.col1 = Text(lead.box, 12, { lines = 8 })
-  lead.col1:SetPoint("TOPLEFT", PHOTO_W, 0)
-  lead.col2 = Text(lead.box, 12, { lines = 8 })
-  lead.col2:SetPoint("TOPLEFT", lead.col1, "TOPRIGHT", GUTTER, 0)
-  lead.col2:SetWidth(lead.colW)
-  lead.colRule = Rule(lead.box, 1, 112)
-  lead.colRule:SetPoint("TOPLEFT", lead.col1, "TOPRIGHT", GUTTER / 2, 0)
-  paper.lead = lead
-end
-
-local function SecondRow(paper, inner)
-  local box = paper.lead.box
-  local top = Below(Rule(paper), box, 6)
-  Below(Rule(paper), top, 2)
-  local sec = {}
-  sec.kicker = Below(Text(paper, 10, { color = INK_SOFT, lines = 1 }), top, 10, LEFT_W)
-  sec.head = Below(Text(paper, 16, { lines = 2 }), sec.kicker, 4, LEFT_W)
-  sec.body = Below(Text(paper, 12, { lines = 9 }), sec.head, 5, LEFT_W)
-  local vrule = Rule(paper, 1, 200)
-  vrule:SetPoint("TOPLEFT", top, "BOTTOMLEFT", LEFT_W + BRIEF_GAP / 2, -8)
-  paper.second = sec
-  local brief = { lines = {}, width = inner - LEFT_W - BRIEF_GAP }
-  brief.title = Text(paper, 18, { file = MASTHEAD_FONT })
-  brief.title:SetPoint("TOPLEFT", top, "BOTTOMLEFT", LEFT_W + BRIEF_GAP, -8)
+local function Stories(paper)
+  paper.lead = { kicker = Text(paper, 10, { color = INK_SOFT }), head = Text(paper, 20), dek = Text(paper, 13, { color = INK_SOFT }),
+    col1 = Text(paper, 12), col2 = Text(paper, 12), colRule = Rule(paper, 1), photo = Photo(paper), body = {} }
+  paper.rowRules = { Rule(paper), Rule(paper) }
+  paper.vrule = Rule(paper, 1)
+  paper.second = { kicker = Text(paper, 10, { color = INK_SOFT }), head = Text(paper, 16), body = Text(paper, 12), paragraphs = {} }
+  local brief = { title = Text(paper, 18, { file = MASTHEAD_FONT }), more = Text(paper, 10, { color = INK_SOFT }), lines = {} }
   brief.title:SetText(T.IN_BRIEF)
-  local prev = brief.title
-  for i = 1, News.BRIEF_MAX do
-    brief.lines[i] = Below(Text(paper, 11, { lines = 2 }), prev, 6, brief.width)
-    prev = brief.lines[i]
-  end
-  brief.more = Text(paper, 10, { color = INK_SOFT, lines = 2 })
-  brief.more:SetWidth(brief.width)
+  for i = 1, News.BRIEF_MAX do brief.lines[i] = Text(paper, 11) end
   paper.brief = brief
+end
+
+local function Height(fs)
+  local text = fs:GetText()
+  if not text or text == "" then return 0 end
+  return Plain(fs:GetStringHeight(), "number") or 0
+end
+
+local function Anchor(paper, region, x, y, width)
+  region:ClearAllPoints()
+  region:SetPoint("TOPLEFT", paper, "TOPLEFT", x, -y)
+  if width then region:SetWidth(width) end
+end
+
+local function Place(paper, fs, x, y, width)
+  Anchor(paper, fs, x, y, width)
+  return y + Height(fs)
+end
+
+local function Sentences(text)
+  local out = {}
+  for s in (text .. " "):gmatch("(.-[%.!?])%s+") do out[#out + 1] = s end
+  return out
+end
+
+local function Fits(fs, text, maxH)
+  fs:SetText(text)
+  return Height(fs) <= maxH
+end
+
+local function Fit(fs, paragraphs, maxH)
+  for n = #paragraphs, 1, -1 do
+    if Fits(fs, table.concat(paragraphs, "\n", 1, n), maxH) then return end
+  end
+  local sentences = Sentences(paragraphs[1] or "")
+  for n = #sentences - 1, 1, -1 do
+    if Fits(fs, table.concat(sentences, " ", 1, n), maxH) then return end
+  end
+  fs:SetText("")
+end
+
+local function Columns(body, width)
+  local colW = math.floor((width - GUTTER) / 2)
+  if body[2] ~= nil and colW >= MIN_COLUMN then return colW, { body[1] }, { body[2] } end
+  return width, body, {}
+end
+
+local function FlowColumns(paper, lead, top, inner, maxH)
+  local x = PAD + PHOTO_W
+  local colW, first, second = Columns(lead.body, inner - PHOTO_W)
+  Anchor(paper, lead.col1, x, top, colW)
+  Fit(lead.col1, first, maxH)
+  Anchor(paper, lead.col2, x + colW + GUTTER, top, colW)
+  Fit(lead.col2, second, maxH)
+  local split = Height(lead.col2) > 0
+  lead.col2:SetShown(split)
+  lead.colRule:SetShown(split)
+  local bottom = top + math.max(Height(lead.col1), Height(lead.col2))
+  Anchor(paper, lead.colRule, x + colW + GUTTER / 2, top)
+  lead.colRule:SetHeight(math.max(1, bottom - top))
+  return bottom
+end
+
+local function FlowLead(paper, w, h)
+  local lead, inner = paper.lead, w - 2 * PAD
+  local y = Place(paper, lead.kicker, PAD, LEAD_TOP, inner) + 4
+  y = Place(paper, lead.head, PAD, y, inner) + 5
+  y = Place(paper, lead.dek, PAD, y, inner) + 8
+  Anchor(paper, lead.photo.frame, PAD + 2, y)
+  local photoBottom = y + PHOTO_H + 3 + Height(lead.photo.caption)
+  return math.max(photoBottom, FlowColumns(paper, lead, y, inner, h - PAD - SECOND_MIN - y))
+end
+
+local function FlowStory(paper, top, width, bottom)
+  local sec = paper.second
+  local y = Place(paper, sec.kicker, PAD, top, width) + 4
+  y = Place(paper, sec.head, PAD, y, width) + 5
+  Anchor(paper, sec.body, PAD, y, width)
+  Fit(sec.body, sec.paragraphs, bottom - y)
+end
+
+local function MoreText(issue, dropped)
+  local extra = (issue and issue.more or 0) + dropped
+  if extra > 0 then return News.Pick({ T.MORE_BRIEF }, "more", { n = News.Count(extra, T) }) end
+  return (issue and issue.brief[1]) and "" or T.NO_BRIEF
+end
+
+local function KeptLines(paper, ends, bottom)
+  local issue = paper.issue
+  local n = issue and #issue.brief or 0
+  for k = n, 1, -1 do
+    paper.brief.more:SetText(MoreText(issue, n - k))
+    if ends[k] + 8 + Height(paper.brief.more) <= bottom then return k end
+  end
+  paper.brief.more:SetText(MoreText(issue, n))
+  return 0
+end
+
+local function FlowBrief(paper, x, top, width, bottom)
+  local brief = paper.brief
+  local ends = { [0] = Place(paper, brief.title, x, top, width) }
+  for i, fs in ipairs(brief.lines) do
+    Anchor(paper, fs, x, ends[i - 1] + 6, width)
+    ends[i] = ends[i - 1] + 6 + Height(fs)
+  end
+  local kept = KeptLines(paper, ends, bottom)
+  for i, fs in ipairs(brief.lines) do fs:SetShown(i <= kept and fs:GetText() ~= "") end
+  Place(paper, brief.more, x, ends[kept] + 8, width)
+end
+
+local function FlowRow(paper, top, w, h)
+  local inner = w - 2 * PAD
+  local leftW, bottom = math.floor(inner * LEFT_SHARE), h - PAD
+  Anchor(paper, paper.rowRules[1], PAD, top + 6, inner)
+  Anchor(paper, paper.rowRules[2], PAD, top + 9, inner)
+  local y = top + 20
+  FlowStory(paper, y, leftW, bottom)
+  Anchor(paper, paper.vrule, PAD + leftW + BRIEF_GAP / 2, y)
+  paper.vrule:SetHeight(math.max(1, bottom - y))
+  FlowBrief(paper, PAD + leftW + BRIEF_GAP, y, inner - leftW - BRIEF_GAP, bottom)
+end
+
+local function PaperSize(paper)
+  local w, h = Plain(paper:GetWidth(), "number"), Plain(paper:GetHeight(), "number")
+  if not (w and w > 0 and h and h > 0) then return DEFAULT_W, DEFAULT_H end
+  return w, h
+end
+
+local function Flow(paper)
+  local w, h = PaperSize(paper)
+  FlowRow(paper, FlowLead(paper, w, h), w, h)
 end
 
 local function NavButtons(f)
@@ -193,11 +284,11 @@ function H:AttachPaper(f, insets)
   paper:SetPoint("TOPLEFT", insets[1], insets[2])
   paper:SetPoint("BOTTOMRIGHT", insets[3], insets[4])
   if paper.SetClipsChildren then paper:SetClipsChildren(true) end
-  local inner = self.WINDOW_W - insets[1] + insets[3] - 2 * PAD
   Parchment(paper)
   Masthead(paper)
-  Lead(paper, Meta(paper), inner)
-  SecondRow(paper, inner)
+  Meta(paper)
+  Stories(paper)
+  paper:SetScript("OnSizeChanged", function() GS:Call(Flow, paper) end)
   f.paper = paper
   NavButtons(f)
   f.paperWidgets = { paper, f.prev, f.next, f.issueLabel }
@@ -248,39 +339,22 @@ local function SetLead(lead, story)
   lead.kicker:SetText(story.kicker or "")
   lead.head:SetText(story.head)
   lead.dek:SetText(story.dek or "")
-  local split = story.body[2] ~= nil
-  lead.col1:SetWidth(split and lead.colW or 2 * lead.colW + GUTTER)
-  lead.col1:SetText(story.body[1] or "")
-  lead.col2:SetText(story.body[2] or "")
-  lead.col2:SetShown(split)
-  lead.colRule:SetShown(split)
+  lead.body = story.body
   SetPhoto(lead.photo, story)
 end
 
 local function SetSecond(sec, story)
   sec.kicker:SetText(story and story.kicker or T.NO_SECOND_KICKER)
   sec.head:SetText(story and story.head or T.NO_SECOND_HEAD)
-  sec.body:SetText(story and story.body[1] or T.NO_SECOND_BODY)
-end
-
-local function MoreText(issue)
-  local extra = issue and issue.more or 0
-  if extra > 0 then return News.Pick({ T.MORE_BRIEF }, "more", { n = News.Count(extra, T) }) end
-  return (issue and issue.brief[1]) and "" or T.NO_BRIEF
+  sec.paragraphs = story and story.body or { T.NO_SECOND_BODY }
 end
 
 local function SetBrief(brief, issue)
   local lines = issue and issue.brief or {}
-  local last = brief.title
   for i, fs in ipairs(brief.lines) do
     local line = lines[i]
     fs:SetText(line and ("|cff%s%s|r  %s"):format(TIME_HEX, line.time, line.text) or "")
-    fs:SetShown(line ~= nil)
-    if line then last = fs end
   end
-  brief.more:ClearAllPoints()
-  Below(brief.more, last, 8, brief.width)
-  brief.more:SetText(MoreText(issue))
 end
 
 local function EmptyStory()
@@ -295,6 +369,7 @@ local function FillPaper(paper, issue)
   SetLead(paper.lead, issue and issue.lead or EmptyStory())
   SetSecond(paper.second, issue and issue.second)
   SetBrief(paper.brief, issue)
+  Flow(paper)
 end
 
 local function IssueIndex(days, day)

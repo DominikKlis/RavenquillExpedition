@@ -94,4 +94,88 @@ do
   check(paper.parchment.source == "color", "the smoke test sees the colour source")
 end
 
+local function Offenders(c, paper)
+  local pr, out = Layout.Rect(paper), {}
+  for _, fs in ipairs(Layout.Texts(c, paper)) do
+    local r = Layout.Rect(fs)
+    if not (r and Layout.Inside(pr, r)) or Layout.Truncated(fs) then out[#out + 1] = fs._text:sub(1, 50) end
+  end
+  return out
+end
+
+local function WholeUnits(text, paragraphs)
+  if text == "" then return true end
+  for n = 1, #paragraphs do if text == table.concat(paragraphs, "\n", 1, n) then return true end end
+  local first = paragraphs[1] or ""
+  return first:sub(1, #text) == text and text:find("[%.!?]$") ~= nil and first:sub(#text + 1, #text + 1) == " "
+end
+
+local function StoryTexts(paper)
+  local issue, lead, sec = paper.issue, paper.lead, paper.second
+  local leadBody = issue.lead.body
+  return {
+    { lead.col1:GetText(), lead.col2:IsShown() and { leadBody[1] } or leadBody },
+    { lead.col2:IsShown() and lead.col2:GetText() or "", { leadBody[2] } },
+    { sec.body:GetText(), issue.second.body },
+  }
+end
+
+local function Cut(paper)
+  for _, pair in ipairs(StoryTexts(paper)) do
+    if not WholeUnits(pair[1] or "", pair[2]) then return pair[1] end
+  end
+end
+
+local function ShownBrief(paper)
+  local n = 0
+  for _, fs in ipairs(paper.brief.lines) do if fs:IsShown() then n = n + 1 end end
+  return n
+end
+
+local function OpenSized(c, w, h)
+  local f = c.env.RavenquillExpeditionHighlightsFrame
+  if f then f:SetSize(w, h) end
+  c.H:ShowWindow()
+  f = c.env.RavenquillExpeditionHighlightsFrame
+  f:SetSize(w, h)
+  c.H:Refresh()
+  return f, f.paper
+end
+
+Kit.section("Paper: every text sits fully on the page, nothing is cut mid-sentence")
+do
+  local c = LayoutClient("Lyra Distelbach")
+  Heard(c, BUSY_DAY)
+  local f, paper = OpenSized(c, 640, 640)
+  local off = Offenders(c, paper)
+  check(#off == 0, "in the window every text is on the page and shown in full (" .. (off[1] or "none") .. ")")
+  check(Cut(paper) == nil and paper.second.body:GetText() == table.concat(paper.issue.second.body, "\n"),
+    "the window has room for both paragraphs of the second story (" .. tostring(paper.second.body:GetText()) .. ")")
+  check(paper.lead.col2:IsShown() and paper.lead.col1:GetText() == paper.issue.lead.body[1], "the lead body runs in two columns")
+  check(ShownBrief(paper) == #paper.issue.brief, "every brief line fits in the window")
+  f:Hide()
+  f, paper = OpenSized(c, 640, 470)
+  off = Offenders(c, paper)
+  check(#off == 0, "in a short window every text still stays on the page (" .. (off[1] or "none") .. ")")
+  local cut = Cut(paper)
+  check(cut == nil, "bodies keep whole paragraphs or whole sentences, never a cut one (" .. tostring(cut) .. ")")
+  local dropped = #paper.issue.brief - ShownBrief(paper)
+  local more = paper.brief.more:GetText() or ""
+  check(dropped > 0 and more:find(c.ns[NK.HL].News.Count(paper.issue.more + dropped, c.ns[NK.HL].NewsLocales.deDE), 1, true),
+    "brief lines that do not fit are dropped whole and counted in the line about the chronicle (" .. more .. ")")
+  f:Hide()
+  f, paper = OpenSized(c, 640, 430)
+  off, cut = Offenders(c, paper), Cut(paper)
+  local shortened = paper.lead.col1:GetText() ~= paper.issue.lead.body[1]
+    or paper.second.body:GetText() ~= table.concat(paper.issue.second.body, "\n")
+  check(#off == 0 and cut == nil and shortened, "a very short page drops whole paragraphs, then whole sentences, and keeps "
+    .. "everything on the page (" .. (off[1] or tostring(cut)) .. ")")
+  f:Hide()
+  _, paper = OpenSized(c, 500, 640)
+  off = Offenders(c, paper)
+  check(#off == 0 and not paper.lead.col2:IsShown() and paper.lead.col1:GetText():find(paper.issue.lead.body[1], 1, true),
+    "a narrow page sets the lead body in one column, everything on the page (" .. (off[1] or "none") .. ")")
+  check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
+end
+
 Kit.finish()
