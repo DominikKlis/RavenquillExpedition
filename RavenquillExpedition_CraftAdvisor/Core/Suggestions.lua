@@ -185,10 +185,9 @@ local function SuggestionList(self, ctx)
   return list
 end
 
-local function NewContext(self, m, isSelf, prof, e)
+local function NewContext(self, m, isSelf, prof, e, browse)
   local s = self.db.settings
   local class, level = m.class, m.level
-  local browse = self:IsBrowse(prof)
   local dwFrom = self:DualWieldFrom(class, m.spec, level, isSelf)
   return {
     class = class, level = level, isSelf = isSelf, prof = prof, browse = browse, showAll = s.showUnlearned or browse,
@@ -200,22 +199,44 @@ local function NewContext(self, m, isSelf, prof, e)
   }
 end
 
-function GCA:ComputeSuggestions(m, isSelf, prof)
-  prof = prof or self:SelectedProfession()
+local function Scan(self, m, isSelf, prof, browse)
   local missing = MissingInput(m)
-  if missing then return {}, 0, missing end
+  if missing then return nil, 0, missing end
   local e = self:WeightSetFor(m.class, m.spec, m.level)
-  if not e then return {}, 0, "no-weights" end
+  if not e then return nil, 0, "no-weights" end
   local items = m.items or {}
   local equipped, equippedInfo, unknownSlot, pending = ReadEquipped(self, items)
-  if pending > 0 then return {}, pending, "loading", e end
-  local ctx = NewContext(self, m, isSelf, prof, e)
+  if pending > 0 then return nil, pending, "loading", e end
+  local ctx = NewContext(self, m, isSelf, prof, e, browse)
   ctx.items, ctx.equipped, ctx.equippedInfo, ctx.unknownSlot = items, equipped, equippedInfo, unknownSlot
   for _, cand in ipairs(self:GetCandidates(prof)) do ConsiderCandidate(self, ctx, cand) end
   if prof == "Enchanting" then
     ctx.pending = ctx.pending + self:AddEnchantSuggestions(ctx.best, ctx)
   end
-  return SuggestionList(self, ctx), ctx.pending, "ok", e
+  return ctx, ctx.pending, "ok", e
+end
+
+function GCA:ComputeSuggestions(m, isSelf, prof)
+  prof = prof or self:SelectedProfession()
+  local ctx, pending, state, e = Scan(self, m, isSelf, prof, self:IsBrowse(prof))
+  if not ctx then return {}, pending, state, e end
+  return SuggestionList(self, ctx), pending, state, e
+end
+
+local function BestBySpell(all)
+  local best = {}
+  for _, rows in pairs(all) do
+    for _, s in ipairs(rows) do
+      local id = s.cand.spellID
+      if not best[id] or Better(s, best[id]) then best[id] = s end
+    end
+  end
+  return best
+end
+
+function GCA:ComputeGuildUpgrades(m, prof)
+  local ctx, pending, state = Scan(self, m, false, prof, true)
+  return ctx and BestBySpell(ctx.all) or {}, pending, state
 end
 
 GCA.SECTION_TOP = 3
@@ -297,6 +318,7 @@ local function OrderOptional(a, b)
   if Order(b, a) then return false end
   return nil
 end
+GCA.OrderOptional = OrderOptional
 
 local function SectionOrder(a, b)
   local byTopRow = OrderOptional(a.rows[1], b.rows[1])
@@ -329,22 +351,49 @@ end
 
 GCA.sugCache = {}
 GCA.knownGen = 0
-function GCA:MemberSuggestions(view, isSelf, prof)
+local function Signature(self, view, isSelf, prof, browse)
   local s = self.db.settings
-  prof = prof or self:SelectedProfession()
-  local sig = table.concat({ self:GearSignature(view.items), tostring(view.class), tostring(view.level), tostring(view.spec),
+  return table.concat({ self:GearSignature(view.items), tostring(view.class), tostring(view.level), tostring(view.spec),
     s.showUnlearned and "u" or "", s.lookahead and "l" or "", tostring(self:SurvivalShare()), self.knownGen,
-    prof, self:IsBrowse(prof) and "b" or "", tostring(self:DualWieldFrom(view.class, view.spec, view.level, isSelf)) }, "|")
-  local ck = tostring(view.key) .. "|" .. prof
+    prof, browse and "b" or "", tostring(self:DualWieldFrom(view.class, view.spec, view.level, isSelf)) }, "|")
+end
+
+local function Cached(self, ck, sig)
   local c = self.sugCache[ck]
-  if c and c.sig == sig then return c.list, c.pending, c.state, c.e end
-  local list, pending, state, e = self:ComputeSuggestions(view, isSelf, prof)
-  if (pending or 0) == 0 then
-    self.sugCache[ck] = { sig = sig, list = list, pending = pending, state = state, e = e }
+  if c and c.sig == sig then return c end
+end
+
+local function Remember(self, ck, sig, c)
+  if (c.pending or 0) == 0 then
+    c.sig = sig
+    self.sugCache[ck] = c
   else
     self:ScheduleLoadRetry()
   end
-  return list, pending, state, e
+  return c
+end
+
+function GCA:MemberSuggestions(view, isSelf, prof)
+  prof = prof or self:SelectedProfession()
+  local ck, sig = tostring(view.key) .. "|" .. prof, Signature(self, view, isSelf, prof, self:IsBrowse(prof))
+  local c = Cached(self, ck, sig)
+  if not c then
+    local list, pending, state, e = self:ComputeSuggestions(view, isSelf, prof)
+    c = Remember(self, ck, sig, { list = list, pending = pending, state = state, e = e })
+  end
+  return c.list, c.pending, c.state, c.e
+end
+
+GCA.upgradeGen = 0
+function GCA:GuildUpgrades(view, prof)
+  local ck, sig = tostring(view.key) .. "|" .. prof .. "|guild", Signature(self, view, false, prof, true)
+  local c = Cached(self, ck, sig)
+  if not c then
+    local bySpell, pending, state = self:ComputeGuildUpgrades(view, prof)
+    self.upgradeGen = self.upgradeGen + 1
+    c = Remember(self, ck, sig, { bySpell = bySpell, pending = pending, state = state, gen = self.upgradeGen })
+  end
+  return c.bySpell, c.gen, c.state
 end
 
 local function KnownOnly(list)

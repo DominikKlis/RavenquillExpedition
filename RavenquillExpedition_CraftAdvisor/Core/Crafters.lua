@@ -82,29 +82,42 @@ function GCA:StoreCrafter(key, ts, profs)
   return true
 end
 
-local index = { gen = -1, byProf = {} }
+local index = { gen = -1, byProf = {}, byKey = {} }
 
 local function SavedProfs(entry)
   return type(entry) == "table" and type(entry.profs) == "table" and entry.profs or EMPTY
 end
 
-local function IndexEntry(byProf, key, entry)
-  for prof, p in pairs(SavedProfs(entry)) do
-    local bySpell = byProf[prof] or {}
-    byProf[prof] = bySpell
-    for _, id in ipairs(type(p) == "table" and GCA.DecodeIDs(p.ids) or EMPTY) do
-      bySpell[id] = bySpell[id] or {}
-      table.insert(bySpell[id], { key = key, rank = tonumber(p.rank) or 0 })
-    end
+local function IndexProfession(byProf, key, prof, p)
+  local known = { rank = tonumber(p.rank) or 0, ids = GCA.DecodeIDs(p.ids) or EMPTY }
+  local bySpell = byProf[prof] or {}
+  byProf[prof] = bySpell
+  for _, id in ipairs(known.ids) do
+    bySpell[id] = bySpell[id] or {}
+    table.insert(bySpell[id], { key = key, rank = known.rank })
   end
+  return known
+end
+
+local function IndexEntry(idx, key, entry)
+  local own = {}
+  for prof, p in pairs(SavedProfs(entry)) do
+    if type(p) == "table" then own[prof] = IndexProfession(idx.byProf, key, prof, p) end
+  end
+  idx.byKey[key] = own
 end
 
 local function Index(self)
   if index.gen ~= self.crafterGen or index.db ~= self.db then
-    index.byProf, index.gen, index.db = {}, self.crafterGen, self.db
-    for key, entry in pairs(self:CrafterEntries()) do IndexEntry(index.byProf, key, entry) end
+    index.byProf, index.byKey, index.gen, index.db = {}, {}, self.crafterGen, self.db
+    for key, entry in pairs(self:CrafterEntries()) do IndexEntry(index, key, entry) end
   end
-  return index.byProf
+  return index.byProf, index.byKey
+end
+
+function GCA:CrafterProfessions()
+  local _, byKey = Index(self)
+  return byKey
 end
 
 local function CrafterOrder(a, b)

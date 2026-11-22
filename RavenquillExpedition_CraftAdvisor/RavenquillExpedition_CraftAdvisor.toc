@@ -33,6 +33,7 @@ Core\Enchants.lua
 Core\Suggestions.lua
 Core\Crafted.lua
 Core\Crafters.lua
+Core\GuildCrafters.lua
 Core\Debug.lua
 Core\Options.lua
 Auction.lua
