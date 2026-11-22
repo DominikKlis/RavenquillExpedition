@@ -8,12 +8,15 @@ local PANEL_TOP, PANEL_BOTTOM, DETAIL_HEAD, MEMBER_LIST_TOP = P.PANEL_TOP, P.PAN
 local CreateScrollList = RavenquillExpedition.CreateScrollList
 local ALL = "*"
 
-UI.RECIPE_SEARCH_W = 200
+UI.RECIPE_SEARCH_W = 170
+UI.GROUPING_W = 150
 UI.crafterUpgradesOnly = false
 
 function UI.AllCollapsed()
   local t = {}
-  for _, p in ipairs(GCA.PROFESSIONS) do t[p.key] = true end
+  for _, g in ipairs(UI.RECIPE_GROUPINGS) do
+    for _, key in ipairs(g.keys) do t[key] = true end
+  end
   return t
 end
 UI.crafterCollapsed = UI.AllCollapsed()
@@ -29,6 +32,17 @@ function UI:SetUpgradesOnly(on)
   UI.crafterCollapsed = {}
   self:RefreshCrafters()
 end
+
+function UI:SetRecipeGrouping(key)
+  GCA:SetSetting("crafterGroup", key)
+  self:RefreshCrafters()
+end
+
+UI.GROUPING_SWITCH = {
+  name = "recipe grouping", label = "CRAFTERS_GROUP_LABEL", tip = "CRAFTERS_GROUP_TIP", modes = UI.RECIPE_GROUPINGS,
+  get = function() return UI.RecipeGrouping().key end,
+  set = function(key) UI:SetRecipeGrouping(key) end,
+}
 
 local Build = {}
 
@@ -75,6 +89,8 @@ function Build.Header(self, md)
   end)
   self.recipeSearch:SetPoint("TOPLEFT", md, "TOPLEFT", 14, -50)
   Build.UpgradesToggle(self, md)
+  self.groupSwitch = P.CreateModeSwitch(md, UI.GROUPING_SWITCH, UI.GROUPING_W)
+  self.groupSwitch:SetPoint("TOPRIGHT", md, "TOPRIGHT", -12, -50)
 end
 
 function Build.RecipePanel(self, md, listH, rw)
@@ -172,7 +188,7 @@ end
 local function ShowRecipes(self, roster, sel)
   local rows = GCA:CrafterRecipes(UI.crafterSel)
   local query = Trim(self.recipeSearch:GetText())
-  local data, shown = UI.CrafterRecipeRows(rows, query, UI.crafterUpgradesOnly)
+  local data, shown = UI.CrafterRecipeRows(rows, query, UI.crafterUpgradesOnly, UI.RecipeGrouping())
   self.recipeList:SetData(data)
   self.recipeEmpty:SetText(EmptyText(roster, sel, #rows, shown, query))
   local name, sub = HeaderTexts(roster, sel, #rows)
@@ -191,5 +207,6 @@ function UI:RefreshCrafters()
   local sel = CurrentCrafter(roster)
   self.crafterList:SetData(UI.CrafterListRows(roster, self.crafterSearch:GetText() or ""))
   self.upgradesOnly:SetChecked(UI.crafterUpgradesOnly)
+  self.groupSwitch:Paint(UI.RecipeGrouping().key)
   ShowRecipes(self, roster, sel)
 end

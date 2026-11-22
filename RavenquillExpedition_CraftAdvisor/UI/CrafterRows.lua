@@ -11,6 +11,7 @@ local TEXT_X = P.MEMBER_TEXT_X
 local COL = { ICON = 22, ASK = 56, GAIN = 46, COST = 92, SKILL = 30, GAP = 6 }
 
 UI.CRAFTER_ROW_H = 28
+UI.CRAFTER_SUB_ROW_H = 36
 
 function UI.ProfIcon(prof)
   local p = GCA.PROF_BY_KEY[prof]
@@ -234,7 +235,8 @@ local function CreateRecipeRow(parent)
   UI.AddRowArt(b)
   AddQualityIcon(b, COL.ICON, "LEFT", b, "LEFT", COL.GAP, 0)
   b.name = Label(b, "GameFontHighlight")
-  b.name:SetPoint("LEFT", b.qual, "RIGHT", 8, 0)
+  b.sub = Label(b, "GameFontHighlightSmall")
+  b.sub:SetPoint("TOPLEFT", b.qual, "RIGHT", 8, -2)
   b.ask = CreateAskButton(b)
   b.gain = RightLabel(b, "GameFontHighlight", COL.GAIN)
   GainFont(b.gain)
@@ -256,11 +258,23 @@ local function CostCell(row)
   return UI.Coins(cost) .. (missing > 0 and (C.muted .. "*|r") or "")
 end
 
+local function SetProfLine(b, row, shown)
+  b.name:ClearAllPoints()
+  if shown then
+    b.name:SetPoint("BOTTOMLEFT", b.qual, "RIGHT", 8, 1)
+    b.sub:SetText(UI.ProfIcon(row.prof) .. " " .. C.muted .. ProfName(row.prof) .. "|r")
+  else
+    b.name:SetPoint("LEFT", b.qual, "RIGHT", 8, 0)
+  end
+  b.sub:SetShown(shown)
+end
+
 local function UpdateRecipeRow(b, row, listW)
   local look = UI.RecipeLook(row)
   b.icon:SetTexture(look.icon)
   SetIconQuality(b, look.quality)
   b.name:SetText(Hex(QualityColor(look.quality)) .. tostring(look.name) .. "|r")
+  SetProfLine(b, row, UI.RecipeGrouping().profLine == true)
   b.skill:SetText(C.muted .. tostring(row.skill) .. "|r")
   b.cost:SetText(CostCell(row))
   local up = row.upgrade
@@ -271,49 +285,100 @@ local function UpdateRecipeRow(b, row, listW)
   b.cost:SetWidth(costW)
   local used = COL.GAP + COL.ICON + 4 + 8 + COL.SKILL + costW + COL.GAIN + COL.ASK + COL.GAP * 5
   b.name:SetWidth(math.max(40, listW - used))
+  b.sub:SetWidth(math.max(40, listW - used))
+end
+
+local function RecipeRowHeight()
+  return UI.RecipeGrouping().profLine and UI.CRAFTER_SUB_ROW_H or UI.CRAFTER_ROW_H
 end
 
 local function CatText(d)
-  local t = ProfName(d.prof) .. " (" .. d.n .. ")"
+  local t = d.title .. " (" .. d.n .. ")"
   if d.upgrades == 0 then return t end
   local up = d.upgrades == 1 and L.CRAFTERS_CAT_UPGRADE_1 or string.format(L.CRAFTERS_CAT_UPGRADES, d.upgrades)
   return t .. "  " .. C.upgrade .. up .. "|r"
 end
 
 UI.RECIPE_KINDS = {
-  default = { create = CreateRecipeRow, update = UpdateRecipeRow, height = UI.CRAFTER_ROW_H },
+  default = { create = CreateRecipeRow, update = UpdateRecipeRow, height = RecipeRowHeight },
   cat = { create = function(parent)
     return UI.CreateCategoryRow(parent, function(self)
-      local prof = self.data.prof
-      UI.crafterCollapsed[prof] = not UI.crafterCollapsed[prof]
+      local key = self.data.key
+      UI.crafterCollapsed[key] = not UI.crafterCollapsed[key]
       UI:RefreshCrafters()
     end)
-  end, update = function(b, d, listW) b:SetCategory(CatText(d), not UI.crafterCollapsed[d.prof], listW) end, height = P.GROUP_ROW_H },
+  end, update = function(b, d, listW) b:SetCategory(CatText(d), not UI.crafterCollapsed[d.key], listW) end, height = P.GROUP_ROW_H },
 }
+
+local OTHER = "other"
+
+local function SectionKeys()
+  local keys = {}
+  for i, slots in ipairs(GCA.SECTION_SLOTS) do keys[i] = slots[1] end
+  keys[#keys + 1] = OTHER
+  return keys
+end
+
+local function ProfessionKeys()
+  local keys = {}
+  for i, p in ipairs(GCA.PROFESSIONS) do keys[i] = p.key end
+  return keys
+end
+
+local function SectionTitle(key)
+  if key == OTHER then return L.CRAFTERS_GROUP_OTHER end
+  return UI.NeedsCatTitle(key)
+end
+
+UI.RECIPE_GROUPINGS = {
+  { key = "slot", label = "CRAFTERS_GROUP_SLOT", keys = SectionKeys(), title = SectionTitle, profLine = true,
+    groupOf = function(row) return row.section or OTHER end },
+  { key = "profession", label = "CRAFTERS_GROUP_PROF", keys = ProfessionKeys(), title = ProfName,
+    groupOf = function(row) return row.prof end },
+}
+
+function UI.RecipeGrouping()
+  local s = GCA:Settings()
+  local key = s and s.crafterGroup
+  for _, g in ipairs(UI.RECIPE_GROUPINGS) do
+    if g.key == key then return g end
+  end
+  return UI.RECIPE_GROUPINGS[1]
+end
 
 local function Matches(row, q)
   if q == "" then return true end
   return GCA.MatchesSearch(row.name, q) or GCA.MatchesSearch(UI.RecipeLook(row).name, q)
 end
 
-local function AddToGroup(out, cat, row)
-  if not cat or cat.prof ~= row.prof then
-    cat = { rowKind = "cat", prof = row.prof, n = 0, upgrades = 0 }
-    out[#out + 1] = cat
-  end
-  cat.n = cat.n + 1
-  if row.upgrade then cat.upgrades = cat.upgrades + 1 end
-  if not UI.crafterCollapsed[row.prof] then out[#out + 1] = row end
-  return cat
-end
-
-function UI.CrafterRecipeRows(rows, query, upgradesOnly)
-  local out, cat, shown = {}, nil, 0
+local function GroupedRows(rows, query, upgradesOnly, groupOf)
+  local byKey, shown = {}, 0
   for _, row in ipairs(rows) do
     if (row.upgrade or not upgradesOnly) and Matches(row, query) then
-      cat = AddToGroup(out, cat, row)
+      local key = groupOf(row)
+      byKey[key] = byKey[key] or {}
+      table.insert(byKey[key], row)
       shown = shown + 1
     end
+  end
+  return byKey, shown
+end
+
+local function AddGroup(out, key, title, rows)
+  local cat = { rowKind = "cat", key = key, title = title, n = #rows, upgrades = 0 }
+  out[#out + 1] = cat
+  for _, row in ipairs(rows) do
+    if row.upgrade then cat.upgrades = cat.upgrades + 1 end
+  end
+  if UI.crafterCollapsed[key] then return end
+  for _, row in ipairs(rows) do out[#out + 1] = row end
+end
+
+function UI.CrafterRecipeRows(rows, query, upgradesOnly, grouping)
+  local byKey, shown = GroupedRows(rows, query, upgradesOnly, grouping.groupOf)
+  local out = {}
+  for _, key in ipairs(grouping.keys) do
+    if byKey[key] then AddGroup(out, key, grouping.title(key), byKey[key]) end
   end
   return out, shown
 end

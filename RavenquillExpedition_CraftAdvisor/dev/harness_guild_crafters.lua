@@ -125,7 +125,8 @@ check(vest.upgrade and vest.upgrade.points > 0 and vest.upgrade.slot == 5 and b[
 check(b[2149].upgrade == nil, "the boots you already wear are no upgrade")
 check(ench.upgrade and ench.upgrade.kind == "enchant" and ench.upgrade.slot == 9 and ench.upgrade.points > 0,
   "the bracer enchant would improve your worn bracers")
-check(spells(buddy) == "3762,2160,2149,7779,7421", "Leatherworking before Enchanting, upgrades first (by gain), then by skill: " .. spells(buddy))
+check(spells(buddy) == "3762,7779,2160,2149,7421",
+  "one order across professions (the window groups them): upgrades first by gain, then by skill: " .. spells(buddy))
 local offy = byID(GCA:CrafterRecipes("Offy Lane"))
 check(offy[3759].upgrade and offy[3759].upgrade.slot == 7 and offy[2153].upgrade == nil,
   "legs: the tradeable pants are an upgrade, the bind-on-pickup pair is not (a guildmate cannot hand it over)")
@@ -144,7 +145,7 @@ local n3762 = 0
 for _, r in ipairs(all) do if r.spellID == 3762 then n3762 = n3762 + 1 end end
 check(n3762 == 1 and crafterKeys(a[3762].crafters) == "Buddy Stone+,Cora Vale+" and crafterKeys(a[2153].crafters) == "Offy Lane-",
   "a recipe two crafters know is one row naming both; an offline crafter is listed as offline")
-check(spells(all) == "3762,3759,2160,2153,2149,2385,7779,7421", "grouped by profession, upgrades first, then by skill: " .. spells(all))
+check(spells(all) == "3762,3759,7779,2160,2153,2385,2149,7421", "upgrades first by gain, then by skill: " .. spells(all))
 
 section("Cache: the same rows until something changes")
 check(GCA:CrafterRecipes("Buddy Stone") == buddy and GCA:CrafterRecipes() == all, "asking again returns the same rows (nothing rebuilt)")

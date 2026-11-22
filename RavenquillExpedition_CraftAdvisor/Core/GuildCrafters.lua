@@ -6,9 +6,6 @@ local SECTION_OF = GCA.SECTION_OF
 local EMPTY = {}
 local ALL = "*"
 
-local PROF_ORDER = {}
-for i, p in ipairs(GCA.PROFESSIONS) do PROF_ORDER[p.key] = i end
-
 local ENCHANT_SECTION = { weapon = 16, twohand = 16, shield = 17, offhand = 17 }
 for slot, key in pairs(GCA.ENCHANT_SLOTS) do ENCHANT_SECTION[key] = slot end
 
@@ -96,7 +93,6 @@ function GCA:SelfUpgrades(profs)
 end
 
 local function RecipeOrder(a, b)
-  if a.prof ~= b.prof then return PROF_ORDER[a.prof] < PROF_ORDER[b.prof] end
   local byUpgrade = OrderOptional(a.upgrade, b.upgrade)
   if byUpgrade ~= nil then return byUpgrade end
   if a.skill ~= b.skill then return a.skill > b.skill end

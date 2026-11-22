@@ -466,7 +466,8 @@ local function layoutChecks(UIx, f, label)
       { "view switch", UIx.modeToggle } },
     needs = { { "needs panel", UIx.needsInset }, { "craft detail panel", UIx.needDetail } },
     crafters = { { "crafter panel", UIx.crafterInset }, { "crafter name", UIx.crafterName }, { "crafter sub-line", UIx.crafterSub },
-      { "recipe search", UIx.recipeSearch }, { "upgrades toggle", UIx.upgradesOnly }, { "recipe list", UIx.recipeArea } },
+      { "recipe search", UIx.recipeSearch }, { "upgrades toggle", UIx.upgradesOnly }, { "grouping switch", UIx.groupSwitch },
+      { "recipe list", UIx.recipeArea } },
   }
   for _, vname in ipairs({ "member", "needs", "crafters" }) do
     local named = {}
