@@ -3,6 +3,7 @@ local GS = RavenquillExpedition
 local H, News = ns.H, ns.News
 local SafeCall, Plain = GS.SafeCall, GS.Plain
 local T = GS.NewLocale(ns.NewsLocales)
+local L = ns.L
 
 local MEDIA = "Interface\\AddOns\\RavenquillExpedition_Highlights\\Media\\"
 H.MASTHEAD, H.VIGNETTE = MEDIA .. "masthead", MEDIA .. "vignette"
@@ -21,6 +22,9 @@ local SIZE = { designW = 900, designH = 780, minScale = 0.75, defaultW = 900, de
 local ROLES = { masthead = { 44, 1, true }, meta = { 13, 1 }, caption = { 12, 1.2 }, kicker = { 12, 1 },
   head = { 34, 1.05, true }, dek = { 16, 1.35 }, body = { 15, 1.45 }, storyHead = { 20, 1.15, true }, story = { 14.5, 1.42 },
   briefTitle = { 22, 1, true }, time = { 12, 1 }, brief = { 14, 1.4 }, note = { 12, 1.3 } }
+local BOX = { outer = 2, inner = 1, gap = 3, padX = 14, padY = 8, hover = 0.08 }
+local EDGES = { { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" }, { "TOPLEFT", "BOTTOMLEFT", tall = true },
+  { "TOPRIGHT", "BOTTOMRIGHT", tall = true } }
 
 function H.Upper(text)
   return (text:upper():gsub("\195([\160-\182\184-\190])", function(b) return "\195" .. string.char(b:byte() - 32) end))
@@ -47,7 +51,7 @@ end
 
 local function Text(paper, role, opts)
   opts = opts or {}
-  local fs = paper:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  local fs = (opts.parent or paper):CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
   fs.fontRole, fs.fontFile = role, ROLES[role][3] and H.TITLE_FONT or nil
   ApplyRole(paper, fs)
   paper.texts[#paper.texts + 1] = fs
@@ -125,6 +129,38 @@ do
       paragraphs = {} }
   end
 
+  local function Inset(point, inset)
+    return point:find("LEFT") and inset or -inset, point:find("TOP") and -inset or inset
+  end
+
+  local function InkRule(b, inset, thickness)
+    for _, edge in ipairs(EDGES) do
+      local t = b:CreateTexture(nil, "BORDER")
+      t:SetColorTexture(INK[1], INK[2], INK[3], 1)
+      for i = 1, 2 do t:SetPoint(edge[i], b, edge[i], Inset(edge[i], inset)) end
+      if edge.tall then t:SetWidth(thickness) else t:SetHeight(thickness) end
+    end
+  end
+
+  local function TestsButton(paper)
+    local b = CreateFrame("Button", nil, paper)
+    b.label = Text(paper, "body", { parent = b, justify = "CENTER" })
+    b.label:SetPoint("CENTER")
+    if b.SetFontString then b:SetFontString(b.label) end
+    b:SetText(L.OPT_TEST)
+    InkRule(b, 0, BOX.outer)
+    InkRule(b, BOX.outer + BOX.gap, BOX.inner)
+    local hover = b:CreateTexture(nil, "BACKGROUND")
+    hover:SetAllPoints()
+    hover:SetColorTexture(INK[1], INK[2], INK[3], BOX.hover)
+    hover:Hide()
+    b:SetScript("OnEnter", function() hover:Show() end)
+    b:SetScript("OnLeave", function() hover:Hide() end)
+    b:SetScript("OnClick", function() GS:Call(H.AddTestEntries, H) end)
+    b:Hide()
+    return b
+  end
+
   local function Brief(paper)
     local brief = { title = Text(paper, "briefTitle", { justify = "CENTER" }), more = Text(paper, "note", { color = INK_SOFT }),
       items = {} }
@@ -138,7 +174,7 @@ do
   local function Stories(paper)
     paper.lead = { kicker = Text(paper, "kicker", { color = ACCENT }), head = Text(paper, "head"),
       dek = Text(paper, "dek", { color = INK_SOFT }), dekRule = Rule(paper, 1), photo = Woodcut(paper),
-      columns = { Text(paper, "body"), Text(paper, "body") }, body = {} }
+      columns = { Text(paper, "body"), Text(paper, "body") }, body = {}, tests = TestsButton(paper) }
     paper.pairRule, paper.sideRule = Rule(paper, 2, INK), Rule(paper, nil, INK)
     paper.sideRule:SetWidth(2)
     paper.second, paper.third = Story(paper), Story(paper)
@@ -266,6 +302,20 @@ local function FlowPhoto(paper, photo, x, y)
   return Place(paper, photo.caption, x, y + size + U(paper, SIZE.captionGap), size)
 end
 
+local function SizeTests(paper, b)
+  local h = Height(b.label) + 2 * U(paper, BOX.padY)
+  b:SetSize(Unbounded(b.label) + 2 * U(paper, BOX.padX), h)
+  return h
+end
+
+local function PlaceTests(paper, lead, y, colX, colW, gap)
+  local b, h1, h2 = lead.tests, Height(lead.columns[1]), Height(lead.columns[2])
+  local x, top = colX, y + math.max(h1, h2)
+  if h2 > 0 and (Plain(b:GetWidth(), "number") or 0) <= colW then x, top = colX + colW + U(paper, SIZE.colGap), y + h2 end
+  Anchor(paper, b, x, top + gap)
+  return top + gap + (Plain(b:GetHeight(), "number") or 0)
+end
+
 local function FlowLead(paper, x, top, width, limit)
   local lead, gap = paper.lead, U(paper, SIZE.leadGap)
   local y = Place(paper, lead.kicker, x, top, width) + gap
@@ -277,12 +327,14 @@ local function FlowLead(paper, x, top, width, limit)
   local colGap = U(paper, SIZE.colGap)
   local colX = x + U(paper, SIZE.icon) + colGap
   local colW = (x + width - colX - colGap) / 2
-  local bodyH = 0
+  local bodyH, reserve = 0, 0
+  if lead.tests:IsShown() then reserve = SizeTests(paper, lead.tests) + gap end
   Fit(function(text)
     lead.shown = text
     bodyH = FlowColumns(paper, lead.columns, text, colX, y, colW, colGap)
     return bodyH
-  end, lead.body, limit - y)
+  end, lead.body, limit - y - reserve)
+  if reserve > 0 then return math.max(photoEnd, PlaceTests(paper, lead, y, colX, colW, gap)) end
   return math.max(photoEnd, y + bodyH)
 end
 
@@ -448,6 +500,7 @@ do
     lead.head:SetText(story.head)
     lead.dek:SetText(story.dek or "")
     lead.body = story.body
+    lead.tests:SetShown(story.offersTests == true)
     SetPhoto(lead.photo, story)
   end
 
@@ -461,7 +514,8 @@ do
   local function NoSecond() return { kicker = T.NO_SECOND_KICKER, head = T.NO_SECOND_HEAD, body = { T.NO_SECOND_BODY } } end
 
   local function EmptyStory()
-    return { k = "quest", kicker = T.EMPTY_KICKER, head = T.EMPTY_HEAD, dek = T.EMPTY_DEK, body = { T.EMPTY_BODY, T.EMPTY_MORE } }
+    return { k = "quest", kicker = T.EMPTY_KICKER, head = T.EMPTY_HEAD, dek = T.EMPTY_DEK, body = { T.EMPTY_BODY },
+      offersTests = true }
   end
 
   local function SetMeta(meta, issue, when)

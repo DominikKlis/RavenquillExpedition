@@ -30,7 +30,6 @@ ns.NewsLocales.enUS = {
   EMPTY_HEAD = "No issue has been printed yet",
   EMPTY_DEK = "As soon as the guild does something remarkable, the Rabenblatt will report it.",
   EMPTY_BODY = "What counts as news is explained under /rq hl. Guildies running Ravenquill send their news on their own.",
-  EMPTY_MORE = "To try it out: /rq hl > Add test entries.",
   TEST_KICKER = "Proof print",
   ONCE = { "editors", "guild ledger", "repair", "at the time", "in the morning", "midnight", "sleep", "night shift", "glow",
     "envious", "at a vendor", "walking boots", "this hour", "closing time", "opening hours", "know the way",

@@ -549,6 +549,52 @@ do
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
+local function InkEdges(c, owner)
+  local n = 0
+  for _, r in ipairs(c.regions) do
+    if r._type == "Texture" and r._parent == owner and r._shown and Same(r._color, c.H.INK) then n = n + 1 end
+  end
+  return n
+end
+
+local function Overlap(a, b) return a.left < b.right and b.left < a.right and a.bottom < b.top and b.bottom < a.top end
+
+local function Covered(c, paper, button)
+  local br = R(button)
+  for _, fs in ipairs(Layout.Texts(c, paper)) do
+    if fs ~= button.label and Overlap(R(fs), br) then return fs._text:sub(1, 40) end
+  end
+  return "none"
+end
+
+local function UnderWords(lead, br)
+  for _, col in ipairs(lead.columns) do
+    local r = R(col)
+    if (col:GetText() or "") ~= "" and br.left < r.right and r.left < br.right and br.top > r.bottom then return false end
+  end
+  return br.left >= R(lead.columns[1]).left - 0.5
+end
+
+Kit.section("Empty paper: 'Testeinträge hinzufügen' is an inked box under the lead's last words")
+do
+  local c, templates = InkClient()
+  for _, size in ipairs({ { 900, 780 }, { 640, 470 } }) do
+    local f, paper = OpenSized(c, size[1], size[2])
+    local b = paper.lead.tests
+    local br, lead = R(b), paper.lead
+    local tag = (" at %dx%d"):format(size[1], size[2])
+    check(templates[b] == false and b:IsShown() and b.label._text == "Testeinträge hinzufügen" and Same(b.label._ink, c.H.INK)
+      and b.label._fontSize >= 15 * SPEC.small and InkEdges(c, b) == 8,
+      "a plain button, no red template: ink words framed by a double ink rule" .. tag)
+    check(UnderWords(lead, br) and br.right <= R(paper.sideRule).left and br.bottom >= R(paper.pairRule).top, "it sits under the lead's last words, inside the main column, above the next story" .. tag)
+    local covered = Covered(c, paper, b)
+    check(Layout.Inside(br, R(b.label)) and not Layout.Truncated(b.label) and covered == "none",
+      "its words fit inside the box and no other text runs into it (" .. covered .. ")" .. tag)
+    f:Hide()
+  end
+  check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
+end
+
 Kit.section("Paper: the picture's caption is never cut")
 do
   local c, _, paper = Busy()

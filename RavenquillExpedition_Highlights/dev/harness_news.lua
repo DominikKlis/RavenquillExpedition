@@ -467,6 +467,24 @@ do
   check(#c.errors == 0 and #plain.errors == 0, "no Lua errors")
 end
 
+Kit.section("Window: an empty Rabenblatt fills itself with test entries in one click")
+do
+  local c = Client("Tamo Eichengrund", "deDE")
+  c.H:ShowWindow()
+  local f = Frame(c)
+  local tests = f.paper.lead.tests
+  check(tests ~= nil and tests:IsShown() and tests:GetText() == "Testeinträge hinzufügen"
+    and not table.concat(f.paper.lead.body, " "):find("/rq hl >", 1, true),
+    "the empty paper offers a 'Testeinträge hinzufügen' button instead of a path into the settings")
+  Click(tests)
+  check(#c.H:Log() == 11 and f.paper.lead.head:GetText() ~= DE.EMPTY_HEAD and f.issueLabel:GetText() ~= DE.NO_ISSUE
+    and not tests:IsShown(), "one click adds the 11 test entries and the paper prints them as today's issue, without the button")
+  local en = Client("Mira Sturmfeder", "enUS")
+  en.H:ShowWindow()
+  check(Frame(en).paper.lead.tests:GetText() == "Add test entries", "English: 'Add test entries'")
+  check(#c.errors == 0 and #en.errors == 0, "no Lua errors (" .. tostring(c.errors[1] or en.errors[1]) .. ")")
+end
+
 Kit.section("Sample issues (German)")
 do
   local samples = {

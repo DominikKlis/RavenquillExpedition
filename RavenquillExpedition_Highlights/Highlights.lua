@@ -448,6 +448,11 @@ function H:AddTests()
   return n
 end
 
+function H:AddTestEntries()
+  self:Print(L.TEST_ADDED:format(self:AddTests()))
+  self:Refresh()
+end
+
 function H:OnOptionChanged(key, v)
   if key == "share" and v then self:OutboxPump() end
   self:Refresh()
@@ -491,7 +496,7 @@ for _, rule in ipairs(H.RULES) do options[#options + 1] = { type = "note", label
 for _, o in ipairs({
   { type = "note", label = L.HOW_ACTIVITY:format(L.LOG_ONLY_HL) },
   { type = "header", label = L.OPT_TEST_H },
-  { type = "button", label = L.OPT_TEST, tooltip = L.OPT_TEST_TIP, func = function() H:Print(L.TEST_ADDED:format(H:AddTests())) end },
+  { type = "button", label = L.OPT_TEST, tooltip = L.OPT_TEST_TIP, func = function() H:AddTestEntries() end },
   { type = "button", label = L.OPT_CLEARTEST, func = function() H:Print(L.TEST_CLEARED:format(H:ClearTests())) end },
 }) do options[#options + 1] = o end
 H:SetOptions(options)

@@ -30,7 +30,6 @@ ns.NewsLocales.deDE = {
   EMPTY_HEAD = "Noch ist keine Ausgabe erschienen",
   EMPTY_DEK = "Sobald die Gilde Bemerkenswertes vollbringt, berichtet das Rabenblatt.",
   EMPTY_BODY = "Was als Meldung zählt, steht unter /rq hl. Gildenmitglieder mit Ravenquill liefern Nachrichten von selbst.",
-  EMPTY_MORE = "Zum Ausprobieren: /rq hl > Testeinträge hinzufügen.",
   TEST_KICKER = "Probedruck",
   ONCE = { "Redaktion", "Gildenbuch", "Reparatur", "dabei Stufe", "nachts", "Mitternacht", "Schlaf", "Nachtschicht", "Leuchten",
     "Neid", "beim Händler", "Laufschuhe", "Uhrzeit", "Sperrstunde", "Öffnungszeiten", "den Weg", "Neu im Stall" },
