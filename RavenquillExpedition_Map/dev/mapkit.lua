@@ -124,8 +124,10 @@ function MapKit.Client(sched, bus, name, opts)
     random = opts.random, files = FILES, setup = function(env, kc)
       kc.pos = opts.pos or { 1429, 0.5, 0.5 }
       kc.taxi, kc.tells, kc.hbdMini, kc.hbdAdds, kc.hbdWorldCalls = false, {}, {}, 0, 0
-      kc.newFrame = FrameFactory(kc)
-      env.UIParent, env.Minimap = kc.newFrame(), kc.newFrame()
+      if not opts.kitFrames then
+        kc.newFrame = FrameFactory(kc)
+        env.UIParent, env.Minimap = kc.newFrame(), kc.newFrame()
+      end
       InstallMapApis(env, kc, opts)
       if opts.setup then opts.setup(env, kc) end
     end })

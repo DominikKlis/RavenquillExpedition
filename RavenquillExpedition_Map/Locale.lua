@@ -24,6 +24,7 @@ local L = {
   MAP_COMBAT = "The world map can't be opened from here during combat – open it with your key (M) or after combat.",
   OV_STATUS = "On the map: %d · sharing %s",
   OV_SLOW = " · your messages aren't getting through",
+  OV_HEAD = "%d on the map · %s", OV_HEAD_WHERE = "%s in %s", OV_HEAD_NONE = "Nobody on the map",
 
   SEC_SHARING = "Sharing",
   SEC_DISPLAY = "Display",
@@ -78,6 +79,7 @@ local deDE = {
   MAP_COMBAT = "Die Weltkarte lässt sich im Kampf nicht von hier öffnen – öffne sie mit deiner Taste (M) oder nach dem Kampf.",
   OV_STATUS = "Auf der Karte: %d · Teilen %s",
   OV_SLOW = " · deine Nachrichten kommen nicht an",
+  OV_HEAD = "%d auf der Karte · %s", OV_HEAD_WHERE = "%s in %s", OV_HEAD_NONE = "Niemand auf der Karte",
 
   SEC_SHARING = "Teilen",
   SEC_DISPLAY = "Anzeige",
