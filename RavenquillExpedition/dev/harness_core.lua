@@ -228,4 +228,68 @@ local diagBox = env.RavenquillExpeditionCopyBox
 check(diagBox and diagBox:IsShown() and diagBox.text:find("Ravenquill Expedition v", 1, true)
   and diagBox.text:find("sync: queue", 1, true) and diagBox.text:find("kaputt im Test", 1, true),
   "clicking it opens the copy box with the version, the sync state and the last error")
+
+section("Overview: a module page with entry cards")
+do
+  local ov = env.RavenquillExpeditionOverview
+  me.frameMethods.SetTexture = function(s, v) s._texture = v end
+  local needed, withCrafters, opened = 3, true, {}
+  local cardsMod = RQ:NewModule("Cards", { addon = "CardsAddon", title = "Kartenmodul", icon = "Interface\\Icons\\INV_Misc_Note_01" })
+  cardsMod.openHint = "Was dieses Modul zeigt."
+  function cardsMod:OverviewEntries()
+    local out = {
+      { icon = "Interface\\Icons\\INV_Chest_Leather_09", title = "Bedarf", line = needed .. " Herstellungen lohnen sich",
+        open = function() opened[#opened + 1] = "Bedarf" end },
+      "kein Eintrag",
+      { line = "ohne Titel" },
+    }
+    if withCrafters then
+      out[#out + 1] = { title = "Handwerker", line = "Noch hat niemand Rezepte geteilt", open = function() opened[#opened + 1] = "Handwerker" end }
+    end
+    return out
+  end
+  local function CardTexts(page)
+    local out = {}
+    for _, card in ipairs(page and page.entries and page.entries.cards or {}) do
+      if rawget(card, "_shown") then out[#out + 1] = card.title:GetText() .. ": " .. card.line:GetText() end
+    end
+    return table.concat(out, " | ")
+  end
+  RQ:ShowHome()
+  local tab
+  for _, t in ipairs(ov.tabs) do if rawget(t, "_shown") and t.page == "Cards" then tab = t end end
+  check(tab ~= nil, "a module that offers only entries gets a side tab in /rq")
+  if tab then rawget(tab, "_scripts").OnClick(tab) end
+  local page = ov.optView.pages.Cards
+  local cards = page and page.entries and page.entries.cards or {}
+  check(RQ.optionsModule == "Cards" and page and page:IsShown() and page.hint:GetText() == "Was dieses Modul zeigt." and page.open == nil
+    and CardTexts(page) == "Bedarf: 3 Herstellungen lohnen sich | Handwerker: Noch hat niemand Rezepte geteilt",
+    "its page shows the hint, then one card per entry (title, line), no open button; broken entries are left out: " .. CardTexts(page))
+  local first, second = cards[1] or {}, cards[2] or {}
+  check(first.icon and first.icon._texture == "Interface\\Icons\\INV_Chest_Leather_09" and second.icon._texture == "Interface\\Icons\\INV_Misc_Note_01"
+    and first.open:GetText() == "Öffnen" and rawget(first.open, "_shown") and rawget(second.open, "_shown"),
+    "each card shows its icon (the module's when it names none) and an 'Öffnen' button")
+  if second.open then rawget(second.open, "_scripts").OnClick(second.open) end
+  check(table.concat(opened, ",") == "Handwerker", "'Öffnen' runs that card's open: " .. table.concat(opened, ","))
+  needed, withCrafters = 8, false
+  RQ:ShowHome()
+  if tab then rawget(tab, "_scripts").OnClick(tab) end
+  check(CardTexts(page) == "Bedarf: 8 Herstellungen lohnen sich", "showing the page again reads the entries anew, a dropped entry's card hides: " .. CardTexts(page))
+  function cardsMod:OverviewEntries() error("Einträge kaputt") end
+  local errorsBefore = #me.errors
+  RQ:ShowHome()
+  RQ:ShowModulePage("Cards")
+  check(#me.errors == errorsBefore + 1 and CardTexts(page) == "" and page.hint:GetText() == "Was dieses Modul zeigt.",
+    "a failing entries hook reaches BugSack and leaves no stale card, the hint stays: " .. CardTexts(page))
+  local plain = RQ:NewModule("Plain", { addon = "PlainAddon", title = "Ohne Karten" })
+  plain.openLabel, plain.openHint = "Fenster", "Ein Fenster mit allem."
+  local plainOpened = false
+  function plain:Open() plainOpened = true end
+  RQ:ShowModulePage("Plain")
+  local pp = ov.optView.pages.Plain
+  if pp and pp.open then rawget(pp.open, "_scripts").OnClick(pp.open) end
+  check(pp and pp:IsShown() and pp.entries == nil and pp.open:GetText() == "Fenster öffnen" and pp.hint:GetText() == "Ein Fenster mit allem."
+    and plainOpened, "a module without entries keeps its page: the 'Fenster öffnen' button (it opens the window) and the hint")
+  me.frameMethods.SetTexture = nil
+end
 Kit.finish()

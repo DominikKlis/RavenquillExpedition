@@ -23,7 +23,9 @@ local function TitleAndIcon(mod, k)
   return mod.title or k.title or mod.name, mod.icon or k.icon or "Interface\\Icons\\INV_Misc_QuestionMark"
 end
 
-local function HasModulePage(mod) return type(mod.BuildPage) == "function" or type(mod.Open) == "function" end
+local function HasModulePage(mod)
+  return type(mod.BuildPage) == "function" or type(mod.Open) == "function" or type(mod.OverviewEntries) == "function"
+end
 
 local function KnownAddon(name)
   for _, k in ipairs(KNOWN_ADDONS) do if k.module == name then return k end end
@@ -350,20 +352,39 @@ local function OptionsPanel(opt, name, mod)
   return p
 end
 
-local function BuildOpenPage(mod, page)
-  local b = IconButton(page, SETTINGS_BUTTON_WIDTH + 30, 26)
-  b:SetPoint("TOPLEFT", 16, -8)
-  b.icon:SetTexture(select(2, TitleAndIcon(mod, KnownAddon(mod.name))))
-  b:SetText(mod.openLabel and L.OPEN_WINDOW:format(mod.openLabel) or L.OPEN)
-  b:SetScript("OnClick", function() GS:Call(mod.Open, mod) end)
-  page.open = b
+local function ModuleIcon(mod) return select(2, TitleAndIcon(mod, KnownAddon(mod.name))) end
+
+local function BuildHint(mod, page)
   local hint = Text(page, "GameFontHighlightSmall")
-  hint:SetPoint("TOPLEFT", b, "BOTTOMLEFT", 0, -10)
   hint:SetPoint("RIGHT", page, "RIGHT", -16, 0)
-  hint:SetJustifyH("LEFT")
   hint:SetTextColor(0.8, 0.8, 0.8)
   hint:SetText(mod.openHint or "")
   page.hint = hint
+  return hint
+end
+
+local function BuildEntriesPage(mod, page)
+  local hint = BuildHint(mod, page)
+  hint:SetPoint("TOPLEFT", 16, -12)
+  page.entries = ns.EntryCards(page)
+  page.entries:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", -10, -16)
+  page.entries:SetPoint("RIGHT", page, "RIGHT", -2, 0)
+end
+
+local function BuildOpenPage(mod, page)
+  if type(mod.OverviewEntries) == "function" then return BuildEntriesPage(mod, page) end
+  local b = IconButton(page, SETTINGS_BUTTON_WIDTH + 30, 26)
+  b:SetPoint("TOPLEFT", 16, -8)
+  b.icon:SetTexture(ModuleIcon(mod))
+  b:SetText(mod.openLabel and L.OPEN_WINDOW:format(mod.openLabel) or L.OPEN)
+  b:SetScript("OnClick", function() GS:Call(mod.Open, mod) end)
+  page.open = b
+  BuildHint(mod, page):SetPoint("TOPLEFT", b, "BOTTOMLEFT", 0, -10)
+end
+
+local function RenderEntries(page, mod)
+  if not (page and page.entries) then return end
+  ns.RenderEntryCards(page.entries, ns.Entries(GS:Call(mod.OverviewEntries, mod), ModuleIcon(mod)))
 end
 
 local function ModulePage(opt, name, mod)
@@ -485,8 +506,9 @@ function GS:RefreshModuleView(rows)
   if self.moduleSettings then
     local p = opt.panels[name]
     if p then p.refreshAll() end
-  elseif mod and mod.RefreshPage then
-    self:Call(mod.RefreshPage, mod)
+  elseif mod then
+    RenderEntries(opt.pages[name], mod)
+    if mod.RefreshPage then self:Call(mod.RefreshPage, mod) end
   end
 end
 
