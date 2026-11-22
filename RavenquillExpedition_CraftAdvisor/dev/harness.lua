@@ -212,7 +212,7 @@ do
   local function CraftCards()
     local ov = env.RavenquillExpeditionOverview
     local page = ov and ov.optView.pages.Craft
-    return page and page.entries and page.entries.cards or {}
+    return page and page.entries and page.entries.items or {}
   end
   local function CardTexts()
     local out = {}

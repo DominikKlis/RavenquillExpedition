@@ -37,7 +37,7 @@ local function ModuleRow(mod, k)
   row.status = mod.OverviewStatus and GS:Call(mod.OverviewStatus, mod) or L.LOADED
   if type(row.status) ~= "string" then row.status = "" end
   if mod.Open then row.open = function() GS:Call(mod.Open, mod) end end
-  row.openLabel, row.openFirst, row.openInHeader = mod.openLabel, mod.openFirst, mod.openInHeader
+  row.openLabel, row.openInHeader = mod.openLabel, mod.openInHeader
   if ns.ModuleOptions(mod) then row.options = true end
   if HasModulePage(mod) then row.page = true end
   return row
@@ -97,8 +97,7 @@ local WIDTH, HEIGHT, MAX_TABS = 673, 594, 7
 local SUITE_ICON = "Interface\\Icons\\INV_Misc_Book_09"
 local GEAR_ICON = "Interface\\Icons\\INV_Misc_Gear_01"
 local WIDE_CARD = "Profession-overview-Card"
-local SIZE = { edge = 24, header = 62, footer = 62, row = 22, title = 170, rows = 6 }
-local Strip = {}
+local SIZE = { edge = 24, header = 62, footer = 62, row = 22 }
 local Text = ns.Text
 
 local function OpenPage(page)
@@ -143,53 +142,9 @@ local function BuildHeader(home)
   return card
 end
 
-function Strip.Open(row)
-  local d = row.data
-  if not d then return end
-  if (d.page or d.options) and not d.openFirst then GS:ShowModulePage(d.name) elseif d.open then d.open() end
-end
-
-function Strip.TipLines(row)
-  local d = row.data
-  if not d then return {} end
-  return { d.status, L.COMMAND:format(d.slash) }
-end
-
-function Strip.BuildRow(strip, i)
-  local row = CreateFrame("Button", nil, strip)
-  row:SetHeight(SIZE.row)
-  row:SetPoint("TOPLEFT", 0, -(i - 1) * SIZE.row)
-  row:SetPoint("RIGHT", strip, "RIGHT", 0, 0)
-  local hover = row:CreateTexture(nil, "HIGHLIGHT")
-  hover:SetAllPoints()
-  hover:SetColorTexture(1, 1, 1, 0.08)
-  row.icon = ns.Icon(row, SIZE.row - 4)
-  row.icon:SetPoint("LEFT", 2, 0)
-  row.title = Text(row, "GameFontNormalSmall")
-  row.title:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
-  row.title:SetWidth(SIZE.title)
-  row.status = Text(row, "GameFontHighlightSmall")
-  row.status:SetPoint("LEFT", row.title, "RIGHT", 8, 0)
-  row.status:SetPoint("RIGHT", row, "RIGHT", -4, 0)
-  row:SetScript("OnClick", Strip.Open)
-  ns.Tip(row, function() return row.data and row.data.title or "" end, function() return Strip.TipLines(row) end)
-  row:Hide()
-  return row
-end
-
-function Strip.Build(card)
-  local strip = CreateFrame("Frame", nil, card)
-  strip:SetPoint("TOPLEFT", 16, -18)
-  strip:SetPoint("RIGHT", card, "RIGHT", -20, 0)
-  strip:SetHeight(SIZE.row)
-  strip.rows = {}
-  for i = 1, SIZE.rows do strip.rows[i] = Strip.BuildRow(strip, i) end
-  return strip
-end
-
 local function BuildTeaser(home, card)
   local b = CreateFrame("Button", nil, card)
-  b:SetPoint("TOPLEFT", home.strip, "BOTTOMLEFT", 4, -18)
+  b:SetPoint("TOPLEFT", home.list, "BOTTOMLEFT", 4, -18)
   b:SetPoint("RIGHT", card, "RIGHT", -24, 0)
   b:SetHeight(SIZE.row)
   b.text = Text(b, "GameFontNormal")
@@ -221,7 +176,9 @@ local function BuildHome(f)
   local body = ns.SlicedCard(home, WIDE_CARD, SIZE.edge)
   body:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 5)
   body:SetPoint("BOTTOMRIGHT", -4, SIZE.footer + 5)
-  home.strip = Strip.Build(body)
+  home.list = ns.EntryRows(body)
+  home.list:SetPoint("TOPLEFT", 16, -18)
+  home.list:SetPoint("RIGHT", body, "RIGHT", -20, 0)
   BuildTeaser(home, body)
   BuildFooter(home)
   return home
@@ -384,7 +341,7 @@ end
 
 local function RenderEntries(page, mod)
   if not (page and page.entries) then return end
-  ns.RenderEntryCards(page.entries, ns.Entries(GS:Call(mod.OverviewEntries, mod), ModuleIcon(mod)))
+  ns.RenderEntries(page.entries, ns.Entries(GS:Call(mod.OverviewEntries, mod), ModuleIcon(mod)))
 end
 
 local function ModulePage(opt, name, mod)
@@ -466,23 +423,17 @@ local function RenderHeader(home)
   home.version:SetText(GS:OverviewVersionLine())
 end
 
-function Strip.RenderRow(row, d)
-  local usable = d.state == "loaded"
-  row.data = d
-  row.icon:SetTexture(d.icon)
-  row.icon:SetDesaturated(not usable)
-  row.title:SetText(d.title)
-  row.status:SetText(d.status or "")
-  row:SetAlpha(usable and 1 or 0.55)
-  row:Show()
+local function HomeEntry(d)
+  local line, open = ns.Headline(d.name and GS.modules[d.name])
+  if not open and (d.page or d.options) then open = function() GS:ShowModulePage(d.name) end end
+  return { icon = d.icon, title = d.title, line = line or d.status, open = open or d.open, dim = d.state ~= "loaded",
+    tip = { d.status, L.COMMAND:format(d.slash) } }
 end
 
-function Strip.Render(strip, rows)
-  local shown = 0
-  for i, row in ipairs(strip.rows) do
-    if rows[i] then Strip.RenderRow(row, rows[i]); shown = i else row.data = nil; row:Hide() end
-  end
-  strip:SetHeight(math.max(1, shown) * SIZE.row)
+local function HomeEntries(rows)
+  local out = {}
+  for i, d in ipairs(rows) do out[i] = HomeEntry(d) end
+  return out
 end
 
 function GS:RefreshOverview()
@@ -492,7 +443,7 @@ function GS:RefreshOverview()
   if self.optionsModule then return self:RefreshModuleView(rows) end
   local home = win.home
   RenderHeader(home)
-  Strip.Render(home.strip, rows)
+  ns.RenderEntries(home.list, HomeEntries(rows))
   RenderTeaser(home.teaser)
   home.options.refreshAll()
 end

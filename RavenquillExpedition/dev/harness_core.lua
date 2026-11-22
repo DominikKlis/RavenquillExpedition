@@ -229,6 +229,71 @@ check(diagBox and diagBox:IsShown() and diagBox.text:find("Ravenquill Expedition
   and diagBox.text:find("sync: queue", 1, true) and diagBox.text:find("kaputt im Test", 1, true),
   "clicking it opens the copy box with the version, the sync state and the last error")
 
+section("Overview home: one clickable row per module, its headline or its status")
+do
+  local ov = env.RavenquillExpeditionOverview
+  local news, opened = 4, {}
+  local board = RQ:NewModule("Board", { addon = "BoardAddon", title = "Anschlagbrett" })
+  function board:OverviewStatus() return "12 Aushänge · Teilen an" end
+  function board:OverviewHeadline()
+    return { line = news .. " neue Aushänge · zuletzt Bud Stone", open = function() opened[#opened + 1] = "Brett" end }
+  end
+  function board:Open() opened[#opened + 1] = "Fenster" end
+  local quiet = RQ:NewModule("Quiet", { addon = "QuietAddon", title = "Stille Post" })
+  function quiet:BuildPage() end
+  function quiet:OverviewStatus() return "3 Briefe" end
+  function quiet:OverviewHeadline() return { line = "Keine neuen Briefe" } end
+  local ledger = RQ:NewModule("Ledger", { addon = "LedgerAddon", title = "Kassenbuch",
+    options = { { type = "toggle", label = "Buchen", get = function() return true end, set = function() end } } })
+  function ledger:OverviewStatus() return "7 Buchungen" end
+  local function HomeRow(title)
+    for _, row in ipairs(ov.home.list and ov.home.list.items or {}) do
+      if rawget(row, "_shown") and row.title:GetText() == title then return row end
+    end
+  end
+  local function Line(title) local row = HomeRow(title); return row and row.line:GetText() end
+  local function More(title) local row = HomeRow(title); return row ~= nil and rawget(row.more, "_shown") == true end
+  local function Click(title)
+    RQ:ShowHome()
+    local row = HomeRow(title)
+    if row then rawget(row, "_scripts").OnClick(row) end
+  end
+  RQ:ShowHome()
+  check(Line("Anschlagbrett") == "4 neue Aushänge · zuletzt Bud Stone" and More("Anschlagbrett"),
+    "a module's home row shows its headline instead of its status, with a '›' to open it: " .. tostring(Line("Anschlagbrett")))
+  news = 6
+  RQ:RefreshOverview()
+  check(Line("Anschlagbrett") == "6 neue Aushänge · zuletzt Bud Stone",
+    "the home reads the headline anew on each refresh: " .. tostring(Line("Anschlagbrett")))
+  local row = HomeRow("Anschlagbrett")
+  if row then rawget(row, "_scripts").OnEnter(row) end
+  check(table.concat(env.GameTooltip.lines, " | ") == "12 Aushänge · Teilen an | Chatbefehl: /rq board",
+    "hovering the row still shows the status and the chat command: " .. table.concat(env.GameTooltip.lines, " | "))
+  Click("Anschlagbrett")
+  check(table.concat(opened, ",") == "Brett" and RQ.optionsModule == nil,
+    "clicking the row runs the headline's open, not the window and not the module page: " .. table.concat(opened, ","))
+  Click("Stille Post")
+  check(RQ.optionsModule == "Quiet" and not RQ.moduleSettings, "a headline without its own open: the row opens the module's page")
+  RQ:ShowHome()
+  check(Line("Stille Post") == "Keine neuen Briefe" and Line("Kassenbuch") == "7 Buchungen" and More("Kassenbuch"),
+    "a module without the hook shows its status line on the home: " .. tostring(Line("Kassenbuch")))
+  Click("Kassenbuch")
+  check(RQ.optionsModule == "Ledger", "and its row opens the module in /rq")
+  local broken = RQ:NewModule("Broken", { addon = "BrokenAddon", title = "Kaputt" })
+  function broken:BuildPage() end
+  function broken:OverviewStatus() return "läuft" end
+  function broken:OverviewHeadline() error("Schlagzeile kaputt") end
+  local errorsBefore = #me.errors
+  RQ:ShowHome()
+  check(Line("Kaputt") == "läuft" and #me.errors == errorsBefore + 1,
+    "a failing headline hook reaches BugSack and the row falls back to the status: " .. tostring(Line("Kaputt")))
+  Click("Kaputt")
+  check(RQ.optionsModule == "Broken", "and the row still opens the module's page")
+  broken.OverviewHeadline = nil
+  while #me.errors > errorsBefore do table.remove(me.errors) end
+  RQ:ShowHome()
+end
+
 section("Overview: a module page with entry cards")
 do
   local ov = env.RavenquillExpeditionOverview
@@ -250,7 +315,7 @@ do
   end
   local function CardTexts(page)
     local out = {}
-    for _, card in ipairs(page and page.entries and page.entries.cards or {}) do
+    for _, card in ipairs(page and page.entries and page.entries.items or {}) do
       if rawget(card, "_shown") then out[#out + 1] = card.title:GetText() .. ": " .. card.line:GetText() end
     end
     return table.concat(out, " | ")
@@ -261,7 +326,7 @@ do
   check(tab ~= nil, "a module that offers only entries gets a side tab in /rq")
   if tab then rawget(tab, "_scripts").OnClick(tab) end
   local page = ov.optView.pages.Cards
-  local cards = page and page.entries and page.entries.cards or {}
+  local cards = page and page.entries and page.entries.items or {}
   check(RQ.optionsModule == "Cards" and page and page:IsShown() and page.hint:GetText() == "Was dieses Modul zeigt." and page.open == nil
     and CardTexts(page) == "Bedarf: 3 Herstellungen lohnen sich | Handwerker: Noch hat niemand Rezepte geteilt",
     "its page shows the hint, then one card per entry (title, line), no open button; broken entries are left out: " .. CardTexts(page))

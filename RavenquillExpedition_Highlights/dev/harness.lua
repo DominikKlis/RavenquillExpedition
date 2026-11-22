@@ -594,10 +594,10 @@ check(rows[2].state == "missing" and rows[2].slash == "/rq map", "Map row: not i
 check(rows[3].state == "disabled" and rows[3].slash == "/rq craft" and rows[3].title == "Guild Craft Advisor", "Craft row: disabled")
 check(#rows == 3, "three known rows, no duplicates")
 GS:ShowHome()
-local missingRow = ov.home.strip.rows[2]
-check(rawget(missingRow, "_shown") and missingRow.data.state == "missing" and missingRow.status:GetText() == GS.OverviewL.MISSING
-  and missingRow:GetAlpha() < 1 and ov.home.strip.rows[1]:GetAlpha() == 1,
-  "a module that is not installed stays in the overview's list, greyed, with the reason")
+local missingRow = ov.home.list.items[2]
+check(rawget(missingRow, "_shown") and missingRow.title:GetText() == "Map" and missingRow.line:GetText() == GS.OverviewL.MISSING
+  and missingRow:GetAlpha() < 1 and not rawget(missingRow.more, "_shown") and ov.home.list.items[1]:GetAlpha() == 1,
+  "a module that is not installed stays in the overview's list, greyed, with the reason and nothing to open")
 GS:ShowModulePage("Highlights")
 local hlPage = ov.optView.pages.Highlights
 check(GS.optionsModule == "Highlights" and not GS.moduleSettings and hlPage and hlPage:IsShown() and not ov.optView.scroll:IsShown()
@@ -768,16 +768,15 @@ do
   rawget(tabs[1], "_scripts").OnClick(tabs[1])
   check(GS.optionsModule == nil and ov.home:IsShown() and ov._title == "Ravenquill Expedition",
     "the overview tab goes back to the overview")
-  local stripRows, homeRows = ov.home.strip.rows, GS:OverviewRows()
-  local stripped, hlRow = 0, nil
-  for _, row in ipairs(stripRows) do
+  local homeRows, listed, hlRow = GS:OverviewRows(), 0, nil
+  for _, row in ipairs(ov.home.list.items) do
     if rawget(row, "_shown") then
-      stripped = stripped + 1
-      if row.data.name == "Highlights" then hlRow = row end
+      listed = listed + 1
+      if row.title:GetText() == H.title then hlRow = row end
     end
   end
-  check(stripped == #homeRows and hlRow and hlRow.status:GetText() == H:OverviewStatus(),
-    "the overview lists every module with its status line (" .. stripped .. ")")
+  check(listed == #homeRows and hlRow and hlRow.line:GetText() == H:OverviewStatus(),
+    "the overview lists every module with its status line (" .. listed .. ")")
   H:ShowWindow()
   local head = env.RavenquillExpeditionHighlightsFrame.paper.lead.head:GetText()
   env.RavenquillExpeditionHighlightsFrame:Hide()
@@ -790,9 +789,8 @@ do
   check(env.RavenquillExpeditionHighlightsFrame:IsShown(), "clicking the teaser opens the newspaper")
   env.RavenquillExpeditionHighlightsFrame:Hide()
   rawget(hlRow, "_scripts").OnClick(hlRow)
-  local paperWin = env.RavenquillExpeditionHighlightsFrame
-  check(paperWin and paperWin:IsShown() and paperWin.paper:IsShown(), "clicking the Highlights line opens the newspaper")
-  paperWin:Hide()
+  check(GS.optionsModule == "Highlights" and not GS.moduleSettings and LogPage(env):IsShown(),
+    "clicking the Highlights line opens its chronicle in /rq")
   rawget(tabs[1], "_scripts").OnClick(tabs[1])
   check(ov.home.peers:GetText() == GS:OverviewPeersLine() and ov.home.sync:GetText() == GS:OverviewSyncLine()
     and ov.home.peersBar == nil, "the header states sync and peers as text, without a progress bar")
