@@ -393,6 +393,8 @@ ns.Locales.deDE = {
   ENTRY_CRAFTERS = "%d Gildenmitglieder teilen ihre Rezepte",
   ENTRY_CRAFTERS_1 = "1 Gildenmitglied teilt seine Rezepte",
   ENTRY_CRAFTERS_NONE = "Noch hat niemand Rezepte geteilt",
+  NOW_ORDERS = "%d Aufträge an dich", NOW_ORDERS_1 = "1 Auftrag an dich", NOW_READY = "%d Herstellungen sind fertig für dich",
+  NOW_READY_1 = "%s ist fertig für dich", NOW_VIEW = "Ansehen",
   OPT_SYNC_STATUS = "Sync-Status",
   OPT_DIAG_SPEC = "Talente",
   OPT_DIAG_KNOWN = "Rezepte",

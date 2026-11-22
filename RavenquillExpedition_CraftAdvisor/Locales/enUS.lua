@@ -413,6 +413,8 @@ ns.Locales.enUS = {
   ENTRY_CRAFTERS = "%d guildmates share their recipes",
   ENTRY_CRAFTERS_1 = "1 guildmate shares their recipes",
   ENTRY_CRAFTERS_NONE = "Nobody has shared recipes yet",
+  NOW_ORDERS = "%d orders to you", NOW_ORDERS_1 = "1 order to you", NOW_READY = "%d crafts are ready for you",
+  NOW_READY_1 = "%s is ready for you", NOW_VIEW = "View",
   OPT_SYNC_STATUS = "Sync status",
   OPT_DIAG_SPEC = "Talents",
   OPT_DIAG_KNOWN = "Recipes",

@@ -187,6 +187,39 @@ function GCA:OverviewHeadline()
   return { line = line, open = function() self:OpenView("needs") end }
 end
 
+local ORDERS_ICON = "Interface\\Icons\\INV_Chest_Leather_01"
+
+local function WaitingOnMe(self)
+  local tome, ready = 0, {}
+  for _, o in pairs(self:Orders()) do
+    local role = self:OrderRole(o)
+    if role == "crafter" and self.ORDER_STATES[o.state].activeFor.crafter then tome = tome + 1 end
+    if role == "requester" and o.state == "done" then ready[#ready + 1] = o end
+  end
+  return tome, ready
+end
+
+local function ReadyText(self, ready)
+  if #ready ~= 1 then return string.format(L.NOW_READY, #ready) end
+  local r = self:RecipeRow(ready[1].prof, ready[1].spell)
+  return string.format(L.NOW_READY_1, r and r.name or "?")
+end
+
+function GCA:OverviewNow()
+  if not self.db then return end
+  local tome, ready = WaitingOnMe(self)
+  if tome == 0 and not ready[1] then return {} end
+  local parts = {}
+  if tome > 0 then parts[1] = tome == 1 and L.NOW_ORDERS_1 or string.format(L.NOW_ORDERS, tome) end
+  if ready[1] then parts[#parts + 1] = ReadyText(self, ready) end
+  local list = tome > 0 and "tome" or "mine"
+  return { { icon = ORDERS_ICON, title = L.VIEW_ORDERS, line = table.concat(parts, " · "), action = L.NOW_VIEW,
+    open = function()
+      self:OpenView("orders")
+      self.UI:SelectOrderList(list)
+    end } }
+end
+
 function GCA:OverviewStatus()
   if not self.db then return end
   local recorded = 0

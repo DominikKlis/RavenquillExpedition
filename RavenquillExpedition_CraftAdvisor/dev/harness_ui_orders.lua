@@ -144,5 +144,29 @@ end
 H.ns.locale = "enUS"
 UIx.frame:Hide()
 
+section("/rq home: orders waiting on you are one row with 'View'")
+local row = GCA:OverviewNow()[1]
+check(row and row.title == "Orders" and row.line == "1 order to you" and row.action == "View",
+  "the accepted order to you, still to be crafted, is one row: " .. tostring(row and row.line))
+local ready = GCA:PlaceOrder("Bob Marsh", LW, 3762, 5)
+GCA:MergeOrder("Bob Marsh", { requester = "Me Stone", id = ready.id, crafter = "Bob Marsh", prof = LW, spell = 3762, state = "done" })
+row = GCA:OverviewNow()[1]
+check(row and row.line == "1 order to you · Hillman's Leather Vest is ready for you" and #GCA:OverviewNow() == 1,
+  "an order crafted for you joins the same row: " .. tostring(row and row.line))
+UIx.frame:Hide()
+UIx.orderList = "finished"
+row.open()
+UIx = GCA.UI
+check(UIx.frame:IsShown() and UIx.view == "orders" and UIx.orderList == "tome",
+  "'View' opens the Orders tab on 'To me'")
+GCA:OrderAction(toMe, "done")
+row = GCA:OverviewNow()[1]
+check(row and row.line == "Hillman's Leather Vest is ready for you", "with only the crafted order left: " .. tostring(row and row.line))
+UIx.frame:Hide()
+row.open()
+check(UIx.frame:IsShown() and UIx.view == "orders" and UIx.orderList == "mine", "'View' then opens 'From me'")
+GCA:OrderAction(ready, "receive")
+check(#GCA:OverviewNow() == 0, "nothing waiting on you: no row")
+
 check((UIx.errorCount or 0) == 0, "no error reported")
 H.finish()
