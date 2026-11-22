@@ -73,8 +73,8 @@ do
   check(plain(b.title._text) == "Hillman's Leather Vest" and not plain(b.title._text):find(":", 1, true),
     "title = the item name only, no 'Slot:' prefix: " .. plain(b.title._text))
   check(b.offer._shown and not b.offer.isIcon and b.offer._text == "Offer" and b.offer._w == 84
-    and b.crafted._shown and b.craftedLabel == nil and b.gainAnchor == b.crafted,
-    "card: online known craft: 'Offer' text button + crafted box (no label), gain left of the box (K1 had the whisper icon)")
+    and b.crafted._shown and plain(b.crafted.label._text) == "Crafted" and b.gainAnchor == b.crafted,
+    "card: online known craft: 'Offer' text button + crafted box with its 'Crafted' label, gain left of the box (K1 had the whisper icon)")
   check(plain(b.gain._text) == "+12 pts" and plain(b.points._text) == "" and b.gain._SetTextColor and b.gain._SetTextColor[2] > 0.8
     and b._SetHeight[1] == 50 and b.alt == nil and b.treeV == nil, "card: 50 px, green '+12 pts' (no size line without a share); K6: no row shading, no tree lines")
   check(b.title._alpha == 1 and not b.dimmed, "wearable row not dimmed")

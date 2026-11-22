@@ -120,7 +120,7 @@ do
     "stat differences new - worn, biggest weighted first, hit twins merged, loss in red: " .. table.concat(stats, ", "))
   check(c.nAlts == 1 and c.alts[1]._shown and c.alts[1].data == s2 and c.moreTitle._text == "More options" and c.moreTitle._shown and c.sep._shown,
     "'More options': the slot's other craft")
-  check(c.offer._shown and c.offer._text == "Offer" and c.crafted._shown and c.craftedLabel._text == "Crafted" and not c.crafted._checked,
+  check(c.offer._shown and c.offer._text == "Offer" and c.crafted._shown and plain(c.crafted.label._text) == "Crafted" and not c.crafted._checked,
     "actions: 'Crafted' box + 'Offer' button")
   c.crafted:SetChecked(true); c.crafted._scripts.OnClick(c.crafted)
   check(GCA:CraftedMark("Bud Stone", "Leatherworking", 3762) ~= nil and c.crafted._checked == true and UIx.sheetSlot == 5,
@@ -162,7 +162,7 @@ do
   end
   sh.slots[9]._scripts.OnClick(sh.slots[9])
   check(c.featured == ench1 and c.best.label._text == "Best enchant" and c.alts[1].data == ench2 and c.alts[1].tag._shown
-    and plain(c.alts[1].tag._text) == "Enchant" and c.craftedLabel._text == "Enchanted"
+    and plain(c.alts[1].tag._text) == "Enchant" and plain(c.crafted.label._text) == "Enchanted"
     and plain(c.tags._text) == "replaces Minor Stamina on Bracers", "enchants: 'Best enchant', alternative with an 'Enchant' marker, 'Enchanted' box")
   local es = {}
   for i = 1, c.nStats do es[i] = plain(c.stats[i]._text) end
@@ -238,7 +238,7 @@ do
   check(card and plain(card.title._text) == "Hillman's Leather Vest" and plain(card.sub._text) == ""
     and card.gain._text == "+12 pts" and card.points._text == "" and card.offer._shown and card.crafted._shown,
     "card (user 2026-11-15): name, no stat-difference line, '+12 pts', box, Offer: " .. plain(card and card.sub._text))
-  check(card.textW + (16 + 4 + 38 + 4 + 10) + (6 + 84 + 4 + 22 + 6 + 84 + 10) == UIx.sugList.viewW, "card texts (16 px indent) end where the gain / box / Offer block starts (no overlap)")
+  check(card.textW + (16 + 4 + 38 + 4 + 10) + (6 + 84 + 4 + card.crafted.fullW + 6 + 84 + 10) == UIx.sugList.viewW, "card texts (16 px indent) end where the gain / box / Offer block starts (no overlap)")
   card.crafted:SetChecked(true); card.crafted._scripts.OnClick(card.crafted)
   check(GCA:CraftedMark("Bud Stone", "Leatherworking", 3762) ~= nil, "card crafted box stores the mark")
   GCA:SetCrafted("Bud Stone", "Leatherworking", s1, false)
@@ -284,7 +284,7 @@ do
   sh, c = UIx.sheet, UIx.sheet.centre
   sh.slots[5]._scripts.OnClick(sh.slots[5])
   check(c.worn.label._text == "Getragen" and c.best.label._text == "Beste Herstellung" and c.count._text == "2 herstellbare Verbesserungen"
-    and c.moreTitle._text == "Weitere Möglichkeiten" and c.craftedLabel._text == "Hergestellt" and c.offer._text == "Anbieten",
+    and c.moreTitle._text == "Weitere Möglichkeiten" and plain(c.crafted.label._text) == "Hergestellt" and c.offer._text == "Anbieten",
     "German sheet: Getragen / Beste Herstellung / 2 herstellbare Verbesserungen / Weitere Möglichkeiten / Hergestellt / Anbieten")
   check(plain(c.stats[1]._text) == "+1% Treffer" and plain(c.stats[2]._text) == "+6 Beweglichkeit", "German stat names: " .. plain(c.stats[1]._text))
   sh.slots[1]._scripts.OnClick(sh.slots[1])
@@ -318,7 +318,7 @@ do
       for i = 1, c3.nStats do parts[#parts + 1] = { "stat " .. i, c3.stats[i] } end
       if c3.hasTags then parts[#parts + 1] = { "tags", c3.tags } end
       if c3.offer._shown then parts[#parts + 1] = { "offer", c3.offer } end
-      if c3.crafted._shown then parts[#parts + 1] = { "crafted", c3.crafted }; parts[#parts + 1] = { "crafted label", c3.craftedLabel } end
+      if c3.crafted._shown then parts[#parts + 1] = { "crafted", c3.crafted }; parts[#parts + 1] = { "crafted label", c3.crafted.label } end
       if (c3.nAltsShown or c3.nAlts) > 0 then parts[#parts + 1] = { "sep", c3.sep }; parts[#parts + 1] = { "more", c3.moreTitle } end
       for i = 1, c3.nAltsShown or c3.nAlts do parts[#parts + 1] = { "alt " .. i, c3.alts[i] } end
     else
@@ -363,7 +363,7 @@ do
       for _, r in ipairs(UIx.sugList.pools.default) do
         if r._shown and r.textW then
           local showO, showC = r.offer._shown, r.crafted._shown
-          local rightW = 6 + (showO and 88 or 0) + (showC and 28 or 0) + 84 + 10
+          local rightW = 6 + (showO and 88 or 0) + (showC and (r.crafted.fullW + 6) or 0) + 84 + 10
           if r.textW + 72 + rightW ~= UIx.sugList.viewW or r.textW < 60 then okCards = false end
         end
       end

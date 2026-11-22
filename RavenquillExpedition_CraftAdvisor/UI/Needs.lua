@@ -188,8 +188,8 @@ local function FillWornButton(btn, item)
   btn:SetAlpha(btn.link and 1 or 0.5)
 end
 
-local function NeedRowStateWidth(showOffer, showCheck, listW)
-  local rightW = 6 + (showOffer and (UI.OFFER_SMALL_W + 4) or 0) + (showCheck and 28 or 0) + UI.NEED_GAIN_SUB_W
+local function NeedRowStateWidth(showOffer, craftedW, listW)
+  local rightW = 6 + (showOffer and (UI.OFFER_SMALL_W + 4) or 0) + (craftedW > 0 and (craftedW + 6) or 0) + UI.NEED_GAIN_SUB_W
   return math.max(40, listW - (NEED_SUB_X + UI.NEED_MEMBER_W + 8 + 42) - rightW - 8)
 end
 
@@ -202,10 +202,9 @@ local function UpdateNeedMemberRow(b, e, listW)
   b.gain:SetText(ChipGain(d))
   local showOffer, showCheck, mark = P.RightState(d, m)
   b.offer:SetShown(showOffer)
-  b.crafted:SetShown(showCheck)
-  b.crafted:SetChecked(mark ~= nil)
+  b.crafted:SetCraft(d, showCheck, mark)
   LayoutRight(b, showOffer, showCheck)
-  local avail = NeedRowStateWidth(showOffer, showCheck, listW)
+  local avail = NeedRowStateWidth(showOffer, b.crafted.fullW, listW)
   b.gain:SetWidth(UI.NEED_GAIN_SUB_W)
   b.state:SetWidth(avail)
   b.stateW = avail

@@ -248,7 +248,6 @@ local function CreateSheet(parent)
   c.source = UI.CreateLearnButton(c)
   c.offer = P.CreateOfferTextButton(c, c.best, SHEET_OFFER_W)
   c.crafted = CreateCraftedBox(c, c.best)
-  c.craftedLabel = Label(c, "GameFontHighlightSmall")
   c.none = c:CreateFontString(nil, "OVERLAY", "GameFontDisable")
   c.none:SetJustifyH("LEFT")
   c.sep = c:CreateTexture(nil, "ARTWORK")
@@ -339,13 +338,9 @@ function Place.Actions(c, pad, y)
   c.offer:ClearAllPoints()
   c.offer:SetPoint("TOPRIGHT", c, "TOPRIGHT", -right, -y)
   if c.offer:IsShown() then right = right + SHEET_OFFER_W + 14 end
-  local labelW = TextWidth(c.craftedLabel)
-  c.craftedLabel:SetWidth(labelW)
   c.crafted:ClearAllPoints()
-  c.crafted:SetPoint("TOPRIGHT", c, "TOPRIGHT", -(right + labelW + 4), -y)
-  c.craftedLabel:ClearAllPoints()
-  c.craftedLabel:SetPoint("LEFT", c.crafted, "RIGHT", 4, 0)
-  if c.crafted:IsShown() then right = right + labelW + 4 + 26 end
+  c.crafted:SetPoint("TOPRIGHT", c, "TOPRIGHT", -(right + c.crafted.trailW), -y)
+  if c.crafted:IsShown() then right = right + c.crafted.fullW + 4 end
   return right
 end
 function Place.Stats(c, pad, iw, y, right)
@@ -504,10 +499,7 @@ end
 function Fill.Actions(c, d, cur)
   local _, showCheck, mark = RightState(d, cur)
   UI.ShowRowAction(c.offer, cur, d)
-  c.crafted:SetShown(showCheck)
-  c.crafted:SetChecked(mark ~= nil)
-  c.craftedLabel:SetText(d.kind == "enchant" and L.ENCHANTED or L.CRAFTED)
-  c.craftedLabel:SetShown(showCheck)
+  c.crafted:SetCraft(d, showCheck, mark)
 end
 function Fill.Alts(c, rows, d)
   local others = {}
@@ -545,7 +537,7 @@ function Fill.ClearUpgrade(c)
   c.tags:SetText(""); c.tags:Hide()
   c.hasSource = false
   UI.UpdateLearnButton(c.source, nil)
-  c.offer:Hide(); c.crafted:Hide(); c.craftedLabel:Hide()
+  c.offer:Hide(); c.crafted:Hide()
   for _, r in ipairs(c.alts) do r:Hide(); r.data = nil end
   c.nAlts = 0
   c.sep:Hide(); c.moreTitle:Hide()

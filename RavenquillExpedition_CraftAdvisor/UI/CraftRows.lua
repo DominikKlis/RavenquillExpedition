@@ -20,6 +20,8 @@ UI.RowCtx = RowCtx
 
 local function HideTip() GameTooltip_Hide() end
 
+local CRAFTED_BOX, CRAFTED_GAP = 22, 4
+
 local function LayoutRight(b, showOffer, showCheck, gainY)
   b.offer:ClearAllPoints()
   b.offer:SetPoint("RIGHT", b, "RIGHT", -6, 0)
@@ -27,7 +29,7 @@ local function LayoutRight(b, showOffer, showCheck, gainY)
   if showOffer then anchor, point, x = b.offer, "LEFT", -4 end
   b.crafted:ClearAllPoints()
   if showCheck then
-    b.crafted:SetPoint("RIGHT", anchor, point, x, 0)
+    b.crafted:SetPoint("RIGHT", anchor, point, x - b.crafted.trailW, 0)
     anchor, point, x = b.crafted, "LEFT", -6
   end
   b.gain:ClearAllPoints()
@@ -101,9 +103,24 @@ P.CreateOfferTextButton = function(parent, row, w, h)
   return o
 end
 
+local function SetCraft(cb, d, shown, mark)
+  local text, on = d.kind == "enchant" and L.ENCHANTED or L.CRAFTED, mark and true or false
+  cb.label:SetText(on and text or (C.muted .. text .. "|r"))
+  local labelW = TextWidth(cb.label)
+  cb.label:SetWidth(labelW)
+  cb.trailW = CRAFTED_GAP + labelW
+  if cb.SetHitRectInsets then cb:SetHitRectInsets(0, -cb.trailW, 0, 0) end
+  cb:SetChecked(on)
+  cb:SetShown(shown)
+  cb.fullW = shown and (CRAFTED_BOX + cb.trailW) or 0
+end
+
 local function CreateCraftedBox(parent, row)
-  local cb = NewCheck(parent, 22)
+  local cb = NewCheck(parent, CRAFTED_BOX)
   cb.row = row
+  cb.label = Label(cb, "GameFontHighlightSmall")
+  cb.label:SetPoint("LEFT", cb, "RIGHT", CRAFTED_GAP, 0)
+  cb.trailW, cb.fullW, cb.SetCraft = 0, 0, SetCraft
   cb:SetScript("OnClick", function(self)
     local d, cur = RowCtx(self.row)
     UI.DoCrafted(d, cur, self:GetChecked())
@@ -320,9 +337,9 @@ function Card.Title(d)
   return name .. " " .. C.muted .. "(" .. pair .. ")|r"
 end
 
-function Card.TextWidth(showOffer, showCheck, listW)
+function Card.TextWidth(showOffer, craftedW, listW)
   local textL = CARD_INDENT + 4 + CARD_ICON + 4 + 10
-  local rightW = 6 + (showOffer and (CARD_OFFER_W + 4) or 0) + (showCheck and (22 + 6) or 0) + CARD_GAIN_W + 10
+  local rightW = 6 + (showOffer and (CARD_OFFER_W + 4) or 0) + (craftedW > 0 and (craftedW + 6) or 0) + CARD_GAIN_W + 10
   return math.max(40, listW - textL - rightW)
 end
 
@@ -363,10 +380,9 @@ local function UpdateCardRow(b, d, listW)
   b.points:SetText(small)
   local showOffer, showCheck, mark = RightState(d, cur)
   UI.ShowRowAction(b.offer, cur, d)
-  b.crafted:SetShown(showCheck)
-  b.crafted:SetChecked(mark ~= nil)
+  b.crafted:SetCraft(d, showCheck, mark)
   LayoutRight(b, showOffer, showCheck, 7)
-  local avail = Card.TextWidth(showOffer, showCheck, listW)
+  local avail = Card.TextWidth(showOffer, b.crafted.fullW, listW)
   b.textW = avail
   Card.PlaceSub(b, learned, avail, nlW)
   b.hasSub = #tags > 0 or not learned
