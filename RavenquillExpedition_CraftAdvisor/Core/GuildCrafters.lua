@@ -1,21 +1,33 @@
 local ADDON, ns = ...
 local GCA = ns.GCA
 local RQ = GCA.RQ
-local OrderOptional = GCA.OrderOptional
+local OrderOptional, SafeCall, ItemAPI, EQUIP_LOCS = GCA.OrderOptional, GCA.SafeCall, GCA.ItemAPI, ns.Scoring.EQUIP_LOCS
+local SECTION_OF = GCA.SECTION_OF
 local EMPTY = {}
 local ALL = "*"
 
 local PROF_ORDER = {}
 for i, p in ipairs(GCA.PROFESSIONS) do PROF_ORDER[p.key] = i end
 
+local ENCHANT_SECTION = { weapon = 16, twohand = 16, shield = 17, offhand = 17 }
+for slot, key in pairs(GCA.ENCHANT_SLOTS) do ENCHANT_SECTION[key] = slot end
+
+local function CraftSection(itemID)
+  local _, _, _, equipLoc = SafeCall(ItemAPI.Instant, itemID)
+  local rule = EQUIP_LOCS[equipLoc or ""]
+  return rule and SECTION_OF[rule.slots[1]]
+end
+
 local function Recipe(self, prof, spellID)
   local r = self:RecipeTable(prof)[spellID]
   if r then
-    return { spellID = spellID, prof = prof, kind = "craft", name = r.name, itemID = r.item, skill = r.skill or 0, regs = r.r or EMPTY }
+    return { spellID = spellID, prof = prof, kind = "craft", name = r.name, itemID = r.item, skill = r.skill or 0, regs = r.r or EMPTY,
+      section = CraftSection(r.item) }
   end
   local e = prof == "Enchanting" and self:EnchantData().bySpell[spellID]
   if e then
-    return { spellID = spellID, prof = prof, kind = "enchant", name = e.name, skill = e.skill or 0, regs = e.r or EMPTY }
+    return { spellID = spellID, prof = prof, kind = "enchant", name = e.name, skill = e.skill or 0, regs = e.r or EMPTY,
+      section = ENCHANT_SECTION[e.slot] }
   end
 end
 
@@ -97,6 +109,7 @@ local function NewRow(self, rec, upgrades)
   for k, v in pairs(rec) do row[k] = v end
   row.crafters = self:CraftersOf(rec.prof, rec.spellID)
   row.upgrade = (upgrades[rec.prof] or EMPTY)[rec.spellID]
+  if row.upgrade then row.section = SECTION_OF[row.upgrade.slot] end
   return row
 end
 

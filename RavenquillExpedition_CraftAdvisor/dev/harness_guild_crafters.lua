@@ -16,6 +16,9 @@ local itemMeta = {
   [3488] = { loc = "INVTYPE_2HWEAPON", lvl = 7, cls = 2, sub = 1, stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 7 } },
   [2845] = { loc = "INVTYPE_WEAPON", lvl = 4, cls = 2, sub = 0, stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 5 } },
   [7958] = { loc = "INVTYPE_2HWEAPON", lvl = 22, cls = 2, sub = 1, stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 14 } },
+  [9002] = { loc = "INVTYPE_WEAPON", lvl = 20, cls = 2, sub = 15, stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 20 } },
+  [9003] = { loc = "INVTYPE_WEAPON", lvl = 5, cls = 2, sub = 15, stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 3 } },
+  [3848] = { loc = "INVTYPE_WEAPON", lvl = 16, cls = 2, sub = 15, stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 10 } },
 }
 local roster = {
   { "Buddy Stone", "DRUID", true }, { "Cora Vale", "HUNTER", true }, { "Offy Lane", "ROGUE", false }, { "Me", "ROGUE", true },
@@ -127,6 +130,11 @@ local offy = byID(GCA:CrafterRecipes("Offy Lane"))
 check(offy[3759].upgrade and offy[3759].upgrade.slot == 7 and offy[2153].upgrade == nil,
   "legs: the tradeable pants are an upgrade, the bind-on-pickup pair is not (a guildmate cannot hand it over)")
 
+section("Slots: the gear slot each recipe fills, for the window's slot groups")
+check(vest.section == 5 and b[2160].section == 5 and b[2149].section == 8 and offy[2153].section == 7,
+  "from the crafted item's equip slot, without item data: vests in the chest, boots on the feet, pants on the legs")
+check(ench.section == 9 and b[7421].section == nil, "the bracer enchant goes to the wrist; the rod is no gear, so no slot")
+
 section("All crafters: one row per recipe across the guild")
 local all = GCA:CrafterRecipes()
 local a = byID(all)
@@ -169,6 +177,15 @@ check(smith[9987] and smith[9987].upgrade and smith[9987].upgrade.slot == 16 and
   "Enhancement Shaman with a Copper Battle Axe: the Bronze Battle Axe is an upgrade for the main hand")
 check(smith[2738] and smith[2738].upgrade == nil,
   "the one-handed Copper Axe needs an off hand beside it, so on its own it gains nothing: no upgrade mark (no chip, not counted, not kept by 'only upgrades')")
+check(smith[2738].section == 16 and smith[9987].section == 16, "both axes belong to the main hand")
+
+section("Dual wield: a one-hander better in your off hand goes to the off hand, as in the member view")
+GCA.db.members.Me = { class = "ROGUE", level = 30, items = { [16] = "item:9002::::", [17] = "item:9003::::" } }
+GCA:SetManualSpec("Me", "ROGUE", "COMBAT")
+GCA:StoreCrafter("Buddy Stone", 400, { Blacksmithing = { rank = 150, ids = { 3491 } } })
+local knife = byID(GCA:CrafterRecipes("Buddy Stone"))[3491]
+check(knife and knife.upgrade and knife.upgrade.slot == 17 and knife.section == 17,
+  "Combat Rogue with a strong and a weak dagger: the Big Bronze Knife replaces the weak off-hand dagger and sits in the off hand")
 
 check(#client.errors == 0, "no Lua error reported: " .. table.concat(client.errors, " | "))
 Kit.finish()
