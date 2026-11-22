@@ -302,9 +302,8 @@ do
   end
 end
 
-H.NOTABLE_QUESTS = {
-  [4743] = true, [6502] = true, [6602] = true, [7622] = true, [7636] = true, [7761] = true, [7787] = true, [7848] = true,
-}
+H.NOTABLE_QUESTS = { [7622] = true, [7636] = true, [7787] = true }
+for qid in pairs(H.ATTUNEMENT_QUESTS) do H.NOTABLE_QUESTS[qid] = true end
 
 local QuestTag
 do

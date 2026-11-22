@@ -10,6 +10,7 @@
 
 Locale.lua
 Highlights.lua
+Attunements.lua
 Wire.lua
 Catchup.lua
 Detectors.lua
