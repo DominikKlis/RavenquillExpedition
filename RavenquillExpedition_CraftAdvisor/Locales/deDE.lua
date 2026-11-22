@@ -103,6 +103,7 @@ ns.Locales.deDE = {
   SECTION_TRINKETS = "Schmuckstücke",
   SECTION_NOTHING = "nichts angelegt",
   SECTION_SCORE = "%.1f %s",
+  UNIT_POINTS = "Pkt",
   SECTION_TIP_SHOWN = "%d von %d Vorschlägen für diesen Platz, die besten zuerst.",
   SECTION_TIP_NONE = "Nichts in dieser Liste ist hier besser als das Getragene (aktueller Beruf und Filter).",
   SECTION_TIP_UNKNOWN = "Die Daten des getragenen Gegenstands wurden nicht geladen, daher wurde dieser Platz nicht verglichen.",

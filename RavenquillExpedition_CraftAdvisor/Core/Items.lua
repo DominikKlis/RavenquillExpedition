@@ -60,7 +60,7 @@ function GCA:WeightSetFor(class, spec, level)
 end
 
 local UNIT_SHORT = { AttackPower = "AP", RangedAttackPower = "RAP", SpellPower = "SP", HealingPower = "HP" }
-function GCA:UnitLabel(e) return e and e.unitW and (UNIT_SHORT[e.unit] or e.unit) or "pts" end
+function GCA:UnitLabel(e) return e and e.unitW and (UNIT_SHORT[e.unit] or e.unit) or L.UNIT_POINTS end
 function GCA:ToPoints(e, v) return e and e.unitW and v / e.unitW or v end
 
 local function LevelRangeLabel(src, level)

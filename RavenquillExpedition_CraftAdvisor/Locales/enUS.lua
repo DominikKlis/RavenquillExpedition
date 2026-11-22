@@ -135,6 +135,7 @@ ns.Locales.enUS = {
   SECTION_TRINKETS = "Trinkets",
   SECTION_NOTHING = "nothing equipped",
   SECTION_SCORE = "%.1f %s",
+  UNIT_POINTS = "pts",
   SECTION_TIP_SHOWN = "Showing %d of %d suggestions for this slot, best first.",
   SECTION_TIP_NONE = "Nothing in this list beats what is worn here (current profession and filters).",
   SECTION_TIP_UNKNOWN = "The worn item's data didn't load, so this slot was not compared.",

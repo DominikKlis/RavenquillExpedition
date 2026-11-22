@@ -534,6 +534,8 @@ do
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
   check(UIx.tabs[1]._text == "Nach Mitglied" and UIx.tabs[2]._text == "Gildenbedarf" and UIx.tabs[3]._text == "Handwerker", "German tabs")
+  check(plain(UIx.RowGainText(fakeSug())) == "+12 Pkt" and UIx.CardGain(fakeSug()) == "+12 Pkt",
+    "German score unit: row and card gains read '+12 Pkt', not 'pts'")
   UIx:SetView("needs")
   check(plain(UIx.needsCount._text) == "3 Herstellungen lohnen für 2 Mitglieder" and UIx.searchBox.placeholder._text == "Suchen"
     and plain(menuOf(UIx.filterButton)[3].text) == "Offline-Mitglieder einbeziehen (1)" and plain(menuOf(UIx.filterButton)[5].text) == "Einstellungen in /rq craft ›",
