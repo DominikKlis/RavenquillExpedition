@@ -142,6 +142,18 @@ check(own[1] and own[1].t - queuedAt >= C.STARVE and own[1].t - queuedAt <= C.ST
 check(minGap >= PACE, ("our own messages stay >= %d s apart (closest %s s)"):format(PACE, minGap == math.huge and "-" or tostring(minGap)))
 check(minTokens >= -1, ("the bucket never goes below -1 (lowest %.1f)"):format(minTokens))
 
+section("Starving with a wait that is not a whole second (GetTime() never is in game)")
+sched, bus, a = Kit.Two()
+sched:at(sched.t + 1, function() a.env.C_ChatInfo.SendAddonMessage("WEFF1", "x", "GUILD") end, PACE - 1)
+sched:advance(60)
+local starved = {}
+Send(a, "whole", function(s) starved[1] = s end)
+sched:advance(0.5)
+Send(a, "half", function(s) starved[2] = s end)
+sched:advance(C.STARVE + 60)
+check(starved[1] == "delivered" and starved[2] == "delivered" and #a.errors == 0,
+  ("both go out after starving, no Lua error (%s, %s, %s)"):format(tostring(starved[1]), tostring(starved[2]), tostring(a.errors[1])))
+
 section("Slow mode: our messages never come back")
 sched, bus, a = Kit.Two()
 bus.drop = function(sender) return sender == "Anna Stone" end

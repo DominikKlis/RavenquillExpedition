@@ -253,7 +253,7 @@ do
     if S.tokens >= 1 then return false end
     local waited = now - queuedAt
     if S.slow or waited < C.STARVE or (S.lastSent and now - S.lastSent < 1 / C.RATE) then return true end
-    GS:Trace("comm.starve", ("sending after %d s without a token"):format(waited))
+    GS:Trace("comm.starve", ("sending after %d s without a token"):format(math.floor(waited)))
     return false
   end
 
