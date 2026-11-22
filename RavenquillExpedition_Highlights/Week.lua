@@ -41,12 +41,24 @@ local function Spans(entries)
   return spans
 end
 
+local function Gained(spans)
+  local n = 0
+  for _, s in pairs(spans) do n = n + s.hi - s.lo end
+  return n
+end
+
+function News.LevelsGained(entries) return Gained(Spans(entries)) end
+
+function News.RunsTogether(entries, ctx)
+  local n = 0
+  for _, g in ipairs(News.Groups(entries, ctx)) do
+    if g.kind == "run" and #g.people >= 2 then n = n + 1 end
+  end
+  return n
+end
+
 News.WEEK_COUNTS = {
-  { key = "levels", count = function(w)
-    local n = 0
-    for _, s in pairs(w.spans) do n = n + s.hi - s.lo end
-    return n
-  end },
+  { key = "levels", count = function(w) return Gained(w.spans) end },
   { key = "bosses", count = function(w) return Sum(w.groups, Kills) end },
   { key = "epics", count = function(w) return Sum(w.groups, Epic) end },
 }

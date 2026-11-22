@@ -779,16 +779,12 @@ do
     "the overview lists every module; the Highlights row, just read in the Chronik, names Dora's sword as the latest entry ("
     .. listed .. ", " .. tostring(hlRow and hlRow.line:GetText()) .. ")")
   H:ShowWindow()
-  local head = env.RavenquillExpeditionHighlightsFrame.paper.lead.head:GetText()
   env.RavenquillExpeditionHighlightsFrame:Hide()
   rawget(tabs[1], "_scripts").OnClick(tabs[1])
-  local teaser = ov.home.teaser
-  check(ov.home.recent == nil and ov.home.recentHead == nil and rawget(teaser, "_shown")
-    and teaser.text:GetText() == "Heute im Rabenblatt: " .. head,
-    "under the list, one teaser line with today's lead headline instead of a feed of log lines (" .. teaser.text:GetText() .. ")")
-  rawget(teaser, "_scripts").OnClick(teaser)
-  check(env.RavenquillExpeditionHighlightsFrame:IsShown(), "clicking the teaser opens the newspaper")
-  env.RavenquillExpeditionHighlightsFrame:Hide()
+  local cards = 0
+  for _, card in ipairs(ov.home.now.items) do if rawget(card, "_shown") then cards = cards + 1 end end
+  check(ov.home.recent == nil and ov.home.teaser == nil and cards == 0 and rawget(ov.home.list, "_shown"),
+    "with the paper read there is no Rabenblatt card and no teaser line; the module rows stay the list")
   rawget(hlRow, "_scripts").OnClick(hlRow)
   check(GS.optionsModule == "Highlights" and not GS.moduleSettings and LogPage(env):IsShown(),
     "clicking the Highlights line opens its chronicle in /rq")

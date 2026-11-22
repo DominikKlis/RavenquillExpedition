@@ -5,7 +5,7 @@ local L = GS.OverviewL
 local Text = ns.Text
 
 local WIDE_CARD = "Profession-overview-Card"
-local SIZE = { edge = 24, header = 62, footer = 62, row = 22, pad = 16, top = 14 }
+local SIZE = { edge = 24, header = 62, footer = 62, pad = 16, top = 14 }
 local NOW_CARD = { height = 48, gap = 8, icon = 32, inset = 10, button = 104 }
 local NOW_MAX = { withGoal = 4, alone = 5 }
 
@@ -34,18 +34,6 @@ local function BuildHeader(home)
   home.peersTip:EnableMouse(true)
   ns.Tip(home.peersTip, L.PEER_VERSIONS, function() return GS:PeerVersionLines() end)
   return card
-end
-
-local function BuildTeaser(home, book)
-  local b = CreateFrame("Button", nil, book)
-  b:SetHeight(SIZE.row)
-  b.text = Text(b, "GameFontNormal")
-  b.text:SetPoint("LEFT")
-  b.text:SetPoint("RIGHT")
-  b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
-  b:SetScript("OnClick", function(self) GS:Call(self.open) end)
-  b:Hide()
-  home.teaser = b
 end
 
 local function BuildFooter(home)
@@ -83,7 +71,6 @@ local function BuildBook(home, body)
     list:SetPoint("TOPLEFT", home.nowTitle, "BOTTOMLEFT", 0, -10)
     list:SetPoint("RIGHT", book, "RIGHT", -SIZE.pad - 4, 0)
   end
-  BuildTeaser(home, book)
 end
 
 function ns.BuildHome(f)
@@ -149,24 +136,6 @@ local function NowEntries(rows, max)
   return out
 end
 
-local function Teaser()
-  for _, name in ipairs(GS.moduleOrder) do
-    local mod = GS.modules[name]
-    if mod.OverviewTeaser then return GS:Call(mod.OverviewTeaser, mod) end
-  end
-end
-
-local function RenderTeaser(b, under)
-  local text, open = Teaser()
-  text = Plain(text, "string")
-  b.open = type(open) == "function" and open or nil
-  b.text:SetText(text or "")
-  b:SetShown(text ~= nil)
-  b:ClearAllPoints()
-  b:SetPoint("TOPLEFT", under, "BOTTOMLEFT", 4, -18)
-  b:SetPoint("RIGHT", under, "RIGHT", 0, 0)
-end
-
 local function PlaceNowTitle(home, goalShown)
   home.nowTitle:ClearAllPoints()
   if goalShown then home.nowTitle:SetPoint("TOPLEFT", home.goal, "BOTTOMLEFT", 0, -14)
@@ -182,7 +151,6 @@ local function RenderBook(home, rows)
   ns.RenderEntries(home.list, fallback and HomeEntries(rows) or {})
   home.now:SetShown(not fallback)
   home.list:SetShown(fallback)
-  RenderTeaser(home.teaser, fallback and home.list or home.now)
 end
 
 function ns.RenderHome(home, rows)

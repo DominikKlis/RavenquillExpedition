@@ -24,3 +24,4 @@ LogWindow.lua
 RaidView.lua
 NewsWindow.lua
 WeekColumn.lua
+Expedition.lua

@@ -414,32 +414,32 @@ do
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
-Kit.section("Overview teaser: today's lead headline, else the latest one, else no issue yet")
+Kit.section("Now row: the Rabenblatt card names the latest issue's lead while there is news, and opens the paper")
 do
+  local function PaperCard(c)
+    for _, row in ipairs(c.H:OverviewNow() or {}) do if row.title == "Rabenblatt" then return row end end
+  end
   local c = Client("Lyra Distelbach")
-  local text, open = c.H:OverviewTeaser()
-  check(text == DE.TEASER_NONE and text == "Noch keine Ausgabe des Rabenblatts.", "no issue yet: the teaser says so")
-  open()
-  check(Frame(c):IsShown(), "and still opens the sheet")
-  Frame(c):Hide()
+  check(PaperCard(c) == nil, "no issue yet: no card")
   Heard(c, E("mount", "Mira Sturmfeder", At(18, 13, 24), { lvl = 40 }))
-  c.H:ShowWindow()
+  local row = PaperCard(c)
+  if row then row.open() end
   local head = Frame(c).paper.lead.head:GetText()
+  check(row and row.line == "Zuletzt im Rabenblatt: " .. head and row.action == "Lesen" and Frame(c):IsShown(),
+    "news in an older issue: 'Zuletzt im Rabenblatt' with its lead headline, and 'Lesen' opens the paper (" .. tostring(row and row.line) .. ")")
   Frame(c):Hide()
-  text = c.H:OverviewTeaser()
-  check(text == "Zuletzt im Rabenblatt: " .. head, "an older issue is the latest one, not today's (" .. text .. ")")
+  check(PaperCard(c) == nil, "once the paper is read the card goes away")
   Heard(c, E("loot", "Tamo Eichengrund", At(20, 20), { item = 5001, q = 4 }))
-  c.H:ShowWindow()
+  row = PaperCard(c)
+  if row then row.open() end
   head = Frame(c).paper.lead.head:GetText()
+  check(row and row.line == "Heute im Rabenblatt: " .. head and Frame(c):IsShown(),
+    "news today: today's lead headline, and the card opens today's paper (" .. tostring(row and row.line) .. ")")
   Frame(c):Hide()
-  text, open = c.H:OverviewTeaser()
-  check(text == "Heute im Rabenblatt: " .. head, "today's issue: its lead headline (" .. text .. ")")
-  open()
-  check(Frame(c):IsShown() and Frame(c).paper.lead.head:GetText() == head, "its open function opens today's paper")
   local en = Client("Mira Sturmfeder", "enUS")
-  check(en.H:OverviewTeaser() == "No Rabenblatt issue yet.", "English: no issue yet")
   Heard(en, E("loot", "Tamo Eichengrund", At(20, 20), { item = 5001, q = 4 }))
-  check(en.H:OverviewTeaser():find("^Today in the Rabenblatt: "), "English: today's headline")
+  row = PaperCard(en)
+  check(row and row.line:find("^Today in the Rabenblatt: ") and row.action == "Read", "English: " .. tostring(row and row.line))
   check(#c.errors == 0 and #en.errors == 0, "no Lua errors (" .. tostring(c.errors[1] or en.errors[1]) .. ")")
 end
 
@@ -461,22 +461,33 @@ do
   check(Line(empty) == "Noch keine Einträge", "an empty log: the row says there is nothing yet: " .. tostring(Line(empty)))
   OpenRow(empty)
   check(ChronicleShown(empty) and not PaperShown(empty), "and opens the chronicle, where test entries can be added")
+  local function PaperCard(c)
+    c.RQ:ShowHome()
+    for _, card in ipairs(c.env.RavenquillExpeditionOverview.home.now.items) do
+      if rawget(card, "_shown") and card.title:GetText() == "Rabenblatt" then return card end
+    end
+  end
   local c = Client("Lyra Distelbach")
   c.RQ:ToggleOverview()
   Heard(c, E("level", "Bodo Kesselring", At(20, 10), { lvl = 30 }))
   Heard(c, E("loot", "Rika Steinbeck", At(20, 20), { item = 5001, q = 4 }))
-  check(Line(c) == "2 neue seit deinem letzten Blick · zuletzt Rika Steinbeck",
-    "two entries heard since the last look: the row counts them and names the newest: " .. tostring(Line(c)))
-  OpenRow(c)
-  check(PaperShown(c) and not ChronicleShown(c), "with news the row opens the Rabenblatt")
+  local head = c.H:OverviewHeadline()
+  check(head.line == "2 neue seit deinem letzten Blick · zuletzt Rika Steinbeck",
+    "two entries heard since the last look: the headline counts them and names the newest: " .. tostring(head.line))
+  local card = PaperCard(c)
+  check(card ~= nil and Line(c) == nil and card.open:GetText() == "Lesen",
+    "with news the home shows the Rabenblatt card in 'Jetzt in der Gilde' instead of the module rows")
+  if card then Click(card.open) end
+  check(PaperShown(c) and not ChronicleShown(c), "and its 'Lesen' opens the Rabenblatt")
   if Frame(c) then Frame(c):Hide() end
-  check(Line(c) == "Nichts Neues · zuletzt Rika Steinbeck", "once read, the row says nothing is new: " .. tostring(Line(c)))
+  check(PaperCard(c) == nil and Line(c) == "Nichts Neues · zuletzt Rika Steinbeck",
+    "once read, the card is gone and the module row says nothing is new: " .. tostring(Line(c)))
   OpenRow(c)
   check(ChronicleShown(c) and not PaperShown(c), "and opens the chronicle in /rq instead of the paper")
   local en = Client("Mira Sturmfeder", "enUS")
-  en.RQ:ToggleOverview()
   Heard(en, E("mount", "Tamo Eichengrund", At(20, 11), { lvl = 40 }))
-  check(Line(en) == "1 new since you last looked · latest: Tamo Eichengrund", "English: " .. tostring(Line(en)))
+  check(en.H:OverviewHeadline().line == "1 new since you last looked · latest: Tamo Eichengrund",
+    "English: " .. tostring(en.H:OverviewHeadline().line))
   check(#empty.errors + #c.errors + #en.errors == 0, "no Lua errors (" .. tostring(c.errors[1] or empty.errors[1] or en.errors[1]) .. ")")
 end
 

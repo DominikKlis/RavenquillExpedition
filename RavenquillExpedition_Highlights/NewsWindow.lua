@@ -549,16 +549,17 @@ function H:RenderPaper(f)
   SetNav(f, i, #days, issue)
 end
 
-local function OpenSheet() H:ShowWindow() end
+local function PaperLineText(today, now)
+  if not today then return T.TEASER_LAST end
+  return News.Sunday(now) and T.NOW_SUNDAY or T.TEASER_TODAY
+end
 
-function H:OverviewTeaser()
-  if not self.db then return end
+function H:PaperLine()
   local days = self:Issues()
   local last = days[#days]
-  if not last then return T.TEASER_NONE, OpenSheet end
-  local issue = News.Issue(last, T, self:NewsContext())
-  local today = last.day == DayOf(GS:Now())
-  return News.Fill(today and T.TEASER_TODAY or T.TEASER_LAST, { head = issue.lead.head }), OpenSheet
+  if not last then return nil end
+  local issue, now = News.Issue(last, T, self:NewsContext()), GS:Now()
+  return News.Fill(PaperLineText(last.day == DayOf(now), now), { head = issue.lead.head })
 end
 
 function H:StepIssue(f, delta)
