@@ -291,7 +291,7 @@ function Build.MemberHeader(self, f, md)
   self.infoIcon = P.CreateInfoIcon(md)
   self.infoIcon:SetPoint("TOPLEFT", md, "TOPLEFT", 14, -52)
   self.sugHeader = Build.LeftText(md, "GameFontNormal", 34, -54)
-  self.modeToggle = P.CreateModeSwitch(md)
+  self.modeToggle = P.CreateModeSwitch(md, UI.MEMBER_SWITCH, UI.TOGGLE_W)
   self.modeToggle:SetPoint("TOPRIGHT", md, "TOPRIGHT", -12, -50)
 end
 

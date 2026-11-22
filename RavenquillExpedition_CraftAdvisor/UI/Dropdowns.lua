@@ -160,41 +160,59 @@ local function OpenPopupOnClick(b, pop, tipName, tip)
   b:SetScript("OnLeave", GameTooltip_Hide)
 end
 
-UI.MEMBER_MODES = { { "sheet", "MVIEW_SHEET" }, { "list", "MVIEW_LIST" } }
 UI.TOGGLE_W = 170
-local function ModeItems()
-  local items = {}
-  for _, def in ipairs(UI.MEMBER_MODES) do
-    local mode = def[1]
-    items[#items + 1] = { kind = "radio", label = L[def[2]], checked = function() return UI.MemberMode() == mode end,
-      onClick = function() UI:SetMemberMode(mode) end }
+UI.MEMBER_SWITCH = {
+  name = "member view", label = "MVIEW_LABEL", tip = "MVIEW_TIP",
+  modes = { { key = "sheet", label = "MVIEW_SHEET" }, { key = "list", label = "MVIEW_LIST" } },
+  get = function() return UI.MemberMode() end,
+  set = function(mode) UI:SetMemberMode(mode) end,
+}
+
+local function SwitchItems(sw)
+  return function()
+    local items = {}
+    for _, mode in ipairs(sw.modes) do
+      items[#items + 1] = { kind = "radio", label = L[mode.label], checked = function() return sw.get() == mode.key end,
+        onClick = function() sw.set(mode.key) end }
+    end
+    return items
   end
-  return items
 end
-local function ModeLabel(mode)
-  return string.format(L.MVIEW_LABEL, L[mode == "list" and "MVIEW_LIST" or "MVIEW_SHEET"])
+
+local function ModeIndex(sw, key)
+  for i, mode in ipairs(sw.modes) do
+    if mode.key == key then return i end
+  end
+  return 1
 end
-UI.ModeLabel = ModeLabel
-local function ModeTip(self)
-  GameTooltip:SetOwner(self, "ANCHOR_TOPLEFT")
-  GameTooltip:SetText(ModeLabel(UI.MemberMode()), 1, 1, 1)
-  GameTooltip:AddLine(L.MVIEW_TIP, nil, nil, nil, true)
-  GameTooltip:Show()
+
+local function SwitchLabel(sw, key)
+  return string.format(L[sw.label], L[sw.modes[ModeIndex(sw, key)].label])
 end
-P.CreateModeSwitch = function(parent)
-  local dd = NewDropdown(parent, "WowStyle1DropdownTemplate", UI.TOGGLE_W, 22)
+
+local function NextMode(sw)
+  return (sw.modes[ModeIndex(sw, sw.get()) + 1] or sw.modes[1]).key
+end
+
+P.CreateModeSwitch = function(parent, sw, w)
+  local function Tip(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOPLEFT")
+    GameTooltip:SetText(SwitchLabel(sw, sw.get()), 1, 1, 1)
+    GameTooltip:AddLine(L[sw.tip], nil, nil, nil, true)
+    GameTooltip:Show()
+  end
+  local dd = NewDropdown(parent, "WowStyle1DropdownTemplate", w, 22)
   if dd then
-    dd:SetupMenu(NativeMenu(ModeItems))
-    KeepNativeHover(dd, "member view", ModeTip)
+    dd:SetupMenu(NativeMenu(SwitchItems(sw)))
+    KeepNativeHover(dd, sw.name, Tip)
   else
-    dd = NewTextButton(parent, UI.TOGGLE_W, 22, ModeLabel("sheet"))
-    dd:SetScript("OnClick", function() UI:SetMemberMode(UI.MemberMode() == "list" and "sheet" or "list") end)
-    SetTip(dd, "member view", ModeTip)
+    dd = NewTextButton(parent, w, 22, SwitchLabel(sw, sw.modes[1].key))
+    dd:SetScript("OnClick", function() sw.set(NextMode(sw)) end)
+    SetTip(dd, sw.name, Tip)
     dd:SetScript("OnLeave", GameTooltip_Hide)
   end
-  function dd:Paint(mode)
-    self.mode = mode
-    if self.native then RefreshDropdown(self, ModeLabel(mode)) else self:SetText(ModeLabel(mode)) end
+  function dd:Paint(key)
+    if self.native then RefreshDropdown(self, SwitchLabel(sw, key)) else self:SetText(SwitchLabel(sw, key)) end
   end
   return dd
 end
