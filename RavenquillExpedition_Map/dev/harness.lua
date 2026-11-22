@@ -225,7 +225,8 @@ do
   local byName, rowOf = RowsByName()
   local greta = rowOf["Greta Stumm"]
   check(byName["Greta Stumm"] == 1 and greta.cells[2]:GetText() == "33" and greta.cells[3]:GetText() == "The Deadmines"
-    and greta.cells[4]:GetText() == "", "an online guildmate who doesn't share is listed with the zone from the guild roster")
+    and greta.cells[4]:GetText() == "Not using Ravenquill",
+    "an online guildmate never heard from is listed with the zone from the guild roster and the reason for no dot")
   check(rowOf["Lars Leer"] and rowOf["Lars Leer"].cells[3]:GetText() == "Unknown", "no zone on the roster: Unknown")
   check(byName["Hans Wurst"] == 1 and rowOf["Hans Wurst"].cells[3]:GetText() == "Map1429",
     "a sharing guildmate on the roster is listed once, with the zone of the dot")
@@ -237,8 +238,8 @@ do
   check(invites[1] == "Greta Stumm", "right-clicking a guildmate who doesn't share still invites")
   greta._scripts.OnEnter(greta)
   local gretaTip = table.concat(w.tip.lines, "|")
-  check(gretaTip:find("Not sharing a position", 1, true) and gretaTip:find("The Deadmines", 1, true),
-    "the tooltip names the roster zone and says the guildmate isn't sharing: " .. gretaTip)
+  check(gretaTip:find("Not using Ravenquill", 1, true) and gretaTip:find("The Deadmines", 1, true),
+    "the tooltip names the roster zone and why the guildmate has no dot: " .. gretaTip)
   local guild = {}
   for i = 1, 25 do guild[i] = { name = ("Gast%02d Weit"):format(i), level = 30, class = "MAGE" } end
   SetGuild(guild)
@@ -411,6 +412,87 @@ do
   check(Shape(menu) == HEAD .. "Betrachten|Talente anzeigen" and calls[#calls] == "InspectUnit(party2)" and #shown == 2,
     "nearby without stored gear: Betrachten falls back to the game's inspect on their unit: " .. Shape(menu) .. " " .. tostring(calls[#calls]))
   check(#wd.errors == 0, "German menu with and without Craft Advisor: no Lua errors (" .. tostring(wd.errors[1]) .. ")")
+end
+local function ListScene(locale)
+  local sched, bus = Kit.Setup()
+  local a = MapKit.Client(sched, bus, "Anna Alpha", { locale = locale })
+  bus:member("Frieda Frisch", "MAGE", 40, true, "Elwynn Forest")
+  bus:member("Gustav Weg", "ROGUE", 30, true, "Westfall")
+  bus:member("Stefan Spaet", "WARRIOR", 50, true, "Duskwood")
+  bus:member("Lea Leise", "DRUID", 35, true, "Ashenvale")
+  bus:member("Paula Peer", "PRIEST", 20, true, "Darkshire")
+  bus:member("Peter Plain", "HUNTER", 25, true, "Redridge")
+  bus:member("Otto Offline", "PALADIN", 45, false, "Tanaris")
+  a.login()
+  sched:advance(5)
+  local map, RQ = a.M, a.RQ
+  local function Hear(name, text) a.fire("CHAT_MSG_ADDON", "RQEMap1", text, "GUILD", name .. "-Realm") end
+  local function Position(level, class) return map:EncodePosition(1429, 0.4, 0.4, level, class, RQ:Now(), "", 2) end
+  Hear("Gustav Weg", Position(30, "ROGUE"))
+  Hear("Lea Leise", Position(35, "DRUID"))
+  sched:advance(200)
+  Hear("Stefan Spaet", Position(50, "WARRIOR"))
+  sched:advance(200)
+  Hear("Lea Leise", "L;" .. RQ.Wire.b36(RQ:Now()))
+  Hear("Frieda Frisch", Position(40, "MAGE"))
+  RQ:NotePeer("Paula Peer")
+  local page = a.env.CreateFrame("Frame")
+  map:BuildPage(page)
+  page:Show()
+  map:RenderPage()
+  local function Rows()
+    local rowOf, out = {}, {}
+    for _, f in ipairs(a.frames) do if f.shown and f.data ~= nil then rowOf[f.data] = f end end
+    for i, d in ipairs(page.list.data or {}) do out[i] = rowOf[d] end
+    return out
+  end
+  local function Text(r)
+    if not r.cells then return r.label:GetText() end
+    local t = {}
+    for i, cell in ipairs(r.cells) do t[i] = tostring(cell:GetText()) end
+    return table.concat(t, " | ")
+  end
+  local scene = { c = a, page = page, Rows = Rows, Text = Text }
+  function scene.Lines()
+    local out = {}
+    for i, r in ipairs(Rows()) do out[i] = Text(r) end
+    return out
+  end
+  function scene.Row(name)
+    for _, r in ipairs(Rows()) do if r.key == name then return r end end
+  end
+  function scene.Line(name)
+    local r = scene.Row(name)
+    return r and Text(r)
+  end
+  return scene
+end
+do
+  local s = ListScene()
+  check(s.Line("Frieda Frisch") == "Frieda Frisch | 40 | Map1429 | Updated 0 s ago",
+    "map list: a guildmate with a fresh dot shows when it was updated: " .. tostring(s.Line("Frieda Frisch")))
+  check(s.Line("Stefan Spaet") == "Stefan Spaet | 50 | Map1429 | Position out of date (3 min)",
+    "map list: a dot older than its fade time says the position is out of date and how old: " .. tostring(s.Line("Stefan Spaet")))
+  check(s.Line("Gustav Weg") == "Gustav Weg | 30 | Westfall | Position out of date (6 min)",
+    "map list: after the dot is gone the list still says how old the last position is: " .. tostring(s.Line("Gustav Weg")))
+  check(s.Line("Lea Leise") == "Lea Leise | 35 | Ashenvale | Not sharing a position",
+    "map list: a guildmate who turned sharing off is not sharing, not out of date: " .. tostring(s.Line("Lea Leise")))
+  check(s.Line("Paula Peer") == "Paula Peer | 20 | Darkshire | Not sharing a position",
+    "map list: a guildmate who runs Ravenquill but sent no position is not sharing: " .. tostring(s.Line("Paula Peer")))
+  check(s.Line("Peter Plain") == "Peter Plain | 25 | Redridge | Not using Ravenquill",
+    "map list: a guildmate never heard from says they don't use Ravenquill: " .. tostring(s.Line("Peter Plain")))
+  check(s.Row("Otto Offline") == nil, "map list: offline guildmates are not listed")
+  local peter = s.Row("Peter Plain")
+  peter._scripts.OnEnter(peter)
+  local tip = table.concat(s.c.tip.lines, "|")
+  check(tip:find("Not using Ravenquill", 1, true) and not tip:find("Not sharing", 1, true),
+    "map list: the row's tooltip gives the same reason as the row: " .. tip)
+  check(#s.c.errors == 0, "map list states: no Lua errors (" .. tostring(s.c.errors[1]) .. ")")
+  local de = ListScene("deDE")
+  check(tostring(de.Line("Stefan Spaet")):find("| Position veraltet (3 Min.)", 1, true)
+    and tostring(de.Line("Paula Peer")):find("| Teilt keine Position", 1, true)
+    and tostring(de.Line("Peter Plain")):find("| Nutzt Ravenquill nicht", 1, true),
+    "map list: German reasons: " .. table.concat(de.Lines(), " / "))
 end
 M.members["Weird Map"] = { key = "Weird Map", name = "Weird Map", mapID = 999999, x = 0.3, y = 0.3, heard = w.env.GetTime(), flags = {} }
 M.members["Bad Data"] = { key = "Bad Data", name = "Bad Data", mapID = "x", x = 2, y = 0.3, heard = w.env.GetTime(), flags = {} }

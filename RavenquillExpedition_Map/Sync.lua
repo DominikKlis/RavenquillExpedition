@@ -246,6 +246,7 @@ local function OnLeave(self, key, f)
     self:RefreshPins()
   end
   S.senders[key], S.nHeard[key], S.pending[key] = nil, nil, nil
+  self.lastHeard[key] = nil
 end
 
 function M:OnMessage(key, text, sender)

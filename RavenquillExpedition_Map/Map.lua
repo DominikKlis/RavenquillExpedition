@@ -54,6 +54,7 @@ function M:OnLoad()
 end
 
 M.members = {}
+M.lastHeard = {}
 
 function M:FadeAfter(m)
   local C = self.C
@@ -162,7 +163,7 @@ function M:Refresh()
   self:UpdateSelfPin()
   self:DropOffline()
   for key, m in pairs(self.members) do
-    if self:State(m) == "gone" then self.members[key] = nil end
+    if self:State(m) == "gone" then self.members[key], self.lastHeard[key] = nil, m.heard end
   end
   self:RefreshPins()
   if self.RenderPage then self:RenderPage() end

@@ -56,16 +56,27 @@ function Page.SeenText(m)
   return flag and (text .. " · " .. flag) or text
 end
 
-local function Rank(m)
-  if m.unshared then return 3 end
-  return M:State(m) == "fresh" and 1 or 2
+local STATES = {
+  onMap = { rank = 1, last = Page.SeenText },
+  stale = { rank = 2, last = function(m) return L.REASON_STALE:format(math.floor(M:Age(m) / 60)) end },
+  notSharing = { rank = 3, last = function() return L.TT_NOT_SHARING end },
+  noAddon = { rank = 4, last = function() return L.REASON_NO_ADDON end },
+}
+
+function M:PositionState(m)
+  if not m.unshared then return self:State(m) == "fresh" and "onMap" or "stale" end
+  if m.heard then return "stale" end
+  return GS:IsPeer(m.key) and "notSharing" or "noAddon"
 end
+
+function M:StateText(m) return STATES[self:PositionState(m)].last(m) end
 
 function Page.UnsharedMembers(listed)
   local out = {}
   for key, e in GS:EachMember() do
     if e.online and not listed[key] and not GS:IsMe(key) then
-      out[#out + 1] = { key = key, name = key, class = e.class, level = e.level, zone = e.zone, unshared = true }
+      out[#out + 1] = { key = key, name = key, class = e.class, level = e.level, zone = e.zone, unshared = true,
+        heard = M.lastHeard[key] }
     end
   end
   return out
@@ -74,29 +85,31 @@ end
 function Page.ListedMembers()
   local list, listed = {}, {}
   for key, m in pairs(M.members) do
-    if not m.isSelf and M:State(m) ~= "gone" then
+    if not m.isSelf then
       list[#list + 1] = m
       listed[key] = true
       listed[GS:StripRealm(key) or key] = true
     end
   end
   for _, m in ipairs(Page.UnsharedMembers(listed)) do list[#list + 1] = m end
+  local rank = {}
+  for _, m in ipairs(list) do rank[m] = STATES[M:PositionState(m)].rank end
   table.sort(list, function(a, b)
-    local ra, rb = Rank(a), Rank(b)
-    if ra ~= rb then return ra < rb end
+    if rank[a] ~= rank[b] then return rank[a] < rank[b] end
     return tostring(a.name) < tostring(b.name)
   end)
   return list
 end
 
 function Page.RenderRow(r, m)
+  local state = M:PositionState(m)
   r.key, r.unshared = m.key, m.unshared and m or nil
   r.cells[1]:SetText(tostring(m.name) .. (m.fake and (" (" .. L.TEST_MARK .. ")") or ""))
   r.cells[1]:SetTextColor(ClassColor(m.class))
   r.cells[2]:SetText((type(m.level) == "number" and m.level > 0) and tostring(m.level) or "")
   r.cells[3]:SetText(Page.WhereText(m))
-  r.cells[4]:SetText(m.unshared and "" or Page.SeenText(m))
-  r:SetAlpha(M:State(m) == "stale" and 0.5 or 1)
+  r.cells[4]:SetText(STATES[state].last(m))
+  r:SetAlpha(state == "onMap" and 1 or 0.5)
 end
 
 function M:RenderPage()

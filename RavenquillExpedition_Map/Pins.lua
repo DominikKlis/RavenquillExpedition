@@ -97,7 +97,7 @@ local function OnEnter(self)
   GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
   AddIdentityLines(m)
   if m.unshared then
-    GameTooltip:AddLine(L.TT_NOT_SHARING, 0.7, 0.7, 0.7)
+    GameTooltip:AddLine(M:StateText(m), 0.7, 0.7, 0.7)
     GameTooltip:AddLine(L.TT_RIGHT_CLICK, 0.5, 1, 0.5)
   else
     AddFlagLines(m.flags or {})

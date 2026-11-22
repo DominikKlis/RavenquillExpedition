@@ -48,6 +48,7 @@ local L = {
   COL_NAME = "Name", COL_LEVEL = "Level", COL_ZONE = "Zone", COL_SEEN = "Last update", TEST_MARK = "test",
   PAGE_EMPTY = "No other guildmate is online right now.",
   ZONE_UNKNOWN = "Unknown", TT_NOT_SHARING = "Not sharing a position",
+  REASON_STALE = "Position out of date (%d min)", REASON_NO_ADDON = "Not using Ravenquill",
 }
 
 local deDE = {
@@ -98,6 +99,7 @@ local deDE = {
   COL_NAME = "Name", COL_LEVEL = "Stufe", COL_ZONE = "Gebiet", COL_SEEN = "Zuletzt", TEST_MARK = "Test",
   PAGE_EMPTY = "Gerade ist sonst niemand aus der Gilde online.",
   ZONE_UNKNOWN = "Unbekannt", TT_NOT_SHARING = "Teilt keine Position",
+  REASON_STALE = "Position veraltet (%d Min.)", REASON_NO_ADDON = "Nutzt Ravenquill nicht",
 }
 
 ns.Locales = { enUS = L, deDE = deDE }
