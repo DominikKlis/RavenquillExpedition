@@ -27,6 +27,7 @@ end
 channel:On("v", function(sender, msg)
   GS:NotePeerVersion(sender, msg.ver)
   if answer == "idle" then ReplyAfter(math.random() * C.REPLY_JITTER) end
+  GS:Call(ns.GoalHello)
 end)
 
 local function Announce()

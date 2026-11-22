@@ -17,6 +17,7 @@ Wire.lua
 Schema.lua
 Comm.lua
 Presence.lua
+Goal.lua
 ScrollList.lua
 Options.lua
 PageScroll.lua

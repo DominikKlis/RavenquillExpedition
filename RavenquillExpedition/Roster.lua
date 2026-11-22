@@ -115,6 +115,7 @@ local function GuildTable(self, field)
   if type(t) ~= "table" then t = {}; db[field][g] = t end
   return t
 end
+ns.GuildTable = GuildTable
 
 function GS:Peers()
   local t = GuildTable(self, "peersByGuild")
