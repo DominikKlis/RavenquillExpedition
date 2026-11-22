@@ -601,8 +601,8 @@ check(rawget(missingRow, "_shown") and missingRow.data.state == "missing" and mi
 GS:ShowModulePage("Highlights")
 local hlPage = ov.optView.pages.Highlights
 check(GS.optionsModule == "Highlights" and not GS.moduleSettings and hlPage and hlPage:IsShown() and not ov.optView.scroll:IsShown()
-  and hlPage.msg ~= nil and hlPage.paper == nil and hlPage.prev == nil and hlPage.footer:GetText():find("Highlights", 1, true)
-  and hlPage.onlyHL ~= nil, "the Highlights tab is the Chronik: the log with its footer and checkbox, no newspaper, not its settings")
+  and hlPage.msg ~= nil and hlPage.paper == nil and hlPage.prev == nil and not hlPage.footer:IsShown()
+  and hlPage.onlyHL ~= nil, "the Highlights tab is the Chronik: the log with its checkbox, no footer while nothing is hidden, no newspaper, not its settings")
 local gear = ov.optView.gear
 check(rawget(gear, "_shown") and gear:GetText() == "Einstellungen" and gear:IsEnabled() and hlPage.open == nil,
   "a module page shows a labelled settings button and its own page, no open page")
@@ -1213,6 +1213,30 @@ do
     "one click adds the 11 test entries and the log lists them in place of the hint")
   check(#fresh.errors == 0, "no Lua errors (" .. tostring(fresh.errors[1]) .. ")")
   LogOut(fresh)
+end
+
+Kit.section("The chronicle's footer only speaks while 'Nur Highlights' hides entries")
+do
+  local c = Character(); c.login(); advance(5)
+  c.H:AddTests()
+  c.H:Activity({ k = "loot", item = 300, q = 2 })
+  c.H:Activity({ k = "loot", item = 106, q = 1 })
+  local page = OpenLog(c.env)
+  local footer, onlyHL = page.footer, page.onlyHL
+  local function Filter(on)
+    onlyHL:SetChecked(on)
+    rawget(onlyHL, "_scripts").OnClick(onlyHL)
+  end
+  Filter(true)
+  check(footer:IsShown() and footer:GetText() == "11 von 13 Einträgen sichtbar",
+    "'Nur Highlights' on: the footer counts the entries in view out of all of them (" .. tostring(footer:GetText()) .. ")")
+  Filter(false)
+  check(not footer:IsShown(), "'Nur Highlights' off: every entry is in view, the footer is hidden; the header already counts them")
+  c.H.cdb.activity = {}
+  Filter(true)
+  check(not footer:IsShown(), "'Nur Highlights' on while there is no activity to hide: the footer stays hidden")
+  check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
+  LogOut(c)
 end
 
 Kit.section("A mount owned at install is quiet in the install session; the first one bought later is news")

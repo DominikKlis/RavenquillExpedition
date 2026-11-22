@@ -309,14 +309,15 @@ local NEW_COLOR = { 0.25, 1, 0.4 }
 
 function H:LogLines()
   local events = self:Log()
-  local act = (not self:Settings().logOnlyHighlights and self.cdb and self.cdb.activity) or {}
+  local all = (self.cdb and self.cdb.activity) or {}
+  local act = self:Settings().logOnlyHighlights and {} or all
   local out, i, j = {}, 1, 1
   while events[i] or act[j] do
     local e, a = events[i], act[j]
     if a and (not e or a.t < e.t) then out[#out + 1] = a; j = j + 1
     else out[#out + 1] = e; i = i + 1 end
   end
-  return out, #events, #act
+  return out, #events, #act, #all - #act
 end
 
 local function LogMessages(self, list, firstUnseen)
@@ -360,12 +361,7 @@ local function ScrollToFirstNew(m, messages, entry)
   end
 end
 
-local function FooterText(self, nHL, nAct)
-  return L.FOOTER:format(nHL, self:Settings().share and L.ON or L.OFF)
-    .. (nAct > 0 and ("  ·  " .. L.FOOTER_ACT:format(nAct)) or "")
-end
-
-local function RenderLog(self, view, list, nHL, nAct)
+local function RenderLog(self, view, list, hidden)
   local m = view.msg
   local offset = m.GetScrollOffset and m:GetScrollOffset() or 0
   local messages = LogMessages(self, list, view.firstUnseen)
@@ -382,7 +378,8 @@ local function RenderLog(self, view, list, nHL, nAct)
   end
   view.opening = nil
   view.newest = list[#list]
-  view.footer:SetText(FooterText(self, nHL, nAct))
+  view.footer:SetText(L.FOOTER:format(#list, #list + hidden))
+  view.footer:SetShown(hidden > 0)
 end
 
 local function AnyViewShown()
@@ -392,12 +389,12 @@ end
 
 function H:Refresh()
   if not (self.db and AnyViewShown()) then return end
-  local list, nHL, nAct = self:LogLines()
+  local list, _, _, hidden = self:LogLines()
   for _, view in ipairs(views) do
     if view:IsVisible() and view.paper then
       self:RenderPaper(view)
     elseif view:IsVisible() then
-      RenderLog(self, view, list, nHL, nAct)
+      RenderLog(self, view, list, hidden)
     end
   end
   for _, e in ipairs(self:Log()) do e.unseen = nil end
