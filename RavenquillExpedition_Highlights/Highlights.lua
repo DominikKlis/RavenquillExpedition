@@ -167,6 +167,7 @@ function H:Add(e, source, opts)
   if s.test then e.test = true end
   InsertByTime(events, e)
   idx[e.id] = e
+  self:KeepAttunement(gkey, e)
   if s.heard then self:CapWho(events, idx, e.who) end
   self:Prune(gkey)
   if s.after then s.after(self, e, source, opts or {}) end
