@@ -215,6 +215,10 @@ do
   local function Head(c) return c.G:OverviewHeadline().line end
   check(Head(lyra) == "Hanne Moosgrund sucht für Scharlachrotes Kloster · passt zu dir",
     "a post that fits comes first, the dungeon without its wing so the line fits the row: " .. Head(lyra))
+  rika.G:Post(GK.Spec(rika, "scholo", { tank = 1, dps = 2 }))
+  sched:advance(10)
+  check(Head(lyra) == "Hanne Moosgrund sucht für Scharlachrotes Kloster · passt zu dir",
+    "still Hanne's after Rika's newer post, which does not fit Lyra: " .. Head(lyra))
   lyra.RQ:ToggleOverview()
   local row
   for _, item in ipairs(lyra.env.RavenquillExpeditionOverview.home.list.items) do

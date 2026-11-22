@@ -152,7 +152,12 @@ check(#bert.whispers == 1, "no whisper to a poster who is offline (only the earl
 check(Counts(PostOf(cora, "Mira Sturmfeder")) == "3/4 5/8 7/28" and Counts(PostOf(dora, "Mira Sturmfeder")) == "3/4 5/8 7/28",
   "the guildmates online count Bert's sign-up right away")
 local miraSv = GK.Copy(mira.env.RavenquillExpeditionGroupsDB)
-sched:advance(600)
+sched:advance(300)
+local erik = GK.Join(sched, bus, { "Erik Eiche", "HUNTER", 60, "Silithus" }, { seed = 3 })
+sched:advance(120)
+check(Counts(PostOf(erik, "Mira Sturmfeder")) == "3/4 5/8 7/28" and erik.G:GuildStore("posts")["Mira Sturmfeder"].signups[1] == nil,
+  "Erik logs in later still: he gets the raid by relay, Bert already counted, without the names")
+sched:advance(180)
 local mira2 = GK.Join(sched, bus, MIRA, { sv = miraSv, seed = 7 })
 sched:advance(120)
 local miraOwn = mira2.G:OwnPost()
@@ -160,11 +165,12 @@ check(miraOwn and miraOwn.when == raidAt and miraOwn.signups[1] and miraOwn.sign
   and miraOwn.signups[1].role == "tank" and Counts(miraOwn) == "3/4 5/8 7/28",
   "Mira, back online with her saved post, receives Bert's sign-up again and lists him as tank")
 check(#Wire(bus, Since(t0, "s", "Bert Hill")) == 2, "the sign-up went out twice: once when made, once when Mira was back")
-check(Counts(PostOf(cora, "Mira Sturmfeder")) == "3/4 5/8 7/28" and Counts(PostOf(dora, "Mira Sturmfeder")) == "3/4 5/8 7/28",
-  "the repeat is not counted twice by the others")
+check(Counts(PostOf(cora, "Mira Sturmfeder")) == "3/4 5/8 7/28" and Counts(PostOf(dora, "Mira Sturmfeder")) == "3/4 5/8 7/28"
+  and Counts(PostOf(erik, "Mira Sturmfeder")) == "3/4 5/8 7/28",
+  "the repeat is not counted twice by the others, not even by Erik, who never heard the first one")
 sched:advance(3600)
 check(#Wire(bus, Since(sched.t - 3000, "s")) == 0, "and is sent only once")
-NoErrors(cs, { dora, mira2 })
+NoErrors(cs, { dora, mira2, erik })
 
 section("Message cost: bounded and silent when nothing happens")
 t0 = sched.t
@@ -206,6 +212,7 @@ section("Messages that are rejected")
 local ch, rejected = bert.Sync.channel, bert.Sync.state.rejected
 local now = bert.RQ:Now()
 local function Msg(over)
+  now = bert.RQ:Now()
   local m = { poster = "Hanne Moosgrund", id = now, t = now, act = "smcath", note = "", tn = 1, th = 0, hn = 1, hh = 0, dn = 3, dh = 0 }
   for k, v in pairs(over) do m[k] = v end
   return ch:Encode("p", m)
@@ -223,6 +230,15 @@ check(rejected.activity == 1 and rejected.roles == 2 and rejected["too far ahead
   "unknown activity, more filled than needed, nothing needed, a raid 9 days ahead, expired, version before id, a stranger")
 check(Counts(PostOf(bert, "Hanne Moosgrund")) == Counts(before) and PostOf(bert, "Otto Fremd") == nil,
   "none of them changed what Bert holds")
+
+section("The same version heard twice: counts only grow")
+sched:advance(5)
+local id = bert.RQ:Now()
+GK.Hear(bert, "Cora Vale", Msg({ id = id, t = id, dh = 1 }))
+GK.Hear(bert, "Dora Dunn", Msg({ id = id, t = id, dh = 2 }))
+check(Counts(PostOf(bert, "Hanne Moosgrund")) == "0/1 0/1 2/3", "a relay that knows one more sign-up raises the count")
+GK.Hear(bert, "Cora Vale", Msg({ id = id, t = id, dh = 1 }))
+check(Counts(PostOf(bert, "Hanne Moosgrund")) == "0/1 0/1 2/3", "an older copy of the same version does not lower it")
 NoErrors(cs)
 
 Kit.finish()
