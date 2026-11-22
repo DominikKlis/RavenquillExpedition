@@ -163,6 +163,12 @@ function FrameMethods.GetName(s) return s._name end
 function FrameMethods.GetObjectType(s) return s._type end
 function FrameMethods.GetParent(s) return s._parent end
 function FrameMethods.GetChildren(s) return (table.unpack or unpack)(s._children) end
+function FrameMethods.SetHeight(s, h) s._h = h end
+function FrameMethods.GetHeight(s) return s._h or 0 end
+function FrameMethods.SetFrameLevel(s, v) s._level = v end
+function FrameMethods.GetFrameLevel(s) return s._level or 0 end
+function FrameMethods.SetVerticalScroll(s, v) s._scroll = v end
+function FrameMethods.GetVerticalScroll(s) return s._scroll or 0 end
 Kit.FrameMethods = FrameMethods
 
 local function NewFrameFactory(c)
