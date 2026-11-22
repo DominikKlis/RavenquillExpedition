@@ -17,6 +17,12 @@ UI.RESIZE_THROTTLE = 0.05
 local LEFT_W = 260
 local RIGHT_X = LEFT_W + 22
 local function RightW(w) return w - RIGHT_X - 12 end
+local NEEDS = { listW = 412, detailMinW = 500, countW = 86, gainW = 46, gap = 8, edge = 6 }
+function NEEDS.Split(w)
+  local panes = LEFT_W + RightW(w) + 4
+  local listW = math.max(LEFT_W, math.min(NEEDS.listW, panes - NEEDS.detailMinW))
+  return listW, panes - listW
+end
 local PANEL_TOP = -62
 local PANEL_BOTTOM = 40
 local DETAIL_HEAD = 76
@@ -160,6 +166,7 @@ P.DEFAULT_H = DEFAULT_H
 P.LEFT_W = LEFT_W
 P.RIGHT_X = RIGHT_X
 P.RightW = RightW
+P.NEEDS = NEEDS
 P.PANEL_TOP = PANEL_TOP
 P.PANEL_BOTTOM = PANEL_BOTTOM
 P.DETAIL_HEAD = DETAIL_HEAD

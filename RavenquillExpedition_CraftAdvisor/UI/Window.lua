@@ -4,7 +4,7 @@ local UI = GCA.UI
 local P = UI.P
 local Label = P.Label
 local G, MIN_W, MIN_H = P.G, P.MIN_W, P.MIN_H
-local LEFT_W, RIGHT_X, RightW = P.LEFT_W, P.RIGHT_X, P.RightW
+local LEFT_W, RIGHT_X, RightW, NEEDS = P.LEFT_W, P.RIGHT_X, P.RightW, P.NEEDS
 local PANEL_TOP, PANEL_BOTTOM, DETAIL_HEAD = P.PANEL_TOP, P.PANEL_BOTTOM, P.DETAIL_HEAD
 local MEMBER_ROW_H = P.MEMBER_ROW_H
 local MEMBER_LIST_TOP, COUNT_H, C, SUB_TINT = P.MEMBER_LIST_TOP, P.COUNT_H, P.C, P.SUB_TINT
@@ -62,10 +62,13 @@ function UI:RefreshMemberList()
   self.memberList:SetData(UI.MemberRows(self.lastMembers or {}, q))
 end
 
-UI.SEARCH_W = LEFT_W - 21 - 90 - 12
+local SEARCH_CHROME = 21 + 90 + 12
+UI.SEARCH_W = LEFT_W - SEARCH_CHROME
 function UI:LayoutFilterBar()
   if not (self.needsCount and self.frame) then return end
-  self.needsCount:SetWidth(LEFT_W - 20)
+  local listW = NEEDS.Split(self.layoutW or MIN_W)
+  self.needsCount:SetWidth(listW - 20)
+  self.searchBox:SetWidth(listW - SEARCH_CHROME)
 end
 
 local function Trim(s)
@@ -79,7 +82,7 @@ local function FindNeedSelection(all)
 end
 
 local function NeedsCountText(prof, crafts, members)
-  local who = members == 1 and L.NEEDS_MEMBERS_1 or string.format(L.NEEDS_MEMBERS, members)
+  local who = UI.MembersText(members)
   if prof == "Enchanting" then
     return crafts == 1 and string.format(L.NEEDS_COUNT_ENCH_1, who) or string.format(L.NEEDS_COUNT_ENCH, crafts, who)
   end
@@ -158,11 +161,12 @@ function UI:Layout()
   self.emptyText:SetWidth(iw - 60)
   self.sheet:SetSize(iw, ih)
   self:LayoutSheet(iw, ih)
-  self.needsInset:SetSize(LEFT_W, listH)
-  self.needsList:Resize(LEFT_W - 30, listH - MEMBER_LIST_TOP - 5 - COUNT_H, true)
+  local needsW, needDetailW = NEEDS.Split(w)
+  self.needsInset:SetSize(needsW, listH)
+  self.needsList:Resize(needsW - 30, listH - MEMBER_LIST_TOP - 5 - COUNT_H, true)
   local nd = self.needDetail
-  nd:SetSize(dw, listH)
-  nd.w, nd.h = dw, listH
+  nd:SetSize(needDetailW, listH)
+  nd.w, nd.h = needDetailW, listH
   self:UpdateCraftDetail(nd.entry, nd.empty:GetText())
   self:LayoutFilterBar()
   for _, def in ipairs(UI.VIEWS) do
@@ -258,7 +262,7 @@ function Build.NeedsView(self, f, c, painted, listH, rw)
   RaiseInsetBorder(ni, self.needsList)
   self.needsCount = Build.NeedsCount(ni)
   local nd = UI.CreateCraftDetail(nv)
-  nd:SetPoint("TOPLEFT", RIGHT_X - 4, PANEL_TOP)
+  nd:SetPoint("TOPLEFT", ni, "TOPRIGHT", 8, 0)
   nd:SetSize(rw + 4, listH)
   nd.w, nd.h = rw + 4, listH
   self.needDetail = nd

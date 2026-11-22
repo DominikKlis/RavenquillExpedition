@@ -12,12 +12,16 @@ local Tag = P.Tag
 local MEMBER_TEXT_X, Src, ShowSuggestionTooltip = P.MEMBER_TEXT_X, P.Src, P.ShowSuggestionTooltip
 local ShiftDown, ModifiedDown, LayoutRight = P.ShiftDown, P.ModifiedDown, P.LayoutRight
 local AddQualityIcon, SetIconQuality = P.AddQualityIcon, P.SetIconQuality
+local NEEDS = P.NEEDS
 
 UI.needsCollapsed = {}
-UI.NEED_GAIN_W = 46
 
 local function ChipGain(s) return UI.GainNum(s.points) end
 UI.ChipGain = ChipGain
+
+function UI.MembersText(n)
+  return n == 1 and L.NEEDS_MEMBERS_1 or string.format(L.NEEDS_MEMBERS, n)
+end
 
 local function CraftGroupTip(owner, e)
   local g = e and e.group
@@ -34,16 +38,17 @@ local function CreateCraftGroupRow(parent)
   b.label:SetPoint("LEFT", b, "LEFT", MEMBER_TEXT_X, 0)
   b.label:SetJustifyH("LEFT")
   SingleLine(b.label)
-  b.count = UI.RowFont(b:CreateFontString(nil, "OVERLAY", "GameFontHighlight"))
-  b.count:SetPoint("LEFT", b.label, "RIGHT", 0, 0)
-  b.count:SetJustifyH("LEFT")
-  SingleLine(b.count)
   b.gain = b:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  b.gain:SetPoint("RIGHT", b, "RIGHT", -6, 0)
-  b.gain:SetWidth(UI.NEED_GAIN_W)
+  b.gain:SetPoint("RIGHT", b, "RIGHT", -NEEDS.edge, 0)
+  b.gain:SetWidth(NEEDS.gainW)
   b.gain:SetJustifyH("RIGHT")
   GainFont(b.gain)
   SingleLine(b.gain)
+  b.count = UI.RowFont(b:CreateFontString(nil, "OVERLAY", "GameFontHighlight"))
+  b.count:SetPoint("RIGHT", b.gain, "LEFT", -NEEDS.gap, 0)
+  b.count:SetWidth(NEEDS.countW)
+  b.count:SetJustifyH("RIGHT")
+  SingleLine(b.count)
   if b.RegisterForClicks then b:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
   b:SetScript("OnClick", function(self, button)
     local e = self.data
@@ -64,12 +69,10 @@ local function UpdateCraftGroupRow(b, e, listW)
   local cur = g.best and g.best.member
   local colour = (cur and cur.browse) and C.browse or ((not d.known) and C.notLearned or nil)
   b.label:SetText(Tag(d.info.name or "?", colour))
-  b.count:SetText(" [" .. #e.rows .. "]")
+  b.count:SetText(Tag(UI.MembersText(#e.rows), C.muted))
   b.gain:SetText(e.rows[1] and ChipGain(e.rows[1].sug) or "")
-  local avail = math.max(40, listW - MEMBER_TEXT_X - UI.NEED_GAIN_W - 10)
-  local countW = TextWidth(b.count)
-  b.label:SetWidth(math.max(20, math.min(TextWidth(b.label) + 2, avail - countW)))
-  b.textW = avail
+  b.textW = math.max(20, listW - MEMBER_TEXT_X - NEEDS.countW - NEEDS.gainW - 2 * NEEDS.gap - NEEDS.edge)
+  b.label:SetWidth(b.textW)
   P.Dim(b, g.future, { b.label, b.count, b.gain })
   b.sel:SetShown(UI.needSel == g.key)
 end
@@ -154,7 +157,6 @@ local function CreateNeedMemberRow(parent)
   return b
 end
 
-UI.NEED_GAIN_SUB_W = 60
 local function NeedItemText(d)
   if d.kind == "enchant" then
     local item = d.item
@@ -189,7 +191,7 @@ local function FillWornButton(btn, item)
 end
 
 local function NeedRowStateWidth(showOffer, craftedW, listW)
-  local rightW = 6 + (showOffer and (UI.OFFER_SMALL_W + 4) or 0) + (craftedW > 0 and (craftedW + 6) or 0) + UI.NEED_GAIN_SUB_W
+  local rightW = 6 + (showOffer and (UI.OFFER_SMALL_W + 4) or 0) + (craftedW > 0 and (craftedW + 6) or 0) + NEEDS.gainW
   return math.max(40, listW - (NEED_SUB_X + UI.NEED_MEMBER_W + 8 + 42) - rightW - 8)
 end
 
@@ -205,7 +207,7 @@ local function UpdateNeedMemberRow(b, e, listW)
   b.crafted:SetCraft(d, showCheck, mark)
   LayoutRight(b, showOffer, showCheck)
   local avail = NeedRowStateWidth(showOffer, b.crafted.fullW, listW)
-  b.gain:SetWidth(UI.NEED_GAIN_SUB_W)
+  b.gain:SetWidth(NEEDS.gainW)
   b.state:SetWidth(avail)
   b.stateW = avail
   b.name:SetAlpha(1)

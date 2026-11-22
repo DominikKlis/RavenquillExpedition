@@ -516,15 +516,19 @@ local function layoutChecks(UIx, f, label)
     and UIx.emptyText._w == (winW - 302) - 60 and nt.l == md.l + 14 and sb.r == md.r - 12,
     label .. ": header texts span the detail panel, (i) icon left of the list header, K4 switch right of it")
   local ni, nl, sbx, cnt, nd = R(UIx.needsInset), R(UIx.needsList), R(UIx.searchBox), R(UIx.needsCount), R(UIx.needDetail)
-  check(ni.l == 10 and ni.r == 270 and ni.t == 62 and ni.b == winH - 40 and nl.r == ni.r - 25 and nl.b == ni.b - 23 and nl.t == ni.t + 34,
-    label .. ": guild-needs list panel 10..270, 62..H-40, its list between the search and the count " .. rstr(ni) .. " " .. rstr(nl))
-  check(nd.l == 278 and nd.r == winW - 12 and nd.t == 62 and nd.b == winH - 40 and UIx.needDetail.w == winW - 290 and UIx.needDetail.h == winH - 102,
-    label .. ": craft detail panel fills 278..W-12, 62..H-40 " .. rstr(nd))
+  local needsW = math.min(412, winW - 30 - 500)
+  check(ni.l == 10 and ni.r == 10 + needsW and ni.t == 62 and ni.b == winH - 40 and nl.r == ni.r - 25 and nl.b == ni.b - 23 and nl.t == ni.t + 34,
+    label .. ": guild-needs list panel up to 412 wide while its detail keeps 500, 62..H-40, its list between the search and the count "
+    .. rstr(ni) .. " " .. rstr(nl))
+  check(nd.l == ni.r + 8 and nd.r == winW - 12 and nd.t == 62 and nd.b == winH - 40 and UIx.needDetail.w == nd.r - nd.l
+    and UIx.needDetail.w >= 500 and UIx.needDetail.h == winH - 102,
+    label .. ": craft detail panel fills the rest, at least 500 wide, 62..H-40 " .. rstr(nd))
   local obx = R(UIx.filterButton)
-  check(sbx.l >= ni.l and sbx.t >= ni.t and sbx.b <= nl.t and obx.r == ni.r - 8 and obx.b <= nl.t and sbx.r < obx.l
+  check(sbx.l >= ni.l and sbx.t >= ni.t and sbx.b <= nl.t and obx.r == ni.r - 8 and obx.b <= nl.t and obx.l - sbx.r == 12
     and cnt.t >= nl.b and cnt.b <= ni.b and cnt.l == ni.l + 10 and cnt.r == ni.r - 10
     and UIx.needsList.content._w == UIx.needsList.viewW,
-    label .. ": search | Filter above the list, the count under it, all inside the list panel " .. rstr(sbx) .. " " .. rstr(obx) .. " " .. rstr(cnt))
+    label .. ": search (up to the Filter button) | Filter above the list, the count under it, all inside the list panel "
+    .. rstr(sbx) .. " " .. rstr(obx) .. " " .. rstr(cnt))
   local ci, cl, cs, cd, ra = R(UIx.crafterInset), R(UIx.crafterList), R(UIx.crafterSearch), R(UIx.crafterDetail), R(UIx.recipeArea)
   check(ci.l == 10 and ci.r == 270 and ci.t == 62 and ci.b == winH - 40 and cl.r == ci.r - 25 and cl.b == ci.b - 5
     and cs.l >= ci.l and cs.r <= ci.r and cs.b <= cl.t and cd.l == 278 and cd.r == winW - 12 and cd.t == 62 and cd.b == winH - 40

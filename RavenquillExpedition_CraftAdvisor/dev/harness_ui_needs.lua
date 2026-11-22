@@ -156,9 +156,9 @@ do
   local function nkinds() local t = {} for i, e in ipairs(nl.data) do t[i] = e.rowKind == "cat" and ("#" .. e.cat) or e.group.sug.info.name end return table.concat(t, ",") end
   check(nkinds() == "#5,Vest,#6,Belt,#11,Future Ring", "slot categories with their crafts: " .. nkinds())
   local r1, r3 = nl.pools.default[1], nl.pools.default[3]
-  check(plain(r1.label._text) == "Vest" and not r1.label._text:find("|c", 1, true) and r1.count._text == " [2]" and r1.count._points[1][2] == r1.label
+  check(plain(r1.label._text) == "Vest" and not r1.label._text:find("|c", 1, true) and plain(r1.count._text) == "2 members"
     and r1.gain._text == "+38" and r1.icon == nil and r1.caret == nil and r1.members == nil and r1._h == 25 and r1.label._points[1][4] == 22,
-    "craft row = a recipe row: plain white name, its count ' [2]' right after it, best gain right, no icon / caret / member run, 25 px: " .. plain(r1.label._text))
+    "craft row = a recipe row: plain white name, '2 members' in its column, best gain right, no icon / caret / member run, 25 px: " .. plain(r1.label._text))
   check(r1.hl._atlas == "Professions_Recipe_Hover" and r1.hl._alpha == 0.5 and r1.hl._h == 21 and r1.hl._points[1][5] == -1
     and r1.sel._atlas == "Professions_Recipe_Active" and r1.sel._h == 19 and r1.sel._shown and not nl.pools.default[2].sel._shown,
     "row art from the probe: hover Professions_Recipe_Hover (21 px, alpha 0.5, y -1), the selected craft Professions_Recipe_Active (19 px)")
@@ -189,14 +189,14 @@ do
     "the member list is as tall as its rows (2 x 42), as wide as the detail panel")
   fm[3]:click()
   r1 = nl.pools.default[1]
-  check(GCA.db.settings.needsOffline == true and r1.count._text == " [3]" and nd.members.pools.default[1].data.member.key == "Olga Field"
+  check(GCA.db.settings.needsOffline == true and plain(r1.count._text) == "3 members" and nd.members.pools.default[1].data.member.key == "Olga Field"
     and nd.members.pools.default[1].name._alpha == 1 and nd.members.pools.default[1].name._text:find("StatusIcon-Offline", 1, true)
     and not nd.members.pools.default[1].name._text:find("|cff7f7f7f", 1, true) and not nd.members.pools.default[1].offer._shown and menuOf(UIx.filterButton)[3]:on()
     and plain(UIx.needsCount._text) == "3 crafts are worth it for 3 members", "offline members on: saved, Olga (offline dot + softened class colour, no Offer) leads the vest craft")
   check(UIx.filterButton.resetButton and UIx.filterButton.resetButton._shown and UIx.filterButton.resetButton.icon._atlas == "auctionhouse-ui-filter-redx"
     and UIx.memberFilter.resetButton._shown, "a filter off its default -> the red reset badge on both Filter buttons")
   menuOf(UIx.memberFilter)[3]:click()
-  check(GCA.db.settings.needsOffline == false and nl.pools.default[1].count._text == " [2]" and not UIx.filterButton.resetButton._shown,
+  check(GCA.db.settings.needsOffline == false and plain(nl.pools.default[1].count._text) == "2 members" and not UIx.filterButton.resetButton._shown,
     "the member list's Filter turns it off again (one setting); the badge goes")
   GCA.db.settings.showUnlearned = true; UIx:RefreshFilters()
   check(UIx.filterButton.resetButton._shown, "badge for 'Show missing recipes' too")
@@ -325,7 +325,8 @@ do
   UIx:RefreshNeeds()
   local sb = UIx.searchBox
   check(sb.native and sb._template == "SearchBoxTemplate" and sb.placeholder == sb.Instructions and sb.Instructions._text == "Search"
-    and sb._w == UIx.SEARCH_W and sb._parent == UIx.needsInset, "guild-needs search = SearchBoxTemplate on top of the list panel")
+    and sb._w == UIx.SEARCH_W + UIx.needsInset._w - 260 and sb._parent == UIx.needsInset,
+    "guild-needs search = SearchBoxTemplate on top of the list panel, wider with the panel")
   sb:SetText("belt"); sb._scripts.OnTextChanged(sb)
   check(nkinds() == "#6,Belt" and plain(UIx.needsCount._text) == "1 craft is worth it for 1 member" and nd.name._text == "Belt",
     "search 'belt': one craft, singular count, the detail follows (the selected vest is not listed)")
@@ -359,7 +360,7 @@ do
   local nbB = GCA.needsBuilds
   f:SetSize(1300, 900); advance(0.1); UIx:Layout(); UIx:Refresh(); UIx:Refresh()
   sb:SetText("vest"); sb._scripts.OnTextChanged(sb); sb:SetText(""); sb._scripts.OnTextChanged(sb)
-  check(GCA.needsBuilds == nbB and UIx.layoutW == 1300 and nd.w == 1300 - 290, "resizing, refreshing and searching reuse the cached groups (no rebuild); the detail panel follows")
+  check(GCA.needsBuilds == nbB and UIx.layoutW == 1300 and nd.w == 1300 - 30 - 412, "resizing, refreshing and searching reuse the cached groups (no rebuild); the detail panel follows")
   f:SetSize(980, 640); advance(0.1)
 
   section("member list (search, Online / Offline groups = native category headers, native rows)")
@@ -538,8 +539,9 @@ do
     and plain(menuOf(UIx.filterButton)[3].text) == "Offline-Mitglieder einbeziehen (1)" and plain(menuOf(UIx.filterButton)[5].text) == "Einstellungen in /rq craft ›",
     "German count, search instructions; K6 Filter menu entries: " .. plain(UIx.needsCount._text))
   local gr1 = UIx.needsList.pools.default[1]
-  check(gr1.count._text == " [2]" and UIx.needsList.pools.cat[1].text._text == "Chest" and UIx.needsList.pools.cat[3].text._text == "Ringe"
-    and UIx.needDetail.forTitle._text == "Wäre eine Verbesserung für 2 Mitglieder:", "German: craft row ' [2]', categories 'Chest' (client global, absent in the mock) / 'Ringe', detail title")
+  check(plain(gr1.count._text) == "2 Mitglieder" and UIx.needsList.pools.cat[1].text._text == "Chest" and UIx.needsList.pools.cat[3].text._text == "Ringe"
+    and UIx.needDetail.forTitle._text == "Wäre eine Verbesserung für 2 Mitglieder:",
+    "German: craft row '2 Mitglieder', categories 'Chest' (client global, absent in the mock) / 'Ringe', detail title")
   local gs = UIx.needDetail.members.pools.default[1]
   check(plain(gs.state._text) == "Old Vest" and gs.offer._text == "Anbieten",
     "German member row: 'Old Vest' beside the icon, K6 red 'Anbieten' button: " .. plain(gs.state._text))
@@ -570,7 +572,7 @@ do
   fit("member row", "Mitglied Nachname  60", UIx.memberList.viewW - 22 - UIx.MEMBER_GAIN_W - 10, 6.5)
   fit("member search", ns.Locales.deDE.MEMBER_SEARCH, UIx.SEARCH_W - 35, 5.6)
   fit("category header", "Schmuckstücke", UIx.needsList.viewW - 8 - 32, 8)
-  fit("craft row", "Dunkler Ledergürtel [3]", UIx.needsList.viewW - 22 - UIx.NEED_GAIN_W - 10, 6.5)
+  fit("member count", string.format(ns.Locales.deDE.NEEDS_MEMBERS, 12), UIx.needsList.pools.default[1].count._w, 6.5)
   fit("detail title", string.format(ns.Locales.deDE.DETAIL_FOR_N, 12), UIx.needDetail.w - 36, 5.6)
   fit("filter reset tip", ns.Locales.deDE.FILTER_RESET, 200, 6.5)
   fit("spec label", "Göttliche Pein (Schaden)", UIx.SPEC_BTN_W - 28 - 30, 5.6)

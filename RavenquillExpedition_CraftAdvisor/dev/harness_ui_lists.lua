@@ -1,12 +1,13 @@
 local H = dofile((arg[0]:gsub("[^/\\]*$", "")) .. "uikit.lua")
 local env = H.env
 local GCA, fakeSug, fakeSections, check, advance = H.GCA, H.fakeSug, H.fakeSections, H.check, H.advance
-local plain, rectOf, rstr, ns = H.plain, H.rectOf, H.rstr, H.ns
+local plain, captureTip, rectOf, rstr, ns = H.plain, H.captureTip, H.rectOf, H.rstr, H.ns
 H.lateGlobals()
 H.templateMode = "ok"
 GCA.IsBrowse = function() return false end
 env.ITEM_QUALITY_COLORS = { [2] = { r = 0.12, g = 1, b = 0 }, [3] = { r = 0, g = 0.44, b = 0.87 } }
 
+local GAME_FONT_PX_PER_CHAR = 6.8
 local MUTED = "|cffaaaaaa"
 
 local function Craft(id, slot, name, points)
@@ -67,6 +68,60 @@ local function ShownRows(list, kind)
   local rows = {}
   for _, r in ipairs(list.pools[kind or "default"] or {}) do if r._shown and r.data then rows[#rows + 1] = r end end
   return rows
+end
+
+local function Chars(s) return #plain(s):gsub("[\128-\191]", "") end
+
+local function CraftRowColumns(UIx)
+  local nl = UIx.needsList
+  local short, mixed, counts, rights = {}, {}, {}, {}
+  for _, row in ipairs(ShownRows(nl)) do
+    local name = plain(row.label._text)
+    local lr, cr, gr = RowRect(row.label, row, nl.viewW), RowRect(row.count, row, nl.viewW), RowRect(row.gain, row, nl.viewW)
+    if lr.r - lr.l < Chars(name) * GAME_FONT_PX_PER_CHAR then short[#short + 1] = name .. " (" .. (lr.r - lr.l) .. " px)" end
+    if not (lr.r <= cr.l and cr.r <= gr.l and row.count._SetJustifyH[1] == "RIGHT") then mixed[#mixed + 1] = name .. " " .. rstr(lr) .. rstr(cr) .. rstr(gr) end
+    counts[#counts + 1] = name .. "=" .. plain(row.count._text)
+    rights[cr.r] = true
+  end
+  local nRights = 0
+  for _ in pairs(rights) do nRights = nRights + 1 end
+  return short, mixed, table.concat(counts, ","), nRights
+end
+
+do
+  H.section("Guild needs: every craft name in full at the default size, the member count in words in its own column")
+  local UIx = OpenAdvisor("deDE", 980, 640)
+  UIx:SetView("needs")
+  local short, mixed, counts, nRights = CraftRowColumns(UIx)
+  check(#ShownRows(UIx.needsList) == 9 and #short == 0,
+    "980x640 deDE: no craft name of the scene is cut (" .. GAME_FONT_PX_PER_CHAR .. " px per character): " .. table.concat(short, "; "))
+  check(counts:find("Tunika des Nachtschleichers=2 Mitglieder", 1, true) and counts:find("Wildlederweste=1 Mitglied", 1, true)
+    and not counts:find("[", 1, true) and #mixed == 0 and nRights == 1,
+    "the member count reads '1 Mitglied' / '2 Mitglieder', right-aligned in one column between the name and the gain: " .. counts
+    .. " " .. table.concat(mixed, "; "))
+  local count1 = ShownRows(UIx.needsList)[1].count._text
+  check(count1:find(MUTED, 1, true) == 1, "the member count is grey beside the white name: " .. count1)
+
+  UIx = OpenAdvisor("enUS", 980, 640)
+  UIx:SetView("needs")
+  local _, enMixed, enCounts = CraftRowColumns(UIx)
+  check(enCounts:find("Tunika des Nachtschleichers=2 members", 1, true) and enCounts:find("Wildlederweste=1 member,", 1, true) and #enMixed == 0,
+    "English: '1 member' / '2 members' in the same column: " .. enCounts)
+
+  H.section("Guild needs at the minimum size: the detail keeps its room, a cut name is in full in the tooltip")
+  UIx = OpenAdvisor("deDE", 840, 560)
+  UIx:SetView("needs")
+  local ni, nd = rectOf(UIx.needsInset, UIx.frame), rectOf(UIx.needDetail, UIx.frame)
+  short, mixed = CraftRowColumns(UIx)
+  check(ni.r - ni.l > 260 and nd.r - nd.l >= 500 and nd.r <= 840 - 12 and #mixed == 0,
+    "840x560: the list wider than the member view's 260, the detail at least 500 wide, name | count | gain still apart " .. rstr(ni) .. " " .. rstr(nd))
+  local cut
+  for _, row in ipairs(ShownRows(UIx.needsList)) do
+    if plain(row.label._text) == "Stirnband des Nachtschleichers" then cut = row end
+  end
+  captureTip(); cut._scripts.OnEnter(cut)
+  check(#short > 0 and cut and H.hyper[1] == "|Hitem:8176|h[Stirnband des Nachtschleichers]|h",
+    "a name too long for the narrow list: its row tooltip is the item, titled with the full name: " .. tostring(H.hyper[1]))
 end
 
 local NO_RECT = { l = 0, t = 0, r = 0, b = 0 }
