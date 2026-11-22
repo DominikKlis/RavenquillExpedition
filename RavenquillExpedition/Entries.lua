@@ -60,11 +60,12 @@ function Card.New(list, i)
   card.open:SetText(L.OPEN)
   card.open:SetScript("OnClick", function(self) GS:Call(self.entry and self.entry.open, self) end)
   card.title = ns.Text(card, "GameFontNormalLarge")
-  card.title:SetPoint("TOPLEFT", card.icon, "TOPRIGHT", size.inset, -2)
+  card.title:SetPoint("BOTTOMLEFT", card.icon, "RIGHT", size.inset, 1)
   card.title:SetPoint("RIGHT", card.open, "LEFT", -size.inset, 0)
   card.line = ns.Text(card, "GameFontHighlight")
-  card.line:SetPoint("BOTTOMLEFT", card.icon, "BOTTOMRIGHT", size.inset, 3)
+  card.line:SetPoint("TOPLEFT", card.icon, "RIGHT", size.inset, -3)
   card.line:SetPoint("RIGHT", card.open, "LEFT", -size.inset, 0)
+  card.line:SetMaxLines(1)
   return card
 end
 

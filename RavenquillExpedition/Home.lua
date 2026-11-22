@@ -5,9 +5,9 @@ local L = GS.OverviewL
 local Text = ns.Text
 
 local WIDE_CARD = "Profession-overview-Card"
-local SIZE = { edge = 24, header = 62, footer = 62, pad = 16, top = 14 }
+local SIZE = { edge = 24, header = 62, footer = 62, pad = 20, top = 14 }
 local NOW_CARD = { height = 48, gap = 8, icon = 32, inset = 10, button = 104 }
-local NOW_MAX = { withGoal = 4, alone = 5 }
+local NOW_MAX = { withGoal = 5, alone = 6 }
 
 local function BuildHeader(home)
   local card = ns.SlicedCard(home, WIDE_CARD, SIZE.edge)

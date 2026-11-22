@@ -149,7 +149,7 @@ do
   end
   home = Home(hanne)
   local shown = select(2, Cards(home):gsub("%[", ""))
-  check(shown == 4, "with the goal above, at most four cards fit: " .. shown)
+  check(shown == 5, "with the goal above, at most five cards fit: " .. shown)
   function hanneMods.coach:OverviewNow() error("Kutsche kaputt") end
   local errorsBefore = #hanne.errors
   home = Home(hanne)
