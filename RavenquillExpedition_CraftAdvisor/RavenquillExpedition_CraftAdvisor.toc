@@ -53,6 +53,8 @@ UI\Tooltips.lua
 UI\CraftRows.lua
 UI\Sections.lua
 UI\Needs.lua
+UI\CrafterRows.lua
+UI\CrafterView.lua
 UI\Sheet.lua
 UI\InspectWindow.lua
 UI\Dropdowns.lua

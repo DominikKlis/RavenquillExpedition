@@ -147,8 +147,8 @@ do
   local f = UIx.frame
   local before = UIx.errorCount
   check(UIx.view == "member" and UIx.memberView._shown and not UIx.needsView._shown, "opens on 'By member' (guild needs hidden)")
-  check(UIx.tabsTemplated and #UIx.tabs == 2 and UIx.tabs[1]._text == "By member" and UIx.tabs[2]._text == "Guild needs"
-    and selected[UIx.tabs[1]] == true and selected[UIx.tabs[2]] == false, "two PanelTabButtonTemplate tabs, 'By member' first and selected")
+  check(UIx.tabsTemplated and #UIx.tabs == 3 and UIx.tabs[1]._text == "By member" and UIx.tabs[2]._text == "Guild needs" and UIx.tabs[3]._text == "Crafters"
+    and selected[UIx.tabs[1]] == true and selected[UIx.tabs[2]] == false and selected[UIx.tabs[3]] == false, "three PanelTabButtonTemplate tabs, 'By member' first and selected")
   UIx:SetView("needs")
   check(UIx.inspectButton == nil and UIx.scanButton == nil and UIx.optionsButton == nil and UIx.survival._points[1][1] == "BOTTOMLEFT",
     "no 'Inspect target' / 'Scan group' buttons; K6: no Options button, the slider in the bottom-left corner")
@@ -532,7 +532,7 @@ do
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
-  check(UIx.tabs[1]._text == "Nach Mitglied" and UIx.tabs[2]._text == "Gildenbedarf", "German tabs")
+  check(UIx.tabs[1]._text == "Nach Mitglied" and UIx.tabs[2]._text == "Gildenbedarf" and UIx.tabs[3]._text == "Handwerker", "German tabs")
   UIx:SetView("needs")
   check(plain(UIx.needsCount._text) == "3 Herstellungen lohnen für 2 Mitglieder" and UIx.searchBox.placeholder._text == "Suchen"
     and plain(menuOf(UIx.filterButton)[5].text) == "Offline-Mitglieder einbeziehen (1)" and plain(menuOf(UIx.filterButton)[7].text):find("^Levelbonus") and plain(menuOf(UIx.filterButton)[8].text):find("^Flüstertext"),
@@ -595,8 +595,8 @@ do
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
   local errs = UIx.errorCount
-  check(not UIx.tabsTemplated and #UIx.tabs == 2 and UIx.tabs[1]._parent == UIx.frame.content and UIx.tabs[1]._text == "By member",
-    "no tab template: two plain buttons in the header strip")
+  check(not UIx.tabsTemplated and #UIx.tabs == 3 and UIx.tabs[1]._parent == UIx.frame.content and UIx.tabs[1]._text == "By member",
+    "no tab template: three plain buttons beside the grip")
   UIx.tabs[2]._scripts.OnClick(UIx.tabs[2])
   check(UIx.view == "needs" and UIx.errorCount == errs, "fallback buttons switch the view")
   UIx.frame:SetSize(840, 560); UIx:Layout()

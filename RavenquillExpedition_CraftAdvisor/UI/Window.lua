@@ -165,6 +165,9 @@ function UI:Layout()
   nd.w, nd.h = dw, listH
   self:UpdateCraftDetail(nd.entry, nd.empty:GetText())
   self:LayoutFilterBar()
+  for _, def in ipairs(UI.VIEWS) do
+    if def.layout then self[def.layout](self, w, h) end
+  end
 end
 
 local Build = {}
@@ -364,7 +367,7 @@ function UI:Create()
   local rw = RightW(MIN_W)
   Build.NeedsView(self, f, c, painted, listH, rw)
   Build.MemberView(self, f, c, painted, listH, rw)
-  self.viewFrames = { needs = self.needsView, member = self.memberView }
+  self.viewFrames = { needs = self.needsView, member = self.memberView, crafters = self:BuildCrafterView(c, painted, listH, rw) }
   self.filters = { { button = self.filterButton, popup = self.filterPopup }, { button = self.memberFilter, popup = self.memberFilterPopup } }
   self.survival = P.CreateSurvivalSlider(c)
   self.survival:SetPoint("BOTTOMLEFT", 18, 13)
@@ -555,5 +558,5 @@ function UI:Refresh()
 end
 
 local GUARDED = "Refresh Toggle Layout OpenWhisperEditor RefreshNeeds RefreshMemberList OpenMember SetView SetMemberMode"
-  .. " SelectSheetSlot PickSheetRow UpdateSheet LayoutSheet SetNeedsOffline"
+  .. " SelectSheetSlot PickSheetRow UpdateSheet LayoutSheet SetNeedsOffline RefreshCrafters SelectCrafter SetUpgradesOnly"
 GUARDED:gsub("%S+", function(name) UI[name] = Guard("UI:" .. name, UI[name]) end)

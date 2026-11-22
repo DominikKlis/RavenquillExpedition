@@ -5,6 +5,7 @@ local UI = GCA.UI
 UI.VIEWS = {
   { key = "member", label = "VIEW_MEMBER" },
   { key = "needs", label = "VIEW_NEEDS", refresh = "RefreshNeeds" },
+  { key = "crafters", label = "VIEW_CRAFTERS", refresh = "RefreshCrafters", layout = "LayoutCrafters" },
 }
 UI.DEFAULT_VIEW = "member"
 

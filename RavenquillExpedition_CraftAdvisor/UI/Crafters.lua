@@ -68,8 +68,9 @@ local function AddCrafterLine(c)
   GameTooltip:AddDoubleLine(c.key, Status(c), left, left, left, rgb[1], rgb[2], rgb[3])
 end
 
-function UI.AddCrafterLines(d, cur)
-  local list = UI.GuildCrafters(d, cur)
+function UI.AddCrafterLines(d, cur) UI.AddCrafterList(UI.GuildCrafters(d, cur)) end
+
+function UI.AddCrafterList(list)
   if not list[1] then return end
   GameTooltip:AddLine(" ")
   GameTooltip:AddLine(L.CRAFTERS_HEAD, 1, 0.82, 0)

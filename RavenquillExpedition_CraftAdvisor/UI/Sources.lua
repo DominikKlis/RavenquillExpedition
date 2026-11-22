@@ -201,17 +201,22 @@ function Src.Line(info)
 end
 function UI.SourceLine(d, cur) return Src.Line(UI.SourceInfo(d, cur)) end
 
-local function Money(c)
-  c = tonumber(c)
-  if not c or c <= 0 then return nil end
-  local s = SafeCall(GetCoinTextureString, c)
-  if type(s) == "string" and s ~= "" then return s end
+local function PlainMoney(c)
   local g, si, k = math.floor(c / 10000), math.floor(c / 100) % 100, c % 100
   local parts = {}
   if g > 0 then parts[#parts + 1] = string.format(L.MONEY_GOLD, g) end
   if si > 0 then parts[#parts + 1] = string.format(L.MONEY_SILVER, si) end
   if k > 0 then parts[#parts + 1] = string.format(L.MONEY_COPPER, k) end
   return table.concat(parts, " ")
+end
+Src.PlainMoney = PlainMoney
+
+local function Money(c)
+  c = tonumber(c)
+  if not c or c <= 0 then return nil end
+  local s = SafeCall(GetCoinTextureString, c)
+  if type(s) == "string" and s ~= "" then return s end
+  return PlainMoney(c)
 end
 Src.Money = Money
 

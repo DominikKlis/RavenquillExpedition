@@ -302,7 +302,7 @@ local function windowChecks(label)
         and sf.ScrollBar == nil, "list panel holds a plain scroll frame + MinimalScrollBar (ScrollUtil), wheel scrolls")
     end
   end
-  check(insets == 2, "two list panels on Professions-background-summarylist: guild needs, member list (the suggestions sit in the member's detail panel) (" .. insets .. ")")
+  check(insets == 3, "three list panels on Professions-background-summarylist: guild needs, member list, crafters (the suggestions sit in the member's detail panel) (" .. insets .. ")")
   local nd, md = GCA.UI.needDetail, GCA.UI.memberDetail
   check(nd and md and nd.NineSlice and md.NineSlice and nd.NineSlice.role == "detailBorder" and md.NineSlice.role == "detailBorder"
     and nd.NineSlice.how == "atlas1" and nd.NineSlice.frameTex._atlas == "common-insideframe" and nd.cardBg and md.cardBg
@@ -465,8 +465,10 @@ local function layoutChecks(UIx, f, label)
       { "sub-line", UIx.subText }, { "(i) icon", UIx.infoIcon }, { "list header", UIx.sugHeader }, { "suggestion panel", UIx.sugInset },
       { "view switch", UIx.modeToggle } },
     needs = { { "needs panel", UIx.needsInset }, { "craft detail panel", UIx.needDetail } },
+    crafters = { { "crafter panel", UIx.crafterInset }, { "crafter name", UIx.crafterName }, { "crafter sub-line", UIx.crafterSub },
+      { "recipe search", UIx.recipeSearch }, { "upgrades toggle", UIx.upgradesOnly }, { "recipe list", UIx.recipeArea } },
   }
-  for _, vname in ipairs({ "member", "needs" }) do
+  for _, vname in ipairs({ "member", "needs", "crafters" }) do
     local named = {}
     for _, x in ipairs(common) do named[#named + 1] = x end
     for _, x in ipairs(views[vname]) do named[#named + 1] = x end
@@ -514,6 +516,13 @@ local function layoutChecks(UIx, f, label)
     and cnt.t >= nl.b and cnt.b <= ni.b and cnt.l == ni.l + 10 and cnt.r == ni.r - 10
     and UIx.needsList.content._w == UIx.needsList.viewW,
     label .. ": search | Filter above the list, the count under it, all inside the list panel " .. rstr(sbx) .. " " .. rstr(obx) .. " " .. rstr(cnt))
+  local ci, cl, cs, cd, ra = R(UIx.crafterInset), R(UIx.crafterList), R(UIx.crafterSearch), R(UIx.crafterDetail), R(UIx.recipeArea)
+  check(ci.l == 10 and ci.r == 270 and ci.t == 62 and ci.b == winH - 40 and cl.r == ci.r - 25 and cl.b == ci.b - 5
+    and cs.l >= ci.l and cs.r <= ci.r and cs.b <= cl.t and cd.l == 278 and cd.r == winW - 12 and cd.t == 62 and cd.b == winH - 40
+    and ra.l == cd.l + 6 and ra.r == cd.r - 6 and ra.t == cd.t + 76 and ra.b == cd.b - 6
+    and UIx.recipeList.content._w == UIx.recipeList.viewW and UIx.crafterList.content._w == UIx.crafterList.viewW,
+    label .. ": crafters view: list panel 10..270 with its search above the list, detail panel 278..W-12, recipes below its header "
+    .. rstr(ci) .. " " .. rstr(cd) .. " " .. rstr(ra))
   local ms = R(UIx.memberSearch)
   check(ms.l >= mi.l and ms.r <= mi.r and ms.t >= mi.t and ms.b <= ml.t, label .. ": member search inside the member panel, above the list " .. rstr(ms))
   local art = f.gcaArt
