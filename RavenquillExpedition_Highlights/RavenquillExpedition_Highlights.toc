@@ -18,5 +18,6 @@ Runs.lua
 NewsLocale_enUS.lua
 NewsLocale_deDE.lua
 News.lua
+Week.lua
 LogWindow.lua
 NewsWindow.lua

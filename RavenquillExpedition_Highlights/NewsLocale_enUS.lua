@@ -23,6 +23,18 @@ ns.NewsLocales.enUS = {
   BRIEF_TIME = "{time}",
   MORE_BRIEF = { "{?one}one more report is in the chronicle.", "{!one}{n} more reports are in the chronicle." },
   NO_BRIEF = "No further reports.",
+  WEEK_COUNTS = {
+    levels = { "{?one}level gained", "{!one}levels gained" },
+    bosses = { "{?one}boss defeated", "{!one}bosses defeated" },
+    epics = { "{?one}epic find", "{!one}epic finds" },
+  },
+  HONORS = {
+    crafter = { title = "Crafter of the week", why = { "{skill} up to {rank}", "{rank} in a craft" } },
+    climber = { title = "Climber of the week", why = { "from level {from} to {to}" } },
+    companion = { title = "Companion of the week",
+      why = { "{?one}one dungeon run with guildmates", "{!one}{n} dungeon runs with guildmates" } },
+    lucky = { title = "Lucky star of the week", why = { "{item}", "{?one}one epic find", "{!one}{n} epic finds" } },
+  },
   NO_SECOND_KICKER = "A note from the editors",
   NO_SECOND_HEAD = "No further reports had arrived by the deadline",
   NO_SECOND_BODY = "The free space is a reminder of the guild bank. Donations are gratefully accepted.",

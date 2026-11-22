@@ -23,6 +23,18 @@ ns.NewsLocales.deDE = {
   BRIEF_TIME = "{time} Uhr",
   MORE_BRIEF = { "{?one}eine weitere Meldung steht in der Chronik.", "{!one}{n} weitere Meldungen stehen in der Chronik." },
   NO_BRIEF = "Keine weiteren Meldungen.",
+  WEEK_COUNTS = {
+    levels = { "{?one}Stufe gewonnen", "{!one}Stufen gewonnen" },
+    bosses = { "{?one}Boss besiegt", "{!one}Bosse besiegt" },
+    epics = { "{?one}epischer Fund", "{!one}epische Funde" },
+  },
+  HONORS = {
+    crafter = { title = "Meisterhand der Woche", why = { "{skill} auf {rank}", "{rank} Punkte im Handwerk" } },
+    climber = { title = "Aufstieg der Woche", why = { "von Stufe {from} auf {to}" } },
+    companion = { title = "Treue Seele der Woche",
+      why = { "{?one}ein Dungeonlauf mit Gildenmitgliedern", "{!one}{n} Dungeonläufe mit Gildenmitgliedern" } },
+    lucky = { title = "Glückspilz der Woche", why = { "{item}", "{?one}ein epischer Fund", "{!one}{n} epische Funde" } },
+  },
   NO_SECOND_KICKER = "In eigener Sache",
   NO_SECOND_HEAD = "Weitere Meldungen lagen bei Redaktionsschluss nicht vor",
   NO_SECOND_BODY = "Der freie Platz erinnert an die Gildenbank. Spenden werden dankend entgegengenommen.",

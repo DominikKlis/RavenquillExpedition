@@ -163,12 +163,13 @@ do
   end
 end
 
-local function Fit(list, vars)
+function News.Fit(list, vars)
   for _, text in ipairs(list or {}) do
     local out = News.Fill(text, vars)
     if out then return out end
   end
 end
+local Fit = News.Fit
 
 function News.Count(n, T) return T.NUMBERS[n] or tostring(n) end
 local Count = News.Count
@@ -412,7 +413,7 @@ local function Phrase(T, q, nounKey, case)
   return News.Fill(T.ARTICLE[noun.g][case], { adj = adj, noun = noun.n })
 end
 
-local function ItemName(name, q)
+function News.ItemName(name, q)
   return ("|cff%s[%s]|r"):format(News.PAPER_HEX[q] or "2b2118", name)
 end
 
@@ -438,7 +439,7 @@ local function Item(v, g, ctx, T)
   local facts = ctx.item(g.first.item) or {}
   local q, noun = TopQuality(g), ItemNoun(gear, facts)
   v.thing, v.thingnom, v.glow, v.where = Phrase(T, q, noun, "acc"), Phrase(T, q, noun, "nom"), T.GLOW[q], gear and T.WHERE[noun]
-  v.item, v.icon = facts.name and ItemName(facts.name, q), facts.icon
+  v.item, v.icon = facts.name and News.ItemName(facts.name, q), facts.icon
   ItemLevels(v, gear, facts, T)
   if loot then v[LOOT_FLAG[loot.src or ""] or "looted"] = "" end
   if gear then v.worn = "" end
