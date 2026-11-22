@@ -246,8 +246,8 @@ do
   byName = RowsByName()
   local listed = 0
   for i = 1, 25 do if byName[guild[i].name] == 1 then listed = listed + 1 end end
-  check(listed == 25 and page.note:GetText() == "",
-    "25 more online guildmates than fit: every one gets a row, no \"+N more\" (" .. listed .. " listed)")
+  check(listed == 25 and page.note:GetText() == "Right-click a name: invite, whisper, inspect",
+    "25 more online guildmates than fit: every one gets a row, the footer keeps the hint, no \"+N more\" (" .. listed .. " listed)")
   local list = page.list
   local last = list and list:FindY(function(m) return m.name == "Gast25 Weit" end)
   check(list and list:VisibleRows() == 18 and last and last >= 18 * 22,
@@ -530,6 +530,36 @@ do
   check(GroupLayout(de):find("[Auf der Karte (1)]", 1, true) and GroupLayout(de):find("[Ohne Position (5)]", 1, true),
     "map list: German group headers: " .. GroupLayout(de))
   check(#s.c.errors == 0 and #de.c.errors == 0, "map list groups: no Lua errors (" .. tostring(s.c.errors[1]) .. ")")
+end
+do
+  local s = ListScene()
+  local env = s.c.env
+  local menus, calls = FakeMenus(env), GameCalls(env)
+  check(s.page.note:GetText() == "Right-click a name: invite, whisper, inspect",
+    "map list: the footer names what a right-click on a name offers: " .. tostring(s.page.note:GetText()))
+  local stefanRow, stefanDot = s.Row("Stefan Spaet"), pinFor(s.c, s.c.hbdWorld, "Stefan Spaet")
+  stefanDot._scripts.OnClick(stefanDot, "RightButton")
+  stefanRow._scripts.OnClick(stefanRow, "RightButton")
+  check(#menus == 2 and menus[2].owner == stefanRow and menus[2].titles[1] == "Stefan Spaet" and Shape(menus[2]) == Shape(menus[1]),
+    "map list: right-clicking a greyed row opens the same menu as that guildmate's dot: " .. Shape(menus[2]))
+  local peterRow = s.Row("Peter Plain")
+  peterRow._scripts.OnClick(peterRow, "RightButton")
+  Entry(menus[3], "Invite").fn()
+  check(Shape(menus[3]) == "Peter Plain|Invite|Whisper|Inspect (grey)|View Talents (grey)" and calls[#calls] == "InviteUnit(Peter Plain)",
+    "map list: a guildmate without the addon gets the menu too, and Invite reaches them: " .. Shape(menus[3]))
+  local headers, clickable = 0, 0
+  for _, r in ipairs(s.Rows()) do
+    if not r.cells then
+      headers = headers + 1
+      if r._scripts.OnClick or r.clicks then clickable = clickable + 1 end
+    end
+  end
+  check(headers == 2 and clickable == 0 and #menus == 3, "map list: the group headers take no clicks and open no menu")
+  local de = ListScene("deDE")
+  check(de.page.note:GetText() == "Rechtsklick auf einen Namen: Einladen, Flüstern, Betrachten",
+    "map list: German footer: " .. tostring(de.page.note:GetText()))
+  env.MenuUtil, env.C_PartyInfo = nil, nil
+  check(#s.c.errors == 0 and #de.c.errors == 0, "map list right-click: no Lua errors (" .. tostring(s.c.errors[1]) .. ")")
 end
 M.members["Weird Map"] = { key = "Weird Map", name = "Weird Map", mapID = 999999, x = 0.3, y = 0.3, heard = w.env.GetTime(), flags = {} }
 M.members["Bad Data"] = { key = "Bad Data", name = "Bad Data", mapID = "x", x = 2, y = 0.3, heard = w.env.GetTime(), flags = {} }

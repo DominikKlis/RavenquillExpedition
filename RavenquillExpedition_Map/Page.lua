@@ -146,7 +146,7 @@ function M:RenderPage()
   if not (page and page:IsVisible()) then return end
   local rows, members = Page.Rows()
   page.list:SetData(rows)
-  page.note:SetText(members == 0 and L.PAGE_EMPTY or "")
+  page.note:SetText(members == 0 and L.PAGE_EMPTY or L.PAGE_HINT)
 end
 
 function M:RefreshPage() self:RenderPage() end
