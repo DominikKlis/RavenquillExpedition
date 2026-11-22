@@ -50,6 +50,7 @@ local L = {
   PAGE_HINT = "Right-click a name: invite, whisper, inspect",
   ZONE_UNKNOWN = "Unknown", TT_NOT_SHARING = "Not sharing a position",
   REASON_STALE = "Position out of date (%d min)", REASON_NO_ADDON = "Not using Ravenquill",
+  REASON_NO_REPLY = "No reply yet",
   GROUP_ON_MAP = "On the map (%d)", GROUP_NO_POSITION = "No position (%d)",
 }
 
@@ -103,6 +104,7 @@ local deDE = {
   PAGE_HINT = "Rechtsklick auf einen Namen: Einladen, Flüstern, Betrachten",
   ZONE_UNKNOWN = "Unbekannt", TT_NOT_SHARING = "Teilt keine Position",
   REASON_STALE = "Position veraltet (%d Min.)", REASON_NO_ADDON = "Nutzt Ravenquill nicht",
+  REASON_NO_REPLY = "Noch keine Rückmeldung",
   GROUP_ON_MAP = "Auf der Karte (%d)", GROUP_NO_POSITION = "Ohne Position (%d)",
 }
 

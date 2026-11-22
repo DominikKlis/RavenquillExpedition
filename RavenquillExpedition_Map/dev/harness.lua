@@ -225,8 +225,8 @@ do
   local byName, rowOf = RowsByName()
   local greta = rowOf["Greta Stumm"]
   check(byName["Greta Stumm"] == 1 and greta.cells[2]:GetText() == "33" and greta.cells[3]:GetText() == "The Deadmines"
-    and greta.cells[4]:GetText() == "Not using Ravenquill",
-    "an online guildmate never heard from is listed with the zone from the guild roster and the reason for no dot")
+    and greta.cells[4]:GetText() == "No reply yet",
+    "an online guildmate who hasn't answered yet is listed with the zone from the guild roster and the reason for no dot")
   check(rowOf["Lars Leer"] and rowOf["Lars Leer"].cells[3]:GetText() == "Unknown", "no zone on the roster: Unknown")
   check(byName["Hans Wurst"] == 1 and rowOf["Hans Wurst"].cells[3]:GetText() == "Map1429",
     "a sharing guildmate on the roster is listed once, with the zone of the dot")
@@ -238,7 +238,7 @@ do
   check(invites[1] == "Greta Stumm", "right-clicking a guildmate who doesn't share still invites")
   greta._scripts.OnEnter(greta)
   local gretaTip = table.concat(w.tip.lines, "|")
-  check(gretaTip:find("Not using Ravenquill", 1, true) and gretaTip:find("The Deadmines", 1, true),
+  check(gretaTip:find("No reply yet", 1, true) and gretaTip:find("The Deadmines", 1, true),
     "the tooltip names the roster zone and why the guildmate has no dot: " .. gretaTip)
   local guild = {}
   for i = 1, 25 do guild[i] = { name = ("Gast%02d Weit"):format(i), level = 30, class = "MAGE" } end
@@ -413,9 +413,12 @@ do
     "nearby without stored gear: Betrachten falls back to the game's inspect on their unit: " .. Shape(menu) .. " " .. tostring(calls[#calls]))
   check(#wd.errors == 0, "German menu with and without Craft Advisor: no Lua errors (" .. tostring(wd.errors[1]) .. ")")
 end
+local function ReleasedBuild(env)
+  env.C_AddOns.GetAddOnMetadata = function(_, field) if field == "Version" then return "0.10.0-beta" end end
+end
 local function ListScene(locale)
   local sched, bus = Kit.Setup()
-  local a = MapKit.Client(sched, bus, "Anna Alpha", { locale = locale })
+  local a = MapKit.Client(sched, bus, "Anna Alpha", { locale = locale, setup = ReleasedBuild })
   bus:member("Frieda Frisch", "MAGE", 40, true, "Elwynn Forest")
   bus:member("Gustav Weg", "ROGUE", 30, true, "Westfall")
   bus:member("Stefan Spaet", "WARRIOR", 50, true, "Duskwood")
@@ -478,9 +481,9 @@ do
   check(s.Line("Lea Leise") == "Lea Leise | 35 | Ashenvale | Not sharing a position",
     "map list: a guildmate who turned sharing off is not sharing, not out of date: " .. tostring(s.Line("Lea Leise")))
   check(s.Line("Paula Peer") == "Paula Peer | 20 | Darkshire | Not sharing a position",
-    "map list: a guildmate who runs Ravenquill but sent no position is not sharing: " .. tostring(s.Line("Paula Peer")))
+    "map list: a guildmate heard from this session who sent no position is not sharing: " .. tostring(s.Line("Paula Peer")))
   check(s.Line("Peter Plain") == "Peter Plain | 25 | Redridge | Not using Ravenquill",
-    "map list: a guildmate never heard from says they don't use Ravenquill: " .. tostring(s.Line("Peter Plain")))
+    "map list: a guildmate who never answered our announcement doesn't use Ravenquill: " .. tostring(s.Line("Peter Plain")))
   check(s.Row("Otto Offline") == nil, "map list: offline guildmates are not listed")
   local peter = s.Row("Peter Plain")
   peter._scripts.OnEnter(peter)
@@ -493,6 +496,57 @@ do
     and tostring(de.Line("Paula Peer")):find("| Teilt keine Position", 1, true)
     and tostring(de.Line("Peter Plain")):find("| Nutzt Ravenquill nicht", 1, true),
     "map list: German reasons: " .. table.concat(de.Lines(), " / "))
+end
+do
+  local sched, bus = Kit.Setup()
+  local random = Kit.Random(5)
+  local bert = Kit.Client(sched, bus, "Bert Hill", { random = random, class = "WARRIOR", level = 30 })
+  local cora = Kit.Client(sched, bus, "Cora Vale", { random = random, class = "MAGE", level = 31 })
+  bus:member("Dora Plain", "HUNTER", 25, true, "Redridge")
+  bus:member("Otto Offline", "PALADIN", 45, false, "Tanaris")
+  bert.login(); cora.login()
+  sched:advance(1800)
+  local anna = MapKit.Client(sched, bus, "Anna Alpha", { locale = "deDE", random = random, setup = ReleasedBuild })
+  local ada = MapKit.Client(sched, bus, "Ada Early", { random = random, setup = ReleasedBuild })
+  anna.login(); ada.login()
+  sched:advance(5)
+  local function Page(c)
+    local page = c.env.CreateFrame("Frame")
+    c.M:BuildPage(page)
+    page:Show()
+    return page
+  end
+  local annaPage, adaPage = Page(anna), Page(ada)
+  local function Reasons(c, page, keys)
+    c.M:RenderPage()
+    local rowOf, byKey, out = {}, {}, {}
+    for _, f in ipairs(c.frames) do if f.shown and f.data ~= nil and f.cells then rowOf[f.data] = f end end
+    for _, d in ipairs(page.list.data or {}) do
+      local r = rowOf[d]
+      if r then byKey[r.key] = tostring(r.cells[4]:GetText()) end
+    end
+    for _, k in ipairs(keys) do out[#out + 1] = k .. ": " .. tostring(byKey[k]) end
+    return table.concat(out, ", ")
+  end
+  local WHO = { "Bert Hill", "Cora Vale", "Dora Plain", "Otto Offline" }
+  local function Annas() return Reasons(anna, annaPage, WHO) end
+  check(Annas() == "Bert Hill: Noch keine Rückmeldung, Cora Vale: Noch keine Rückmeldung, Dora Plain: Noch keine Rückmeldung, Otto Offline: nil",
+    "map list right after login: nobody silent is called a non-user yet, offline members stay out: " .. Annas())
+  check(Reasons(ada, adaPage, { "Dora Plain" }) == "Dora Plain: No reply yet", "in English: " .. Reasons(ada, adaPage, { "Dora Plain" }))
+  local C = anna.RQ.CommConst
+  local hello
+  for _ = 1, C.VERSION_DELAY + C.VERSION_JITTER + 10 do
+    for _, e in ipairs(bus.log) do if e.sender == "Anna Alpha" and e.msg:find("^V;1;v;") then hello = e end end
+    if hello then break end
+    sched:advance(1)
+  end
+  sched:advance(hello.t + C.REPLY_JITTER + 10 - sched.t)
+  check(Annas() == "Bert Hill: Teilt keine Position, Cora Vale: Teilt keine Position, Dora Plain: Noch keine Rückmeldung, Otto Offline: nil",
+    "after Anna's announcement Bert and Cora (logged in before her, silent until then) answered and show as Ravenquill users: " .. Annas())
+  sched:advance(hello.t + C.REPLY_WINDOW + 2 - sched.t)
+  check(Annas() == "Bert Hill: Teilt keine Position, Cora Vale: Teilt keine Position, Dora Plain: Nutzt Ravenquill nicht, Otto Offline: nil",
+    "only after the reply window does Dora (no addon) read 'Nutzt Ravenquill nicht': " .. Annas())
+  check(#anna.errors + #ada.errors + #bert.errors + #cora.errors == 0, "map list presence: no Lua errors (" .. tostring(anna.errors[1]) .. ")")
 end
 local function GroupLayout(s)
   local out, mismatch, header, n = {}, {}, nil, 0

@@ -64,13 +64,16 @@ local STATES = {
   onMap = { rank = 1, group = ON_MAP, last = Page.SeenText },
   stale = { rank = 2, group = NO_POSITION, last = function(m) return L.REASON_STALE:format(math.floor(M:Age(m) / 60)) end },
   notSharing = { rank = 3, group = NO_POSITION, last = function() return L.TT_NOT_SHARING end },
-  noAddon = { rank = 4, group = NO_POSITION, last = function() return L.REASON_NO_ADDON end },
+  noReply = { rank = 4, group = NO_POSITION, last = function() return L.REASON_NO_REPLY end },
+  noAddon = { rank = 5, group = NO_POSITION, last = function() return L.REASON_NO_ADDON end },
 }
+
+local BY_PRESENCE = { confirmed = "notSharing", absent = "noAddon" }
 
 function M:PositionState(m)
   if not m.unshared then return self:State(m) == "fresh" and "onMap" or "stale" end
   if m.heard then return "stale" end
-  return GS:IsPeer(m.key) and "notSharing" or "noAddon"
+  return BY_PRESENCE[GS:Presence(m.key)] or "noReply"
 end
 
 function M:StateText(m) return STATES[self:PositionState(m)].last(m) end
