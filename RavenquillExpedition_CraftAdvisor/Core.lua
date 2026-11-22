@@ -40,6 +40,11 @@ local MIGRATIONS = {
     end
     db.probe = nil
   end,
+  [4] = function(db)
+    for _, g in pairs(type(db.guilds) == "table" and db.guilds or {}) do
+      if type(g) == "table" then g.orders = nil end
+    end
+  end,
 }
 
 local function Newest(v)
@@ -79,7 +84,7 @@ local LOGIN_MIGRATIONS = {
 
 local GCA = RQ:NewModule("Craft", {
   addon = ADDON, api = 2, slash = "craft", title = L.ADDON_TITLE, icon = "Interface\\Icons\\Trade_LeatherWorking",
-  sv = "RavenquillExpeditionCraftDB", dbVersion = 3, defaults = DEFAULTS, migrations = MIGRATIONS,
+  sv = "RavenquillExpeditionCraftDB", dbVersion = 4, defaults = DEFAULTS, migrations = MIGRATIONS,
   loginMigrations = LOGIN_MIGRATIONS,
   launcherRightClick = true,
 })
@@ -158,7 +163,6 @@ function GCA:OnLogin()
   C_Timer.After(self.PRUNE_DELAY + 1, function() RQ:RequestRoster() end)
   C_Timer.After(self.PROF_TRUST_DELAY + 2, function() self:RefreshKnown() end)
   if self.OnSyncLogin then self:OnSyncLogin() end
-  if self.OnOrdersLogin then self:OnOrdersLogin() end
 end
 
 local events = {}
@@ -186,7 +190,6 @@ function events:INSPECT_READY(guid) self:OnInspectReady(guid) end
 
 function events:GUILD_ROSTER_UPDATE()
   RQ:Call(self.PruneStale, self)
-  if self.OnOrdersRoster then RQ:Call(self.OnOrdersRoster, self) end
   self:Invalidate()
 end
 

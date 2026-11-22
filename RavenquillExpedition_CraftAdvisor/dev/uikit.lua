@@ -310,7 +310,7 @@ local function windowChecks(label)
         and sf.ScrollBar == nil, "list panel holds a plain scroll frame + MinimalScrollBar (ScrollUtil), wheel scrolls")
     end
   end
-  check(insets == 4, "four list panels on Professions-background-summarylist: guild needs, member list, crafters, orders (the suggestions sit in the member's detail panel) (" .. insets .. ")")
+  check(insets == 3, "three list panels on Professions-background-summarylist: guild needs, member list, crafters (the suggestions sit in the member's detail panel) (" .. insets .. ")")
   local nd, md = GCA.UI.needDetail, GCA.UI.memberDetail
   check(nd and md and nd.NineSlice and md.NineSlice and nd.NineSlice.role == "detailBorder" and md.NineSlice.role == "detailBorder"
     and nd.NineSlice.how == "atlas1" and nd.NineSlice.frameTex._atlas == "common-insideframe" and nd.cardBg and md.cardBg
@@ -476,9 +476,8 @@ local function layoutChecks(UIx, f, label)
     crafters = { { "crafter panel", UIx.crafterInset }, { "crafter name", UIx.crafterName }, { "crafter sub-line", UIx.crafterSub },
       { "recipe search", UIx.recipeSearch }, { "upgrades toggle", UIx.upgradesOnly }, { "grouping switch", UIx.groupSwitch },
       { "recipe list", UIx.recipeArea } },
-    orders = { { "orders panel", UIx.ordersInset }, { "order cards panel", UIx.ordersDetail } },
   }
-  for _, vname in ipairs({ "member", "needs", "crafters", "orders" }) do
+  for _, vname in ipairs({ "member", "needs", "crafters" }) do
     local named = {}
     for _, x in ipairs(common) do named[#named + 1] = x end
     for _, x in ipairs(views[vname]) do named[#named + 1] = x end

@@ -147,10 +147,9 @@ do
   local f = UIx.frame
   local before = UIx.errorCount
   check(UIx.view == "member" and UIx.memberView._shown and not UIx.needsView._shown, "opens on 'For guildmates' (guild needs hidden)")
-  check(UIx.tabsTemplated and #UIx.tabs == 4 and UIx.tabs[1]._text == "For guildmates" and UIx.tabs[2]._text == "My recipes" and UIx.tabs[3]._text == "For me"
-    and UIx.tabs[4]._text == "Orders" and selected[UIx.tabs[1]] == true and selected[UIx.tabs[2]] == false and selected[UIx.tabs[3]] == false
-    and selected[UIx.tabs[4]] == false,
-    "four PanelTabButtonTemplate tabs 'For guildmates | My recipes | For me | Orders', the first selected")
+  check(UIx.tabsTemplated and #UIx.tabs == 3 and UIx.tabs[1]._text == "For guildmates" and UIx.tabs[2]._text == "My recipes" and UIx.tabs[3]._text == "For me"
+    and selected[UIx.tabs[1]] == true and selected[UIx.tabs[2]] == false and selected[UIx.tabs[3]] == false,
+    "three PanelTabButtonTemplate tabs 'For guildmates | My recipes | For me', the first selected")
   UIx:SetView("needs")
   check(UIx.inspectButton == nil and UIx.scanButton == nil and UIx.optionsButton == nil and UIx.survival._points[1][1] == "BOTTOMLEFT",
     "no 'Inspect target' / 'Scan group' buttons; K6: no Options button, the slider in the bottom-left corner")
@@ -535,8 +534,8 @@ do
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
-  check(UIx.tabs[1]._text == "Für Mitglieder" and UIx.tabs[2]._text == "Meine Rezepte" and UIx.tabs[3]._text == "Für mich"
-    and UIx.tabs[4]._text == "Aufträge", "German tabs 'Für Mitglieder | Meine Rezepte | Für mich | Aufträge'")
+  check(UIx.tabs[1]._text == "Für Mitglieder" and UIx.tabs[2]._text == "Meine Rezepte" and UIx.tabs[3]._text == "Für mich",
+    "German tabs 'Für Mitglieder | Meine Rezepte | Für mich'")
   check(plain(UIx.RowGainText(fakeSug())) == "+12 Pkt" and UIx.CardGain(fakeSug()) == "+12 Pkt",
     "German score unit: row and card gains read '+12 Pkt', not 'pts'")
   local oldNames = { "Nach Mitglied", "Gildenbedarf", "By member", "Guild needs" }
@@ -629,8 +628,8 @@ do
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
   local errs = UIx.errorCount
-  check(not UIx.tabsTemplated and #UIx.tabs == 4 and UIx.tabs[1]._parent == UIx.frame.content and UIx.tabs[1]._text == "For guildmates"
-    and UIx.tabs[4]._text == "Orders", "no tab template: four plain buttons beside the grip, each as wide as its label")
+  check(not UIx.tabsTemplated and #UIx.tabs == 3 and UIx.tabs[1]._parent == UIx.frame.content and UIx.tabs[1]._text == "For guildmates",
+    "no tab template: three plain buttons beside the grip, each as wide as its label")
   local cramped = {}
   for i, def in ipairs(UIx.VIEWS) do
     for _, loc in ipairs({ "enUS", "deDE" }) do

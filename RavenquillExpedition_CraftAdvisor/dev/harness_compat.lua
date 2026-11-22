@@ -177,61 +177,31 @@ for _, name in ipairs({ "fresh", "noFlags", "keysV1", "keysV2Done", "autoTargetO
   c.fire("PLAYER_LOGIN")
   local db, shown = c.getDB(), {}
   for k, v in pairs(db) do if k ~= "v" and k ~= "vLogin" then shown[k] = v end end
-  check(db.v == 3 and db.vLogin == 2, "sv." .. name .. ": core migration counters v = 3, vLogin = 2")
+  check(db.v == 4 and db.vLogin == 2, "sv." .. name .. ": core migration counters v = 4, vLogin = 2")
   gold:compare("sv." .. name, splitLines(Golden.Serialize(shown)), check)
 end
 
-section("Orders layer: order messages and the saved order stay byte-identical")
-local orderGold = Golden.open(DEV .. "fixtures/compat_orders.lua", arg[1] == "--record-orders")
+section("Craft orders are gone: saved orders are dropped on load, order messages from older clients are ignored")
 for n, c in pairs(clients) do c.online = false; clients[n] = nil end
 NewWorld()
-local OA = Login("Anna Stone", copy(GEAR[1]))
-local OB = Login("Bert Hill", copy(GEAR[2]))
-for _, c in pairs(clients) do c.fire("GUILD_ROSTER_UPDATE") end
-sched:advance(60)
-local och = OA.GCA.orderChannel
-local fixed = { requester = "Anna Stone", id = 1800000123, crafter = "Bert Hill", line = 165, spell = 3762 }
-local function with(state, gain)
-  local m = {}
-  for k, v in pairs(fixed) do m[k] = v end
-  m.state, m.gain = state, gain
-  return m
-end
-local encoded = { och:Encode("o", with("requested", 18)), och:Encode("o", with("accepted")), och:Encode("o", with("received", 9999)),
-  och:Encode("k", { requester = "Anna Stone", id = 1800000123, state = "done" }) }
-orderGold:compare("orders.wire", encoded, check)
-local mark = #bus.log
-local oa = OA.GCA:PlaceOrder("Bert Hill", "Leatherworking", 3762, 18)
+local withOrders = NewClient("Anna Stone", copy(GEAR[1]))
+clients["Anna Stone"] = withOrders
+withOrders.setDB({ v = 3, vLogin = 2, guilds = { ["Die Gilde@Forever"] = {
+  orders = { ["Anna Stone#abc"] = { requester = "Anna Stone", crafter = "Bert Hill", spell = 3762, state = "requested" } },
+  keep = { 1 } } } })
+withOrders.login()
+local guild = withOrders.getDB().guilds["Die Gilde@Forever"]
+check(withOrders.getDB().v == 4 and guild.orders == nil and guild.keep[1] == 1,
+  "a 0.10 SavedVariables file loads without its orders table and keeps the rest of the guild's data")
+local Bert = Login("Bert Hill", copy(GEAR[2]))
 sched:advance(30)
-local ob = OB.GCA:Orders()[OB.GCA.OrderKey("Anna Stone", oa.id)]
-OB.GCA:OrderAction(ob, "accept"); sched:advance(30)
-OB.GCA:OrderAction(ob, "done"); sched:advance(30)
-OA.GCA:OrderAction(oa, "receive"); sched:advance(30)
-local lifecycle = {}
-for i = mark + 1, #bus.log do
-  local e = bus.log[i]
-  if e.msg:match("^CO;") then lifecycle[#lifecycle + 1] = e.sender .. "|" .. e.msg:gsub(OA.GCA.b36(oa.id), "<id>") end
+local receivedBefore = tonumber(Bert.RQ:CommStatus():match("received (%d+)"))
+for _, msg in ipairs({ "CO;1;o;Anna Stone;abc;Bert Hill;4l;2wi;requested;18", "CO;1;k;Anna Stone;abc;requested" }) do
+  Bert.fire("CHAT_MSG_ADDON", "RQE1", msg, "GUILD", "Anna Stone-Realm")
 end
-orderGold:compare("orders.lifecycle", lifecycle, check)
-local function savedOrders(c)
-  local shown = {}
-  for key, rec in pairs(c.getDB().guilds[c.RQ:GuildKey()].orders) do
-    local copyRec = {}
-    for k, v in pairs(rec) do copyRec[k] = v end
-    copyRec.t, copyRec.id = "<t>", "<id>"
-    shown[(key:gsub("#%d+$", "#<id>"))] = copyRec
-  end
-  return splitLines(Golden.Serialize(shown))
-end
-orderGold:compare("orders.sv.requester", savedOrders(OA), check)
-orderGold:compare("orders.sv.crafter", savedOrders(OB), check)
-local goldWire = orderGold.data["orders.wire"] or encoded
-local OC = Login("Cora Vale", copy(GEAR[3]))
-OC.fire("CHAT_MSG_ADDON", "RQE1", goldWire[1], "GUILD", "Anna Stone-Realm")
-local heard = OC.GCA.heardOrders[OC.GCA.OrderKey("Anna Stone", 1800000123)]
-check(heard and heard.crafter == "Bert Hill" and heard.prof == "Leatherworking" and heard.spell == 3762 and heard.state == "requested"
-  and heard.gain == 18, "the golden 'requested' message decodes to the same order")
-orderGold:finish()
+sched:advance(5)
+check(#Bert.errors == 0 and tonumber(Bert.RQ:CommStatus():match("received (%d+)")) == receivedBefore + 2 and Bert.GCA.heardOrders == nil,
+  "an older client's order messages arrive and are dropped: no Lua error, nothing stored (" .. tostring(Bert.errors[1]) .. ")")
 
 gold:finish()
 Kit.finish()

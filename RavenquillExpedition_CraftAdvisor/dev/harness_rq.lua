@@ -80,8 +80,8 @@ end
 
 io.write("== Migrations: numbered, each once (core API 2)\n")
 local db = GCA.db
-check(db.v == 3 and db.keysV2 and db.inspectTalentsOffV1 and db.members["Old Timer"] and not db.members["Old-Timer"],
-  "db.v = 3; [2] moved the v0.1 key \"Old-Timer\" to \"Old Timer\"; the old flags are kept")
+check(db.v == 4 and db.keysV2 and db.inspectTalentsOffV1 and db.members["Old Timer"] and not db.members["Old-Timer"],
+  "db.v = 4; [2] moved the v0.1 key \"Old-Timer\" to \"Old Timer\"; the old flags are kept")
 check(db.vLogin == 2, "login migrations ran (db.vLogin = 2)")
 local rdb = { keysV2 = true, members = { ["Kim Lee-Realm"] = { time = 9, items = {} }, ["Kim Lee"] = { time = 3, items = {} },
   ["Ann Bo"] = { time = 8, items = {} }, ["Ann Bo-Realm"] = { time = 2, items = {} }, ["Zed Far-OtherRealm"] = { time = 1, items = {} } },

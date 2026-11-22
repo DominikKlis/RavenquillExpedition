@@ -139,14 +139,8 @@ section("Ask: whispers the first online crafter with the item link")
 vest.ask._scripts.OnClick(vest.ask)
 check(lastPrinted():find("Hi Alice! Could you craft |Hitem:4244|h[Hillman's Vest]|h for me? I'd bring the materials.", 1, true),
   "Ask writes the whisper to Alice: " .. lastPrinted())
-local function myOrders() return GCA:OrderLists().mine end
-local asked = myOrders()[1]
-check(#myOrders() == 1 and asked.crafter == "Alice Wren" and asked.requester == "Me Stone" and asked.prof == "Leatherworking"
-  and asked.spell == 3762 and asked.gain == 12 and asked.state == "requested",
-  "Ask also starts an order: to Alice, the vest, the +12 gain, requested")
 captureTip(); vest.ask._scripts.OnEnter(vest.ask)
-check(tipText():find("Ask Alice to craft it for you", 1, true) and tipText():find("starts an order you can both follow under Orders", 1, true),
-  "Ask tooltip names Alice and says it starts an order")
+check(tipText():find("Ask Alice to craft it for you", 1, true), "Ask tooltip names Alice")
 env.Auctionator = { API = { v1 = {
   GetAuctionPriceByItemID = function(_, id) return ({ [4243] = 1000, [4231] = 300 })[id] end,
   GetVendorPriceByItemID = function(_, id) return ({ [2320] = 10 })[id] end,
@@ -161,7 +155,6 @@ env.IsShiftKeyDown, env.SendChatMessage = function() return false end, nil
 check(sent and sent.name == "Alice Wren" and sent.kind == "WHISPER" and lastPrinted() == "Asked Alice Wren."
   and sent.msg:find("I'd bring the materials (about 16s 20c on the AH).", 1, true),
   "shift-click sends right away and names the mat cost (1000 + 2x300 + 2x10 vendor): " .. tostring(sent and sent.msg))
-check(#myOrders() == 1 and myOrders()[1] == asked, "asking again while the order is open keeps the one order")
 check(plain(vest.cost._text) == "16s 20c" and vest.cost._w > 0, "with Auctionator the row shows the mat cost")
 captureTip(); vest._scripts.OnEnter(vest)
 tip = plain(tipText())
@@ -187,10 +180,6 @@ local ench = recipeRow(7779)
 ench.ask._scripts.OnClick(ench.ask)
 check(plain(ench.name._text) == "Enchant Bracer - Minor Agility" and lastPrinted():find("Hi Alice! Could you do Enchant Bracer - Minor Agility for me when we meet?", 1, true),
   "an enchant row and its whisper: " .. lastPrinted())
-local enchOrder
-for _, ord in ipairs(myOrders()) do if ord.spell == 7779 then enchOrder = ord end end
-check(#myOrders() == 2 and enchOrder and enchOrder.prof == "Enchanting" and enchOrder.crafter == "Alice Wren",
-  "asking for the enchant starts a second order, an Enchanting one")
 
 section("Filters: search, only upgrades, and what they say when nothing is left")
 typeInto(UIx.recipeSearch, "vest")

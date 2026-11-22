@@ -6,7 +6,6 @@ UI.VIEWS = {
   { key = "member", label = "VIEW_MEMBER" },
   { key = "needs", label = "VIEW_NEEDS", refresh = "RefreshNeeds" },
   { key = "crafters", label = "VIEW_CRAFTERS", refresh = "RefreshCrafters", layout = "LayoutCrafters", build = "BuildCrafterView" },
-  { key = "orders", label = "VIEW_ORDERS", refresh = "RefreshOrders", layout = "LayoutOrders", build = "BuildOrdersView" },
 }
 UI.DEFAULT_VIEW = "member"
 

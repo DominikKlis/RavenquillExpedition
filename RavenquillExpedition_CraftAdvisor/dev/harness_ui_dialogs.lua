@@ -242,7 +242,7 @@ do
   for _, c in ipairs(descendants(f)) do
     if c.NineSlice and c ~= f and c.Bg then nIns = nIns + 1; check(c.Bg._alpha == nil, "no art -> inset Bg untouched") end
   end
-  check(nIns == 4, "four list insets in the no-art pass: guild needs, members, crafters, orders (the detail panels have none)")
+  check(nIns == 3, "three list insets in the no-art pass: guild needs, members, crafters (the detail panels have none)")
   check(UIx.optionsPopup == nil and UIx.profPopup == nil and UIx.profButton.art == "plain" and UIx.profButton.drop.arrowKind == "file",
     "no atlases: the rank bar falls back to a plain track, the dropdown arrow to the caret file (no popups: native menus)")
   UIx.current = { key = "Bud Stone", online = true, prof = "Leatherworking", level = 39 }
@@ -271,10 +271,10 @@ do
   check(ok and not f._shown, "fallback close button hides")
   local bd = 0
   for _, c in ipairs(descendants(f)) do if c._backdrop and c._shown then bd = bd + 1 end end
-  check(bd == 4, "four fallback list panels with backdrop (guild needs, members, crafters, orders) (" .. bd .. ")")
+  check(bd == 3, "three fallback list panels with backdrop (guild needs, members, crafters) (" .. bd .. ")")
   local alphas = {}
   for _, c in ipairs(descendants(f)) do if c._backdrop and c._shown and c._SetBackdropColor then alphas[#alphas + 1] = c._SetBackdropColor[4] end end
-  check(#alphas == 4 and alphas[1] == 0.6 and alphas[2] == 0.6 and alphas[3] == 0.6 and alphas[4] == 0.6, "fallback look unchanged (panel alpha 0.6)")
+  check(#alphas == 3 and alphas[1] == 0.6 and alphas[2] == 0.6 and alphas[3] == 0.6, "fallback look unchanged (panel alpha 0.6)")
   H.atlasMode = "ok"
 end
 env.CreateFrame = origCF

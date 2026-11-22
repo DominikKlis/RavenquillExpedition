@@ -156,7 +156,6 @@ function UI.AskCrafter(row)
   if not target then return false end
   local msg = UI.CrafterAskText(row, target.key)
   if P.ShiftDown() then P.SendWhisper(target.key, msg, string.format(L.ASK_SENT, target.key)) else P.OpenWhisper(target.key, msg) end
-  GCA:PlaceOrder(target.key, row.prof, row.spellID, row.upgrade and row.upgrade.points)
   return true
 end
 
@@ -168,7 +167,6 @@ local function AskTip(owner, row)
   GameTooltip:AddLine(string.format(L.ASK_TIP, FirstName(target.key)), 1, 0.82, 0)
   GameTooltip:AddLine(L.OFFER_TIP_CLICK, 1, 1, 1)
   GameTooltip:AddLine(L.OFFER_TIP_SHIFT, 1, 1, 1)
-  GameTooltip:AddLine(L.ASK_TIP_ORDER, 0.6, 0.6, 0.6, true)
   GameTooltip:Show()
 end
 
