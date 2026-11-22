@@ -1201,10 +1201,17 @@ end
 Kit.section("An empty log points to the explanations")
 do
   local fresh = Character(); fresh.login(); advance(5)
-  OpenLog(fresh.env)
-  local shown = lines[#lines] or ""
-  check(shown:find("Was zählt, steht unter /rq hl.", 1, true) and shown:find("Testeinträge hinzufügen", 1, true)
+  local page = OpenLog(fresh.env)
+  local empty = page.empty
+  local shown = empty and empty.text:GetText() or ""
+  check(empty and empty:IsShown() and shown:find("Was zählt, steht unter /rq hl.", 1, true)
     and not shown:find("Gegenstandsstufen", 1, true), "an empty log points to /rq hl for what counts instead of listing the rules")
+  check(empty and not shown:find("/rq hl >", 1, true) and empty.tests:GetText() == "Testeinträge hinzufügen",
+    "instead of a path into the settings the empty log offers a 'Testeinträge hinzufügen' button")
+  if empty then rawget(empty.tests, "_scripts").OnClick(empty.tests) end
+  check(#fresh.H:Log() == 11 and empty and not empty:IsShown() and lines[#lines]:find("Stufe 60 – Höchststufe!", 1, true),
+    "one click adds the 11 test entries and the log lists them in place of the hint")
+  check(#fresh.errors == 0, "no Lua errors (" .. tostring(fresh.errors[1]) .. ")")
   LogOut(fresh)
 end
 

@@ -10,6 +10,7 @@ local WINDOW_NAV, PAGE_LOG = { 34, 14, reserve = 57, rule = 41, size = 13 }, { 4
 local SHADOW_RINGS, SHADOW_ALPHA = 10, 0.4
 local INK_DARK, INK_FADED = { 0.04, 0.03, 0.02 }, { 0.663, 0.58, 0.455 }
 local GRAIN_ALPHA = 0.5
+local EMPTY_BUTTON, EMPTY_GAP = { 220, 22 }, 12
 H.WINDOW_W, H.WINDOW_H, H.WINDOW_SHARE, H.WINDOW_MIN_H = 900, 780, 0.9, 480
 
 local function Within(size, room)
@@ -221,6 +222,25 @@ local function MessageArea(f, insets)
   f.msg = msg
 end
 
+local function EmptyLog(f)
+  local empty = CreateFrame("Frame", nil, f)
+  empty:SetAllPoints(f.msg)
+  local text = empty:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  text:SetPoint("TOPLEFT")
+  text:SetPoint("TOPRIGHT")
+  text:SetJustifyH("LEFT")
+  text:SetTextColor(0.7, 0.7, 0.7)
+  text:SetText(L.EMPTY)
+  local tests = CreateFrame("Button", nil, empty, "UIPanelButtonTemplate")
+  tests:SetSize(EMPTY_BUTTON[1], EMPTY_BUTTON[2])
+  tests:SetPoint("TOPLEFT", text, "BOTTOMLEFT", 0, -EMPTY_GAP)
+  tests:SetText(L.OPT_TEST)
+  tests:SetScript("OnClick", function() GS:Call(H.AddTestEntries, H) end)
+  empty.text, empty.tests = text, tests
+  empty:Hide()
+  f.empty = empty
+end
+
 local function Footer(f)
   local footer = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   footer:SetPoint("BOTTOMLEFT", 6, 6)
@@ -274,6 +294,7 @@ end
 
 function H:BuildPage(parent)
   MessageArea(parent, PAGE_LOG)
+  EmptyLog(parent)
   Footer(parent)
   parent:SetScript("OnShow", function() GS:Call(OpenLog, parent) end)
   views[#views + 1] = parent
@@ -350,7 +371,7 @@ local function RenderLog(self, view, list, nHL, nAct)
   local messages = LogMessages(self, list, view.firstUnseen)
   m:Clear()
   view.onlyHL:SetChecked(self:Settings().logOnlyHighlights and true or false)
-  if not list[1] then m:AddMessage(L.EMPTY, 0.7, 0.7, 0.7) end
+  view.empty:SetShown(not list[1])
   for _, line in ipairs(messages) do
     if line.color then m:AddMessage(line.text, line.color[1], line.color[2], line.color[3]) else m:AddMessage(line.text) end
   end

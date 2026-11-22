@@ -4,7 +4,7 @@ local L = {
   LOCALE = "enUS",
   TITLE = "Guild Highlights",
   FMT_DAY = "%Y-%m-%d",
-  EMPTY = "Nothing logged yet – nothing counted as a highlight since you installed it.\n\nWhat counts is explained under /rq hl. Guildies running Ravenquill show up here too.\n\nTo see how it looks: /rq hl > Add test entries.",
+  EMPTY = "Nothing logged yet – nothing counted as a highlight since you installed it.\n\nWhat counts is explained under /rq hl. Guildies running Ravenquill show up here too.",
 
   GEAR = "%s  +%d",
   GEAR_EPIC = "%s  (epic)",
@@ -86,7 +86,7 @@ local deDE = {
   LOCALE = "deDE",
   FMT_DAY = "%d.%m.%Y",
   TITLE = "Gilden-Highlights",
-  EMPTY = "Noch nichts protokolliert – seit der Installation zählte noch nichts als Highlight.\n\nWas zählt, steht unter /rq hl. Gildenmitglieder mit Ravenquill erscheinen hier auch.\n\nZum Ansehen: /rq hl > Testeinträge hinzufügen.",
+  EMPTY = "Noch nichts protokolliert – seit der Installation zählte noch nichts als Highlight.\n\nWas zählt, steht unter /rq hl. Gildenmitglieder mit Ravenquill erscheinen hier auch.",
   GEAR = "%s  +%d",
   GEAR_EPIC = "%s  (episch)",
   GEAR_FILL = "%s",
