@@ -1215,7 +1215,7 @@ do
   LogOut(fresh)
 end
 
-Kit.section("The chronicle's footer only speaks while 'Nur Highlights' hides entries")
+Kit.section("The chronicle's footer names the activities 'Nur Highlights' hides")
 do
   local c = Character(); c.login(); advance(5)
   c.H:AddTests()
@@ -1228,8 +1228,12 @@ do
     rawget(onlyHL, "_scripts").OnClick(onlyHL)
   end
   Filter(true)
-  check(footer:IsShown() and footer:GetText() == "11 von 13 Einträgen sichtbar",
-    "'Nur Highlights' on: the footer counts the entries in view out of all of them (" .. tostring(footer:GetText()) .. ")")
+  check(footer:IsShown() and footer:GetText() == "2 Aktivitäten ausgeblendet",
+    "'Nur Highlights' on: the footer names the activities it hides, not a second entry count (" .. tostring(footer:GetText()) .. ")")
+  table.remove(c.H.cdb.activity)
+  Filter(true)
+  check(footer:IsShown() and footer:GetText() == "1 Aktivität ausgeblendet",
+    "one hidden activity reads in the singular (" .. tostring(footer:GetText()) .. ")")
   Filter(false)
   check(not footer:IsShown(), "'Nur Highlights' off: every entry is in view, the footer is hidden; the header already counts them")
   c.H.cdb.activity = {}

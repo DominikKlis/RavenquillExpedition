@@ -388,6 +388,10 @@ local function ScrollToFirstNew(m, messages, entry)
   end
 end
 
+local function HiddenText(hidden)
+  return hidden == 1 and L.ONE_HIDDEN or L.N_HIDDEN:format(hidden)
+end
+
 local function RenderLog(self, view, list, hidden)
   local m = view.msg
   local offset = m.GetScrollOffset and m:GetScrollOffset() or 0
@@ -405,7 +409,7 @@ local function RenderLog(self, view, list, hidden)
   end
   view.opening = nil
   view.newest = list[#list]
-  view.footer:SetText(L.FOOTER:format(#list, #list + hidden))
+  view.footer:SetText(HiddenText(hidden))
   view.footer:SetShown(hidden > 0)
 end
 
