@@ -183,6 +183,11 @@ function G:OverviewHeadline()
   return { line = ns.View.Headline() }
 end
 
+function G:OverviewNow()
+  if not self.db then return end
+  return ns.View.NowRows()
+end
+
 G:SetOptions({
   { type = "toggle", key = "announce", label = L.OPT_ANNOUNCE, tooltip = L.OPT_ANNOUNCE_TIP },
 })

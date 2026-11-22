@@ -219,17 +219,18 @@ do
   sched:advance(10)
   check(Head(lyra) == "Hanne Moosgrund sucht für Scharlachrotes Kloster · passt zu dir",
     "still Hanne's after Rika's newer post, which does not fit Lyra: " .. Head(lyra))
-  lyra.RQ:ToggleOverview()
-  local row
-  for _, item in ipairs(lyra.env.RavenquillExpeditionOverview.home.list.items) do
-    if item.title:GetText() == "Gruppensuche" then row = item end
-  end
-  check(row and row.line:GetText() == Head(lyra), "the /rq overview's Gruppensuche row shows it")
-  GK.Click(row)
-  check(lyra.RQ.optionsModule == "Groups" and GK.Shown(lyra.G.page), "clicking the row opens the Gruppensuche page")
   hanne.G:Close()
   sched:advance(10)
   check(Head(lyra) == "Rika Steinbeck sucht für Scholomance", "otherwise the newest dungeon: " .. Head(lyra))
+  lyra.RQ:ToggleOverview()
+  local row
+  for _, item in ipairs(lyra.env.RavenquillExpeditionOverview.home.list.items) do
+    if GK.Shown(item) and item.title:GetText() == "Gruppensuche" then row = item end
+  end
+  check(row and row.line:GetText() == Head(lyra),
+    "with nothing that fits Lyra to sign up for, the /rq home's module row for Gruppensuche shows the headline")
+  GK.Click(row)
+  check(lyra.RQ.optionsModule == "Groups" and GK.Shown(lyra.G.page), "clicking the row opens the Gruppensuche page")
   rika.G:Close()
   sched:advance(10)
   check(Head(lyra):find("^Mira Sturmfeder plant Geschmolzener Kern · %a+ 20:00$"), "otherwise the next raid: " .. Head(lyra))
@@ -245,6 +246,42 @@ do
   rika.G:SignUp("Lyra Distelbach", "dps")
   sched:advance(10)
   check(Head(lyra) == "2 Anmeldungen für dein Gesuch", "two sign-ups: " .. Head(lyra))
+  check(Errors(cs) == "none", "no Lua errors (" .. Errors(cs) .. ")")
+end
+
+section("/rq home: a group that fits you, and sign-ups for yours, are rows in 'Jetzt in der Gilde'")
+do
+  local sched, _, cs, by = Scene()
+  local lyra, hanne, rika = by["Lyra Distelbach"], by["Hanne Moosgrund"], by["Rika Steinbeck"]
+  local function Rows(c)
+    local out = {}
+    for i, r in ipairs(c.G:OverviewNow()) do out[i] = r.title .. ": " .. r.line .. " [" .. r.action .. "]" end
+    return table.concat(out, " | ")
+  end
+  check(Rows(lyra) == "Gruppensuche: Hanne Moosgrund sucht für Scharlachrotes Kloster · passt zu dir [Anmelden]"
+    and lyra.G:OverviewNow()[1].ends == GK.PostOf(lyra, "Hanne Moosgrund").expires,
+    "Lyra gets one row for the post that fits her, with 'Anmelden', ending with the post: " .. Rows(lyra))
+  check(Rows(rika) == "", "Rika has an open post without sign-ups and nothing fits her level: no row")
+  lyra.RQ:ToggleOverview()
+  local home = lyra.env.RavenquillExpeditionOverview.home
+  local card = home.now.items[1]
+  check(card and GK.Shown(card) and card.title:GetText() == "Gruppensuche" and card.open:GetText() == "Anmelden",
+    "the home shows it as a card")
+  GK.Click(card.open)
+  local menu = lyra.menus[1] and GK.Menu(lyra.menus[1].gen, card.open)
+  check(menu and menu[1].text == "Anmelden als" and lyra.menus[1].owner == card.open,
+    "'Anmelden' on the home asks for the role in a menu at the card's button")
+  GK.Pick(menu, "Tank")
+  sched:advance(10)
+  local own = GK.PostOf(hanne, "Hanne Moosgrund")
+  check(own.signups[#own.signups].who == "Lyra Distelbach" and own.signups[#own.signups].role == "tank",
+    "picking Tank signs Lyra up for Hanne's post")
+  lyra.RQ:ShowHome()
+  check(not GK.Shown(card) or card.title:GetText() ~= "Gruppensuche", "signed up, the row goes from Lyra's home")
+  check(Rows(hanne) == "Gruppensuche: Lyra Distelbach hat sich für dein Gesuch angemeldet (Tank) [Ansehen]",
+    "Hanne gets a row for the sign-up: " .. Rows(hanne))
+  hanne.G:OverviewNow()[1].open()
+  check(hanne.RQ.optionsModule == "Groups" and GK.Shown(hanne.G.page), "'Ansehen' opens her Gruppensuche page to invite")
   check(Errors(cs) == "none", "no Lua errors (" .. Errors(cs) .. ")")
 end
 

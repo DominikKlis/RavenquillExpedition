@@ -31,7 +31,7 @@ ns.Locales.enUS = {
   ROLE_WANTED = "%s wanted", ROLE_COUNT = "%s %d/%d",
   FITS = "Fits your level", YOUR_POST = "Your post",
   SIGN_UP = "Sign up", COMMIT = "I'm in", SIGNED_UP = "Signed up", COMMITTED = "You're in", FULL = "Full",
-  SIGN_UP_AS = "Sign up as",
+  SIGN_UP_AS = "Sign up as", NOW_VIEW = "View",
   EDIT = "Edit", CLOSE = "Close", INVITE = "Invite",
   SIGNUP_ROW = "%s · %s", NO_SIGNUPS = "No sign-ups yet.",
 

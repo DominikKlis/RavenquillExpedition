@@ -142,6 +142,35 @@ function V.Headline()
   return L.HEAD_NONE
 end
 
+local function Joinable(p)
+  local a = V.Action(p, GS:PlayerKey(), G:MySignup(p))
+  return a and a.enabled and G:Fits(p) and a or nil
+end
+
+local function SignupsRow(own)
+  local line = OwnHeadline(own)
+  if not line then return nil end
+  return { title = L.TITLE, line = line, action = L.NOW_VIEW, ends = own.expires, open = function() GS:ShowModulePage(G.name) end }
+end
+
+local function JoinRow(others)
+  for _, p in ipairs(others) do
+    local a = Joinable(p)
+    if a then
+      return { title = L.TITLE, line = PostHeadline(p), action = a.label, ends = p.expires,
+        open = function(button) ns.UI.SignUpMenu(button, p) end }
+    end
+  end
+end
+
+function V.NowRows()
+  local out, own = {}, G:OwnPost()
+  for _, row in ipairs({ own and SignupsRow(own) or false, JoinRow(G:OthersPosts()) or false }) do
+    if row then out[#out + 1] = row end
+  end
+  return out
+end
+
 function V.Status(open, online)
   if open == 0 then return L.STATUS_NONE:format(online) end
   if open == 1 then return L.STATUS_ONE:format(online) end

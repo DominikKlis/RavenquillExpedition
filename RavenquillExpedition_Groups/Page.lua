@@ -86,7 +86,7 @@ local function SignupRow(card, i)
   return row
 end
 
-local function OpenMenu(button, p)
+function UI.SignUpMenu(button, p)
   local roles = P.OpenRoles(p)
   if #roles == 1 or not (MenuUtil and MenuUtil.CreateContextMenu) then return G:SignUp(p.poster, roles[1]) end
   GS:Call(MenuUtil.CreateContextMenu, button, function(_, root)
@@ -118,7 +118,7 @@ local function NewCard(parent)
   c.pills, c.rows = {}, {}
   c.tag = NewPill(c.box)
   c.tag:SetPoint("BOTTOMLEFT", SIZE.pad, SIZE.pad + 1)
-  c.action = UI.Button(c.box, SIZE.button, "", function(b) OpenMenu(b, c.data.post) end)
+  c.action = UI.Button(c.box, SIZE.button, "", function(b) UI.SignUpMenu(b, c.data.post) end)
   c.action:SetPoint("BOTTOMRIGHT", -SIZE.pad, SIZE.pad)
   c.close = UI.Button(c.box, SIZE.button, L.CLOSE, function() G:Close() end)
   c.close:SetPoint("BOTTOMRIGHT", -SIZE.pad, SIZE.pad)

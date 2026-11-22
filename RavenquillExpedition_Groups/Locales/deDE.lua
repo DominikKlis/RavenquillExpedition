@@ -31,7 +31,7 @@ ns.Locales.deDE = {
   ROLE_WANTED = "%s gesucht", ROLE_COUNT = "%s %d/%d",
   FITS = "Passt zu deiner Stufe", YOUR_POST = "Dein Gesuch",
   SIGN_UP = "Anmelden", COMMIT = "Zusagen", SIGNED_UP = "Angemeldet", COMMITTED = "Zugesagt", FULL = "Voll",
-  SIGN_UP_AS = "Anmelden als",
+  SIGN_UP_AS = "Anmelden als", NOW_VIEW = "Ansehen",
   EDIT = "Ändern", CLOSE = "Schließen", INVITE = "Einladen",
   SIGNUP_ROW = "%s · %s", NO_SIGNUPS = "Noch keine Anmeldungen.",
 
