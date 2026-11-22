@@ -102,13 +102,12 @@ check(rdb.members["Kim Lee"].time == 9 and rdb.members["Ann Bo"].time == 8 and n
 io.write("== options well-formed\n")
 local opts = mod.options
 check(type(opts) == "table" and #opts > 0, "mod.options is a non-empty list (" .. tostring(opts and #opts) .. " entries)")
-local need = { header = {}, toggle = { "get", "set" }, range = { "get", "set" }, button = { "func" }, text = { "lines" } }
-local bad, counts, byLabel = {}, {}, {}
+local need = { header = {}, note = {}, toggle = { "get", "set" }, range = { "get", "set" }, button = { "func" }, text = { "lines" } }
+local bad, byLabel = {}, {}
 for i, o in ipairs(opts or {}) do
   local req = type(o) == "table" and need[o.type]
   if not req then bad[#bad + 1] = i .. ": type " .. tostring(o and o.type)
   else
-    counts[o.type] = (counts[o.type] or 0) + 1
     if type(o.label) ~= "string" or o.label == "" or o.label:match("^OPT_") then bad[#bad + 1] = i .. ": label " .. tostring(o.label) end
     for _, f in ipairs(req) do if type(o[f]) ~= "function" then bad[#bad + 1] = i .. ": " .. f end end
     if o.tooltip ~= nil and type(o.tooltip) ~= "string" then bad[#bad + 1] = i .. ": tooltip" end
@@ -118,16 +117,22 @@ for i, o in ipairs(opts or {}) do
   end
 end
 check(#bad == 0, "every entry has a known type and its fields (" .. table.concat(bad, "; ") .. ")")
-check(counts.header == 1 and counts.toggle == 1 and counts.range == nil and counts.button == nil and counts.text == nil,
-  string.format("only the sharing header and toggle (%s/%s/%s/%s/%s)", tostring(counts.header), tostring(counts.toggle),
-  tostring(counts.range), tostring(counts.button), tostring(counts.text)))
+do
+  local shown = {}
+  for _, o in ipairs(opts) do shown[#shown + 1] = (o.type == "header" and "# " or "") .. o.label end
+  check(table.concat(shown, " | ") == "# Teilen | Meine Ausrüstung mit der Gilde teilen"
+    .. " | # Ausrüstung einlesen | Gruppe und Ziel automatisch einlesen | Ziel jetzt betrachten | Gruppe jetzt einlesen"
+    .. " | # Bewertung | Levelbonus (Ausdauer/Willenskraft) | Wie viel Ausdauer und Willenskraft beim Leveln zählen."
+    .. " | # Angebote | Flüstertext bearbeiten…",
+    "/rq craft holds every Craft setting in four groups: " .. table.concat(shown, " | "))
+end
 local missingOpt = {}
 for k in pairs(ns.missingL) do if k:match("^OPT_") then missingOpt[#missingOpt + 1] = k end end
 check(#missingOpt == 0, "no missing OPT_ locale key (" .. table.concat(missingOpt, ", ") .. ")")
 check(opts[1].label == "Teilen" and opts[2].label == "Meine Ausrüstung mit der Gilde teilen"
   and not byLabel["Gespeicherte Ausrüstung vergessen"] and not byLabel["Ravenquill-Minimap-Knopf neu platzieren"]
   and not byLabel["Fenster öffnen"] and GCA.openLabel == "Berater",
-  "German labels (deDE client): only sharing, no reset (it lives in the dev tools), the card opens the 'Berater'")
+  "German labels (deDE client): no reset (it lives in the dev tools), the card opens the 'Berater'")
 for _, o in ipairs(opts) do if o.disabled then local ok = pcall(o.disabled); check(ok, "disabled() runs: " .. o.label) end end
 
 io.write("== toggles round-trip on db.settings\n")
@@ -156,7 +161,69 @@ GCA:ForgetStoredGear()
 check(GCA.db.members["Probe Person"] == nil and GCA.db.members[GCA.playerKey] ~= nil,
   "forgetting stored gear wipes every guildmate and reads your own gear again")
 
-io.write("== leveling bonus (window filter menu)\n")
+io.write("== /rq craft: every option drives the real setting\n")
+RQ:OpenModule("Craft")
+local panel = env.RavenquillExpeditionOverview and env.RavenquillExpeditionOverview.optView.panels.Craft
+check(panel and RQ.optionsModule == "Craft" and RQ.moduleSettings and #panel.controls == #opts,
+  "/rq craft opens the Craft options page with one control per option")
+local function control(label)
+  for i, o in ipairs(opts) do if o.label == label then return panel.controls[i] end end
+  return { _scripts = { OnClick = function() end }, SetChecked = function() end, plus = { _scripts = { OnClick = function() end } },
+    minus = { _scripts = { OnClick = function() end } }, value = {} }
+end
+local function tick(label, on)
+  local box = control(label)
+  box:SetChecked(on)
+  box._scripts.OnClick(box)
+end
+local function chatAfterClick(label)
+  local from, out = #me.printed, {}
+  local b = control(label)
+  b._scripts.OnClick(b)
+  for i = from + 1, #me.printed do out[#out + 1] = me.printed[i].text end
+  return table.concat(out, "\n")
+end
+tick(ns.L.OPT_SHARE_GEAR, false)
+local syncOff, stateOff = s.sync, GCA:SyncState()
+tick(ns.L.OPT_SHARE_GEAR, true)
+check(syncOff == false and stateOff == "off" and s.sync == true and GCA:SyncState() ~= "off",
+  "the sharing box turns guild sync off and on again (" .. tostring(stateOff) .. " -> " .. tostring(GCA:SyncState()) .. ")")
+tick(ns.L.OPT_AUTO_INSPECT, false)
+local autoOff, _, whyOff = s.autoInspect, GCA:AutoInspectCheck("target")
+tick(ns.L.OPT_AUTO_INSPECT, true)
+local _, whyOn = GCA:AutoInspectCheck("target")
+check(autoOff == false and whyOff == "off" and s.autoInspect == true and whyOn ~= "off",
+  "the auto-read box stops and resumes reading the target's gear on its own (" .. tostring(whyOff) .. " -> " .. tostring(whyOn) .. ")")
+check(chatAfterClick(ns.L.OPT_INSPECT_NOW):find("Betrachte Buddy Stone", 1, true),
+  "'Ziel jetzt betrachten' reads the target's gear now")
+check(chatAfterClick(ns.L.OPT_SCAN_NOW):find("1 Gildenmitglieder zum Betrachten eingereiht", 1, true),
+  "'Gruppe jetzt einlesen' queues the guild member in your group")
+do
+  local function addedWeight(e)
+    local sum = 0
+    for _, v in pairs(e.set.source.plan and e.set.source.plan.added or {}) do sum = sum + v end
+    return sum
+  end
+  local bonus = control("Levelbonus (Ausdauer/Willenskraft)")
+  GCA:SetSurvival(50)
+  local half = GCA:WeightSetFor("ROGUE", "COMBAT", 30)
+  bonus.plus._scripts.OnClick()
+  local more = GCA:WeightSetFor("ROGUE", "COMBAT", 30)
+  check(bonus.value._text == "75 %" and math.abs(s.survival - 0.75) < 1e-9 and addedWeight(more) > addedWeight(half)
+    and GCA:SourceLine(more):find("Levelbonus 75%", 1, true),
+    "the leveling bonus '+' goes 50 % -> 75 %: more survival weight in the scores, the source line says so: " .. GCA:SourceLine(more))
+  for _ = 1, 4 do bonus.minus._scripts.OnClick() end
+  local none = GCA:WeightSetFor("ROGUE", "COMBAT", 30)
+  check(bonus.value._text == "0 %" and s.survival == 0 and addedWeight(none) == 0,
+    "four steps of '-' end at 0 %: no survival weight at all (" .. tostring(bonus.value._text) .. ")")
+  GCA:SetSurvival(50)
+end
+check(GCA.UI.whisperEditor == nil or not GCA.UI.whisperEditor:IsShown(), "precondition: the whisper editor is closed")
+chatAfterClick(ns.L.EDIT_WHISPER)
+check(GCA.UI.whisperEditor and GCA.UI.whisperEditor:IsShown(), "'Flüstertext bearbeiten…' opens the offer whisper editor")
+if GCA.UI.whisperEditor then GCA.UI.whisperEditor:Hide() end
+
+io.write("== leveling bonus (GCA:SetSurvival)\n")
 local inval, realInval = 0, GCA.InvalidateScores
 GCA.InvalidateScores = function(self, ...) inval = inval + 1; return realInval(self, ...) end
 GCA:SetSurvival(25)

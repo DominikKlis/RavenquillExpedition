@@ -74,10 +74,31 @@ function GCA:ForgetStoredGear()
   self:RefreshUI()
 end
 
+local function Action(label, func)
+  return { type = "button", label = L[label], tooltip = L[label .. "_TIP"], func = func }
+end
+
+local function LevelingBonus(stamina, spirit)
+  return { type = "range", label = string.format(L.SLIDER_TIP_TITLE, stamina, spirit),
+    tooltip = string.format(L.SLIDER_TIP, stamina, spirit), min = 0, max = 100, step = 25, format = "%d %%",
+    get = function() return math.floor(GCA:SurvivalShare() * 100 + 0.5) end,
+    set = function(v) GCA:SetSurvival(v) end }
+end
+
 function GCA:BuildOptions()
+  local stamina, spirit = GCA.G("SPELL_STAT3_NAME"), GCA.G("SPELL_STAT5_NAME")
   return {
     { type = "header", label = L.OPT_H_SYNC },
-    SettingToggle("sync", "OPT_SHARE_GEAR", "FILTER_SYNC_TIP"),
+    SettingToggle("sync", "OPT_SHARE_GEAR", "OPT_SHARE_GEAR_TIP"),
+    { type = "header", label = L.OPT_H_INSPECT },
+    SettingToggle("autoInspect", "OPT_AUTO_INSPECT", "OPT_AUTO_INSPECT_TIP"),
+    Action("OPT_INSPECT_NOW", function() GCA:InspectTarget() end),
+    Action("OPT_SCAN_NOW", function() GCA:ScanGroup() end),
+    { type = "header", label = L.OPT_H_SCORING },
+    LevelingBonus(stamina, spirit),
+    { type = "note", label = string.format(L.OPT_LEVEL_BONUS_NOTE, stamina, spirit) },
+    { type = "header", label = L.OPT_H_OFFERS },
+    Action("EDIT_WHISPER", function() GCA.UI:OpenWhisperEditor() end),
   }
 end
 

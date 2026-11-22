@@ -368,7 +368,10 @@ do
   check(s.survival == 0.25, "the window's slider applies 25 % after its debounce: " .. tostring(s.survival))
   local rqSurvival
   for _, o in ipairs(GCA.options) do if o.type == "range" then rqSurvival = o end end
-  check(rqSurvival == nil, "the leveling weight lives only in the window, not in /rq")
+  rqSurvival.set(75)
+  UIx:Refresh()
+  check(s.survival == 0.75 and rqSurvival.get() == 75 and UIx.survival.slider._value == 75,
+    "the /rq leveling bonus writes through SetSurvival and the window's slider follows: " .. tostring(UIx.survival.slider._value))
   local owed = 0
   GCA.CheckOwn = function() owed = owed + 1 end
   s.sync = false
