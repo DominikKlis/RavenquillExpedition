@@ -16,6 +16,7 @@ local ACTIONS = {
   { id = "T", say = "the server starts or stops throttling SendAddonMessage (returns 3)" },
   { id = "L", say = "guild chat starts or stops losing our messages (no echo comes back)" },
   { id = "F", say = "another addon sends a guild addon message" },
+  { id = "H", say = "a guildmate announces its version (the core answers once, jittered)" },
   { id = "t1", say = "1 s pass", dt = 1 },
   { id = "t5", say = "5 s pass", dt = 5 },
   { id = "t40", say = "40 s pass", dt = 40 },
@@ -29,7 +30,9 @@ for _, a in ipairs(ACTIONS) do BY_ID[a.id] = a end
 
 local function NewWorld(reenter)
   local sched, bus = Kit.Setup()
-  local c = Kit.Client(sched, bus, ME)
+  local c = Kit.Client(sched, bus, ME, { random = Kit.Random(7), setup = function(env)
+    env.C_AddOns.GetAddOnMetadata = function(_, field) if field == "Version" then return "0.10.0-beta" end end
+  end })
   c.login()
   sched:advance(5)
   local mod = c.RQ:NewModule("Verify", { addon = "Verify" })
@@ -112,6 +115,7 @@ local DO = {
   T = function(w) Toggle(w, "throttle") end,
   L = function(w) w.lossy = not w.lossy end,
   F = function(w) w.c.env.C_ChatInfo.SendAddonMessage("OtherAddon", "x", "GUILD") end,
+  H = function(w) w.c.fire("CHAT_MSG_ADDON", "RQE1", "V;1;v;0.10.0-beta", "GUILD", "Bert Hill-Realm") end,
 }
 
 local function Step(w, id)

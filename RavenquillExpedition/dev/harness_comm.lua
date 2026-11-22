@@ -448,7 +448,7 @@ check(new.RQ.NewerVersion("0.10.0", "0.9.9") and new.RQ.NewerVersion("1.0.0", "1
   "release order: numbers compare as numbers, a plain release beats its -alpha / -beta")
 check(not new.RQ.NewerVersion("dev", "0.1.0") and not new.RQ.NewerVersion("0.1.0", "dev") and not new.RQ.IsRelease("dev")
   and not new.RQ.IsRelease("") and new.RQ.IsRelease("0.9.2-beta"), "a dev build is neither newer nor older than anything")
-local function Beacons(onBus, who) return onBus:sentBy(who, function(e) return e.prefix == "RQE1" and e.msg:find("^V;") ~= nil end) end
+local function Beacons(onBus, who) return onBus:sentBy(who, function(e) return e.prefix == "RQE1" and e.msg:find("^V;1;v;") ~= nil end) end
 local function Count(c, needle)
   local hits = 0
   for _, line in ipairs(c.printed) do if line.text:find(needle, 1, true) then hits = hits + 1 end end

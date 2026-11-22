@@ -236,6 +236,7 @@ local function OnPlayerLogin()
   GS:RequestRoster()
   GS:Call(GS.PrunePeers, GS)
   GS:Call(GS.OnLoginComm, GS)
+  GS:Call(GS.OnLoginPresence, GS)
   EachModule(function(m)
     if m.db and m.loginMigrations then GS:Call(Migrate, m, m.db, m.cdb, m.loginMigrations, "vLogin") end
   end)

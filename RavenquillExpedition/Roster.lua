@@ -30,12 +30,14 @@ function GS:ReadRoster()
   if n > 0 then
     self.roster, rosterCount, rosterOffline = roster, n, offline
     onlineCountAt = nil
+    ns.NoteOnline(roster)
   end
   rosterRead = GetTime()
 end
 
 function ns.ForgetRoster()
   GS.roster, rosterCount, rosterOffline, onlineCountAt = {}, nil, nil, nil
+  ns.ForgetPresence()
 end
 
 function GS:IsGuildMember(key)
@@ -148,7 +150,9 @@ function GS:OverviewVersionLine()
 end
 
 function GS:NotePeer(key)
-  local peers = key and self:Peers()
+  if not key then return end
+  ns.NoteHeard(key)
+  local peers = self:Peers()
   if peers then peers[key] = self:Now() end
 end
 

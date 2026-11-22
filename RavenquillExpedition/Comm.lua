@@ -25,6 +25,7 @@ local C = {
   STATE_MAX_60 = 10,
   STARVE = 30,
   VERSION_DELAY = 30, VERSION_JITTER = 60, VERSION_RETRY = 60,
+  REPLY_JITTER = 60, REPLY_WINDOW = 150,
 }
 GS.CommConst = C
 
@@ -499,24 +500,9 @@ function GS:CommStatus()
     self:InInstance() and ", |cffff8800paused (instance)|r" or "", S.slow and ", |cffff8800slow (no echo)|r" or "")
 end
 
-local versionChannel = ns.ModuleProto.NewChannel({ name = "core" }, { tag = "V" })
-versionChannel:Define("v", { fields = { { "ver", "text", 24 } } })
-versionChannel:On("v", function(sender, msg) GS:NotePeerVersion(sender, msg.ver) end)
-
-local function AnnounceVersion()
-  versionChannel:Send("v", { ver = GS.version }, { onResult = function(status)
-    if status == "dropped" then C_Timer.After(C.VERSION_RETRY, function() GS:Call(AnnounceVersion) end) end
-  end })
-end
-
 function GS:OnLoginComm()
   RegisterPrefix(PREFIX)
   for _, raw in pairs(S.prefixes) do raw.prefixOk = RegisterPrefix(raw.prefix) end
-  if not GS.IsRelease(self.version) then return end
-  C_Timer.After(C.VERSION_DELAY + math.random() * C.VERSION_JITTER, function()
-    GS:Call(GS.CheckPeerVersions, GS)
-    GS:Call(AnnounceVersion)
-  end)
 end
 
 if hooksecurefunc and C_ChatInfo and C_ChatInfo.SendAddonMessage then
