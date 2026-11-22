@@ -273,6 +273,45 @@ do
 
 end
 
+Kit.section("A /reload keeps the call")
+do
+  local sched, bus, A, B, Cc = Guild()
+  A.M:CallRally()
+  sched:advance(10)
+  Click(B, "action")
+  sched:advance(10)
+  B.online = false
+  local saved = B.env.RavenquillExpeditionMapDB
+  local mine = type(saved.rallies) == "table" and saved.rallies["Bert Beta"]
+  local valid = mine and mine["Anna Alpha"]
+  check(type(valid) == "table", "Bert's running call is in his saved variables")
+  if valid then
+    mine["Eve Broken"] = { key = "Eve Broken", state = "active", id = "soon" }
+    mine["Ole Old"] = { key = "Ole Old", caller = "Ole Old", state = "active", id = valid.id - 900, mapID = 1429, x = 0.5,
+      y = 0.5, label = "", expires = valid.id, base = 0, since = {} }
+    mine["Mia Odd"] = { key = "Mia Odd", caller = "Mia Odd", state = "active", id = valid.id, mapID = 1429, x = 0.5,
+      y = 0.5, label = "", expires = valid.expires, base = 0, since = {}, reached = "all" }
+  end
+  local B2 = Client(sched, bus, "Bert Beta", { pos = { 1429, 0.60, 0.60 }, locale = "deDE", saved = saved })
+  B2.login()
+  sched:advance(3)
+  check(Notice(B2) == "Sammelruf | Anna Alpha: Schwarzfelsspitze | Map1429 · 1 unterwegs · noch 15 min | Unterwegs (grey) | -",
+    "after a reload Bert still has the call, his answer and the count: " .. Notice(B2))
+  check(B2.M.rallies["Eve Broken"] == nil and B2.M.rallies["Ole Old"] == nil and B2.M.rallies["Mia Odd"] == nil
+    and B2.M.rallies["Anna Alpha"] ~= nil, "saved calls that are damaged or already over are dropped on load")
+  local keys = {}
+  for k in pairs(saved) do keys[#keys + 1] = k end
+  table.sort(keys)
+  check(table.concat(keys, ",") == "noticeShown,rallies,settings,v", "only the running call is saved: " .. table.concat(keys, ","))
+  sched:advance(900)
+  local afterKeys = {}
+  for k in pairs(B2.env.RavenquillExpeditionMapDB) do afterKeys[#afterKeys + 1] = k end
+  table.sort(afterKeys)
+  check(table.concat(afterKeys, ",") == "noticeShown,settings,v", "once it ended nothing is left in the saved variables")
+  NoErrors({ A, B2, Cc }, "reload")
+
+end
+
 Kit.section("Bad rally messages")
 do
   local _, _, A, B, Cc = Guild()

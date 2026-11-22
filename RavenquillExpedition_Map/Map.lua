@@ -337,6 +337,7 @@ end
 function M:OnLogin()
   self:Wake()
   self:After(self.C.NOTICE_DELAY, function() self:MaybeNotice() end)
+  if self.LoadRallies then self:LoadRallies() end
   self:Refresh()
   self:SyncLogin()
 end

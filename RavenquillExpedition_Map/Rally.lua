@@ -193,6 +193,47 @@ function M:ShownRallies()
   return out
 end
 
+local SAVED = { key = "string", caller = "string", id = "number", mapID = "number", x = "number", y = "number",
+  label = "string", expires = "number", base = "number", since = "table" }
+local SAVED_OPTIONAL = { reached = "table", sentAt = "number", resendAt = "number", joined = "boolean", dismissed = "boolean" }
+
+local function Typed(r, spec, optional)
+  for field, typ in pairs(spec) do
+    local v = r[field]
+    if not (optional and v == nil) and type(v) ~= typ then return false end
+  end
+  return true
+end
+
+local function Intact(key, r, now)
+  if type(r) ~= "table" or r.key ~= key or not NEXT[r.state] or r.state == "none" then return false end
+  return Typed(r, SAVED) and Typed(r, SAVED_OPTIONAL, true) and now < r.expires
+end
+
+local function Pruned(saved, now)
+  local out = {}
+  for key, r in pairs(type(saved) == "table" and saved or {}) do
+    if Intact(key, r, now) then out[key] = r end
+  end
+  return next(out) and out or nil
+end
+
+local function SaveRallies(self)
+  local me = Me()
+  if not (self.db and me) then return end
+  local all = type(self.db.rallies) == "table" and self.db.rallies or {}
+  all[me] = next(self.rallies) and self.rallies or nil
+  self.db.rallies = next(all) and all or nil
+end
+
+function M:LoadRallies()
+  local now, all = GS:Now(), {}
+  for char, saved in pairs(type(self.db.rallies) == "table" and self.db.rallies or {}) do all[char] = Pruned(saved, now) end
+  self.db.rallies = all
+  self.rallies = all[Me() or ""] or {}
+  self:RallyChanged()
+end
+
 function M:ForgetRallies()
   wipe(self.rallies)
   self:RallyChanged()
@@ -205,6 +246,7 @@ end
 
 function M:RallyChanged()
   if not self.settings then return end
+  SaveRallies(self)
   self:RefreshRally()
   self:Wake()
 end
