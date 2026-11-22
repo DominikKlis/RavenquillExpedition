@@ -65,7 +65,8 @@ function Kit.Scheduler(opts)
 end
 
 function Kit.Bus(sched)
-  local b = { sched = sched, clients = {}, log = {}, latency = 1, roster = {} }
+  local b = { sched = sched, clients = {}, log = {}, latency = 1, roster = {},
+    ranks = { { name = "Gildenmeister", officer = true }, { name = "Offizier", officer = true }, { name = "Mitglied" } } }
   function b.drop() return false end
   function b:send(client, prefix, msg, chat)
     self.log[#self.log + 1] = { t = self.sched.t, sender = client.name, prefix = prefix, msg = msg, chat = chat }
@@ -86,6 +87,17 @@ function Kit.Bus(sched)
   end
   function b:setOnline(name, online)
     for _, r in ipairs(self.roster) do if r.name == name then r.online = online end end
+  end
+  function b:setRank(name, rank)
+    for _, r in ipairs(self.roster) do if r.name == name then r.rank = rank end end
+  end
+  function b:rankFlags(order)
+    local rank = self.ranks[order]
+    if not rank then return {} end
+    local flags = {}
+    for i = 1, 21 do flags[i] = false end
+    flags[1], flags[2], flags[3], flags[4] = true, true, rank.officer == true, rank.officer == true
+    return flags
   end
   function b:count(pred)
     local n = 0
@@ -277,12 +289,15 @@ local function InstallPlayer(env, c, sched, bus, name, opts)
       return 0
     end,
   }
-  env.C_GuildInfo = { GuildRoster = function() sched:at(sched.t + 1, function() if c.online then c.fire("GUILD_ROSTER_UPDATE") end end) end }
+  env.C_GuildInfo = { GuildRoster = function() sched:at(sched.t + 1, function() if c.online then c.fire("GUILD_ROSTER_UPDATE") end end) end,
+    GuildControlGetRankFlags = function(order) return bus and bus:rankFlags(order) or {} end }
   env.GetNumGuildMembers = function() return bus and #bus.roster or 0 end
   env.GetGuildRosterInfo = function(i)
     local r = bus and bus.roster[i]
     if not r then return end
-    return r.name .. "-" .. c.realm, "Member", 1, r.level, r.class, r.zone, "", "", r.online, 0, r.class
+    local rank = r.rank or 2
+    local rankName = bus.ranks[rank + 1] and bus.ranks[rank + 1].name or "Rang"
+    return r.name .. "-" .. c.realm, rankName, rank, r.level, r.class, r.zone, "", "", r.online, 0, r.class
   end
   env.C_AddOns = { GetAddOnMetadata = function() return "dev" end, IsAddOnLoaded = function() return true end,
     GetAddOnInfo = function(n) return n, n, "", true, nil end }

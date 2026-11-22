@@ -17,13 +17,13 @@ function GS:ReadRoster()
   local n = Plain(SafeCall(GetNumGuildMembers), "number") or 0
   local roster, offline = {}, 0
   for i = 1, n do
-    local name, _, _, level, _, zone, _, _, online, _, classFile = SafeCall(GetGuildRosterInfo, i)
+    local name, _, rank, level, _, zone, _, _, online, _, classFile = SafeCall(GetGuildRosterInfo, i)
     local key = self:NormName(name)
     if key then
       local on = Plain(online) and true or false
       zone = Plain(zone, "string")
       roster[key] = { level = Plain(level, "number"), class = Plain(classFile, "string"), online = on,
-        zone = zone ~= "" and zone or nil }
+        zone = zone ~= "" and zone or nil, rank = Plain(rank, "number") }
       if not on then offline = offline + 1 end
     end
   end
@@ -56,6 +56,22 @@ function GS:RosterEntry(key)
 end
 
 function GS:RosterReadAt() return rosterRead end
+
+local OFFICER_CHAT_LISTEN = 3
+
+local function RankReadsOfficerChat(rank)
+  local get = C_GuildInfo and C_GuildInfo.GuildControlGetRankFlags
+  local flags = get and SafeCall(get, rank + 1)
+  return type(flags) == "table" and GS.Bool(flags[OFFICER_CHAT_LISTEN])
+end
+
+function GS:IsOfficer(key)
+  if not next(self.roster) then return nil end
+  local e = self:RosterEntry(key)
+  local rank = e and e.rank
+  if not rank then return false end
+  return rank == 0 or RankReadsOfficerChat(rank)
+end
 
 function GS:RosterComplete()
   return next(self.roster) ~= nil, rosterCount or 0, rosterOffline or 0
