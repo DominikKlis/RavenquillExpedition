@@ -20,7 +20,7 @@ UI.RowCtx = RowCtx
 
 local function HideTip() GameTooltip_Hide() end
 
-local CRAFTED_BOX, CRAFTED_GAP = 22, 4
+local CRAFTED_BOX, CRAFTED_GAP, CRAFTED_TAIL = 22, 4, 6
 
 local function LayoutRight(b, showOffer, showCheck, gainY)
   b.offer:ClearAllPoints()
@@ -108,7 +108,7 @@ local function SetCraft(cb, d, shown, mark)
   cb.label:SetText(on and text or (C.muted .. text .. "|r"))
   local labelW = TextWidth(cb.label)
   cb.label:SetWidth(labelW)
-  cb.trailW = CRAFTED_GAP + labelW
+  cb.trailW = CRAFTED_GAP + labelW + CRAFTED_TAIL
   if cb.SetHitRectInsets then cb:SetHitRectInsets(0, -cb.trailW, 0, 0) end
   cb:SetChecked(on)
   cb:SetShown(shown)

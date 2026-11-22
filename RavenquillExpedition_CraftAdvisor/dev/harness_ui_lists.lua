@@ -132,8 +132,10 @@ local function CraftedParts(row, rowW)
   return RowRect(row.crafted, row, rowW), label, RowRect(row.offer, row, rowW)
 end
 
+local LABEL_TO_BUTTON_GAP = 10
+
 local function LabelBetweenBoxAndOffer(box, label, offer)
-  return label ~= NO_RECT and box.r < label.l and label.r <= offer.l
+  return label ~= NO_RECT and box.r < label.l and offer.l - label.r >= LABEL_TO_BUTTON_GAP
 end
 
 do
@@ -147,7 +149,7 @@ do
   check(card.crafted._shown and LabelOf(card.crafted):IsVisible() and plain(LabelOf(card.crafted)._text) == "Crafted"
     and LabelBetweenBoxAndOffer(cbox, clabel, coffer) and RowRect(card.gain, card, UIx.sugList.viewW).r <= cbox.l
     and RowRect(card.title, card, UIx.sugList.viewW).r <= RowRect(card.gain, card, UIx.sugList.viewW).l,
-    "member list: 'Crafted' beside its box, between the gain and 'Offer', the title clear of them " .. rstr(cbox) .. rstr(clabel) .. rstr(coffer))
+    "member list: 'Crafted' beside its box, between the gain and 'Offer' (a gap before the button), the title clear of them " .. rstr(cbox) .. rstr(clabel) .. rstr(coffer))
   check(LabelOf(card.crafted)._text == MUTED .. "Crafted|r" and not card.crafted._checked, "unticked: the label is grey")
   local spell = card.data.cand.spellID
   card.crafted:SetChecked(true); card.crafted._scripts.OnClick(card.crafted)
@@ -162,7 +164,7 @@ do
   local slabel = c.crafted.label and rectOf(c.crafted.label, UIx.frame) or NO_RECT
   check(c.crafted._shown and LabelOf(c.crafted):IsVisible() and LabelOf(c.crafted)._text == MUTED .. "Crafted|r"
     and LabelBetweenBoxAndOffer(sbox, slabel, soffer),
-    "character sheet: the same grey 'Crafted' label beside its box, left of 'Offer' " .. rstr(sbox) .. rstr(slabel) .. rstr(soffer))
+    "character sheet: the same grey 'Crafted' label beside its box, a gap before 'Offer' " .. rstr(sbox) .. rstr(slabel) .. rstr(soffer))
   spell = c.featured.cand.spellID
   c.crafted:SetChecked(true); c.crafted._scripts.OnClick(c.crafted)
   check(GCA:CraftedMark("Hanne Moosgrund", "Leatherworking", spell) ~= nil and LabelOf(UIx.sheet.centre.crafted)._text == "Crafted",

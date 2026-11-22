@@ -337,7 +337,7 @@ function Place.Actions(c, pad, y)
   local right = pad
   c.offer:ClearAllPoints()
   c.offer:SetPoint("TOPRIGHT", c, "TOPRIGHT", -right, -y)
-  if c.offer:IsShown() then right = right + SHEET_OFFER_W + 14 end
+  if c.offer:IsShown() then right = right + SHEET_OFFER_W + 8 end
   c.crafted:ClearAllPoints()
   c.crafted:SetPoint("TOPRIGHT", c, "TOPRIGHT", -(right + c.crafted.trailW), -y)
   if c.crafted:IsShown() then right = right + c.crafted.fullW + 4 end
