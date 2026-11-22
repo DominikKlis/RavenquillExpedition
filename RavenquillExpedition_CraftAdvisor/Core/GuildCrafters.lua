@@ -15,7 +15,7 @@ local function CraftSection(itemID)
   return rule and SECTION_OF[rule.slots[1]]
 end
 
-local function Recipe(self, prof, spellID)
+function GCA:RecipeRow(prof, spellID)
   local r = self:RecipeTable(prof)[spellID]
   if r then
     return { spellID = spellID, prof = prof, kind = "craft", name = r.name, itemID = r.item, skill = r.skill or 0, regs = r.r or EMPTY,
@@ -30,7 +30,7 @@ end
 
 local function KnownRecipes(self, prof, ids)
   local out = {}
-  for _, id in ipairs(ids) do out[#out + 1] = Recipe(self, prof, id) end
+  for _, id in ipairs(ids) do out[#out + 1] = self:RecipeRow(prof, id) end
   return out
 end
 
