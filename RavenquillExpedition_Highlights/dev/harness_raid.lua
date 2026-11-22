@@ -291,4 +291,252 @@ do
   check(#mira.H:Issues() == 0, "the paper has no issue made of a tick alone (" .. #mira.H:Issues() .. ")")
 end
 
+local Layout = dofile(DEV .. "layout.lua")
+
+local function ViewWorld(locale, level)
+  local w = NewWorld()
+  local lyra = w.join("Lyra Distelbach", { class = "MAGE", locale = locale, level = level, setup = function(env, c)
+    Layout.Install(c)
+    Layout.Pin(env.UIParent, 0, 0, 1920, 1080)
+    local fm = c.frameMethods
+    fm.Disable = function(s) s._disabled = true end
+    fm.Enable = function(s) s._disabled = false end
+    fm.IsEnabled = function(s) return not s._disabled end
+    fm.SetTextColor = function(s, r, g, b) s._ink = { r, g, b } end
+    fm.Hide = function(s) s._off = true; Kit.FrameMethods.Hide(s) end
+    fm.Show = function(s) s._off = nil; Kit.FrameMethods.Show(s) end
+    fm.SetShown = function(s, on) if on then s:Show() else s:Hide() end end
+  end })
+  Guild(w, lyra)
+  return w, lyra
+end
+
+local PAGE_W, PAGE_H = 632, 480
+
+local function Page(c)
+  c.RQ:ShowModulePage("Highlights")
+  local page = c.env.RavenquillExpeditionOverview.optView.pages.Highlights
+  Layout.Pin(page, 600, 300, PAGE_W, PAGE_H)
+  return page
+end
+
+local function Click(b) b._scripts.OnClick(b) end
+
+local function Plain(s)
+  return (tostring(s or ""):gsub("|T[^|]*ReadyCheck%-Ready[^|]*|t", "✔"):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+end
+
+local function Under(region, root)
+  while region and region ~= root do
+    if region._off then return false end
+    region = region._parent
+  end
+  return region == root
+end
+
+local function TableRows(view)
+  local rows, at = {}, {}
+  for i, d in ipairs(view.list.data or {}) do at[d] = i end
+  for _, r in ipairs(view.list.content._children) do
+    if r._shown and r.row and at[r.row] then
+      local line = { Plain(r.name._text), Plain(r.level._text) }
+      for _, cell in ipairs(r.cells) do line[#line + 1] = Plain(cell._text) end
+      rows[at[r.row]] = table.concat(line, " | ")
+    end
+  end
+  return rows
+end
+
+local function Heads(view)
+  local out = {}
+  for i, b in ipairs(view.heads) do out[i] = Plain(b.label._text) .. (b.underline._shown and "*" or "") end
+  return table.concat(out, " | ")
+end
+
+local function PlaceRows(view)
+  local r, at = Layout.Rect(view.list), {}
+  for i, d in ipairs(view.list.data or {}) do at[d] = i end
+  for _, row in ipairs(view.list.content._children) do
+    local i = row._shown and at[row.row]
+    if i then Layout.Pin(row, r.left, r.top - i * 20, r.width, 20) end
+  end
+end
+
+local function OnScreen(c, page)
+  local list, out = Layout.Rect(page.raid.list), {}
+  for _, fs in ipairs(c.regions) do
+    if fs._type == "FontString" and (fs._text or "") ~= "" and Under(fs, page.raid) then
+      local r = Layout.Rect(fs)
+      local scrolledAway = r and Under(fs, page.raid.list) and r.top <= list.bottom + 0.5
+      if not scrolledAway then out[#out + 1] = fs end
+    end
+  end
+  return out
+end
+
+local function Overlap(a, b)
+  return a.left < b.right - 0.5 and b.left < a.right - 0.5 and a.bottom < b.top - 0.5 and b.bottom < a.top - 0.5
+end
+
+local function Misfits(c, page)
+  local pr, texts, out = Layout.Rect(page), OnScreen(c, page), {}
+  for i, fs in ipairs(texts) do
+    local r = Layout.Rect(fs)
+    local bad = not (r and Layout.Inside(pr, r)) or Layout.Truncated(fs)
+    for j = i + 1, #texts do bad = bad or (r and Overlap(r, Layout.Rect(texts[j]))) end
+    if bad then out[#out + 1] = Plain(fs._text):sub(1, 40) end
+  end
+  return out, #texts
+end
+
+local function Below(upper, lower)
+  local a, b = Layout.Rect(upper), Layout.Rect(lower)
+  return a and b and a.bottom >= b.top - 0.5
+end
+
+Kit.section("View: the Highlights page switches between Chronik and Raidbereitschaft, the header buttons stay")
+do
+  local _, lyra = ViewWorld("deDE")
+  local page = Page(lyra)
+  local opt = lyra.env.RavenquillExpeditionOverview.optView
+  check(Plain(page.links[1].label._text) == "Chronik" and Plain(page.links[2].label._text) == "Raidbereitschaft"
+    and not page.raid._shown and page.links[1].underline._shown and not page.links[2].underline._shown,
+    "the page opens on the Chronik, both views offered")
+  Click(page.links[2])
+  check(page.raid._shown and not page.msg._shown and not page.onlyHL._shown and page.links[2].underline._shown
+    and not page.links[1].underline._shown, "Raidbereitschaft swaps the log for the table")
+  check(opt.openWindow._shown and opt.openWindow:GetText() == "Zeitung öffnen" and opt.gear:GetText() == "Einstellungen",
+    "the header keeps 'Zeitung öffnen' and 'Einstellungen'")
+  Click(page.links[1])
+  check(page.msg._shown and page.onlyHL._shown and not page.raid._shown, "Chronik brings the log back")
+  check(#lyra.errors == 0, "no Lua errors (" .. tostring(lyra.errors[1]) .. ")")
+end
+
+local TABLE_DE = {
+  "Mira Sturmfeder | 60 | ✔ | ✔ | 1 von 2",
+  "Rika Steinbeck | 58 | ✔ | 2 von 3 | –",
+  "Tamo Eichengrund | 57 | – | ✔ | –",
+  "Lyra Distelbach | 60 | – | – | –",
+  "Bodo Kesselring | 56 | – | – | –",
+}
+
+Kit.section("View: the table and the summary read as the guild's readiness, and every text fits (deDE)")
+do
+  local _, lyra = ViewWorld("deDE")
+  local page = Page(lyra)
+  Click(page.links[2])
+  local view = page.raid
+  PlaceRows(view)
+  local rows = TableRows(view)
+  for i = 1, math.max(#rows, #TABLE_DE) do check(rows[i] == TABLE_DE[i], ("row %d: %s"):format(i, tostring(rows[i]))) end
+  check(Heads(view) == "Gesch. Kern* | Onyxia | Pechschwingen", "the raid columns, Molten Core summed up (" .. Heads(view) .. ")")
+  check(Plain(view.hidden._text) == "Nicht gelistet: 1 unter Stufe 55 · 1 ohne Ravenquill", "the footnote: " .. Plain(view.hidden._text))
+  check(view.head._text == "Bereit für den Gildenraid: Geschmolzener Kern" and view.bar.text._text == "2 eingestimmt · 0 fast",
+    "summary: " .. tostring(view.head._text) .. " / " .. tostring(view.bar.text._text))
+  local missing = Plain(view.missing._text)
+  check(missing == "Tamo Eichengrund fehlt noch: Kernfragment aus den Schwarzfelstiefen.\n"
+    .. "Lyra Distelbach fehlt noch: Kernfragment aus den Schwarzfelstiefen.\n"
+    .. "Bodo Kesselring fehlt noch: Kernfragment aus den Schwarzfelstiefen.", "each missing member with the next step: " .. missing)
+  check(view.bar.done._shown and not view.bar.almost._shown and math.abs(view.bar.done._w - 360 * 2 / 5) < 0.01,
+    "the bar fills two fifths green, nothing amber")
+  local misfits, seen = Misfits(lyra, page)
+  check(#misfits == 0 and seen >= 39, ("all %d texts lie inside the page, none cut or overlapping (%s)"):format(seen, table.concat(misfits, " / ")))
+  check(Below(view.missing, view.tickLabel), "the missing lines end above the tick row")
+  check(#lyra.errors == 0, "no Lua errors (" .. tostring(lyra.errors[1]) .. ")")
+end
+
+Kit.section("View: the same page in English fits too")
+do
+  local w, lyra = ViewWorld("enUS")
+  for i = 1, 6 do
+    local name = "Neu Mitglied" .. string.char(64 + i)
+    w.bus:member(name, "ROGUE", 60, true)
+    lyra.RQ:NotePeer(name)
+  end
+  lyra.fire("GUILD_ROSTER_UPDATE")
+  local page = Page(lyra)
+  Click(page.links[2])
+  local view = page.raid
+  PlaceRows(view)
+  check(Plain(page.links[1].label._text) == "Chronicle" and Plain(page.links[2].label._text) == "Raid readiness"
+    and Heads(view) == "Molten Core* | Onyxia | Blackwing", "links and columns in English (" .. Heads(view) .. ")")
+  check(view.head._text == "Ready for the guild raid: Molten Core" and view.bar.text._text == "2 attuned · 0 almost",
+    "summary: " .. tostring(view.head._text) .. " / " .. tostring(view.bar.text._text))
+  local missing = Plain(view.missing._text)
+  check(missing:find("^Rika") == nil and missing:find("still needs a Core Fragment from Blackrock Depths.", 1, true)
+    and missing:find("\n… and 6 more.$"), "three missing lines, the rest counted: " .. missing)
+  check(#view.list.data == 11 and view.list.viewH == 8 * 20, "eleven rows scroll in a list eight rows high")
+  local misfits, seen = Misfits(lyra, page)
+  check(#misfits == 0 and seen >= 54, ("all %d texts lie inside the page, none cut or overlapping (%s)"):format(seen, table.concat(misfits, " / ")))
+  check(Below(view.missing, view.tickLabel), "the missing lines end above the tick row")
+end
+
+Kit.section("View: a raid header sums up that raid, and the choice is kept")
+do
+  local _, lyra = ViewWorld("deDE")
+  local page = Page(lyra)
+  Click(page.links[2])
+  local view = page.raid
+  Click(view.heads[2])
+  check(Heads(view) == "Gesch. Kern | Onyxia* | Pechschwingen" and view.head._text == "Bereit für den Gildenraid: Onyxias Hort"
+    and view.bar.text._text == "2 eingestimmt · 1 fast", "Onyxia: " .. tostring(view.head._text) .. " / " .. tostring(view.bar.text._text))
+  check(Plain(view.missing._text):find("^Rika Steinbeck fehlt noch: Drachenfeueramulett von General Drakkisath %(Obere Schwarzfelsspitze%)%.\n"),
+    "the almost-attuned Rika comes first: " .. Plain(view.missing._text))
+  check(view.bar.done._shown and view.bar.almost._shown and math.abs(view.bar.almost._w - 360 / 5) < 0.01,
+    "one fifth of the bar is amber for her")
+  Click(page.links[1])
+  Click(page.links[2])
+  check(view.head._text == "Bereit für den Gildenraid: Onyxias Hort", "back on the view, Onyxia is still summed up")
+end
+
+Kit.section("View: ticking a box sends the tick once and leaves it checked and locked")
+do
+  local w, lyra = ViewWorld("deDE")
+  local page = Page(lyra)
+  Click(page.links[2])
+  local view = page.raid
+  local box = view.ticks[3]
+  check(box._shown and view.tickLabel._text == "Schon vorher eingestimmt:" and box.text._text == "Pechschwingenhort"
+    and not box._checked and box:IsEnabled(), "a level 60 sees an open box per raid")
+  box:SetChecked(true)
+  Click(box)
+  check(box._checked and not box:IsEnabled(), "after the click the box stays checked and locked")
+  PlaceRows(view)
+  check(TableRows(view)[3] == "Lyra Distelbach | 60 | – | – | ✔", "my row shows the tick (" .. tostring(TableRows(view)[3]) .. ")")
+  w.sched:advance(120)
+  check(w.sent("^H;1;a;%d+;%d+;Lyra Distelbach;60;7;bwl$", "Lyra Distelbach") == 1, "one guild message went out for it")
+  local low = select(2, ViewWorld("deDE", 50))
+  local lowPage = Page(low)
+  Click(lowPage.links[2])
+  check(not lowPage.raid.ticks[1]._shown and not lowPage.raid.tickLabel._shown and Plain(lowPage.raid.note._text):find("^Einstimmungen zählen ab Installation"),
+    "below level 55 there is nothing to tick, only the note")
+end
+
+Kit.section("View: Raidbereitschaft on screen leaves 'new since your last look' alone")
+do
+  local _, lyra = ViewWorld("deDE")
+  local page = Page(lyra)
+  Click(page.links[2])
+  page:Hide()
+  local t = lyra.env.time()
+  lyra.H:Add({ k = "level", t = t, who = "Bodo Kesselring", lvl = 60, cls = "PALADIN", id = "Bodo Kesselring#" .. t .. "#77" }, "wire")
+  Page(lyra)
+  lyra.sched:advance(1)
+  check(lyra.H:NewSinceLastLook() == 1, "the table on screen keeps the new entry new")
+  Click(page.links[1])
+  check(lyra.H:NewSinceLastLook() == 0, "the Chronik clears it")
+end
+
+Kit.section("View: a guildmate reaching level 55 shows up when the roster updates")
+do
+  local w, lyra = ViewWorld("deDE")
+  local page = Page(lyra)
+  Click(page.links[2])
+  for _, r in ipairs(w.bus.roster) do if r.name == "Kael Wintermoor" then r.level = 55 end end
+  lyra.fire("GUILD_ROSTER_UPDATE")
+  PlaceRows(page.raid)
+  local rows = TableRows(page.raid)
+  check(#rows == 6 and rows[4] == "Kael Wintermoor | 55 | ✔ | – | –", "Kael is listed with his Molten Core attunement (" .. tostring(rows[4]) .. ")")
+end
+
 Kit.finish()

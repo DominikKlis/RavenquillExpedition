@@ -6,7 +6,7 @@ local T = GS.NewLocale(ns.NewsLocales)
 
 local win, refreshArmed
 local views = {}
-local WINDOW_NAV, PAGE_LOG = { 34, 14, reserve = 57, rule = 41, size = 13 }, { 4, -2, -4, 30 }
+local WINDOW_NAV, PAGE_LOG = { 34, 14, reserve = 57, rule = 41, size = 13 }, { 4, -28, -4, 30 }
 local SHADOW_RINGS, SHADOW_ALPHA = 10, 0.4
 local INK_DARK, INK_FADED = { 0.04, 0.03, 0.02 }, { 0.663, 0.58, 0.455 }
 local GRAIN_ALPHA = 0.5
@@ -268,6 +268,20 @@ local function EmptyLog(f)
   f.empty = empty
 end
 
+function H.CheckBox(parent, label)
+  local cb = CreateFrame("CheckButton", nil, parent)
+  cb:SetSize(22, 22)
+  cb:SetNormalTexture("Interface\\Buttons\\UI-CheckBox-Up")
+  cb:SetPushedTexture("Interface\\Buttons\\UI-CheckBox-Down")
+  cb:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight", "ADD")
+  cb:SetCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check")
+  cb:SetDisabledCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check-Disabled")
+  local text = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  text:SetPoint("LEFT", cb, "RIGHT", 2, 0)
+  text:SetText(label)
+  return cb, text
+end
+
 local function Footer(f)
   local footer = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   footer:SetPoint("BOTTOMLEFT", 6, 6)
@@ -275,16 +289,8 @@ local function Footer(f)
   footer:SetJustifyH("LEFT")
   f.footer = footer
 
-  local cb = CreateFrame("CheckButton", nil, f)
-  cb:SetSize(22, 22)
+  local cb, cbText = H.CheckBox(f, L.LOG_ONLY_HL)
   cb:SetPoint("BOTTOMRIGHT", -130, 0)
-  cb:SetNormalTexture("Interface\\Buttons\\UI-CheckBox-Up")
-  cb:SetPushedTexture("Interface\\Buttons\\UI-CheckBox-Down")
-  cb:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight", "ADD")
-  cb:SetCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check")
-  local cbText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  cbText:SetPoint("LEFT", cb, "RIGHT", 2, 0)
-  cbText:SetText(L.LOG_ONLY_HL)
   cb:SetScript("OnClick", function(self)
     H:Settings().logOnlyHighlights = self:GetChecked() and true or false
     GS:Call(H.Refresh, H)
@@ -296,10 +302,10 @@ local function FirstUnseen(events)
   for _, e in ipairs(events) do if e.unseen then return e end end
 end
 
-local function OpenLog(view)
-  view.firstUnseen = H.db and FirstUnseen(H:Log())
+function H:OpenLog(view)
+  view.firstUnseen = self.db and FirstUnseen(self:Log())
   view.opening = true
-  H:Refresh()
+  self:Refresh()
 end
 
 local function OpenPaper(view)
@@ -323,7 +329,8 @@ function H:BuildPage(parent)
   MessageArea(parent, PAGE_LOG)
   EmptyLog(parent)
   Footer(parent)
-  parent:SetScript("OnShow", function() GS:Call(OpenLog, parent) end)
+  self:BuildRaidView(parent)
+  parent:SetScript("OnShow", function() GS:Call(H.OpenLog, H, parent) end)
   views[#views + 1] = parent
 end
 
@@ -418,17 +425,21 @@ local function AnyViewShown()
   return false
 end
 
+local function RenderView(self, view, list, hidden)
+  if view.paper then self:RenderPaper(view) return true end
+  if view.mode == "raid" then self:RenderRaid(view) return false end
+  RenderLog(self, view, list, hidden)
+  return true
+end
+
 function H:Refresh()
   if not (self.db and AnyViewShown()) then return end
   local list, _, _, hidden = self:LogLines()
+  local read = false
   for _, view in ipairs(views) do
-    if view:IsVisible() and view.paper then
-      self:RenderPaper(view)
-    elseif view:IsVisible() then
-      RenderLog(self, view, list, hidden)
-    end
+    if view:IsVisible() and RenderView(self, view, list, hidden) then read = true end
   end
-  for _, e in ipairs(self:Log()) do e.unseen = nil end
+  if read then for _, e in ipairs(self:Log()) do e.unseen = nil end end
 end
 
 function H:RefreshSoon()

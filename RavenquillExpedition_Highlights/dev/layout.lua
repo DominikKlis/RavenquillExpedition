@@ -8,7 +8,7 @@ local FY = { TOPLEFT = 1, TOP = 1, TOPRIGHT = 1, LEFT = 0.5, CENTER = 0.5, RIGHT
   BOTTOMRIGHT = 0 }
 
 local function Plain(text)
-  return (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+  return (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|T.-|t", "  "))
 end
 
 local function Chars(text) return utf8.len(text) or #text end

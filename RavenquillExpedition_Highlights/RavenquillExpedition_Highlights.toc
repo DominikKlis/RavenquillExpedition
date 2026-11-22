@@ -21,5 +21,6 @@ NewsLocale_deDE.lua
 News.lua
 Week.lua
 LogWindow.lua
+RaidView.lua
 NewsWindow.lua
 WeekColumn.lua

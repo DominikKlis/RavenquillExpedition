@@ -132,7 +132,7 @@ end
 
 function H:ReadinessModel()
   local raids, facts = H.RaidsFor(H.MyFaction()), self:AttunementFacts()
-  local model = { raids = raids, rows = {}, low = 0, away = 0 }
+  local model = { raids = raids, rows = {}, low = 0, away = 0, mine = H.Readiness(facts[GS:PlayerKey() or ""], raids) }
   for key, member in GS:EachMember() do
     local list = Listing(key, member, facts)
     if list == "rows" then
