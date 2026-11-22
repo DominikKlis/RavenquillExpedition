@@ -468,4 +468,5 @@ ns.Locales.enUS = {
   ORDER_NOTICE_WITHDRAWN = "%s withdrew the order: %s.",
   ORDER_NOTICE_DONE = "%s finished your order: %s. Confirm under Orders once you have it.",
   ORDER_NOTICE_RECEIVED = "%s got the order: %s.",
+  ASK_TIP_ORDER = "It also starts an order you can both follow under Orders.",
 }

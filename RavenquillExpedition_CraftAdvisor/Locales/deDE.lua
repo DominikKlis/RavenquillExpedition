@@ -448,4 +448,5 @@ ns.Locales.deDE = {
   ORDER_NOTICE_WITHDRAWN = "%s hat den Auftrag zurückgezogen: %s.",
   ORDER_NOTICE_DONE = "%s hat deinen Auftrag fertiggestellt: %s. Bestätige ihn unter „Aufträge“, sobald du ihn hast.",
   ORDER_NOTICE_RECEIVED = "%s hat den Auftrag erhalten: %s.",
+  ASK_TIP_ORDER = "Legt außerdem einen Auftrag an, den ihr beide unter „Aufträge“ verfolgen könnt.",
 }

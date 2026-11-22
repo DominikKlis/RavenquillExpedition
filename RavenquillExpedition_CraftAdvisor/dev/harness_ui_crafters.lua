@@ -42,6 +42,9 @@ check(b.offer._shown and b.offer._text == "Ask" and not b.crafted._shown, "the r
 b.offer._scripts.OnClick(b.offer)
 check(lastPrinted():find("Hi Alice! Could you craft |Hitem:4244|h[Hillman's Leather Vest]|h for me? I'd bring the materials.", 1, true) ~= nil,
   "Ask writes the whisper to Alice with the item link: " .. lastPrinted())
+local order = GCA:OrderLists().mine[1]
+check(#GCA:OrderLists().mine == 1 and order.crafter == "Alice Wren" and order.spell == 3762 and order.gain == 12 and order.state == "requested",
+  "and starts an order to Alice for the vest with its +12 gain")
 captureTip(); b.offer._scripts.OnEnter(b.offer)
 local tip = tipText()
 check(H.tip[1] == "Ask" and tip:find("Ask Alice to craft it for you", 1, true) and tip:find("Guildmates who can craft it", 1, true)

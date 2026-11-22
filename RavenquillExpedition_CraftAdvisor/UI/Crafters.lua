@@ -59,6 +59,7 @@ function UI.DoAsk(d, cur)
   if not target then return false end
   local msg = UI.AskText(d, target.key)
   if IsShiftKeyDown() then P.SendWhisper(target.key, msg, string.format(L.ASK_SENT, target.key)) else P.OpenWhisper(target.key, msg) end
+  GCA:PlaceOrder(target.key, cur.prof or GCA:SelectedProfession(), d.cand.spellID, d.points)
   return true
 end
 
@@ -86,6 +87,7 @@ function UI.AskTip(owner, d, cur)
   GameTooltip:AddLine(string.format(L.ASK_TIP, FirstName(target.key)), 1, 0.82, 0)
   GameTooltip:AddLine(L.OFFER_TIP_CLICK, 1, 1, 1)
   GameTooltip:AddLine(L.OFFER_TIP_SHIFT, 1, 1, 1)
+  GameTooltip:AddLine(L.ASK_TIP_ORDER, 0.6, 0.6, 0.6, true)
   UI.AddCrafterLines(d, cur)
   GameTooltip:Show()
 end
