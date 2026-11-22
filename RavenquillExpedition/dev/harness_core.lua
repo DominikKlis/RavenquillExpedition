@@ -292,4 +292,81 @@ do
     and plainOpened, "a module without entries keeps its page: the 'Fenster öffnen' button (it opens the window) and the hint")
   me.frameMethods.SetTexture = nil
 end
+
+section("Overview: a long options page shows a scrollbar and a fade at the bottom")
+do
+  local ov = env.RavenquillExpeditionOverview
+  local methods, cursorY = me.frameMethods, 0
+  local geometry = {
+    SetPoint = function(s, point, ...) s._points = s._points or {}; s._points[point] = { ... } end,
+    GetTop = function(s) return s._top end,
+    GetEffectiveScale = function() return 1 end,
+  }
+  for k, fn in pairs(geometry) do methods[k] = fn end
+  env.GetCursorPosition = function() return 0, cursorY end
+  local function Toggles(size)
+    local list = { { type = "header", label = "Kopf" } }
+    for i = 1, size do list[#list + 1] = { type = "toggle", key = "t" .. i, label = "Schalter " .. i } end
+    return list
+  end
+  RQ:NewModule("Short", { addon = "ShortAddon", title = "Kurz", options = Toggles(3) })
+  local long = RQ:NewModule("Long", { addon = "LongAddon", title = "Lang", options = Toggles(30) })
+  function long:Open() end
+  local opt = ov.optView
+  local sf = opt.scroll
+  sf._h = 300
+  local bar, fade = sf.scrollBar, sf.scrollFade
+  local function Shown(f) return f ~= nil and rawget(f, "_shown") == true end
+  local function ThumbTop() return -(bar.thumb._points.TOP[4]) end
+  local function ThumbBottom() return ThumbTop() + bar.thumb._h end
+  local function Wheel(delta) rawget(sf, "_scripts").OnMouseWheel(sf, delta) end
+  local function Press(y) cursorY = 1000 - y; rawget(bar, "_scripts").OnMouseDown(bar, "LeftButton") end
+  local function Release() rawget(bar, "_scripts").OnMouseUp(bar, "LeftButton") end
+
+  RQ:ShowModuleOptions("Short")
+  check(bar ~= nil and fade ~= nil and not Shown(bar) and not Shown(fade),
+    "a page that fits shows neither a scrollbar nor a fade")
+
+  RQ:ShowModuleOptions("Long")
+  local content = opt.panels.Long:GetHeight()
+  local max = content - 300
+  check(content > 300 and Shown(bar) and Shown(fade) and sf:GetVerticalScroll() == 0,
+    "a page taller than its view shows the scrollbar and the fade at the top (content " .. content .. ")")
+  local thumbH = bar.thumb._h
+  check(math.abs(thumbH - 300 * 300 / content) < 0.5 and ThumbTop() == 0,
+    "the thumb is as tall as the visible share of the page and starts at the top: " .. tostring(thumbH))
+
+  Wheel(-1)
+  local afterWheel = sf:GetVerticalScroll()
+  check(afterWheel == 40 and math.abs(ThumbTop() - (300 - thumbH) * 40 / max) < 0.5 and Shown(fade),
+    "the wheel scrolls one step down and the thumb follows: " .. afterWheel .. ", thumb at " .. ThumbTop())
+
+  bar._top = 1000
+  Press(299)
+  Release()
+  check(sf:GetVerticalScroll() == max and math.abs(ThumbBottom() - 300) < 0.5 and not Shown(fade) and Shown(bar),
+    "clicking the bottom of the track scrolls to the end: the thumb reaches the bottom, the fade goes away")
+
+  rawget(bar, "_scripts").OnMouseWheel(bar, 1)
+  check(sf:GetVerticalScroll() == max - 40 and Shown(fade) and ThumbBottom() < 300,
+    "the wheel, here over the scrollbar, goes on from where the scrollbar left the page, the fade comes back: " .. sf:GetVerticalScroll())
+
+  local grabbed = ThumbTop() + 5
+  Press(grabbed)
+  local before = sf:GetVerticalScroll()
+  cursorY = cursorY + 50
+  rawget(bar, "_scripts").OnUpdate(bar, 0.01)
+  Release()
+  check(math.abs(sf:GetVerticalScroll() - (before - 50 * max / (300 - thumbH))) < 0.5 and math.abs(ThumbTop() - (grabbed - 5 - 50)) < 0.5,
+    "dragging the thumb 50 up scrolls the page by the same share and the thumb stays under the cursor: " .. sf:GetVerticalScroll())
+
+  RQ:ShowModuleOptions("Short")
+  check(sf:GetVerticalScroll() == 0 and not Shown(bar) and not Shown(fade), "switching to a page that fits hides both again")
+  RQ:ShowModuleOptions("Long")
+  RQ:ShowModulePage("Long")
+  check(not Shown(bar) and not Shown(fade), "the module's own page (no settings list) shows neither")
+
+  for k in pairs(geometry) do methods[k] = nil end
+  env.GetCursorPosition = nil
+end
 Kit.finish()

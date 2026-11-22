@@ -18,6 +18,7 @@ Schema.lua
 Comm.lua
 ScrollList.lua
 Options.lua
+PageScroll.lua
 Entries.lua
 Overview.lua
 Launcher.lua

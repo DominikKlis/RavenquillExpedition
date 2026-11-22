@@ -263,7 +263,7 @@ local function BuildOptionsView(f)
   opt.body:SetPoint("BOTTOMRIGHT", -16, 10)
   local sf = CreateFrame("ScrollFrame", nil, opt.body)
   sf:SetAllPoints()
-  ns.WheelScroll(sf)
+  ns.PageScroll(sf)
   opt.scroll = sf
   opt.panels, opt.pages = {}, {}
   return opt
@@ -405,8 +405,7 @@ end
 
 local function ShowSettings(opt, name, mod)
   local p = OptionsPanel(opt, name, mod)
-  opt.scroll:SetScrollChild(p)
-  opt.scroll:SetVerticalScroll(0)
+  ns.SetScrollPage(opt.scroll, p)
   opt.scroll:Show()
   p:Show()
 end

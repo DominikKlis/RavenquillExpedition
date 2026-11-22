@@ -17,15 +17,6 @@ function ns.DragToMove(f)
   f:SetScript("OnDragStop", f.StopMovingOrSizing)
 end
 
-function ns.WheelScroll(sf)
-  sf:EnableMouseWheel(true)
-  sf:SetScript("OnMouseWheel", function(self, delta)
-    local child = self:GetScrollChild()
-    local max = math.max(0, ((child and child:GetHeight()) or 0) - (self:GetHeight() or 0))
-    self:SetVerticalScroll(math.max(0, math.min(max, self:GetVerticalScroll() - delta * 40)))
-  end)
-end
-
 local GOLD = { 1, 0.82, 0 }
 ns.GOLD = GOLD
 
@@ -211,8 +202,8 @@ local function CopyBox()
   eb:SetWidth(510)
   eb:SetScript("OnEscapePressed", function() f:Hide() end)
   eb:SetScript("OnTextChanged", function(self, user) if user then self:SetText(f.text or "") self:HighlightText() end end)
-  sf:SetScrollChild(eb)
   ns.WheelScroll(sf)
+  ns.SetScrollPage(sf, eb)
   f.eb = eb
   f:Hide()
   copy = f
