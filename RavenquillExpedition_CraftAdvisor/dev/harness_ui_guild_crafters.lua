@@ -254,8 +254,8 @@ check(UIx.crafterSel == nil and listKinds(UIx.crafterList) == "*,Alice Wren,Cora
 section("German texts")
 H.ns.locale = "deDE"
 openCrafters()
-check(UIx.tabs[3]._text == "Handwerker" and plain(UIx.crafterName._text) == "Alle Handwerker" and UIx.upgradesOnly.label._text == "Nur Verbesserungen für mich",
-  "tab, header and toggle in German")
+check(UIx.tabs[3]._text == "Für mich" and plain(UIx.crafterName._text) == "Alle Handwerker" and UIx.upgradesOnly.label._text == "Nur Verbesserungen für mich",
+  "German: tab 'Für mich', header 'Alle Handwerker', toggle")
 check(UIx.groupSwitch._override == "Gruppen: Platz" and menuTexts(menuOf(UIx.groupSwitch)) == "Platz|Beruf"
   and catTitles() == "Chest,Wrist,Schmuckstücke,Haupthand,Nebenhand,Sonstiges",
   "switch 'Gruppen: Platz' (Platz|Beruf), slot titles in German (Chest and Wrist are the client's own names, absent in the mock): " .. catTitles())

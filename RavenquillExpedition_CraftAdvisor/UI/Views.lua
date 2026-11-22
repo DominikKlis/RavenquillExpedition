@@ -41,9 +41,9 @@ function UI.CreateViewTabs(f, c)
     tabs = {}
     for i, def in ipairs(UI.VIEWS) do
       local b = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")
-      b:SetSize(92, 22)
+      b:SetSize(106, 22)
       b:SetText(L[def.label])
-      b:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", -28 - (#UI.VIEWS - i) * 96, 10)
+      b:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", -28 - (#UI.VIEWS - i) * 110, 10)
       tabs[i] = b
     end
   end

@@ -146,9 +146,10 @@ do
   UIx = GCA.UI
   local f = UIx.frame
   local before = UIx.errorCount
-  check(UIx.view == "member" and UIx.memberView._shown and not UIx.needsView._shown, "opens on 'By member' (guild needs hidden)")
-  check(UIx.tabsTemplated and #UIx.tabs == 3 and UIx.tabs[1]._text == "By member" and UIx.tabs[2]._text == "Guild needs" and UIx.tabs[3]._text == "Crafters"
-    and selected[UIx.tabs[1]] == true and selected[UIx.tabs[2]] == false and selected[UIx.tabs[3]] == false, "three PanelTabButtonTemplate tabs, 'By member' first and selected")
+  check(UIx.view == "member" and UIx.memberView._shown and not UIx.needsView._shown, "opens on 'For guildmates' (guild needs hidden)")
+  check(UIx.tabsTemplated and #UIx.tabs == 3 and UIx.tabs[1]._text == "For guildmates" and UIx.tabs[2]._text == "My recipes" and UIx.tabs[3]._text == "For me"
+    and selected[UIx.tabs[1]] == true and selected[UIx.tabs[2]] == false and selected[UIx.tabs[3]] == false,
+    "three PanelTabButtonTemplate tabs 'For guildmates | My recipes | For me', the first selected")
   UIx:SetView("needs")
   check(UIx.inspectButton == nil and UIx.scanButton == nil and UIx.optionsButton == nil and UIx.survival._points[1][1] == "BOTTOMLEFT",
     "no 'Inspect target' / 'Scan group' buttons; K6: no Options button, the slider in the bottom-left corner")
@@ -533,9 +534,35 @@ do
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
-  check(UIx.tabs[1]._text == "Nach Mitglied" and UIx.tabs[2]._text == "Gildenbedarf" and UIx.tabs[3]._text == "Handwerker", "German tabs")
+  check(UIx.tabs[1]._text == "Für Mitglieder" and UIx.tabs[2]._text == "Meine Rezepte" and UIx.tabs[3]._text == "Für mich",
+    "German tabs 'Für Mitglieder | Meine Rezepte | Für mich'")
   check(plain(UIx.RowGainText(fakeSug())) == "+12 Pkt" and UIx.CardGain(fakeSug()) == "+12 Pkt",
     "German score unit: row and card gains read '+12 Pkt', not 'pts'")
+  local oldNames = { "Nach Mitglied", "Gildenbedarf", "By member", "Guild needs" }
+  local function staleText(t, englishUnit)
+    t = plain(t)
+    if not englishUnit and t:find("%f[%a]pts%f[%A]") then return true end
+    for _, old in ipairs(oldNames) do if t:find(old, 1, true) then return true end end
+    return t == "Handwerker" or t == "Crafters"
+  end
+  local stale = {}
+  for _, view in ipairs({ "member", "needs", "crafters" }) do
+    UIx:SetView(view)
+    for _, o in ipairs(H.descendants(UIx.frame)) do
+      if o.IsVisible and o:IsVisible() and type(o._text) == "string" and staleText(o._text) then stale[#stale + 1] = view .. ": " .. plain(o._text) end
+    end
+  end
+  check(#stale == 0, "German window, all three tabs: no visible text names an old tab or says 'pts': " .. table.concat(stale, "; "))
+  local staleKeys = {}
+  for _, loc in ipairs({ "enUS", "deDE" }) do
+    for key in pairs(ns.Locales.enUS) do
+      ns.locale = loc
+      if staleText(ns.L[key], loc == "enUS") then staleKeys[#staleKeys + 1] = loc .. "." .. key end
+    end
+  end
+  ns.locale = "deDE"
+  table.sort(staleKeys)
+  check(#staleKeys == 0, "no English or German player text names an old tab, no German one says 'pts': " .. table.concat(staleKeys, ", "))
   UIx:SetView("needs")
   check(plain(UIx.needsCount._text) == "3 Herstellungen lohnen für 2 Mitglieder" and UIx.searchBox.placeholder._text == "Suchen"
     and plain(menuOf(UIx.filterButton)[3].text) == "Offline-Mitglieder einbeziehen (1)" and plain(menuOf(UIx.filterButton)[5].text) == "Einstellungen in /rq craft ›",
@@ -581,8 +608,10 @@ do
   fit("sync label", "Gilden-Sync · 123 erfasst", 200, 5.6)
   fit("member-view sub-line", "tragbar ab Stufe 42 (in 3 Stufen)  ·  nicht erlernt", UIx.subText._w, 5.6)
   fit("fold tip title", ns.Locales.deDE.FOLD_TIP_TITLE, 300, 6.5)
-  fit("tab", "Nach Mitglied", 130 - 20, 6.5)
-  fit("fallback tab button", "Nach Mitglied", 92 - 6, 6.5)
+  local strip = 12 + 3 * (#UIx.tabs - 1)
+  for _, tab in ipairs(UIx.tabs) do strip = strip + #plain(tab._text):gsub("[\128-\191]", "") * 6.5 + 40 end
+  check(strip <= UIx.MIN_W, "German tab strip (text + 40 px end caps each) fits under the window at its minimum width: "
+    .. strip .. " <= " .. UIx.MIN_W)
   check(#tooWide == 0, "German text fit at 840x560 (estimate): " .. table.concat(tooWide, "; "))
   UIx.frame:Hide()
   ns.locale = "enUS"
@@ -599,8 +628,16 @@ do
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
   local errs = UIx.errorCount
-  check(not UIx.tabsTemplated and #UIx.tabs == 3 and UIx.tabs[1]._parent == UIx.frame.content and UIx.tabs[1]._text == "By member",
+  check(not UIx.tabsTemplated and #UIx.tabs == 3 and UIx.tabs[1]._parent == UIx.frame.content and UIx.tabs[1]._text == "For guildmates",
     "no tab template: three plain buttons beside the grip")
+  local cramped = {}
+  for i, def in ipairs(UIx.VIEWS) do
+    for _, loc in ipairs({ "enUS", "deDE" }) do
+      local label = ns.Locales[loc][def.label]
+      if #label:gsub("[\128-\191]", "") * 6.5 > UIx.tabs[i]._w - 6 then cramped[#cramped + 1] = loc .. " '" .. label .. "' in " .. UIx.tabs[i]._w end
+    end
+  end
+  check(#cramped == 0, "no tab template: every tab name fits its plain button in English and German: " .. table.concat(cramped, "; "))
   UIx.tabs[2]._scripts.OnClick(UIx.tabs[2])
   check(UIx.view == "needs" and UIx.errorCount == errs, "fallback buttons switch the view")
   UIx.frame:SetSize(840, 560); UIx:Layout()
