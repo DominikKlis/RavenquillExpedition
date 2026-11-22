@@ -16,74 +16,6 @@ local Num = P.Num
 local CreateSearchBox = P.CreateSearchBox
 local ViewKey = P.ViewKey
 
-UI.VIEWS = { { "member", "VIEW_MEMBER" }, { "needs", "VIEW_NEEDS" } }
-local function CreateTemplatedTabs(f)
-  local tabs = {}
-  for i in ipairs(UI.VIEWS) do
-    local ok, tab = pcall(CreateFrame, "Button", "RavenquillExpeditionCraftFrameTab" .. i, f, "PanelTabButtonTemplate")
-    if not (ok and tab) then
-      for _, made in ipairs(tabs) do made:Hide() end
-      return nil
-    end
-    tabs[i] = tab
-  end
-  for i, tab in ipairs(tabs) do
-    if tab.SetID then tab:SetID(i) end
-    tab:SetText(L[UI.VIEWS[i][2]])
-    if PanelTemplates_TabResize then pcall(PanelTemplates_TabResize, tab, 0) end
-    if i == 1 then tab:SetPoint("TOPLEFT", f, "BOTTOMLEFT", 12, 2) else tab:SetPoint("LEFT", tabs[i - 1], "RIGHT", 3, 0) end
-  end
-  return tabs
-end
-
-local function CreateViewTabs(f, c)
-  local tabs = CreateTemplatedTabs(f)
-  local templated = tabs ~= nil
-  if not templated then
-    tabs = {}
-    for i, def in ipairs(UI.VIEWS) do
-      local b = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")
-      b:SetSize(92, 22)
-      b:SetText(L[def[2]])
-      b:SetPoint("TOPLEFT", c, "TOPLEFT", 60 + (i - 1) * 96, -32)
-      tabs[i] = b
-    end
-  end
-  for i, tab in ipairs(tabs) do
-    tab.view = UI.VIEWS[i][1]
-    tab:SetScript("OnClick", function(self) UI:SetView(self.view) end)
-  end
-  return tabs, templated
-end
-
-function UI:PaintTabs()
-  for _, tab in ipairs(self.tabs or {}) do
-    local on = tab.view == self.view
-    tab.selected = on
-    if self.tabsTemplated then
-      local fn = on and PanelTemplates_SelectTab or PanelTemplates_DeselectTab
-      if type(fn) == "function" then pcall(fn, tab) end
-    elseif tab.LockHighlight and tab.UnlockHighlight then
-      if on then tab:LockHighlight() else tab:UnlockHighlight() end
-    end
-  end
-end
-
-function UI:ApplyView()
-  local needs = self.view ~= "member"
-  self.needsView:SetShown(needs)
-  self.memberView:SetShown(not needs)
-  self:PaintTabs()
-end
-
-function UI:SetView(view)
-  self.view = view == "member" and "member" or "needs"
-  if self.frame then
-    self:ApplyView()
-    self:Refresh()
-  end
-end
-
 local function ExpandGroupOf(self, key)
   for _, e in ipairs(self.lastMembers or {}) do
     if e.key == key and not e.isSelf then
@@ -239,7 +171,7 @@ local Build = {}
 
 function Build.OnShow()
   if UI.selected ~= nil and UI.selected == UI.autoKey then UI:Select(nil) end
-  UI.view = "member"
+  UI.view = UI.DEFAULT_VIEW
   UI.collapsed.online, UI.collapsed.offline = false, true
   UI.needsCollapsed, UI.needSel = {}, nil
   UI:ApplyView()
@@ -413,7 +345,7 @@ end
 
 function UI:Create()
   local f, c = Build.Window(self)
-  self.view = "member"
+  self.view = UI.DEFAULT_VIEW
   f:SetScript("OnShow", Build.OnShow)
   if type(f.CloseButton) == "table" and f.CloseButton.SetScript then
     f.CloseButton:SetScript("OnClick", function() f:Hide() end)
@@ -432,11 +364,12 @@ function UI:Create()
   local rw = RightW(MIN_W)
   Build.NeedsView(self, f, c, painted, listH, rw)
   Build.MemberView(self, f, c, painted, listH, rw)
+  self.viewFrames = { needs = self.needsView, member = self.memberView }
   self.filters = { { button = self.filterButton, popup = self.filterPopup }, { button = self.memberFilter, popup = self.memberFilterPopup } }
   self.survival = P.CreateSurvivalSlider(c)
   self.survival:SetPoint("BOTTOMLEFT", 18, 13)
   if self.filterButton and self.filterButton.native then self.survival:Hide() end
-  self.tabs, self.tabsTemplated = CreateViewTabs(f, c)
+  self.tabs, self.tabsTemplated = UI.CreateViewTabs(f, c)
   Build.ResizeGrip(self, f, c)
   self:ApplyView()
   self:ApplyMemberMode()
@@ -615,7 +548,8 @@ function UI:Refresh()
   self.lastMembers = members
   self.memberList:SetData(UI.MemberRows(members, self.memberSearch and self.memberSearch:GetText() or ""))
   self.syncDot:Update(CountRecorded(members))
-  if self.view ~= "member" then self:RefreshNeeds() end
+  local refresh = UI.ViewDef(self.view).refresh
+  if refresh then self[refresh](self) end
   if not current then return ShowNoMember(self) end
   UpdateMemberDetail(self, current, prof, browse)
 end

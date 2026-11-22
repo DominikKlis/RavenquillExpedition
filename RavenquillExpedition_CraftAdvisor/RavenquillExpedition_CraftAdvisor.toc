@@ -59,4 +59,5 @@ UI\Dropdowns.lua
 UI\Dialogs.lua
 UI\Geometry.lua
 UI\Controls.lua
+UI\Views.lua
 UI\Window.lua
