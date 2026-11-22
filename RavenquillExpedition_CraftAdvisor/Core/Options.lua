@@ -199,10 +199,13 @@ local function WaitingOnMe(self)
   return tome, ready
 end
 
+local function PlainName(text)
+  return (text:gsub("|H.-|h(.-)|h", "%1"):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("^%[(.*)%]$", "%1"))
+end
+
 local function ReadyText(self, ready)
   if #ready ~= 1 then return string.format(L.NOW_READY, #ready) end
-  local r = self:RecipeRow(ready[1].prof, ready[1].spell)
-  return string.format(L.NOW_READY_1, r and r.name or "?")
+  return string.format(L.NOW_READY_1, PlainName(self:OrderItemText(ready[1])))
 end
 
 function GCA:OverviewNow()

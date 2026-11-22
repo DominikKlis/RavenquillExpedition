@@ -151,7 +151,7 @@ check(row and row.title == "Orders" and row.line == "1 order to you" and row.act
 local ready = GCA:PlaceOrder("Bob Marsh", LW, 3762, 5)
 GCA:MergeOrder("Bob Marsh", { requester = "Me Stone", id = ready.id, crafter = "Bob Marsh", prof = LW, spell = 3762, state = "done" })
 row = GCA:OverviewNow()[1]
-check(row and row.line == "1 order to you · Hillman's Leather Vest is ready for you" and #GCA:OverviewNow() == 1,
+check(row and row.line == "1 order to you · Hillman's Vest is ready for you" and #GCA:OverviewNow() == 1,
   "an order crafted for you joins the same row: " .. tostring(row and row.line))
 UIx.frame:Hide()
 UIx.orderList = "finished"
@@ -161,7 +161,7 @@ check(UIx.frame:IsShown() and UIx.view == "orders" and UIx.orderList == "tome",
   "'View' opens the Orders tab on 'To me'")
 GCA:OrderAction(toMe, "done")
 row = GCA:OverviewNow()[1]
-check(row and row.line == "Hillman's Leather Vest is ready for you", "with only the crafted order left: " .. tostring(row and row.line))
+check(row and row.line == "Hillman's Vest is ready for you", "with only the crafted order left: " .. tostring(row and row.line))
 UIx.frame:Hide()
 row.open()
 check(UIx.frame:IsShown() and UIx.view == "orders" and UIx.orderList == "mine", "'View' then opens 'From me'")
