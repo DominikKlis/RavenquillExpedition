@@ -11,3 +11,7 @@
 Locales\enUS.lua
 Locales\deDE.lua
 Groups.lua
+Activities.lua
+Posts.lua
+View.lua
+Sync.lua
