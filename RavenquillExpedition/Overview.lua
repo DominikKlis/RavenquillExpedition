@@ -97,7 +97,7 @@ local WIDTH, HEIGHT, MAX_TABS = 673, 594, 7
 local SUITE_ICON = "Interface\\Icons\\INV_Misc_Book_09"
 local GEAR_ICON = "Interface\\Icons\\INV_Misc_Gear_01"
 local WIDE_CARD = "Profession-overview-Card"
-local SIZE = { edge = 24, header = 62, footer = 62, row = 22 }
+local SIZE = { edge = 24 }
 local Text = ns.Text
 
 local function OpenPage(page)
@@ -113,88 +113,6 @@ local function BuildTabs(f)
     ns.Tip(tab, function() return tab.title or "" end, function() return { tab.status } end)
     f.tabs[i] = prev
   end
-end
-
-local function BuildHeader(home)
-  local card = ns.SlicedCard(home, WIDE_CARD, SIZE.edge)
-  card:SetPoint("TOPLEFT", 5, -41)
-  card:SetPoint("RIGHT", home, "RIGHT", -4, 0)
-  card:SetHeight(SIZE.header)
-  home.guild = Text(card, "GameFontNormal")
-  home.guild:SetPoint("TOPLEFT", 20, -16)
-  home.sync = Text(card, "GameFontHighlightSmall")
-  home.sync:SetPoint("TOPLEFT", home.guild, "BOTTOMLEFT", 0, -6)
-  home.peers = Text(card, "GameFontHighlightSmall", "RIGHT")
-  home.peers:SetPoint("TOPRIGHT", -24, -36)
-  home.retry = CreateFrame("Button", nil, card, "UIPanelButtonTemplate")
-  home.retry:SetSize(170, 20)
-  home.retry:SetPoint("TOPRIGHT", -20, -10)
-  home.retry:SetText(L.SYNC_RETRY)
-  home.retry:SetScript("OnClick", function()
-    GS:CommResume()
-    GS:RefreshOverview()
-  end)
-  home.retry:Hide()
-  home.peersTip = CreateFrame("Frame", nil, card)
-  home.peersTip:SetAllPoints(home.peers)
-  home.peersTip:EnableMouse(true)
-  ns.Tip(home.peersTip, L.PEER_VERSIONS, function() return GS:PeerVersionLines() end)
-  return card
-end
-
-local function BuildTeaser(home, card)
-  local b = CreateFrame("Button", nil, card)
-  b:SetPoint("TOPLEFT", home.list, "BOTTOMLEFT", 4, -18)
-  b:SetPoint("RIGHT", card, "RIGHT", -24, 0)
-  b:SetHeight(SIZE.row)
-  b.text = Text(b, "GameFontNormal")
-  b.text:SetPoint("LEFT")
-  b.text:SetPoint("RIGHT")
-  b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
-  b:SetScript("OnClick", function(self) GS:Call(self.open) end)
-  b:Hide()
-  home.teaser = b
-end
-
-local function BuildDiagLink(home)
-  local text = Text(home, "GameFontDisable", "RIGHT")
-  text:SetPoint("RIGHT", home.version, "LEFT", -14, 0)
-  text:SetText(L.COPY_DIAG)
-  local link = CreateFrame("Button", nil, home)
-  link:SetAllPoints(text)
-  link:SetScript("OnClick", function() GS:ShowCopyBox(L.COPY_DIAG, GS:DiagLines()) end)
-  link:SetScript("OnEnter", function() text:SetTextColor(1, 1, 1) end)
-  link:SetScript("OnLeave", function() text:SetTextColor(0.5, 0.5, 0.5) end)
-  link.text = text
-  home.diagLink = link
-end
-
-local function BuildFooter(home)
-  home.options = ns.BuildPanel(home, {
-    { type = "toggle", label = L.SHOW_LAUNCHER,
-      get = function() return GS:LauncherShown() end, set = function(on) GS:SetLauncherShown(on) end },
-  })
-  home.options:SetPoint("BOTTOMLEFT", 14, 4)
-  home.options:SetHeight(SIZE.footer)
-  home.options:Show()
-  home.version = Text(home, "GameFontDisableSmall", "RIGHT")
-  home.version:SetPoint("BOTTOMRIGHT", -20, 16)
-  BuildDiagLink(home)
-end
-
-local function BuildHome(f)
-  local home = CreateFrame("Frame", nil, f)
-  home:SetAllPoints()
-  local header = BuildHeader(home)
-  local body = ns.SlicedCard(home, WIDE_CARD, SIZE.edge)
-  body:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 5)
-  body:SetPoint("BOTTOMRIGHT", -4, SIZE.footer + 5)
-  home.list = ns.EntryRows(body)
-  home.list:SetPoint("TOPLEFT", 16, -18)
-  home.list:SetPoint("RIGHT", body, "RIGHT", -20, 0)
-  BuildTeaser(home, body)
-  BuildFooter(home)
-  return home
 end
 
 local SETTINGS_BUTTON_WIDTH = 150
@@ -249,7 +167,7 @@ local function CreateWindow()
   ns.DragToMove(f)
   tinsert(UISpecialFrames, "RavenquillExpeditionOverview")
   BuildTabs(f)
-  f.home = BuildHome(f)
+  f.home = ns.BuildHome(f)
   f.optView = BuildOptionsView(f)
   f:SetScript("OnShow", function() GS:Call(GS.RefreshOverview, GS) end)
   f:Hide()
@@ -407,46 +325,10 @@ function GS:ShowModulePage(name) ShowModuleView(name, false) end
 function GS:ShowHome()
   if not win then win = CreateWindow() end
   win.optView:Hide()
+  win.home.mode = nil
   win.home:Show()
   self.optionsModule = nil
   if win:IsShown() then self:RefreshOverview() end
-end
-
-local function Teaser()
-  for _, name in ipairs(GS.moduleOrder) do
-    local mod = GS.modules[name]
-    if mod.OverviewTeaser then return GS:Call(mod.OverviewTeaser, mod) end
-  end
-end
-
-local function RenderTeaser(b)
-  local text, open = Teaser()
-  text = Plain(text, "string")
-  b.open = type(open) == "function" and open or nil
-  b.text:SetText(text or "")
-  b:SetShown(text ~= nil)
-end
-
-local function RenderHeader(home)
-  local g = Plain(SafeCall(GetGuildInfo, "player"), "string")
-  home.guild:SetText(g or L.NO_GUILD)
-  home.sync:SetText(GS:OverviewSyncLine())
-  home.retry:SetShown(GS:OverviewSyncState() == "slow")
-  home.peers:SetText(GS:OverviewPeersLine())
-  home.version:SetText(GS:OverviewVersionLine())
-end
-
-local function HomeEntry(d)
-  local line, open = ns.Headline(d.name and GS.modules[d.name])
-  if not open and (d.page or d.options) then open = function() GS:ShowModulePage(d.name) end end
-  return { icon = d.icon, title = d.title, line = line or d.status, open = open or d.open, dim = d.state ~= "loaded",
-    tip = { d.status, L.COMMAND:format(d.slash) } }
-end
-
-local function HomeEntries(rows)
-  local out = {}
-  for i, d in ipairs(rows) do out[i] = HomeEntry(d) end
-  return out
 end
 
 function GS:RefreshOverview()
@@ -454,11 +336,7 @@ function GS:RefreshOverview()
   local rows = self:OverviewRows()
   RenderTabs(win, rows, self.optionsModule or "home")
   if self.optionsModule then return self:RefreshModuleView(rows) end
-  local home = win.home
-  RenderHeader(home)
-  ns.RenderEntries(home.list, HomeEntries(rows))
-  RenderTeaser(home.teaser)
-  home.options.refreshAll()
+  ns.RenderHome(win.home, rows)
 end
 
 function GS:RefreshModuleView(rows)

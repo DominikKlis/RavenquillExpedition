@@ -50,6 +50,18 @@ function ns.Text(parent, font, justify)
   return fs
 end
 
+function ns.TextLink(parent, label, onClick)
+  local text = ns.Text(parent, "GameFontDisable", "RIGHT")
+  text:SetText(label)
+  local link = CreateFrame("Button", nil, parent)
+  link:SetAllPoints(text)
+  link:SetScript("OnClick", onClick)
+  link:SetScript("OnEnter", function() text:SetTextColor(1, 1, 1) end)
+  link:SetScript("OnLeave", function() text:SetTextColor(0.5, 0.5, 0.5) end)
+  link.text = text
+  return link
+end
+
 function ns.Tip(frame, title, lines)
   frame:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")

@@ -22,5 +22,7 @@ ScrollList.lua
 Options.lua
 PageScroll.lua
 Entries.lua
+GoalPanel.lua
+Home.lua
 Overview.lua
 Launcher.lua

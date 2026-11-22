@@ -21,7 +21,8 @@ function ns.Entries(raw, icon)
   for _, e in ipairs(raw) do
     local title = type(e) == "table" and Plain(e.title, "string")
     if title then
-      out[#out + 1] = { title = title, line = Plain(e.line, "string") or "", icon = Texture(e.icon) or icon, open = Opener(e.open) }
+      out[#out + 1] = { title = title, line = Plain(e.line, "string") or "", icon = Texture(e.icon) or icon, open = Opener(e.open),
+        action = Plain(e.action, "string"), ends = Plain(e.ends, "number") }
     end
   end
   return out
@@ -40,27 +41,30 @@ local function Backdrop(card)
   card:SetBackdropBorderColor(0.36, 0.28, 0.18, 1)
 end
 
-local Card = { step = CARD.height + CARD.gap }
+local Card = {}
+
+function Card.Step(list) return list.size.height + list.size.gap end
 
 function Card.New(list, i)
+  local size = list.size
   local card = CreateFrame("Frame", nil, list, "BackdropTemplate")
-  card:SetHeight(CARD.height)
-  card:SetPoint("TOPLEFT", 0, -(i - 1) * Card.step)
+  card:SetHeight(size.height)
+  card:SetPoint("TOPLEFT", 0, -(i - 1) * Card.Step(list))
   card:SetPoint("RIGHT", list, "RIGHT", 0, 0)
   Backdrop(card)
-  card.icon = ns.Icon(card, CARD.icon)
-  card.icon:SetPoint("LEFT", CARD.inset, 0)
+  card.icon = ns.Icon(card, size.icon)
+  card.icon:SetPoint("LEFT", size.inset, 0)
   card.open = CreateFrame("Button", nil, card, "UIPanelButtonTemplate")
-  card.open:SetSize(CARD.button, 22)
-  card.open:SetPoint("RIGHT", -CARD.inset, 0)
+  card.open:SetSize(size.button, 22)
+  card.open:SetPoint("RIGHT", -size.inset, 0)
   card.open:SetText(L.OPEN)
-  card.open:SetScript("OnClick", function(self) GS:Call(self.entry and self.entry.open) end)
+  card.open:SetScript("OnClick", function(self) GS:Call(self.entry and self.entry.open, self) end)
   card.title = ns.Text(card, "GameFontNormalLarge")
-  card.title:SetPoint("TOPLEFT", card.icon, "TOPRIGHT", CARD.inset, -2)
-  card.title:SetPoint("RIGHT", card.open, "LEFT", -CARD.inset, 0)
+  card.title:SetPoint("TOPLEFT", card.icon, "TOPRIGHT", size.inset, -2)
+  card.title:SetPoint("RIGHT", card.open, "LEFT", -size.inset, 0)
   card.line = ns.Text(card, "GameFontHighlight")
-  card.line:SetPoint("BOTTOMLEFT", card.icon, "BOTTOMRIGHT", CARD.inset, 3)
-  card.line:SetPoint("RIGHT", card.open, "LEFT", -CARD.inset, 0)
+  card.line:SetPoint("BOTTOMLEFT", card.icon, "BOTTOMRIGHT", size.inset, 3)
+  card.line:SetPoint("RIGHT", card.open, "LEFT", -size.inset, 0)
   return card
 end
 
@@ -69,15 +73,18 @@ function Card.Fill(card, e)
   card.title:SetText(e.title)
   card.line:SetText(e.line)
   card.open.entry = e
+  card.open:SetText(e.action or L.OPEN)
   card.open:SetShown(e.open ~= nil)
 end
 
-local Row = { step = ROW.height }
+local Row = {}
+
+function Row.Step() return ROW.height end
 
 function Row.New(list, i)
   local row = CreateFrame("Button", nil, list)
   row:SetHeight(ROW.height)
-  row:SetPoint("TOPLEFT", 0, -(i - 1) * Row.step)
+  row:SetPoint("TOPLEFT", 0, -(i - 1) * Row.Step())
   row:SetPoint("RIGHT", list, "RIGHT", 0, 0)
   row.hover = row:CreateTexture(nil, "HIGHLIGHT")
   row.hover:SetAllPoints()
@@ -109,13 +116,13 @@ function Row.Fill(row, e)
   row:SetAlpha(e.dim and ROW.dim or 1)
 end
 
-local function EntryList(parent, style)
+local function EntryList(parent, style, size)
   local list = CreateFrame("Frame", nil, parent)
-  list.style, list.items = style, {}
+  list.style, list.size, list.items = style, size, {}
   return list
 end
 
-function ns.EntryCards(parent) return EntryList(parent, Card) end
+function ns.EntryCards(parent, size) return EntryList(parent, Card, size or CARD) end
 function ns.EntryRows(parent) return EntryList(parent, Row) end
 
 function ns.RenderEntries(list, entries)
@@ -130,5 +137,5 @@ function ns.RenderEntries(list, entries)
     items[i].entry = nil
     items[i]:Hide()
   end
-  list:SetHeight(math.max(1, #entries * style.step))
+  list:SetHeight(math.max(1, #entries * style.Step(list)))
 end
