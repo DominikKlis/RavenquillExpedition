@@ -53,18 +53,6 @@ local L = {
   REASON_STALE = "Position out of date (%d min)", REASON_NO_ADDON = "Not using Ravenquill",
   REASON_NO_REPLY = "No reply yet",
   GROUP_ON_MAP = "On the map (%d)", GROUP_NO_POSITION = "No position (%d)",
-
-  RALLY_TITLE = "Rally call", RALLY_POINT = "Rally point", RALLY_WHO = "%s: %s",
-  RALLY_COMING = "%d on the way", RALLY_LEFT = "%d min left",
-  RALLY_JOIN = "I'm coming", RALLY_JOINED = "On my way", RALLY_WAYPOINT = "Waypoint", RALLY_CANCEL = "Cancel",
-  MENU_RALLY_SET = "Set rally point here", MENU_RALLY_CANCEL = "Cancel rally point",
-  RALLY_WAIT = "You can set a new rally point in %d s.",
-  RALLY_NOPOS = "Your position isn't available here (instance?), so no rally point.",
-  RALLY_FAILED = "The rally message can't be sent right now (combat, instance or no guild). Try again in a moment.",
-  TT_RALLY_CLICK = "Click: show the call",
-  SEC_RALLY = "Rally calls",
-  SETTING_IGNORE_RALLY = "Ignore rally calls",
-  TT_IGNORE_RALLY = "No notice and no flag when a guildmate calls the guild to a rally point. Your own rally points still show.",
 }
 
 local deDE = {
@@ -120,18 +108,6 @@ local deDE = {
   REASON_STALE = "Position veraltet (%d Min.)", REASON_NO_ADDON = "Nutzt Ravenquill nicht",
   REASON_NO_REPLY = "Noch keine Rückmeldung",
   GROUP_ON_MAP = "Auf der Karte (%d)", GROUP_NO_POSITION = "Ohne Position (%d)",
-
-  RALLY_TITLE = "Sammelruf", RALLY_POINT = "Sammelpunkt", RALLY_WHO = "%s: %s",
-  RALLY_COMING = "%d unterwegs", RALLY_LEFT = "noch %d min",
-  RALLY_JOIN = "Ich komme", RALLY_JOINED = "Unterwegs", RALLY_WAYPOINT = "Wegpunkt", RALLY_CANCEL = "Aufheben",
-  MENU_RALLY_SET = "Sammelpunkt hier setzen", MENU_RALLY_CANCEL = "Sammelpunkt aufheben",
-  RALLY_WAIT = "Einen neuen Sammelpunkt kannst du in %d s setzen.",
-  RALLY_NOPOS = "Deine Position ist hier nicht verfügbar (Instanz?), daher kein Sammelpunkt.",
-  RALLY_FAILED = "Der Sammelruf geht gerade nicht raus (Kampf, Instanz oder keine Gilde). Versuch es gleich noch einmal.",
-  TT_RALLY_CLICK = "Klick: Ruf anzeigen",
-  SEC_RALLY = "Sammelrufe",
-  SETTING_IGNORE_RALLY = "Sammelrufe ignorieren",
-  TT_IGNORE_RALLY = "Keine Meldung und keine Fahne, wenn ein Gildenmitglied die Gilde zu einem Sammelpunkt ruft. Deine eigenen Sammelpunkte siehst du weiterhin.",
 }
 
 ns.Locales = { enUS = L, deDE = deDE }

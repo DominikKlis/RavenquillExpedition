@@ -92,69 +92,24 @@ for _, name in ipairs({ "fresh", "v1", "badSize", "wrongTypes" }) do
   gold:compare("sv." .. name, splitLines(Golden.Serialize(W.env.RavenquillExpeditionMapDB)), check)
 end
 
-Kit.section("Rally encoder layer")
-local RALLIES = {
-  { id = 1763100000, mapID = 1428, x = 0.5, y = 0.5, base = 0, label = "Schwarzfelsspitze" },
-  { id = 1763100900, mapID = 1429, x = 0.0001, y = 0.9999, base = 3, label = "" },
-  { id = 1763101234, mapID = 1411, x = 0.123456, y = 0.654321, base = 40, label = "Brücke über den Fluss" },
-  { id = 1763199999, mapID = 1415, x = 0.9999, y = 0.0001, base = 1000, label = "Blackrock Spire" },
-}
-local rallyEnc = {}
-for _, r in ipairs(RALLIES) do
-  r.since = {}
-  rallyEnc[#rallyEnc + 1] = M.EncodeRally(r)
+Kit.section("Rally calls are gone: saved rallies are dropped on load, rally messages from older clients are ignored")
+W.env.RavenquillExpeditionMapDB = { v = 1, settings = { share = false, ignoreRally = true },
+  rallies = { ["Anna Stone"] = { id = 1763100000, mapID = 1428, x = 0.5, y = 0.5 } } }
+W.coreNs.SetupModuleDB(W.M)
+W.M:OnLoad()
+local loaded = W.env.RavenquillExpeditionMapDB
+check(loaded.rallies == nil and loaded.settings.ignoreRally == nil and loaded.settings.share == false,
+  "a 0.10 SavedVariables file loads without its rallies and the rally setting, and keeps the other settings")
+local R = Client("Rika Steinbeck", "WARRIOR", 40, { 1428, 0.5, 0.5 })
+R.login()
+sched:advance(30)
+local unknownBefore = R.M.sync.rejected["unknown type"] or 0
+for _, msg in ipairs({ "R;t5pco0;13o;i00;i00;0;Schwarzfelsspitze", "J;Rika Steinbeck;t5pco0", "X;t5pco0" }) do
+  R.fire("CHAT_MSG_ADDON", "RQEMap1", msg, "GUILD", "Bert Hill-Realm")
 end
-rallyEnc[#rallyEnc + 1] = M.EncodeJoin("Rika Steinbeck", 1763100000)
-rallyEnc[#rallyEnc + 1] = M.EncodeJoin("Anna Stone-Other Realm", 1763101234)
-rallyEnc[#rallyEnc + 1] = M.EncodeCancel(1763100000)
-gold:compare("map.rally.encode", rallyEnc, check)
-
-Kit.section("Rally decoder layer")
-local goldRally = RECORD and rallyEnc or (gold.data["map.rally.encode"] or {})
-local okRally = 0
-for i, r in ipairs(RALLIES) do
-  local f = {}
-  for v in ((goldRally[i] or "") .. ";"):gmatch("([^;]*);") do f[#f + 1] = v end
-  local ev = M.DecodeRally(f, r.id + 1)
-  if ev and ev.id == r.id and ev.mapID == r.mapID and math.abs(ev.x - r.x) < 1 / 46655 and math.abs(ev.y - r.y) < 1 / 46655
-    and ev.n == r.base and ev.label == r.label then okRally = okRally + 1 end
-end
-check(okRally == #RALLIES, ("%d/%d golden rally calls decode to their inputs"):format(okRally, #RALLIES))
-
-Kit.section("Rally scenario layer")
-local rs, rb = Kit.Setup()
-local rrandom = Kit.Random(777)
-local function RallyClient(name, pos, subzone)
-  return MapKit.Client(rs, rb, name, { pos = pos, random = rrandom,
-    setup = function(env) env.GetSubZoneText = function() return subzone or "" end end })
-end
-local RA = RallyClient("Rika Steinbeck", { 1428, 0.5, 0.5 }, "Schwarzfelsspitze")
-local RB = RallyClient("Bert Hill", { 1428, 0.55, 0.52 })
-RA.login(); RB.login()
-rs:advance(120)
-local r0 = rs.t
-RA.M:CallRally()
-rs:advance(20)
-RB.M:JoinRally("Rika Steinbeck")
-rs:advance(200)
-local RD = RallyClient("Dora Late", { 1428, 0.4, 0.6 })
-RD.login()
-rs:advance(200)
-RA.M:CancelRally()
-rs:advance(20)
-local RALLY_ID = { R = 2, J = 3, X = 2 }
-local rallyLines = {}
-for _, e in ipairs(rb.log) do
-  local kind = e.msg:sub(1, 1)
-  if e.prefix == "RQEMap1" and e.t >= r0 and RALLY_ID[kind] and e.msg:sub(2, 2) == ";" then
-    local f = {}
-    for v in (e.msg .. ";"):gmatch("([^;]*);") do f[#f + 1] = v end
-    f[RALLY_ID[kind]] = "<id>"
-    rallyLines[#rallyLines + 1] = ("%07.1f %s|%s"):format(e.t - r0, e.sender, table.concat(f, ";"))
-  end
-end
-check(#rallyLines == 4, ("rally scenario: call, answer, re-send for the late login, cancel (%d messages)"):format(#rallyLines))
-gold:compare("map.rally.scenario", rallyLines, check)
+sched:advance(5)
+check(#R.errors == 0 and R.M.sync.rejected["unknown type"] == unknownBefore + 3 and R.M.members["Bert Hill"] == nil,
+  "an older client's rally call, answer and cancel are counted as unknown and dropped: no Lua error, no dot (" .. tostring(R.errors[1]) .. ")")
 
 gold:finish()
 Kit.finish()

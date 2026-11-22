@@ -48,10 +48,11 @@ local function Label(e)
   return e.label and Plain(_G[e.label], "string") or L[e.text]
 end
 
-local function AddContactEntries(m, root)
+local function Build(m, root)
   local craft = GS:GetModule("Craft")
   local t = { key = m.key, name = m.whisper or m.name, unit = NearbyUnit(m.key), craft = craft,
     gear = Stores(craft, "HasStoredGear", m.key), spec = Stores(craft, "HasStoredSpec", m.key) }
+  root:CreateTitle(m.name)
   for _, e in ipairs(ENTRIES) do
     local enabled = NEEDS[e.needs](t)
     local button = root:CreateButton(Label(e), function() if enabled then e.run(t) end end)
@@ -59,22 +60,7 @@ local function AddContactEntries(m, root)
   end
 end
 
-local function AddRallyEntries(root)
-  if root.CreateDivider then root:CreateDivider() end
-  root:CreateButton(L.MENU_RALLY_SET, function() GS:Call(M.CallRally, M) end)
-  if M:OwnRally() then root:CreateButton(L.MENU_RALLY_CANCEL, function() GS:Call(M.CancelRally, M) end) end
-end
-
-local function Build(m, root)
-  root:CreateTitle(m.name)
-  if not m.isSelf then AddContactEntries(m, root) end
-  AddRallyEntries(root)
-end
-
 function M:Contact(owner, m)
-  if not (MenuUtil and MenuUtil.CreateContextMenu) then
-    if not m.isSelf then Invite(m.whisper or m.name) end
-    return
-  end
+  if not (MenuUtil and MenuUtil.CreateContextMenu) then return Invite(m.whisper or m.name) end
   GS:Call(MenuUtil.CreateContextMenu, owner, function(_, root) Build(m, root) end)
 end

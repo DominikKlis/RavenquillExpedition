@@ -3,11 +3,10 @@ local Kit = dofile(DEV .. "../../RavenquillExpedition/dev/testkit.lua")
 local MapKit = { Kit = Kit, DIR = DEV .. "../" }
 local ADDON = "RavenquillExpedition_Map"
 local FILES = {}
-for i, f in ipairs({ "Locale.lua", "Map.lua", "Menu.lua", "Pins.lua", "Page.lua", "Sync.lua", "Rally.lua", "RallyNotice.lua" }) do FILES[i] = { MapKit.DIR .. f, ADDON } end
+for i, f in ipairs({ "Locale.lua", "Map.lua", "Menu.lua", "Pins.lua", "Page.lua", "Sync.lua" }) do FILES[i] = { MapKit.DIR .. f, ADDON } end
 
 local NOOP = { ClearAllPoints = true, EnableMouse = true, SetTexture = true, SetTextColor = true,
-  SetFrameStrata = true, UnregisterEvent = true, SetHeight = true, SetWidth = true, SetJustifyH = true, SetColorTexture = true,
-  SetBackdrop = true, SetBackdropColor = true, SetBackdropBorderColor = true }
+  SetFrameStrata = true, UnregisterEvent = true, SetHeight = true, SetWidth = true, SetJustifyH = true, SetColorTexture = true }
 
 local function FrameFactory(c)
   local methods = {
@@ -17,9 +16,6 @@ local function FrameFactory(c)
     RegisterForClicks = function(s, ...) s.clicks = table.concat({ ... }, ",") end,
     SetSize = function(s, w, h) s.w, s.h = w, h end,
     SetText = function(s, t) s.text = t end, GetText = function(s) return s.text end,
-    SetShown = function(s, v) s.shown = v and true or false end,
-    SetEnabled = function(s, v) s.disabled = not v end, IsEnabled = function(s) return not s.disabled end,
-    SetAtlas = function(s, a) s.atlas = a end,
     IsVisible = function(s) return s.shown end,
     SetVertexColor = function(s, r, g, b, a) s.color = { r, g, b, a } end,
     GetZoom = function() return 2 end,
@@ -56,8 +52,6 @@ local function FrameFactory(c)
     return f
   end
   methods.CreateTexture = function() return NewFrame() end
-  methods.CreateMaskTexture = function() return NewFrame() end
-  methods.AddMaskTexture = function(s, m) s.mask = m end
   methods.CreateFontString = function() return NewFrame() end
   return NewFrame
 end
@@ -106,12 +100,12 @@ local function InstallMapApis(env, c, opts)
   }
   local function noWorldMapApi() c.hbdWorldCalls = c.hbdWorldCalls + 1; error("mock: HBD world map API used (taints the world map)", 2) end
   local Pins = {
-    AddMinimapIconMap = function(_, ref, icon, mapID, x, y, _, floatOnEdge)
+    AddMinimapIconMap = function(_, ref, icon, mapID, x, y)
       assert(ref and type(icon) == "table" and type(mapID) == "number" and type(x) == "number" and type(y) == "number",
         "HBD would raise: bad args")
       if mapID == 999999 then return false end
       c.hbdAdds = c.hbdAdds + 1
-      c.hbdMini[icon] = { mapID = mapID, x = x, y = y, edge = floatOnEdge }
+      c.hbdMini[icon] = { mapID = mapID, x = x, y = y }
       icon.shown = true
       return true
     end,
