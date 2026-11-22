@@ -142,8 +142,12 @@ function GCA.NeedsCountText(prof, crafts, members)
   return crafts == 1 and string.format(L.NEEDS_COUNT_1, who) or string.format(L.NEEDS_COUNT, crafts, who)
 end
 
+local function NeedsMatch(self, members)
+  return self:MatchNeeds(self:GuildNeeds(members), "", self.db.settings.needsOffline)
+end
+
 local function NeedsLine(self, members)
-  local matched, who = self:MatchNeeds(self:GuildNeeds(members), "", self.db.settings.needsOffline)
+  local matched, who = NeedsMatch(self, members)
   if #matched == 0 then return L.ENTRY_NEEDS_NONE end
   return self.NeedsCountText(self:SelectedProfession(), #matched, who)
 end
@@ -174,6 +178,13 @@ function GCA:OverviewEntries()
       open = function() self:OpenView(e.view) end }
   end
   return out
+end
+
+function GCA:OverviewHeadline()
+  if not self.db then return end
+  local _, who = NeedsMatch(self, self:GetMemberList())
+  local line = who == 0 and L.ENTRY_NEEDS_NONE or who == 1 and L.OV_NEEDS_1 or string.format(L.OV_NEEDS, who)
+  return { line = line, open = function() self:OpenView("needs") end }
 end
 
 function GCA:OverviewStatus()

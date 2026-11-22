@@ -406,6 +406,8 @@ ns.Locales.enUS = {
   OV_STATUS = "%d guildmates recorded · sharing %s", OV_ON = "on", OV_OFF = "off",
   OPEN_HINT = "Your guildmates' gear and which of your crafts and enchants would be upgrades for them.",
   ENTRY_NEEDS_NONE = "Nobody needs anything you can craft right now",
+  OV_NEEDS = "%d guildmates could use your crafts",
+  OV_NEEDS_1 = "1 guildmate could use your crafts",
   ENTRY_MEMBER_TOP = "%s gains the most: %s",
   ENTRY_MEMBER_NONE = "None of your crafts is an upgrade for a guildmate yet",
   ENTRY_CRAFTERS = "%d guildmates share their recipes",

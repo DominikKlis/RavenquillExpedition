@@ -386,6 +386,8 @@ ns.Locales.deDE = {
   OV_STATUS = "%d Gildenmitglieder erfasst · Teilen %s", OV_ON = "an", OV_OFF = "aus",
   OPEN_HINT = "Die Ausrüstung deiner Gildenmitglieder und welche deiner Herstellungen und Verzauberungen für sie eine Verbesserung wären.",
   ENTRY_NEEDS_NONE = "Gerade braucht niemand etwas, das du herstellen kannst",
+  OV_NEEDS = "%d Mitglieder könnten deine Herstellungen brauchen",
+  OV_NEEDS_1 = "1 Mitglied könnte deine Herstellungen brauchen",
   ENTRY_MEMBER_TOP = "Am meisten bringt es %s: %s",
   ENTRY_MEMBER_NONE = "Noch ist keine deiner Herstellungen eine Verbesserung für ein Mitglied",
   ENTRY_CRAFTERS = "%d Gildenmitglieder teilen ihre Rezepte",
