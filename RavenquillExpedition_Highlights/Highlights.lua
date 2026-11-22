@@ -384,6 +384,10 @@ H.KINDS = {
     code = "u", chat = true, icon = "Ability_Dualwield",
     format = function(_, e) return L.DUEL:format(NonEmpty(e.foe, "?")) end,
   },
+  attune = {
+    code = "a", chat = false, paper = false, icon = "INV_Misc_Key_14",
+    format = function(_, e) return L.ATTUNE:format(Gold(L["RAID_" .. tostring(e.raid)])) end,
+  },
 }
 
 local function Icon(name) return name and ("|TInterface\\Icons\\%s:14:14|t "):format(name) or "" end
@@ -473,6 +477,7 @@ H.RULES = {
   { k = "skill", title = "RULE_SKILL", text = "HOW_SKILL" },
   { k = "pvp", title = "RULE_PVP", text = "HOW_PVP" },
   { k = "duel", title = "RULE_DUEL", text = "HOW_DUEL" },
+  { k = "attune", title = "RULE_ATTUNE", text = "HOW_ATTUNE" },
 }
 
 local function RuleLine(rule)

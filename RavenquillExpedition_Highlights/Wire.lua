@@ -36,6 +36,7 @@ local KIND_FIELDS = {
   s = Fields({ { "rank", "int", 1, 999 }, { "skill", "text", 48 } }),
   p = Fields({ { "pk", "enum", { "rank", "win" } }, { "pr", "int", 0, 30, opt = true }, { "name", "text", 48 } }),
   u = Fields({ { "foe", "key" } }),
+  a = Fields({ { "raid", "enum", H.RAID_KEYS } }),
 }
 for code, fields in pairs(KIND_FIELDS) do
   ch:Define(code, { from = "guild", fields = fields })
@@ -63,6 +64,7 @@ local MessageFields = {
   skill = function(m, e) m.rank, m.skill = Num(e.rank), e.skill or "" end,
   pvp = function(m, e) m.pk, m.pr, m.name = e.pk, Num(e.pr), e.name or "" end,
   duel = function(m, e) m.foe = e.foe end,
+  attune = function(m, e) m.raid = e.raid end,
 }
 
 local function WireSeq(e)
@@ -111,6 +113,7 @@ local EntryFields = {
   skill = function(e, m) e.rank, e.skill = m.rank, Str(m.skill) end,
   pvp = function(e, m) e.pk, e.pr, e.name = m.pk, m.pr, Str(m.name) end,
   duel = function(e, m) e.foe = m.foe end,
+  attune = function(e, m) e.raid = m.raid end,
 }
 
 local function OwnEntryId(m)

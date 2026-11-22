@@ -81,6 +81,10 @@ local L = {
   TEST_DEADMINES = "The Deadmines", TEST_MOLTEN_CORE = "Molten Core", TEST_QUEST = "Attunement to the Core",
   TEST_FACTION = "Argent Dawn", TEST_SKILL = "Blacksmithing", TEST_BATTLEGROUND = "Warsong Gulch",
   CAUGHT_UP = "Caught up on %d highlights from while you were away.",
+  ATTUNE = "already attuned to %s (added by hand)",
+  RULE_ATTUNE = "Raid readiness",
+  HOW_ATTUNE = "attunements from before the install. Tick each once in /rq hl under Raid readiness; the tick goes to the guild like your highlights and cannot be taken back.",
+  RAID_mc = "Molten Core", RAID_ony = "Onyxia's Lair", RAID_bwl = "Blackwing Lair",
 }
 
 local deDE = {
@@ -162,6 +166,10 @@ local deDE = {
   TEST_DEADMINES = "Die Todesminen", TEST_MOLTEN_CORE = "Geschmolzener Kern", TEST_QUEST = "Einstimmung auf den Kern",
   TEST_FACTION = "Argentumdämmerung", TEST_SKILL = "Schmiedekunst", TEST_BATTLEGROUND = "Kriegshymnenschlucht",
   CAUGHT_UP = "%d Highlights nachgeholt, die du verpasst hast.",
+  ATTUNE = "schon eingestimmt: %s (selbst nachgetragen)",
+  RULE_ATTUNE = "Raidbereitschaft",
+  HOW_ATTUNE = "Einstimmungen von vor der Installation. Hake jede einmal in /rq hl unter Raidbereitschaft ab; der Haken geht wie deine Highlights an die Gilde und lässt sich nicht zurücknehmen.",
+  RAID_mc = "Geschmolzener Kern", RAID_ony = "Onyxias Hort", RAID_bwl = "Pechschwingenhort",
 }
 
 ns.Locales = { enUS = L, deDE = deDE }

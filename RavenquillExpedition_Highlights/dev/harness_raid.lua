@@ -203,4 +203,92 @@ do
   check(Mine():find("mc=none", 1, true), "removing them takes it back (" .. Mine() .. ")")
 end
 
+local function RowOf(c, who)
+  for _, row in ipairs(c.H:ReadinessModel().rows) do if row.who == who then return row end end
+end
+
+local function Three(w)
+  local mira = w.join("Mira Sturmfeder", { class = "PALADIN" })
+  local rika = w.join("Rika Steinbeck", { class = "WARRIOR", level = 58 })
+  w.sched:advance(60)
+  return mira, rika
+end
+
+Kit.section("Tick: a raid attuned before install, ticked once, shows on a guildmate's client")
+do
+  local w = NewWorld()
+  local mira, rika = Three(w)
+  check(mira.H:DeclareAttuned("mc") ~= nil, "Mira ticks Molten Core")
+  w.sched:advance(120)
+  local row = RowOf(rika, "Mira Sturmfeder")
+  check(row and Cells(row) == "Mira Sturmfeder: mc=done ony=none>STEP_WINDSOR bwl=none>STEP_SEAL" and row.raids[1].declared,
+    "Rika's table shows Mira attuned to Molten Core, marked as added by hand (" .. (row and Cells(row) or "no row") .. ")")
+  local own = RowOf(mira, "Mira Sturmfeder")
+  check(own and own.raids[1].state == "done", "and so does Mira's own")
+  local events = rika.H:Log()
+  local line = rika.H:Format(events[#events])
+  check(line:find("Mira Sturmfeder", 1, true) and line:find("schon eingestimmt: |cffffd100Geschmolzener Kern|r (selbst nachgetragen)", 1, true),
+    "Rika's chronicle has the line (" .. line .. ")")
+  check(mira.H:DeclareAttuned("mc") == nil, "a second tick for the same raid adds nothing")
+  Milestone(mira, "Mira Sturmfeder", 7761, mira.env.time() - 60)
+  check(mira.H:DeclareAttuned("bwl") == nil, "nor does a tick for a raid the quests already attuned")
+  check(mira.H:DeclareAttuned("naxx") == nil, "nor one for a raid not in the table")
+  check(#mira.errors == 0 and #rika.errors == 0, "no Lua errors (" .. tostring(mira.errors[1] or rika.errors[1]) .. ")")
+end
+
+Kit.section("Tick cost: one guild message per raid, ever")
+do
+  local w = NewWorld()
+  local mira = Three(w)
+  local before = #w.bus.log
+  for _, raid in ipairs({ "mc", "ony", "bwl", "mc", "ony" }) do
+    mira.H:DeclareAttuned(raid)
+    w.sched:advance(5)
+  end
+  w.sched:advance(3600)
+  local ticks = {}
+  for i = before + 1, #w.bus.log do
+    local x = w.bus.log[i]
+    if x.sender == "Mira Sturmfeder" and x.msg:find("^H;1;a;") then ticks[#ticks + 1] = x end
+  end
+  check(#ticks == 3, "three raids ticked, two repeats: three messages in an hour (" .. #ticks .. ")")
+  local shape = true
+  for _, x in ipairs(ticks) do shape = shape and x.msg:match("^H;1;a;%d+;%d+;Mira Sturmfeder;60;2;%l+$") ~= nil and #x.msg < 60 end
+  check(shape, "each is one short record: time, sequence, name, level, class, raid (" .. tostring(ticks[1] and ticks[1].msg) .. ")")
+  local C = mira.RQ.CommConst
+  local cap60, most = C.BURST + 60 * C.RATE, w.bus:maxPer(60, "Mira Sturmfeder")
+  check(most <= cap60, ("all of Mira's guild messages, ticks included, stay within the core's %d per minute (%d)"):format(cap60, most))
+  w.sched:advance(86400)
+  local later = 0
+  for i = before + 1, #w.bus.log do
+    if w.bus.log[i].sender == "Mira Sturmfeder" and w.bus.log[i].msg:find("^H;1;a;") then later = later + 1 end
+  end
+  check(later == 3, "nothing is resent a day later (" .. later .. ")")
+end
+
+Kit.section("Tick catch-up: a guildmate who was offline gets the tick from the others")
+do
+  local w = NewWorld()
+  local mira = Three(w)
+  mira.H:DeclareAttuned("ony")
+  w.sched:advance(120)
+  local bodo = w.join("Bodo Kesselring", { class = "PALADIN", level = 56 })
+  w.sched:advance(600)
+  local row = RowOf(bodo, "Mira Sturmfeder")
+  check(row and row.raids[2].state == "done" and row.raids[2].declared,
+    "Bodo logs in later and his table shows Mira's tick (" .. (row and Cells(row) or "no row") .. ")")
+  check(w.sent("^H;1;Ra;") >= 1, "it came as a catch-up relay")
+end
+
+Kit.section("Tick: the newspaper leaves ticks out, the chronicle keeps them")
+do
+  local w = NewWorld()
+  local mira = Three(w)
+  mira.H:DeclareAttuned("mc")
+  w.sched:advance(10)
+  local list = mira.H:LogLines()
+  check(list[#list] and list[#list].k == "attune", "the chronicle lists the tick")
+  check(#mira.H:Issues() == 0, "the paper has no issue made of a tick alone (" .. #mira.H:Issues() .. ")")
+end
+
 Kit.finish()

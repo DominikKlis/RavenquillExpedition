@@ -82,6 +82,17 @@ for i, e in ipairs(ENTRIES) do
 end
 check(okDec == total and total >= 10, ("%d/%d golden bodies decode to their entries"):format(okDec, total))
 
+Kit.section("Attunement ticks: the a record's bytes, plain and relayed")
+local TICK = { k = "attune", t = T + 11, who = ME, lvl = 60, cls = "ROGUE", id = ME .. "#" .. (T + 11) .. "#11", raid = "bwl" }
+local tickBody = H.Encode(TICK) or "<nil>"
+local relayType, relayMsg = H.RelayMessage(TICK)
+gold:compare("hl.encode.attune", { tickBody, relayType and H.channel:Encode(relayType, relayMsg) or "<nil>" }, check)
+local tickGold = RECORD and tickBody or (gold.data["hl.encode.attune"] or {})[1]
+local tickBack = tickGold and H.Decode(ME, tickGold)
+check(tickBack and tickBack.k == "attune" and tickBack.raid == "bwl" and tickBack.id == TICK.id and tickBack.lvl == 60,
+  "the golden a body decodes to the tick")
+check(H.Decode(ME, (tickGold or ""):gsub(";bwl$", ";naxx")) == nil, "a raid this version does not know is refused")
+
 Kit.section("Catch-up asks: a 0.9 client and this one read each other's r")
 local v09 = setmetatable({ tag = "H", version = 1, types = {} }, coreNS.Channel)
 v09:Define("r", { from = "guild", fields = { { "since", "int", 0, 4102444800 } } })

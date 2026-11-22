@@ -12,6 +12,10 @@ return {
     "1;v;1799995009;9;Me Smith;40;4",
     "1;g;1799995010;10;Me Smith;30;6;1;;;;",
   },
+  ["hl.encode.attune"] = {
+    "1;a;1799995011;11;Me Smith;60;4;bwl",
+    "H;1;Ra;1799995011;11;Me Smith;60;4;bwl",
+  },
   ["hl.lane"] = {
     "RQE1|GUILD|H;1;g;1799995000;1;Me Smith;30;4;12345;33;3;20;1",
     "RQE1|GUILD|H;1;l;1799995001;2;Me Smith;30;4;19019;5;bag",

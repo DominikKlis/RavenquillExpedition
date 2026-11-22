@@ -41,7 +41,9 @@ local function StepsDone(a, facts)
 end
 
 function H.RaidStatus(a, facts)
-  local n, m = StepsDone(a, facts), #a.steps
+  local m = #a.steps
+  if facts[a.raid] then return { raid = a.raid, state = "done", n = m, m = m, declared = true } end
+  local n = StepsDone(a, facts)
   local state = (n == m and "done") or (n == 0 and "none") or "partial"
   return { raid = a.raid, state = state, n = n, m = m, next = a.steps[n + 1] }
 end
@@ -54,6 +56,7 @@ end
 
 local FACT = {
   quest = function(e) return H.ATTUNEMENT_QUESTS[e.qid] and e.qid or nil end,
+  attune = function(e) return RAID[e.raid] and e.raid or nil end,
 }
 
 local function FactOf(e)
@@ -95,6 +98,19 @@ function H:AttunementFacts()
 end
 
 function H.MyFaction() return Plain(SafeCall(UnitFactionGroup, "player"), "string") end
+
+function H:MyRaidStatus(raid)
+  local mine = self:AttunementFacts()[GS:PlayerKey() or ""] or {}
+  for _, a in ipairs(H.RaidsFor(H.MyFaction())) do
+    if a.raid == raid then return H.RaidStatus(a, mine) end
+  end
+end
+
+function H:DeclareAttuned(raid)
+  local status = self.db and self:MyRaidStatus(raid)
+  if not status or status.state == "done" then return end
+  return self:Add(ns.Own("attune", { raid = raid }), "self")
+end
 
 local function Listing(key, member, facts)
   if (member.level or 0) < H.RAID_LEVEL then return "low" end
