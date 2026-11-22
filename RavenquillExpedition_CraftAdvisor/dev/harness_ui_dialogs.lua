@@ -375,11 +375,10 @@ do
   local owed = 0
   GCA.CheckOwn = function() owed = owed + 1 end
   s.sync = false
-  UIx.ToggleSetting("sync")
   local rqSync
   for _, o in ipairs(GCA.options) do if o.label == ns.Locales.enUS.OPT_SHARE_GEAR then rqSync = o end end
-  rqSync.set(false); rqSync.set(true)
-  check(s.sync == true and owed == 2, "sync back on from the Filter menu and from /rq: own gear checked both times (" .. owed .. ")")
+  rqSync.set(true); rqSync.set(false); rqSync.set(true)
+  check(s.sync == true and owed == 2, "sync turned back on in /rq: own gear checked each time (" .. owed .. ")")
   GCA.CheckOwn, s.survival, s.sync = savedCheckOwn, savedSurvival, savedSync
   local bad = {}
   for _, file in ipairs(Files.group("UI")) do

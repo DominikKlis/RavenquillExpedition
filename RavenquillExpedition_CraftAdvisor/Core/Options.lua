@@ -74,8 +74,8 @@ function GCA:ForgetStoredGear()
   self:RefreshUI()
 end
 
-local function Action(label, func)
-  return { type = "button", label = L[label], tooltip = L[label .. "_TIP"], func = func }
+local function Action(label, tip, func)
+  return { type = "button", label = L[label], tooltip = L[tip], func = func }
 end
 
 local function LevelingBonus(stamina, spirit)
@@ -92,13 +92,13 @@ function GCA:BuildOptions()
     SettingToggle("sync", "OPT_SHARE_GEAR", "OPT_SHARE_GEAR_TIP"),
     { type = "header", label = L.OPT_H_INSPECT },
     SettingToggle("autoInspect", "OPT_AUTO_INSPECT", "OPT_AUTO_INSPECT_TIP"),
-    Action("OPT_INSPECT_NOW", function() GCA:InspectTarget() end),
-    Action("OPT_SCAN_NOW", function() GCA:ScanGroup() end),
+    Action("OPT_INSPECT_NOW", "OPT_INSPECT_NOW_TIP", function() GCA:InspectTarget() end),
+    Action("OPT_SCAN_NOW", "OPT_SCAN_NOW_TIP", function() GCA:ScanGroup() end),
     { type = "header", label = L.OPT_H_SCORING },
     LevelingBonus(stamina, spirit),
     { type = "note", label = string.format(L.OPT_LEVEL_BONUS_NOTE, stamina, spirit) },
     { type = "header", label = L.OPT_H_OFFERS },
-    Action("EDIT_WHISPER", function() GCA.UI:OpenWhisperEditor() end),
+    Action("EDIT_WHISPER", "EDIT_WHISPER_TIP", function() GCA.UI:OpenWhisperEditor() end),
   }
 end
 

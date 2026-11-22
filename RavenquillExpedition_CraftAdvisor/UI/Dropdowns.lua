@@ -2,7 +2,7 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 local P = UI.P
-local G, C, SetAtlasSafe, TexOK = P.G, P.C, P.SetAtlasSafe, P.TexOK
+local C, SetAtlasSafe, TexOK = P.C, P.SetAtlasSafe, P.TexOK
 local SingleLine, SetTip, SpecHowText = P.SingleLine, P.SetTip, P.SpecHowText
 local NewTextButton = P.NewTextButton
 local NewPopup, KeepNativeHover = P.NewPopup, P.KeepNativeHover
@@ -31,7 +31,6 @@ function NATIVE_ITEM.check(root, it) return root:CreateCheckbox(it.label, it.che
 function NATIVE_ITEM.button(root, it) return root:CreateButton(it.label, it.onClick) end
 function NATIVE_ITEM.title(root, it) if root.CreateTitle then root:CreateTitle(it.label) end end
 function NATIVE_ITEM.divider(root) if root.CreateDivider then root:CreateDivider() end end
-function NATIVE_ITEM.native(root, it) pcall(it.build, root) end
 
 local function NativeMenu(items)
   return function(_, root)
@@ -311,8 +310,8 @@ end
 UI.FILTERS = {
   { key = "showUnlearned", label = "FILTER_UNLEARNED", tip = "FILTER_UNLEARNED_TIP" },
   { key = "lookahead", label = "FILTER_LOOKAHEAD", tip = "FILTER_LOOKAHEAD_TIP" },
-  { key = "autoInspect", label = "FILTER_AUTOINSPECT", tip = "FILTER_AUTOINSPECT_TIP" },
-  { key = "sync", label = "FILTER_SYNC", tip = "FILTER_SYNC_TIP" },
+  { key = "needsOffline", label = "NEEDS_OFFLINE", tip = "NEEDS_OFFLINE_TIP", count = function() return UI.offlineN or 0 end,
+    set = function(on) UI:SetNeedsOffline(on) end },
 }
 function UI.ToggleSetting(key)
   local on = not GCA.db.settings[key]
@@ -326,57 +325,32 @@ local function SettingOn(key)
   local s = GCA.db and GCA.db.settings or {}
   return s[key] and true or false
 end
-UI.SURVIVAL_STEPS = { 0, 25, 50, 75, 100 }
-function UI.SetSurvival(v)
-  if GCA:SetSurvival(v) then UI:Refresh() end
-end
-local function SurvivalSubmenu(root)
-  local a, b = G("SPELL_STAT3_NAME"), G("SPELL_STAT5_NAME")
-  local cur = math.floor(GCA:SurvivalShare() * 100 + 0.5)
-  local sub = root:CreateButton(string.format(L.SLIDER_LABEL, a, b, cur))
-  if type(sub) ~= "table" or not sub.CreateRadio then return false end
-  if sub.SetTooltip then
-    pcall(sub.SetTooltip, sub, function(tooltip)
-      tooltip:SetText(string.format(L.SLIDER_TIP_TITLE, a, b), 1, 1, 1)
-      tooltip:AddLine(string.format(L.SLIDER_TIP, a, b), nil, nil, nil, true)
-    end)
-  end
-  for _, v in ipairs(UI.SURVIVAL_STEPS) do
-    sub:CreateRadio(v .. " %", function(x) return math.floor(GCA:SurvivalShare() * 100 + 0.5) == x end,
-      function(x) UI.SetSurvival(x) end, v)
-  end
-  return true
+local function FilterItem(def)
+  local key = def.key
+  return { kind = "check", label = def.count and string.format(L[def.label], def.count()) or L[def.label], tip = L[def.tip],
+    checked = function() return SettingOn(key) end,
+    onClick = function() if def.set then def.set(not SettingOn(key)) else UI.ToggleSetting(key) end end }
 end
 local function FilterItems()
   local items = {}
-  for _, def in ipairs(UI.FILTERS) do
-    local key = def.key
-    items[#items + 1] = { kind = "check", label = L[def.label], tip = L[def.tip], checked = function() return SettingOn(key) end,
-      onClick = function() UI.ToggleSetting(key) end }
-  end
-  items[#items + 1] = { kind = "check", label = string.format(L.NEEDS_OFFLINE, UI.offlineN or 0), tip = L.NEEDS_OFFLINE_TIP,
-    checked = function() return SettingOn("needsOffline") end, onClick = function() UI:SetNeedsOffline(not SettingOn("needsOffline")) end }
+  for _, def in ipairs(UI.FILTERS) do items[#items + 1] = FilterItem(def) end
   items[#items + 1] = { kind = "divider" }
-  items[#items + 1] = { kind = "native", build = SurvivalSubmenu }
-  items[#items + 1] = { kind = "button", label = L.EDIT_WHISPER, tip = L.EDIT_WHISPER_TIP, onClick = function() UI:OpenWhisperEditor() end }
-  items[#items + 1] = { kind = "button", label = L.OPT_INSPECT_NOW, tip = L.OPT_INSPECT_NOW_TIP,
-    onClick = function() if GCA.db then GCA:InspectTarget() end end }
-  items[#items + 1] = { kind = "button", label = L.OPT_SCAN_NOW, tip = L.OPT_SCAN_NOW_TIP,
-    onClick = function() if GCA.db then GCA:ScanGroup() end end }
   if UI.SyncState() == "paused" then
     items[#items + 1] = { kind = "button", label = L.OPT_SYNC_RETRY, tip = L.OPT_SYNC_RETRY_TIP,
       onClick = function() GCA:SyncRetry(); GCA:RefreshUI() end }
   end
+  items[#items + 1] = { kind = "button", label = C.link .. L.FILTER_SETTINGS .. "|r", tip = L.FILTER_SETTINGS_TIP,
+    onClick = function() GCA.RQ:OpenModule(GCA.name) end }
   return items
 end
 local function FilterTip(self)
   GameTooltip:SetOwner(self, "ANCHOR_TOP")
   GameTooltip:SetText(L.FILTER_BUTTON, 1, 1, 1)
-  GameTooltip:AddLine(L.OPTIONS_TIP, nil, nil, nil, true)
+  GameTooltip:AddLine(L.FILTER_TIP, nil, nil, nil, true)
   GameTooltip:Show()
 end
 UI.FILTER_DEFAULTS = {}
-for _, k in ipairs({ "showUnlearned", "lookahead", "needsOffline" }) do UI.FILTER_DEFAULTS[k] = GCA.defaults[k] and true or false end
+for _, def in ipairs(UI.FILTERS) do UI.FILTER_DEFAULTS[def.key] = GCA.defaults[def.key] and true or false end
 function UI.FiltersAtDefault()
   local s = GCA.db and GCA.db.settings or {}
   for k, v in pairs(UI.FILTER_DEFAULTS) do

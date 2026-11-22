@@ -231,21 +231,38 @@ do
   check(UIx.survival._parent == f.content and not UIx.survival._shown and UIx.helpButton == nil,
     "the bottom slider is hidden with the native Filter menu; no '?' help button")
   local op = menuOf(fb)
-  check(#op == 10 and op[1].kind == "check" and op[5].kind == "check" and op[6].kind == "divider" and op[7].kind == "button"
-    and #op[7].sub == 5 and op[8].kind == "button" and op[9].kind == "button" and op[10].kind == "button",
-    "filter menu: 4 settings + offline members, divider, leveling bonus submenu (5 values), edit whisper, inspect target, read group (" .. #op .. ")")
-  check(menuTexts(op) == "Show missing recipes|Look ahead 5 levels|Read gear automatically|Guild sync|Include offline members (0)|Leveling bonus (Stamina/Spirit): 50%|Edit whisper text…|Inspect target now|Read group now",
-    "menu labels: " .. menuTexts(op))
-  check(op[1].tip ~= nil and op[7].tip ~= nil and op[8].tip ~= nil and #op == 10 and op[9].tip ~= nil and op[10].tip ~= nil, "every entry has its tooltip")
-  local function chatAfter(entry)
-    local lines, add = {}, env.DEFAULT_CHAT_FRAME.AddMessage
-    env.DEFAULT_CHAT_FRAME.AddMessage = function(_, t) lines[#lines + 1] = plain(tostring(t)) end
-    if entry then entry:click() end
-    env.DEFAULT_CHAT_FRAME.AddMessage = add
-    return table.concat(lines, "\n")
+  check(menuTexts(op) == "Show missing recipes|Look ahead 5 levels|Include offline members (0)|Settings in /rq craft ›" and #op == 5
+    and op[1].kind == "check" and op[2].kind == "check" and op[3].kind == "check" and op[4].kind == "divider" and op[5].kind == "button",
+    "filter menu: the three list filters, a divider, the way to the settings in /rq craft: " .. menuTexts(op))
+  local tips = 0
+  for _, e in ipairs(op) do if e.tip then tips = tips + 1 end end
+  check(tips == #op - 1, "every entry but the divider has its tooltip (" .. tips .. ")")
+  local function settingsTouchedBy(entry)
+    local before, touched = {}, {}
+    for k, v in pairs(GCA.db.settings) do before[k] = v end
+    entry:click()
+    for k, v in pairs(GCA.db.settings) do if before[k] ~= v then touched[#touched + 1] = k end end
+    entry:click()
+    return touched
   end
-  check(chatAfter(op[9]):find("Target a guild member first.", 1, true), "Inspect target now reads your target's gear (no target: it says so)")
-  check(chatAfter(op[10]):find("No guild members in your group to inspect.", 1, true), "Read group now reads your group's gear (alone: it says so)")
+  local touched, actions = {}, {}
+  for _, e in ipairs(op) do
+    if e.kind == "check" then for _, k in ipairs(settingsTouchedBy(e)) do touched[#touched + 1] = k end end
+    if e.kind == "button" or #e.sub > 0 then actions[#actions + 1] = plain(e.text) end
+  end
+  table.sort(touched)
+  check(table.concat(touched, ",") == "lookahead,needsOffline,showUnlearned",
+    "the menu's boxes change the list filters and no setting: " .. table.concat(touched, ","))
+  check(#actions == 1 and actions[1] == "Settings in /rq craft ›",
+    "no action and no submenu in the menu, only the way to /rq craft: " .. table.concat(actions, ", "))
+  local RQ = env.RavenquillExpedition
+  check(not RQ:OverviewShown(), "precondition: /rq is closed")
+  H.withStringHeights(function() op[#op]:click() end)
+  local ovShown, ovPage = RQ:OverviewShown()
+  local ov = env.RavenquillExpeditionOverview
+  check(ovShown and ovPage == "Craft" and RQ.moduleSettings and ov.optView.panels.Craft and ov.optView.panels.Craft:IsShown(),
+    "'Settings in /rq craft ›' opens /rq on the Craft settings page (" .. tostring(ovPage) .. ")")
+  if ov then ov:Hide() end
   local syncState, retried = "ok", 0
   GCA.SyncState = function() return syncState end
   GCA.SyncRetry = function() retried = retried + 1; syncState = "ok" end
@@ -253,17 +270,12 @@ do
   syncState = "paused"
   UIx:Refresh()
   local paused = menuOf(fb)
-  local retry = paused[#paused]
-  check(retry.text == "Retry sync" and retry.tip ~= nil and UIx.syncDot.state == "paused",
-    "while our messages do not come back the menu offers Retry sync: " .. menuTexts(paused))
+  local retry = paused[#paused - 1]
+  check(retry.text == "Retry sync" and retry.tip ~= nil and paused[#paused - 2].kind == "divider" and UIx.syncDot.state == "paused",
+    "while our messages do not come back the menu offers Retry sync above the way to /rq craft: " .. menuTexts(paused))
   if retry.text == "Retry sync" then retry:click() end
   check(retried == 1 and UIx.syncDot.state == "ok", "Retry sync resumes sync and the window shows it right away (" .. tostring(UIx.syncDot.state) .. ")")
   GCA.SyncState, GCA.SyncRetry = nil, nil
-  check(op[7].sub[3]:on() and not op[7].sub[4]:on(), "50 % is the selected bonus")
-  op[7].sub[4]:click()
-  check(math.abs(GCA.db.settings.survival - 0.75) < 1e-9 and menuOf(fb)[7].sub[4]:on(), "picking 75 % sets the bonus")
-  menuOf(fb)[7].sub[3]:click()
-  check(math.abs(GCA.db.settings.survival - 0.5) < 1e-9, "...and back to 50 %")
   local before = GCA.db.settings.showUnlearned
   op[1]:click()
   check(GCA.db.settings.showUnlearned == not before and menuOf(fb)[1]:on() == GCA.db.settings.showUnlearned and (fb._generated or 0) > 0,
@@ -274,12 +286,14 @@ do
   menuOf(fb)[2]:click()
   check(GCA.db.settings.lookahead == not la, "entry 2 toggles lookahead")
   menuOf(fb)[2]:click()
-  local ai = GCA.db.settings.autoInspect
-  menuOf(mf)[3]:click(); check(ai == true and GCA.db.settings.autoInspect == false, "entry 3 toggles autoInspect (default on; the member list's Filter too)")
+  local offline = GCA.db.settings.needsOffline
   menuOf(mf)[3]:click()
-  menuOf(fb)[8]:click()
+  check(offline == false and GCA.db.settings.needsOffline == true and menuOf(fb)[3]:on(),
+    "entry 3 includes offline members (default off; the member list's Filter and the needs bar's show one setting)")
+  menuOf(mf)[3]:click()
+  for _, o in ipairs(GCA.options) do if o.label == ns.L.EDIT_WHISPER then o.func() end end
   local ed = UIx.whisperEditor
-  check(ed and ed._shown, "last entry opens the whisper editor")
+  check(ed and ed._shown, "/rq craft's 'Edit whisper text…' opens the whisper editor")
   check(ed.craft._text == UIx.DefaultTemplate("craft") and ed.enchant._text == UIx.DefaultTemplate("enchant"), "editor starts with the defaults")
   ed.craft:SetText("Yo {name}, {item} for your {slot}? {nope}")
   ed.saveBtn._scripts.OnClick(ed.saveBtn)

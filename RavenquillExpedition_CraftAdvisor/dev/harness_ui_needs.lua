@@ -172,7 +172,7 @@ do
     and cp[1].CollapseButton.text._text == "–" and UIx.collapseIconKind == "text" and cp[1].native == nil,
     "category header replicated from the probe: collapseExpand art + ADD hover 0.4, gold text at 8, 20 px CollapseButton at -6 ('–', no icon atlas in this mock)")
   local fm = menuOf(UIx.filterButton)
-  check(plain(UIx.needsCount._text) == "3 crafts are worth it for 2 members" and plain(fm[5].text) == "Include offline members (1)" and not fm[5]:on(),
+  check(plain(UIx.needsCount._text) == "3 crafts are worth it for 2 members" and plain(fm[3].text) == "Include offline members (1)" and not fm[3]:on(),
     "count line; K6: Filter menu entry 'Include offline members (1)', off by default: " .. plain(UIx.needsCount._text))
   local s1, s2 = nd.members.pools.default[1], nd.members.pools.default[2]
   check(UIx.needSel == "i9001" and nd.entry and nd.entry.group == K5.crafts1 or (nd.entry and nd.entry.group.key == "i9001"),
@@ -187,15 +187,15 @@ do
     "member row on one line: member column | worn icon + its name beside it | gain, 'Offer', box: " .. plain(s1.state._text))
   check(nd.members.viewH == 2 * 42 and nd.members.viewW == nd.w - 44 and s1.stateW >= 40,
     "the member list is as tall as its rows (2 x 42), as wide as the detail panel")
-  fm[5]:click()
+  fm[3]:click()
   r1 = nl.pools.default[1]
   check(GCA.db.settings.needsOffline == true and r1.count._text == " [3]" and nd.members.pools.default[1].data.member.key == "Olga Field"
     and nd.members.pools.default[1].name._alpha == 1 and nd.members.pools.default[1].name._text:find("StatusIcon-Offline", 1, true)
-    and not nd.members.pools.default[1].name._text:find("|cff7f7f7f", 1, true) and not nd.members.pools.default[1].offer._shown and menuOf(UIx.filterButton)[5]:on()
+    and not nd.members.pools.default[1].name._text:find("|cff7f7f7f", 1, true) and not nd.members.pools.default[1].offer._shown and menuOf(UIx.filterButton)[3]:on()
     and plain(UIx.needsCount._text) == "3 crafts are worth it for 3 members", "offline members on: saved, Olga (offline dot + softened class colour, no Offer) leads the vest craft")
   check(UIx.filterButton.resetButton and UIx.filterButton.resetButton._shown and UIx.filterButton.resetButton.icon._atlas == "auctionhouse-ui-filter-redx"
     and UIx.memberFilter.resetButton._shown, "a filter off its default -> the red reset badge on both Filter buttons")
-  menuOf(UIx.memberFilter)[5]:click()
+  menuOf(UIx.memberFilter)[3]:click()
   check(GCA.db.settings.needsOffline == false and nl.pools.default[1].count._text == " [2]" and not UIx.filterButton.resetButton._shown,
     "the member list's Filter turns it off again (one setting); the badge goes")
   GCA.db.settings.showUnlearned = true; UIx:RefreshFilters()
@@ -535,7 +535,7 @@ do
   check(UIx.tabs[1]._text == "Nach Mitglied" and UIx.tabs[2]._text == "Gildenbedarf" and UIx.tabs[3]._text == "Handwerker", "German tabs")
   UIx:SetView("needs")
   check(plain(UIx.needsCount._text) == "3 Herstellungen lohnen für 2 Mitglieder" and UIx.searchBox.placeholder._text == "Suchen"
-    and plain(menuOf(UIx.filterButton)[5].text) == "Offline-Mitglieder einbeziehen (1)" and plain(menuOf(UIx.filterButton)[7].text):find("^Levelbonus") and plain(menuOf(UIx.filterButton)[8].text):find("^Flüstertext"),
+    and plain(menuOf(UIx.filterButton)[3].text) == "Offline-Mitglieder einbeziehen (1)" and plain(menuOf(UIx.filterButton)[5].text) == "Einstellungen in /rq craft ›",
     "German count, search instructions; K6 Filter menu entries: " .. plain(UIx.needsCount._text))
   local gr1 = UIx.needsList.pools.default[1]
   check(gr1.count._text == " [2]" and UIx.needsList.pools.cat[1].text._text == "Chest" and UIx.needsList.pools.cat[3].text._text == "Ringe"
@@ -633,12 +633,12 @@ do
     "fallbacks: red 'Filter' button + popup, the K2 search box, UIPanelScrollFrameTemplate")
   UIx.filterButton._scripts.OnClick(UIx.filterButton)
   local fp = UIx.filterPopup
-  check(fp._shown and #fp.buttons == 8 and plain(fp.buttons[5].text._text) == "Include offline members (1)"
-    and fp.buttons[7].text._text == "Inspect target now" and fp.buttons[8].text._text == "Read group now",
-    "fallback Filter popup: 4 toggles, offline members, edit whisper, inspect target, read group")
-  fp.buttons[5]._scripts.OnClick(fp.buttons[5])
-  check(GCA.db.settings.needsOffline == true and fp.buttons[5].check._shown, "fallback popup toggles 'Include offline members'")
-  fp.buttons[5]._scripts.OnClick(fp.buttons[5]); fp:Hide()
+  check(fp._shown and #fp.buttons == 4 and plain(fp.buttons[3].text._text) == "Include offline members (1)"
+    and plain(fp.buttons[4].text._text) == "Settings in /rq craft ›",
+    "fallback Filter popup: the three list filters and the way to /rq craft")
+  fp.buttons[3]._scripts.OnClick(fp.buttons[3])
+  check(GCA.db.settings.needsOffline == true and fp.buttons[3].check._shown, "fallback popup toggles 'Include offline members'")
+  fp.buttons[3]._scripts.OnClick(fp.buttons[3]); fp:Hide()
   UIx:SetView("member")
   check(not UIx.modeToggle.native and UIx.modeToggle._text == "View: Character sheet", "fallback view switch: a red button naming the shown variant")
   UIx.modeToggle._scripts.OnClick(UIx.modeToggle)
@@ -658,9 +658,11 @@ do
   UIx.filterButton._scripts.OnClick(UIx.filterButton)
   captureTip(); fp.buttons[1]._scripts.OnEnter(fp.buttons[1])
   check(fp._shown and H.tip[1] == plain(fp.buttons[1].text._text) and #H.tip >= 2, "fallback Filter popup rows: the label as tooltip title + the explanation")
-  fp.buttons[6]._scripts.OnClick(fp.buttons[6])
-  check(not fp._shown and UIx.whisperEditor and UIx.whisperEditor._shown, "fallback Filter popup: 'Edit whisper text' closes the popup and opens the editor")
-  UIx.whisperEditor:Hide()
+  H.withStringHeights(function() fp.buttons[4]._scripts.OnClick(fp.buttons[4]) end)
+  local ovShown, ovPage = env.RavenquillExpedition:OverviewShown()
+  check(not fp._shown and ovShown and ovPage == "Craft",
+    "fallback Filter popup: 'Settings in /rq craft ›' closes the popup and opens /rq on the Craft settings (" .. tostring(ovPage) .. ")")
+  env.RavenquillExpeditionOverview:Hide()
   sdd._scripts.OnClick(sdd)
   local sp, specKey = UIx.specPopup, UIx.current.key
   sp.buttons[2]._scripts.OnClick(sp.buttons[2])

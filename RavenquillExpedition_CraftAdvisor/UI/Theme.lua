@@ -44,6 +44,7 @@ local C = {
   warn = "|cffff8800",
   bad = "|cffff5555",
   levelTag = "|cfff0b44c",
+  link = "|cffffd100",
 }
 local SUB_TINT = { 0.75, 0.72, 0.65 }
 UI.SUB_TINT = SUB_TINT

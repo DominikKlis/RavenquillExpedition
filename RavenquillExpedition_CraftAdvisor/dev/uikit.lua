@@ -37,7 +37,7 @@ for _, m in ipairs({ "SetTexCoord", "SetVertexColor", "SetDesaturated", "SetJust
   "SetOrientation", "SetMinMaxValues", "SetValueStep", "SetObeyStepOnDrag", "SetThumbTexture",
   "SetWordWrap", "SetMaxLines", "SetNonSpaceWrap", "SetClipsChildren", "SetAutoFocus", "SetMaxLetters", "ClearFocus",
   "SetCursorPosition",
-  "SetBlendMode", "EnableMouseWheel", "SetDrawLayer" }) do
+  "SetBlendMode", "EnableMouseWheel", "SetDrawLayer", "SetCheckedTexture", "SetDisabledCheckedTexture" }) do
   Frame[m] = function(self, ...) self["_" .. m] = { ... } end
 end
 function Frame:SetTexture(t) self._tex = t end
@@ -111,6 +111,9 @@ function Frame:SetAlpha(a) self._alpha = a end
 function Frame:GetAlpha() return self._alpha or 1 end
 function Frame:GetParent() return self._parent end
 function Frame:SetEnabled(on) self._enabled = on and true or false end
+function Frame:Enable() self._enabled = true end
+function Frame:Disable() self._enabled = false end
+function Frame:IsEnabled() return self._enabled ~= false end
 function Frame:LockHighlight() self._locked = true end
 function Frame:UnlockHighlight() self._locked = false end
 H.badAtlas = 0
@@ -253,6 +256,11 @@ local function menuOf(dd)
   function root:CreateTitle(t) return add("title", t) end
   dd._gen(dd, root)
   return entries
+end
+local function withStringHeights(fn)
+  Frame.GetStringHeight = function(fontString) return fontString._text and 12 or 0 end
+  fn()
+  Frame.GetStringHeight = nil
 end
 local function menuTexts(entries, kind)
   local out = {}
@@ -580,4 +588,5 @@ H.rstr = rstr
 H.section = Kit.section
 H.tipText = tipText
 H.windowChecks = windowChecks
+H.withStringHeights = withStringHeights
 return H

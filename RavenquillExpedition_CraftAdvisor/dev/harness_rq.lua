@@ -303,15 +303,12 @@ for _, k in ipairs({ "SYNC_STOPPED_MSG", "MSG_RECORDED", "EMPTY_NOGEAR", "WHISPE
   end
 end
 check(#named == 0, "core texts name no removed command (" .. table.concat(named, ", ") .. ")")
-local function namesEntry(T, key, label)
-  local text, entry = T[key], T[label]
-  return not text:find("/rq", 1, true) and type(entry) == "string" and text:find(T.FILTER_BUTTON .. " → ", 1, true) ~= nil
-    and text:find(entry, 1, true) ~= nil
-end
 for _, loc in ipairs({ "enUS", "deDE" }) do
   local T = ns.Locales[loc]
-  check(namesEntry(T, "EMPTY_NOGEAR", "OPT_INSPECT_NOW") and namesEntry(T, "SYNC_STOPPED_MSG", "OPT_SYNC_RETRY"),
-    loc .. ": 'no gear' and 'sync stopped' point at the window's Filter menu entries, not /rq: " .. T.EMPTY_NOGEAR .. " | " .. T.SYNC_STOPPED_MSG)
+  local noGear, stopped, viaFilter = T.EMPTY_NOGEAR, T.SYNC_STOPPED_MSG, T.FILTER_BUTTON .. " → "
+  check(noGear:find(T.OPT_INSPECT_NOW, 1, true) and noGear:find("/rq craft", 1, true) and not noGear:find(viaFilter, 1, true)
+    and stopped:find(viaFilter, 1, true) and stopped:find(T.OPT_SYNC_RETRY, 1, true) and not stopped:find("/rq", 1, true),
+    loc .. ": 'no gear' points at 'Inspect target now' in /rq craft, 'sync stopped' at the Filter menu's retry: " .. noGear .. " | " .. stopped)
 end
 
 Kit.finish()
