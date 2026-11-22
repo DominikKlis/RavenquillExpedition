@@ -119,6 +119,8 @@ check(A.GCA:PlaceOrder("Bert Hill", LW, VEST, 18) == o and #A.GCA:OrderLists().m
   "asking again while it is open gives the same order back")
 advance(600)
 check(orderMsgs() - before == 2, "no resends once acknowledged (10 minutes later still 2 messages)")
+local firstGap = bus:sentBy("Anna Stone", function(e) return e.msg:match("^CO;") ~= nil end)
+check(#firstGap == 1, "Anna sent the order once in those 10 minutes")
 
 section("Only the allowed party moves the order, one step at a time")
 check(actions(A, o) == "withdraw" and actions(B, ob) == "accept,decline", "Anna may withdraw; Bert may accept or decline")
@@ -250,9 +252,14 @@ local ob5 = stored(B, o5)
 bus.drop = Hold
 check(A.GCA:OrderAction(o5, "withdraw") and B.GCA:OrderAction(ob5, "accept"), "at the same moment: Anna withdraws, Bert accepts")
 advance(200)
+local replayedAt, replayed = sched.t, #held
 Replay()
 advance(200)
 check(o5.state == "withdrawn" and ob5.state == "withdrawn", "delivered late, backwards and twice: both sides end withdrawn")
+local acks = bus:count(function(e)
+  return e.t >= replayedAt and e.sender == "Bert Hill" and e.msg == "CO;1;k;Anna Stone;" .. A.GCA.b36(o5.id) .. ";withdrawn"
+end)
+check(acks == 1, ("%d held copies delivered twice each: Bert acknowledges 'withdrawn' once (%d)"):format(replayed, acks))
 
 local o6 = A.GCA:PlaceOrder("Bert Hill", LW, 2162, 4)
 advance(20)
@@ -311,7 +318,19 @@ Login("Bert Hill", { db = bdb, files = OLD_FILES })
 advance(1800)
 tries = sentBy("Anna Stone", "o") - before
 check(tries == 6, "he logs in again: 3 more, never more per login (" .. tries .. ")")
-check(bus:maxPer(60, "Anna Stone", { RQE1 = true }) <= 15, "within the core's send budget")
+local function ordersPer60(name)
+  local times, best = {}, 0
+  for _, e in ipairs(bus.log) do if e.sender == name and e.msg:match("^CO;") then times[#times + 1] = e.t end end
+  for i = 1, #times do
+    local n = 0
+    for j = i, #times do if times[j] - times[i] < 60 then n = n + 1 end end
+    best = math.max(best, n)
+  end
+  return best
+end
+local perMin, allPerMin = math.max(ordersPer60("Anna Stone"), ordersPer60("Bert Hill")), bus:maxPer(60, "Anna Stone", { RQE1 = true })
+check(perMin <= 4 and allPerMin <= 15, ("within the core's send budget (15 per 60 s): at most %d order messages in any 60 s per client"
+  .. " (the test's own steps 20 s apart), %d core messages in all"):format(perMin, allPerMin))
 Logout("Bert Hill")
 B = Login("Bert Hill", { db = bdb })
 advance(60)

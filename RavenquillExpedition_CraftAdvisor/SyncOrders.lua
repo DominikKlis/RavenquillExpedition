@@ -2,10 +2,10 @@ local ADDON, ns = ...
 local GCA = ns.GCA
 local RQ = GCA.RQ
 
-local C = { RETRY = 60, TICK = 15, MAX_TRIES = 3, LOGIN_DELAY = 20 }
+local C = { RETRY = 60, TICK = 15, MAX_TRIES = 3, LOGIN_DELAY = 20, ACK_GAP = 30 }
 GCA.OrderSyncConst = C
 
-local S = { pending = {}, tries = {}, online = {}, sent = 0, acked = 0 }
+local S = { pending = {}, tries = {}, online = {}, ackedAt = {}, sent = 0, acked = 0 }
 GCA.OrderSync = S
 
 local ch = GCA:NewChannel({ tag = "CO", version = 1 })
@@ -71,7 +71,9 @@ ArmRetry = function()
 end
 
 local function SendAck(o)
-  S.acked = S.acked + 1
+  local key, now = GCA.OrderKey(o.requester, o.id) .. "|" .. o.state, GetTime()
+  if now - (S.ackedAt[key] or -C.ACK_GAP) < C.ACK_GAP then return end
+  S.ackedAt[key], S.acked = now, S.acked + 1
   ch:Send("k", { requester = o.requester, id = o.id, state = o.state })
 end
 
