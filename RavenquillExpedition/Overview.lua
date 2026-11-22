@@ -156,17 +156,30 @@ local function BuildTeaser(home, card)
   home.teaser = b
 end
 
+local function BuildDiagLink(home)
+  local text = Text(home, "GameFontDisable", "RIGHT")
+  text:SetPoint("RIGHT", home.version, "LEFT", -14, 0)
+  text:SetText(L.COPY_DIAG)
+  local link = CreateFrame("Button", nil, home)
+  link:SetAllPoints(text)
+  link:SetScript("OnClick", function() GS:ShowCopyBox(L.COPY_DIAG, GS:DiagLines()) end)
+  link:SetScript("OnEnter", function() text:SetTextColor(1, 1, 1) end)
+  link:SetScript("OnLeave", function() text:SetTextColor(0.5, 0.5, 0.5) end)
+  link.text = text
+  home.diagLink = link
+end
+
 local function BuildFooter(home)
   home.options = ns.BuildPanel(home, {
     { type = "toggle", label = L.SHOW_LAUNCHER,
       get = function() return GS:LauncherShown() end, set = function(on) GS:SetLauncherShown(on) end },
-    { type = "text", label = L.COPY_DIAG, lines = function() return GS:DiagLines() end },
   })
   home.options:SetPoint("BOTTOMLEFT", 14, 4)
   home.options:SetHeight(SIZE.footer)
   home.options:Show()
   home.version = Text(home, "GameFontDisableSmall", "RIGHT")
   home.version:SetPoint("BOTTOMRIGHT", -20, 16)
+  BuildDiagLink(home)
 end
 
 local function BuildHome(f)

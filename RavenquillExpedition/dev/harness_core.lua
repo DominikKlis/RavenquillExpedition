@@ -217,17 +217,20 @@ check(#me.errors == 2, "no other Lua errors (" .. #me.errors .. ")")
 section("Overview footer: copy diagnostics")
 RQ:Call(function() error("kaputt im Test") end)
 RQ:ToggleOverview()
+local footerHome = env.RavenquillExpeditionOverview.home
 local diagButton
-for _, c in ipairs(env.RavenquillExpeditionOverview.home.options.controls) do
+for _, c in ipairs(footerHome.options.controls) do
   if c and c:GetText() == "Diagnose kopieren" then diagButton = c end
 end
-check(diagButton ~= nil, "the /rq footer has a 'Diagnose kopieren' button")
+local diagLink = footerHome.diagLink
+check(diagButton == nil and diagLink ~= nil and diagLink.text:GetText() == "Diagnose kopieren",
+  "the /rq footer offers 'Diagnose kopieren' as a quiet text link, not as a button among the options")
 check(env.RavenquillExpeditionCopyBox == nil or not env.RavenquillExpeditionCopyBox:IsShown(), "precondition: no copy box shown")
-if diagButton then rawget(diagButton, "_scripts").OnClick(diagButton) end
+if diagLink then rawget(diagLink, "_scripts").OnClick(diagLink) end
 local diagBox = env.RavenquillExpeditionCopyBox
 check(diagBox and diagBox:IsShown() and diagBox.text:find("Ravenquill Expedition v", 1, true)
   and diagBox.text:find("sync: queue", 1, true) and diagBox.text:find("kaputt im Test", 1, true),
-  "clicking it opens the copy box with the version, the sync state and the last error")
+  "clicking the link opens the copy box with the version, the sync state and the last error")
 
 section("Overview home: one clickable row per module, its headline or its status")
 do
