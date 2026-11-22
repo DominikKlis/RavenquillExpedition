@@ -126,9 +126,56 @@ function GCA:OverviewDiagnostics()
   return out
 end
 
-GCA.openLabel = L.OPEN_LABEL
 GCA.openHint = L.OPEN_HINT
 function GCA:Open() self:OpenWindow() end
+
+function GCA:OpenView(view)
+  self:OpenWindow()
+  self.UI:SetView(view)
+end
+
+function GCA.NeedsCountText(prof, crafts, members)
+  local who = members == 1 and L.NEEDS_MEMBERS_1 or string.format(L.NEEDS_MEMBERS, members)
+  if prof == "Enchanting" then
+    return crafts == 1 and string.format(L.NEEDS_COUNT_ENCH_1, who) or string.format(L.NEEDS_COUNT_ENCH, crafts, who)
+  end
+  return crafts == 1 and string.format(L.NEEDS_COUNT_1, who) or string.format(L.NEEDS_COUNT, crafts, who)
+end
+
+local function NeedsLine(self, members)
+  local matched, who = self:MatchNeeds(self:GuildNeeds(members), "", self.db.settings.needsOffline)
+  if #matched == 0 then return L.ENTRY_NEEDS_NONE end
+  return self.NeedsCountText(self:SelectedProfession(), #matched, who)
+end
+
+local function MemberLine(self, members)
+  local top = self.DefaultMember(members)
+  if not top then return L.ENTRY_MEMBER_NONE end
+  return string.format(L.ENTRY_MEMBER_TOP, top.key, self.UI.GainNum(top.best.points))
+end
+
+local function CraftersLine(self)
+  local n = #self:CrafterRoster()
+  if n == 0 then return L.ENTRY_CRAFTERS_NONE end
+  return n == 1 and L.ENTRY_CRAFTERS_1 or string.format(L.ENTRY_CRAFTERS, n)
+end
+
+local ENTRIES = {
+  { view = "needs", icon = "Interface\\Icons\\INV_Chest_Leather_09", line = NeedsLine },
+  { view = "member", icon = "Interface\\Icons\\INV_Helmet_41", line = MemberLine },
+  { view = "crafters", icon = "Interface\\Icons\\INV_Shoulder_08", line = CraftersLine },
+}
+
+function GCA:OverviewEntries()
+  if not self.db then return end
+  local members, out = self:GetMemberList(), {}
+  for i, e in ipairs(ENTRIES) do
+    out[i] = { icon = e.icon, title = L[self.UI.ViewDef(e.view).label], line = e.line(self, members),
+      open = function() self:OpenView(e.view) end }
+  end
+  return out
+end
+
 function GCA:OverviewStatus()
   if not self.db then return end
   local recorded = 0

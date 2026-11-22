@@ -131,8 +131,8 @@ for k in pairs(ns.missingL) do if k:match("^OPT_") then missingOpt[#missingOpt +
 check(#missingOpt == 0, "no missing OPT_ locale key (" .. table.concat(missingOpt, ", ") .. ")")
 check(opts[1].label == "Teilen" and opts[2].label == "Meine Ausrüstung mit der Gilde teilen"
   and not byLabel["Gespeicherte Ausrüstung vergessen"] and not byLabel["Ravenquill-Minimap-Knopf neu platzieren"]
-  and not byLabel["Fenster öffnen"] and GCA.openLabel == "Berater",
-  "German labels (deDE client): no reset (it lives in the dev tools), the card opens the 'Berater'")
+  and not byLabel["Fenster öffnen"],
+  "German labels (deDE client): no reset (it lives in the dev tools), no 'open window' option")
 for _, o in ipairs(opts) do if o.disabled then local ok = pcall(o.disabled); check(ok, "disabled() runs: " .. o.label) end end
 
 io.write("== toggles round-trip on db.settings\n")

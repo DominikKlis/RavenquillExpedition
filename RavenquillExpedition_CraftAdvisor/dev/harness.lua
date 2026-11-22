@@ -207,6 +207,58 @@ do
   end
   check(upgrades == 1 and recorded == 2, ("member list: 1 known Leatherworking upgrade, 2 guildies recorded (%d, %d)"):format(upgrades, recorded))
 end
+do
+  local RQc, UIx = client.RQ, GCA.UI
+  local function CraftCards()
+    local ov = env.RavenquillExpeditionOverview
+    local page = ov and ov.optView.pages.Craft
+    return page and page.entries and page.entries.cards or {}
+  end
+  local function CardTexts()
+    local out = {}
+    for _, card in ipairs(CraftCards()) do
+      if rawget(card, "_shown") then out[#out + 1] = card.title:GetText() .. ": " .. card.line:GetText() end
+    end
+    return table.concat(out, " | ")
+  end
+  local function ShowCraftPage()
+    RQc:ShowHome()
+    RQc:ShowModulePage("Craft")
+  end
+  local function ClickCard(i)
+    local card = CraftCards()[i]
+    if card then rawget(card.open, "_scripts").OnClick(card.open) end
+  end
+  local buddyGain
+  for _, r in ipairs(rawget(UIx.memberList, "pools").default) do
+    if r.data and r.data.key == "Buddy Stone" then buddyGain = r.gain:GetText() end
+  end
+  ShowCraftPage()
+  check(tostring(buddyGain):match("^%+%d") and CardTexts() == "Guild needs: 1 craft is worth it for 1 member | By member: Buddy Stone gains the most: "
+    .. tostring(buddyGain) .. " | Crafters: Nobody has shared recipes yet",
+    "/rq craft shows three cards with live text from the real data (Buddy's vest, the gain the member list shows): " .. CardTexts())
+  local buddy = GCA.db.members["Buddy Stone"]
+  GCA.db.members["Buddy Stone"] = nil
+  GCA:StoreCrafter("Buddy Stone", 100, { Leatherworking = { rank = 150, ids = { 2149, 2160 } } })
+  ShowCraftPage()
+  check(CardTexts() == "Guild needs: Nobody needs anything you can craft right now | By member: None of your crafts is an upgrade for a guildmate yet"
+    .. " | Crafters: 1 guildmate shares their recipes",
+    "Buddy's gear gone and his recipes shared: the cards say so the next time the page is shown: " .. CardTexts())
+  GCA.db.members["Buddy Stone"] = buddy
+  GCA:ForgetCrafter("Buddy Stone")
+  UIx.frame:Hide()
+  ClickCard(1)
+  check(UIx.frame:IsShown() and UIx.view == "needs" and rawget(UIx.needsView, "_shown") and not rawget(UIx.memberView, "_shown"),
+    "'Open' on the Guild needs card opens the window on the guild needs tab")
+  ClickCard(3)
+  check(UIx.frame:IsShown() and UIx.view == "crafters" and rawget(UIx.crafterView, "_shown") and not rawget(UIx.needsView, "_shown"),
+    "with the window open, 'Open' on the Crafters card switches it to the crafters tab")
+  UIx.frame:Hide()
+  ClickCard(2)
+  check(UIx.frame:IsShown() and UIx.view == "member" and rawget(UIx.memberView, "_shown") and UIx.selected == "Buddy Stone",
+    "'Open' on the By member card opens the member tab on Buddy, the member the card names")
+  env.RavenquillExpeditionOverview:Hide()
+end
 local mark = #printed
 GCA:KnownDebug()
 check(printedSince(mark):find("Leatherworking item recipes: 501 in data, IsSpellKnown 3", 1, true), "/gca known debug: 501 LW recipes, 3 known")
