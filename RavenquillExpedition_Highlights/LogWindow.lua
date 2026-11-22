@@ -447,3 +447,20 @@ function H:ShowWindow()
   win:Show()
   if win.Raise then win:Raise() end
 end
+
+function H:NewSinceLastLook()
+  local n, newest = 0, nil
+  for _, e in ipairs(self:Log()) do
+    if e.unseen then n, newest = n + 1, e end
+  end
+  return n, newest
+end
+
+function H:OverviewHeadline()
+  if not self.db then return end
+  local n, newest = self:NewSinceLastLook()
+  if n > 0 then return { line = L.OV_HEAD_NEW:format(n, newest.who), open = function() self:ShowWindow() end } end
+  local events = self:Log()
+  local last = events[#events]
+  return { line = last and L.OV_HEAD_QUIET:format(last.who) or L.OV_HEAD_EMPTY }
+end

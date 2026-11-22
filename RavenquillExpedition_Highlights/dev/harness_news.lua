@@ -443,6 +443,43 @@ do
   check(#c.errors == 0 and #en.errors == 0, "no Lua errors (" .. tostring(c.errors[1] or en.errors[1]) .. ")")
 end
 
+Kit.section("Overview home: the Highlights row says what is new, opens the paper for news and the chronicle otherwise")
+do
+  local function HomeRow(c)
+    c.RQ:ShowHome()
+    local list = c.env.RavenquillExpeditionOverview.home.list
+    for _, row in ipairs(list and list.items or {}) do
+      if rawget(row, "_shown") and row.title:GetText() == c.H.title then return row end
+    end
+  end
+  local function Line(c) local row = HomeRow(c); return row and row.line:GetText() end
+  local function OpenRow(c) local row = HomeRow(c); if row then Click(row) end end
+  local function PaperShown(c) return Frame(c) ~= nil and Frame(c):IsShown() end
+  local function ChronicleShown(c) return c.RQ.optionsModule == "Highlights" and not c.RQ.moduleSettings end
+  local empty = Client("Lyra Distelbach")
+  empty.RQ:ToggleOverview()
+  check(Line(empty) == "Noch keine Einträge", "an empty log: the row says there is nothing yet: " .. tostring(Line(empty)))
+  OpenRow(empty)
+  check(ChronicleShown(empty) and not PaperShown(empty), "and opens the chronicle, where test entries can be added")
+  local c = Client("Lyra Distelbach")
+  c.RQ:ToggleOverview()
+  Heard(c, E("level", "Bodo Kesselring", At(20, 10), { lvl = 30 }))
+  Heard(c, E("loot", "Rika Steinbeck", At(20, 20), { item = 5001, q = 4 }))
+  check(Line(c) == "2 neue seit deinem letzten Blick · zuletzt Rika Steinbeck",
+    "two entries heard since the last look: the row counts them and names the newest: " .. tostring(Line(c)))
+  OpenRow(c)
+  check(PaperShown(c) and not ChronicleShown(c), "with news the row opens the Rabenblatt")
+  if Frame(c) then Frame(c):Hide() end
+  check(Line(c) == "Nichts Neues · zuletzt Rika Steinbeck", "once read, the row says nothing is new: " .. tostring(Line(c)))
+  OpenRow(c)
+  check(ChronicleShown(c) and not PaperShown(c), "and opens the chronicle in /rq instead of the paper")
+  local en = Client("Mira Sturmfeder", "enUS")
+  en.RQ:ToggleOverview()
+  Heard(en, E("mount", "Tamo Eichengrund", At(20, 11), { lvl = 40 }))
+  check(Line(en) == "1 new since you last looked · latest: Tamo Eichengrund", "English: " .. tostring(Line(en)))
+  check(#empty.errors + #c.errors + #en.errors == 0, "no Lua errors (" .. tostring(c.errors[1] or empty.errors[1] or en.errors[1]) .. ")")
+end
+
 Kit.section("Window: empty log, masthead and parchment fallbacks")
 do
   local c = Client("Tamo Eichengrund", "deDE", function(env, cl)

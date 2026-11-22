@@ -775,8 +775,9 @@ do
       if row.title:GetText() == H.title then hlRow = row end
     end
   end
-  check(listed == #homeRows and hlRow and hlRow.line:GetText() == H:OverviewStatus(),
-    "the overview lists every module with its status line (" .. listed .. ")")
+  check(listed == #homeRows and hlRow and hlRow.line:GetText() == "Nichts Neues · zuletzt Dora Dunn",
+    "the overview lists every module; the Highlights row, just read in the Chronik, names Dora's sword as the latest entry ("
+    .. listed .. ", " .. tostring(hlRow and hlRow.line:GetText()) .. ")")
   H:ShowWindow()
   local head = env.RavenquillExpeditionHighlightsFrame.paper.lead.head:GetText()
   env.RavenquillExpeditionHighlightsFrame:Hide()
