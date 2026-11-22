@@ -53,7 +53,6 @@ local function Dropdown(parent, width, gen, fallback)
   local ok, dd = pcall(CreateFrame, "DropdownButton", nil, parent, "WowStyle1DropdownTemplate")
   if not (ok and dd and type(dd.SetupMenu) == "function") then dd = UI.Button(parent, width, "", fallback) end
   dd:SetSize(width, 24)
-  dd.menu = gen
   if type(dd.SetupMenu) == "function" then dd:SetupMenu(gen) end
   return dd
 end

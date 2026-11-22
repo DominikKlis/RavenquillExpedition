@@ -31,6 +31,19 @@ local function Stubs(opts)
     env.C_PartyInfo = { InviteUnit = function(name) c.invites[#c.invites + 1] = name end }
     env.ChatFrameUtil = { SendTell = function(name) c.tells[#c.tells + 1] = name end }
     env.MenuUtil = { CreateContextMenu = function(owner, gen) c.menus[#c.menus + 1] = { owner = owner, gen = gen } end }
+    local create = env.CreateFrame
+    env.CreateFrame = function(kind, ...)
+      local f = create(kind, ...)
+      if kind == "DropdownButton" then
+        function f.SetupMenu(s, gen)
+          if s.menu then s.menu:Close() end
+          s._gen = gen
+        end
+        function f.GenerateMenu(s) if s.menu then s.menu:Close() end end
+        function f.OverrideText(s, text) s._choice = text end
+      end
+      return f
+    end
     if opts.sv then env.RavenquillExpeditionGroupsDB = Copy(opts.sv) end
     if opts.setup then opts.setup(env, c) end
   end

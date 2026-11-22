@@ -154,7 +154,7 @@ do
     "'Gruppe suchen' opens the form in place of the list")
   check(form.draft.activity == "smarm" and form.submit:GetText() == "Posten",
     "it starts on the first dungeon that fits Lyra's level (Waffenkammer, 32-42)")
-  local menu = GK.Menu(form.activity.menu, form.activity)
+  local menu = GK.Menu(form.activity._gen, form.activity)
   local titles, radios = {}, 0
   for _, e in ipairs(menu) do if e.kind == "title" then titles[#titles + 1] = e.text else radios = radios + 1 end end
   check(table.concat(titles, ", ") == "Dungeons, Schlachtzüge" and radios == #lyra.A.LIST,
@@ -182,11 +182,11 @@ do
   check(form.title:GetText() == "Gesuch ändern" and form.draft.activity == "smcath" and form.roles.dps.value:GetText() == "2/3"
     and form.note:GetText() == "Bring Tränke mit  Strich" and form.submit:GetText() == "Aktualisieren",
     "'Gesuch ändern' opens the form filled with her post")
-  GK.Pick(GK.Menu(form.activity.menu, form.activity), "Geschmolzener Kern")
+  GK.Pick(GK.Menu(form.activity._gen, form.activity), "Geschmolzener Kern")
   check(GK.Shown(form.day) and GK.Shown(form.time.value) and form.roles.dps.value:GetText() == "2/28",
     "a raid shows the start row and the raid's slots")
   local now = lyra.RQ:Now()
-  local days = GK.Menu(form.day.menu, form.day)
+  local days = GK.Menu(form.day._gen, form.day)
   check(#days == 7 and days[1].text == "Heute" and days[2].text == "Morgen"
     and days[3].text == WEEKDAYS[os.date("*t", now + 2 * 86400).wday], "the start day: today, tomorrow, then weekdays")
   days[3].fn(days[3].data)
