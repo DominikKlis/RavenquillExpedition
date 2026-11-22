@@ -20,7 +20,8 @@ local SIZE = { designW = 900, designH = 780, minScale = 0.75, defaultW = 900, de
   sidePad = 18, titleGap = 10, itemPad = 8, secondMin = 110, boxPadX = 14, boxPadY = 8 }
 local ROLES = { masthead = { 44, 1, true }, meta = { 13, 1 }, caption = { 12, 1.2 }, kicker = { 12, 1 },
   head = { 34, 1.05, true }, dek = { 16, 1.35 }, body = { 15, 1.45 }, storyHead = { 20, 1.15, true }, story = { 14.5, 1.42 },
-  briefTitle = { 22, 1, true }, time = { 12, 1 }, brief = { 14, 1.4 }, note = { 12, 1.3 } }
+  briefTitle = { 22, 1, true }, time = { 12, 1 }, brief = { 14, 1.4 }, note = { 12, 1.3 }, figure = { 40, 1, true },
+  figureLabel = { 16, 1.2 }, honor = { 24, 1.1, true } }
 
 function H.Upper(text)
   return (text:upper():gsub("\195([\160-\182\184-\190])", function(b) return "\195" .. string.char(b:byte() - 32) end))
@@ -89,6 +90,8 @@ local function Place(paper, fs, x, y, width)
   return y + Height(fs)
 end
 
+H.PaperInk = { Text = Text, Rule = Rule, Height = Height, Unbounded = Unbounded, Anchor = Anchor, Place = Place, U = U }
+
 local BuildPaper
 do
   local function Masthead(paper)
@@ -138,11 +141,14 @@ do
   end
 
   local function Brief(paper)
-    local brief = { title = Text(paper, "briefTitle", { justify = "CENTER" }), more = Text(paper, "note", { color = INK_SOFT }),
-      items = {} }
+    local box = CreateFrame("Frame", nil, paper)
+    box:SetAllPoints()
+    local brief = { box = box, title = Text(paper, "briefTitle", { parent = box, justify = "CENTER" }),
+      more = Text(paper, "note", { parent = box, color = INK_SOFT }), items = {} }
     brief.title:SetText(T.IN_BRIEF)
     for i = 1, News.BRIEF_MAX do
-      brief.items[i] = { time = Text(paper, "time", { color = ACCENT }), text = Text(paper, "brief"), rule = Rule(paper, 1) }
+      brief.items[i] = { time = Text(paper, "time", { parent = box, color = ACCENT }), text = Text(paper, "brief", { parent = box }),
+        rule = Rule(box, 1) }
     end
     return brief
   end
@@ -154,7 +160,7 @@ do
     paper.pairRule, paper.sideRule = Rule(paper, 2, INK), Rule(paper, nil, INK)
     paper.sideRule:SetWidth(2)
     paper.second, paper.third = Story(paper), Story(paper)
-    paper.brief = Brief(paper)
+    paper.brief, paper.week = Brief(paper), H.WeekColumn(paper)
   end
 
   BuildPaper = function(paper)
@@ -392,7 +398,8 @@ local function FlowGrid(paper, top, w, bottom)
   local sideX = side + mainW + gap
   Anchor(paper, paper.sideRule, sideX, top)
   paper.sideRule:SetHeight(math.max(1, bottom - top))
-  local briefEnd, kept = FlowBrief(paper, sideX + 2 + U(paper, SIZE.sidePad), top, sideW - 2 - U(paper, SIZE.sidePad), bottom,
+  local FlowSide = paper.week.shown and H.FlowWeekColumn or FlowBrief
+  local briefEnd, kept = FlowSide(paper, sideX + 2 + U(paper, SIZE.sidePad), top, sideW - 2 - U(paper, SIZE.sidePad), bottom,
     placed)
   local used = math.max(pairEnd, briefEnd, leadEnd + secondMin)
   return used, table.concat({ kept, tostring(next(placed)), paper.lead.shown or "", paper.second.body:GetText() or "",
@@ -435,7 +442,7 @@ function H:AttachPaper(f, nav)
   H.NavButtons(f, nav, H.InkLayer(f, paper))
 end
 
-local function DayOf(t) return date("%Y-%m-%d", t) end
+local DayOf = News.DayOf
 local function Clock(t) return date("%H:%M", t) end
 
 local function DateVars(t)
@@ -507,6 +514,7 @@ do
     SetLead(paper.lead, issue and issue.lead or EmptyStory())
     SetStory(paper.second, issue and issue.second or NoSecond())
     SetStory(paper.third, issue and issue.extra[1])
+    H.FillWeekColumn(paper, issue and issue.week)
     Flow(paper)
   end
 end
@@ -519,15 +527,17 @@ end
 local function SetNav(f, i, n, issue)
   H.SetEnabled(f.prev, i > 1)
   H.SetEnabled(f.next, i < n)
-  local label = issue and News.Fill(T.ISSUE_OF, { date = News.Fill(T.SHORT_DATE, DateVars(issue.t)) })
+  local label = issue and News.Fill(issue.week and T.SUNDAY_EDITION or T.ISSUE_OF,
+    { date = News.Fill(T.SHORT_DATE, DateVars(issue.t)), week = issue.week and issue.week.no })
   f.issueLabel:SetText(label or T.NO_ISSUE)
   H.SpreadNav(f)
 end
 
 function H:RenderPaper(f)
   local days = self:Issues()
-  local i = IssueIndex(days, f.issueDay)
-  local issue = days[i] and News.Issue(days[i], T, self:NewsContext())
+  local i, ctx = IssueIndex(days, f.issueDay), self:NewsContext()
+  local issue = days[i] and News.Issue(days[i], T, ctx)
+  if issue then issue.week = News.SundayEdition(days, i, T, ctx) end
   FillPaper(f.paper, issue)
   if f.fit then f.fit(f) end
   SetNav(f, i, #days, issue)

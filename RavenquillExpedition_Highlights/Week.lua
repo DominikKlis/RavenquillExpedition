@@ -1,7 +1,16 @@
 local ADDON, ns = ...
 local News = ns.News
 
-News.HONOR_MAX = 3
+News.HONOR_MAX, News.DAY = 3, 86400
+
+function News.DayOf(t) return date("%Y-%m-%d", t) end
+
+function News.Sunday(t)
+  local d = date("*t", t)
+  if d.wday ~= 1 then return nil end
+  local noon = t + (12 - d.hour) * 3600 - d.min * 60 - d.sec
+  return { from = News.DayOf(noon - 6 * News.DAY), no = math.floor((date("*t", noon - 3 * News.DAY).yday - 1) / 7) + 1 }
+end
 
 local function Kills(g)
   if g.kind == "run" then return g.first.n or 1 end
@@ -127,4 +136,17 @@ function News.Week(entries, T, ctx)
   end
   if not counts[1] then return nil end
   return { counts = counts, honors = Honors(w, T, ctx) }
+end
+
+function News.SundayEdition(days, i, T, ctx)
+  local sunday = days[i] and News.Sunday(days[i].entries[1].t)
+  if not sunday then return nil end
+  local first, entries = i, {}
+  while first > 1 and days[first - 1].day >= sunday.from do first = first - 1 end
+  for j = first, i do
+    for _, e in ipairs(days[j].entries) do entries[#entries + 1] = e end
+  end
+  local week = News.Week(entries, T, ctx)
+  if week then week.no = sunday.no end
+  return week
 end

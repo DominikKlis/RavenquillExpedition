@@ -21,3 +21,4 @@ News.lua
 Week.lua
 LogWindow.lua
 NewsWindow.lua
+WeekColumn.lua
