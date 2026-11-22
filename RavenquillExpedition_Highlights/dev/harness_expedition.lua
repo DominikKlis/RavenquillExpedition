@@ -110,7 +110,7 @@ section("Now rows: raid readiness for a raid goal, and the Sunday edition")
 do
   local w = World(At(22, 18))
   local ole, lyra = w.join("Ole Fichtental", OFFICER), w.join("Lyra Distelbach")
-  w.join("Hanne Moosgrund", nil, 40)
+  local hanne = w.join("Hanne Moosgrund", nil, 40)
   w.start()
   check(Row(lyra, "Raidbereitschaft") == nil, "without a goal there is no raid readiness row")
   ole.RQ:SetGoal({ kind = "raid", raid = "mc" })
@@ -118,6 +118,7 @@ do
   local row = Row(lyra, "Raidbereitschaft")
   check(row and row.line == "Dir fehlt noch: Kernfragment aus den Schwarzfelstiefen" and row.action == "Ansehen",
     "a Molten Core goal: the row tells Lyra the step she still needs: " .. tostring(row and row.line))
+  check(Row(hanne, "Raidbereitschaft") == nil, "Hanne, below raid level, gets no readiness row")
   if row then row.open() end
   local page = lyra.env.RavenquillExpeditionOverview.optView.pages.Highlights
   check(lyra.RQ.optionsModule == "Highlights" and page and page.mode == "raid" and lyra.H:Settings().raidFocus == "mc",

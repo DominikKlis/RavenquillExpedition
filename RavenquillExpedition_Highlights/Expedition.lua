@@ -51,22 +51,18 @@ local function Column(model, raid)
   end
 end
 
-local function MyMissingStep(model, i)
-  local level = Plain(SafeCall(UnitLevel, "player"), "number") or 0
-  local mine = model.mine[i]
-  if level >= H.RAID_LEVEL and mine.state ~= "done" then return mine.next end
-end
+local function AtRaidLevel() return (Plain(SafeCall(UnitLevel, "player"), "number") or 0) >= H.RAID_LEVEL end
 
 local function ReadinessLine(model, raid, i)
-  local step = MyMissingStep(model, i)
-  if step then return L.NOW_MISSING:format(L[step.label]) end
+  local mine = model.mine[i]
+  if mine.state ~= "done" and mine.next then return L.NOW_MISSING:format(L[mine.next.label]) end
   local s = H.RaidSummary(model, raid)
   if s.total > 0 then return L.NOW_READY:format(s.done, s.total, L["RAID_" .. raid]) end
 end
 
 local function ReadinessRow(self)
   local goal = GS:Goal()
-  if not (goal and goal.kind == "raid") then return nil end
+  if not (goal and goal.kind == "raid" and AtRaidLevel()) then return nil end
   local model = self:ReadinessModel()
   local i = Column(model, goal.raid)
   local line = i and ReadinessLine(model, goal.raid, i)
