@@ -10,6 +10,9 @@ local WINDOW_NAV, PAGE_LOG = { 34, 14, reserve = 57, rule = 41, size = 13 }, { 4
 local SHADOW_RINGS, SHADOW_ALPHA = 10, 0.4
 local INK_DARK, INK_FADED = { 0.04, 0.03, 0.02 }, { 0.663, 0.58, 0.455 }
 local GRAIN_ALPHA = 0.5
+local BOX = { outer = 2, inner = 1, gap = 3, hover = 0.08 }
+local BOX_EDGES = { { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" }, { "TOPLEFT", "BOTTOMLEFT", tall = true },
+  { "TOPRIGHT", "BOTTOMRIGHT", tall = true } }
 local EMPTY_BUTTON, EMPTY_GAP = { 220, 22 }, 12
 H.WINDOW_W, H.WINDOW_H, H.WINDOW_SHARE, H.WINDOW_MIN_H = 900, 780, 0.9, 480
 
@@ -51,6 +54,30 @@ function H.InkButton(parent, text, size)
   b:SetScript("OnLeave", function() b.hover = false; InkStyle(b) end)
   InkStyle(b)
   return b
+end
+
+local function BoxInset(point, inset)
+  return point:find("LEFT") and inset or -inset, point:find("TOP") and -inset or inset
+end
+
+local function BoxRule(b, inset, thickness)
+  for _, edge in ipairs(BOX_EDGES) do
+    local t = b:CreateTexture(nil, "BORDER")
+    t:SetColorTexture(H.INK[1], H.INK[2], H.INK[3], 1)
+    for i = 1, 2 do t:SetPoint(edge[i], b, edge[i], BoxInset(edge[i], inset)) end
+    if edge.tall then t:SetWidth(thickness) else t:SetHeight(thickness) end
+  end
+end
+
+function H.InkBox(b)
+  BoxRule(b, 0, BOX.outer)
+  BoxRule(b, BOX.outer + BOX.gap, BOX.inner)
+  local hover = b:CreateTexture(nil, "BACKGROUND")
+  hover:SetAllPoints()
+  hover:SetColorTexture(H.INK[1], H.INK[2], H.INK[3], BOX.hover)
+  hover:Hide()
+  b:SetScript("OnEnter", function() hover:Show() end)
+  b:SetScript("OnLeave", function() hover:Hide() end)
 end
 
 function H.SetEnabled(b, on)

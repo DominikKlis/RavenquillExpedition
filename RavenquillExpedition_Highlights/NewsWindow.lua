@@ -3,7 +3,6 @@ local GS = RavenquillExpedition
 local H, News = ns.H, ns.News
 local SafeCall, Plain = GS.SafeCall, GS.Plain
 local T = GS.NewLocale(ns.NewsLocales)
-local L = ns.L
 
 local MEDIA = "Interface\\AddOns\\RavenquillExpedition_Highlights\\Media\\"
 H.MASTHEAD, H.VIGNETTE = MEDIA .. "masthead", MEDIA .. "vignette"
@@ -18,13 +17,10 @@ H.INK, H.INK_SOFT, H.RULE, H.ACCENT, H.PAPER = INK, INK_SOFT, RULE, ACCENT, PAPE
 local SIZE = { designW = 900, designH = 780, minScale = 0.75, defaultW = 900, defaultH = 780, captionLines = 3.8,
   top = 26, side = 34, mastW = 232, mastH = 58, metaGap = 8, metaPad = 5, headGap = 14, sideW = 250, gap = 22, leadGap = 10,
   dekPad = 8, icon = 110, colGap = 18, captionGap = 4, lowerGap = 12, lowerPad = 10, storyHeadTop = 2, storyHeadGap = 6,
-  sidePad = 18, titleGap = 10, itemPad = 8, secondMin = 110 }
+  sidePad = 18, titleGap = 10, itemPad = 8, secondMin = 110, boxPadX = 14, boxPadY = 8 }
 local ROLES = { masthead = { 44, 1, true }, meta = { 13, 1 }, caption = { 12, 1.2 }, kicker = { 12, 1 },
   head = { 34, 1.05, true }, dek = { 16, 1.35 }, body = { 15, 1.45 }, storyHead = { 20, 1.15, true }, story = { 14.5, 1.42 },
   briefTitle = { 22, 1, true }, time = { 12, 1 }, brief = { 14, 1.4 }, note = { 12, 1.3 } }
-local BOX = { outer = 2, inner = 1, gap = 3, padX = 14, padY = 8, hover = 0.08 }
-local EDGES = { { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" }, { "TOPLEFT", "BOTTOMLEFT", tall = true },
-  { "TOPRIGHT", "BOTTOMRIGHT", tall = true } }
 
 function H.Upper(text)
   return (text:upper():gsub("\195([\160-\182\184-\190])", function(b) return "\195" .. string.char(b:byte() - 32) end))
@@ -129,33 +125,13 @@ do
       paragraphs = {} }
   end
 
-  local function Inset(point, inset)
-    return point:find("LEFT") and inset or -inset, point:find("TOP") and -inset or inset
-  end
-
-  local function InkRule(b, inset, thickness)
-    for _, edge in ipairs(EDGES) do
-      local t = b:CreateTexture(nil, "BORDER")
-      t:SetColorTexture(INK[1], INK[2], INK[3], 1)
-      for i = 1, 2 do t:SetPoint(edge[i], b, edge[i], Inset(edge[i], inset)) end
-      if edge.tall then t:SetWidth(thickness) else t:SetHeight(thickness) end
-    end
-  end
-
   local function TestsButton(paper)
     local b = CreateFrame("Button", nil, paper)
     b.label = Text(paper, "body", { parent = b, justify = "CENTER" })
     b.label:SetPoint("CENTER")
     if b.SetFontString then b:SetFontString(b.label) end
-    b:SetText(L.OPT_TEST)
-    InkRule(b, 0, BOX.outer)
-    InkRule(b, BOX.outer + BOX.gap, BOX.inner)
-    local hover = b:CreateTexture(nil, "BACKGROUND")
-    hover:SetAllPoints()
-    hover:SetColorTexture(INK[1], INK[2], INK[3], BOX.hover)
-    hover:Hide()
-    b:SetScript("OnEnter", function() hover:Show() end)
-    b:SetScript("OnLeave", function() hover:Hide() end)
+    b:SetText(ns.L.OPT_TEST)
+    H.InkBox(b)
     b:SetScript("OnClick", function() GS:Call(H.AddTestEntries, H) end)
     b:Hide()
     return b
@@ -303,8 +279,8 @@ local function FlowPhoto(paper, photo, x, y)
 end
 
 local function SizeTests(paper, b)
-  local h = Height(b.label) + 2 * U(paper, BOX.padY)
-  b:SetSize(Unbounded(b.label) + 2 * U(paper, BOX.padX), h)
+  local h = Height(b.label) + 2 * U(paper, SIZE.boxPadY)
+  b:SetSize(Unbounded(b.label) + 2 * U(paper, SIZE.boxPadX), h)
   return h
 end
 
