@@ -452,7 +452,7 @@ local function ListScene(locale)
     for i, cell in ipairs(r.cells) do t[i] = tostring(cell:GetText()) end
     return table.concat(t, " | ")
   end
-  local scene = { c = a, page = page, Rows = Rows, Text = Text }
+  local scene = { c = a, page = page, Rows = Rows, Text = Text, advance = function(sec) sched:advance(sec) end }
   function scene.Lines()
     local out = {}
     for i, r in ipairs(Rows()) do out[i] = Text(r) end
@@ -493,6 +493,43 @@ do
     and tostring(de.Line("Paula Peer")):find("| Teilt keine Position", 1, true)
     and tostring(de.Line("Peter Plain")):find("| Nutzt Ravenquill nicht", 1, true),
     "map list: German reasons: " .. table.concat(de.Lines(), " / "))
+end
+local function GroupLayout(s)
+  local out, mismatch, header, n = {}, {}, nil, 0
+  local function close()
+    if header and tonumber(header:match("%((%d+)%)$")) ~= n then mismatch[#mismatch + 1] = header .. " over " .. n end
+  end
+  for _, r in ipairs(s.Rows()) do
+    if r.cells then
+      out[#out + 1] = r.key .. (r.alpha < 1 and " (grey)" or "")
+      n = n + 1
+    else
+      close()
+      header, n = s.Text(r), 0
+      out[#out + 1] = "[" .. header .. "]"
+    end
+  end
+  close()
+  return table.concat(out, ", "), table.concat(mismatch, "; ")
+end
+do
+  local s = ListScene()
+  local layout, mismatch = GroupLayout(s)
+  check(layout == "[On the map (1)], Frieda Frisch, [No position (5)], Gustav Weg (grey), Stefan Spaet (grey), "
+    .. "Lea Leise (grey), Paula Peer (grey), Peter Plain (grey)" and mismatch == "",
+    "map list: guildmates with a dot first, the rest greyed, each group under a header that counts its rows: "
+    .. layout .. " " .. mismatch)
+  check(s.c.M:OverviewStatus() == "On the map: 1 · sharing on",
+    "map list: the /rq status line counts the same guildmates as the 'On the map' group: " .. s.c.M:OverviewStatus())
+  s.advance(200)
+  layout, mismatch = GroupLayout(s)
+  check(layout:find("^%[No position %(6%)%], ") and not layout:find("On the map", 1, true) and mismatch == ""
+    and s.c.M:OverviewStatus():find("^On the map: 0 "),
+    "map list: with no fresh dot left the empty group has no header and the status line says 0: " .. layout)
+  local de = ListScene("deDE")
+  check(GroupLayout(de):find("[Auf der Karte (1)]", 1, true) and GroupLayout(de):find("[Ohne Position (5)]", 1, true),
+    "map list: German group headers: " .. GroupLayout(de))
+  check(#s.c.errors == 0 and #de.c.errors == 0, "map list groups: no Lua errors (" .. tostring(s.c.errors[1]) .. ")")
 end
 M.members["Weird Map"] = { key = "Weird Map", name = "Weird Map", mapID = 999999, x = 0.3, y = 0.3, heard = w.env.GetTime(), flags = {} }
 M.members["Bad Data"] = { key = "Bad Data", name = "Bad Data", mapID = "x", x = 2, y = 0.3, heard = w.env.GetTime(), flags = {} }

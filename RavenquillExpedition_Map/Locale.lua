@@ -49,6 +49,7 @@ local L = {
   PAGE_EMPTY = "No other guildmate is online right now.",
   ZONE_UNKNOWN = "Unknown", TT_NOT_SHARING = "Not sharing a position",
   REASON_STALE = "Position out of date (%d min)", REASON_NO_ADDON = "Not using Ravenquill",
+  GROUP_ON_MAP = "On the map (%d)", GROUP_NO_POSITION = "No position (%d)",
 }
 
 local deDE = {
@@ -100,6 +101,7 @@ local deDE = {
   PAGE_EMPTY = "Gerade ist sonst niemand aus der Gilde online.",
   ZONE_UNKNOWN = "Unbekannt", TT_NOT_SHARING = "Teilt keine Position",
   REASON_STALE = "Position veraltet (%d Min.)", REASON_NO_ADDON = "Nutzt Ravenquill nicht",
+  GROUP_ON_MAP = "Auf der Karte (%d)", GROUP_NO_POSITION = "Ohne Position (%d)",
 }
 
 ns.Locales = { enUS = L, deDE = deDE }

@@ -239,7 +239,7 @@ end
 function M:OverviewStatus()
   local n = 0
   for _, m in pairs(self.members) do
-    if not m.fake and not m.isSelf and self:State(m) ~= "gone" then n = n + 1 end
+    if not m.fake and not m.isSelf and self:PositionState(m) == "onMap" then n = n + 1 end
   end
   local share = self.settings and self.settings.share
   local line = L.OV_STATUS:format(n, share and L.ON or L.OFF)
