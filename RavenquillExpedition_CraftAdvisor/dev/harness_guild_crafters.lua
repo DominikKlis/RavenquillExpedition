@@ -13,6 +13,9 @@ local itemMeta = {
   [4242] = { loc = "INVTYPE_LEGS", lvl = 10, stats = { RESISTANCE0_NAME = 70, ITEM_MOD_AGILITY_SHORT = 3 } },
   [2303] = { loc = "INVTYPE_LEGS", lvl = 10, stats = { RESISTANCE0_NAME = 70, ITEM_MOD_AGILITY_SHORT = 3 }, bind = 1 },
   [9001] = { loc = "INVTYPE_WRIST", lvl = 10, stats = { RESISTANCE0_NAME = 20 } },
+  [3488] = { loc = "INVTYPE_2HWEAPON", lvl = 7, cls = 2, sub = 1, stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 7 } },
+  [2845] = { loc = "INVTYPE_WEAPON", lvl = 4, cls = 2, sub = 0, stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 5 } },
+  [7958] = { loc = "INVTYPE_2HWEAPON", lvl = 22, cls = 2, sub = 1, stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 14 } },
 }
 local roster = {
   { "Buddy Stone", "DRUID", true }, { "Cora Vale", "HUNTER", true }, { "Offy Lane", "ROGUE", false }, { "Me", "ROGUE", true },
@@ -40,12 +43,12 @@ local client = Kit.Client(sched, nil, "Me", { class = "ROGUE", level = 30, files
     GetItemInfoInstant = function(item)
       local m = itemMeta[idOf(item)]
       if not m then return idOf(item), "Misc", "Misc", "", 1, 15, 0 end
-      return idOf(item), "Armor", "x", m.loc, 1, 4, 2
+      return idOf(item), "Armor", "x", m.loc, 1, m.cls or 4, m.sub or 2
     end,
     GetItemInfo = function(item)
       local id = idOf(item)
       local m = itemMeta[id] or { loc = "", lvl = 1 }
-      return "Item" .. id, "|Hitem:" .. id .. "|h[Item" .. id .. "]|h", 2, 20, m.lvl, nil, nil, nil, m.loc, 1, nil, 4, 2, m.bind or 2
+      return "Item" .. id, "|Hitem:" .. id .. "|h[Item" .. id .. "]|h", 2, 20, m.lvl, nil, nil, nil, m.loc, 1, nil, m.cls or 4, m.sub or 2, m.bind or 2
     end,
     GetItemStats = function(link) local m = itemMeta[idOf(link)]; return m and m.stats or {} end,
     RequestLoadItemDataByID = function() end,
@@ -156,6 +159,16 @@ local bare = GCA:CrafterRecipes("Buddy Stone")
 local marked = 0
 for _, r in ipairs(bare) do if r.upgrade then marked = marked + 1 end end
 check(#bare == 4 and marked == 0, "four recipes, no upgrade marks")
+
+section("A two-hander in your hands: a one-hander alone is no upgrade, a better two-hander is")
+GCA.db.members.Me = { class = "SHAMAN", level = 30, items = { [16] = "item:3488::::" } }
+GCA:SetManualSpec("Me", "SHAMAN", "ENHANCEMENT")
+GCA:StoreCrafter("Buddy Stone", 300, { Blacksmithing = { rank = 150, ids = { 2738, 9987 } } })
+local smith = byID(GCA:CrafterRecipes("Buddy Stone"))
+check(smith[9987] and smith[9987].upgrade and smith[9987].upgrade.slot == 16 and smith[9987].upgrade.points > 0,
+  "Enhancement Shaman with a Copper Battle Axe: the Bronze Battle Axe is an upgrade for the main hand")
+check(smith[2738] and smith[2738].upgrade == nil,
+  "the one-handed Copper Axe needs an off hand beside it, so on its own it gains nothing: no upgrade mark (no chip, not counted, not kept by 'only upgrades')")
 
 check(#client.errors == 0, "no Lua error reported: " .. table.concat(client.errors, " | "))
 Kit.finish()

@@ -223,12 +223,12 @@ function GCA:ComputeSuggestions(m, isSelf, prof)
   return SuggestionList(self, ctx), pending, state, e
 end
 
-local function BestBySpell(all)
+local function BestGainBySpell(all)
   local best = {}
   for _, rows in pairs(all) do
     for _, s in ipairs(rows) do
       local id = s.cand.spellID
-      if not best[id] or Better(s, best[id]) then best[id] = s end
+      if s.tier ~= GCA.TIER_PARTNER and (not best[id] or Better(s, best[id])) then best[id] = s end
     end
   end
   return best
@@ -236,7 +236,7 @@ end
 
 function GCA:ComputeGuildUpgrades(m, prof)
   local ctx, pending, state = Scan(self, m, false, prof, true)
-  return ctx and BestBySpell(ctx.all) or {}, pending, state
+  return ctx and BestGainBySpell(ctx.all) or {}, pending, state
 end
 
 GCA.SECTION_TOP = 3
