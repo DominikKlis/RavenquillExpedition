@@ -371,7 +371,7 @@ function UI:Create()
   local rw = RightW(MIN_W)
   Build.NeedsView(self, f, c, painted, listH, rw)
   Build.MemberView(self, f, c, painted, listH, rw)
-  self.viewFrames = { needs = self.needsView, member = self.memberView, crafters = self:BuildCrafterView(c, painted, listH, rw) }
+  self.viewFrames = self:BuildViews(c, painted, listH, rw)
   self.filters = { { button = self.filterButton, popup = self.filterPopup }, { button = self.memberFilter, popup = self.memberFilterPopup } }
   self.survival = P.CreateSurvivalSlider(c)
   self.survival:SetPoint("BOTTOMLEFT", 18, 13)

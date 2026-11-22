@@ -5,9 +5,18 @@ local UI = GCA.UI
 UI.VIEWS = {
   { key = "member", label = "VIEW_MEMBER" },
   { key = "needs", label = "VIEW_NEEDS", refresh = "RefreshNeeds" },
-  { key = "crafters", label = "VIEW_CRAFTERS", refresh = "RefreshCrafters", layout = "LayoutCrafters" },
+  { key = "crafters", label = "VIEW_CRAFTERS", refresh = "RefreshCrafters", layout = "LayoutCrafters", build = "BuildCrafterView" },
+  { key = "orders", label = "VIEW_ORDERS", refresh = "RefreshOrders", layout = "LayoutOrders", build = "BuildOrdersView" },
 }
 UI.DEFAULT_VIEW = "member"
+
+function UI:BuildViews(c, painted, listH, rw)
+  local frames = { needs = self.needsView, member = self.memberView }
+  for _, def in ipairs(UI.VIEWS) do
+    if def.build then frames[def.key] = self[def.build](self, c, painted, listH, rw) end
+  end
+  return frames
+end
 
 function UI.ViewDef(key)
   for _, def in ipairs(UI.VIEWS) do
@@ -34,19 +43,30 @@ local function CreateTemplatedTabs(f)
   return tabs
 end
 
+local function WidestLabel(b, key)
+  local fs, w = b.GetFontString and b:GetFontString() or b, 0
+  for _, t in pairs(ns.Locales) do
+    if t[key] then b:SetText(t[key]); w = math.max(w, UI.TextWidth(fs)) end
+  end
+  b:SetText(L[key])
+  return w
+end
+
+local function CreatePlainTabs(c)
+  local tabs = {}
+  for i = #UI.VIEWS, 1, -1 do
+    local b = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")
+    b:SetSize(WidestLabel(b, UI.VIEWS[i].label) + 16, 22)
+    if tabs[i + 1] then b:SetPoint("RIGHT", tabs[i + 1], "LEFT", -4, 0) else b:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", -28, 10) end
+    tabs[i] = b
+  end
+  return tabs
+end
+
 function UI.CreateViewTabs(f, c)
   local tabs = CreateTemplatedTabs(f)
   local templated = tabs ~= nil
-  if not templated then
-    tabs = {}
-    for i, def in ipairs(UI.VIEWS) do
-      local b = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")
-      b:SetSize(106, 22)
-      b:SetText(L[def.label])
-      b:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", -28 - (#UI.VIEWS - i) * 110, 10)
-      tabs[i] = b
-    end
-  end
+  if not templated then tabs = CreatePlainTabs(c) end
   for i, tab in ipairs(tabs) do
     tab.view = UI.VIEWS[i].key
     tab:SetScript("OnClick", function(self) UI:SetView(self.view) end)
