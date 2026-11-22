@@ -176,6 +176,7 @@ local function PlaceProblem(mapID, xi, yi)
   if mapID < 1 or mapID > 1e6 or not SafeCall(C_Map.GetMapInfo, mapID) then return "unknown map" end
   if xi > XY_MAX or yi > XY_MAX or (xi == 0 and yi == 0) then return "position range" end
 end
+M.XY_MAX, M.PlaceProblem, M.Reject = XY_MAX, PlaceProblem, Reject
 
 local function DetailProblem(level, cls, ts, flags, n)
   if level < 1 or level > GS:MaxLevel() then return "level" end
@@ -224,6 +225,7 @@ local function OnPosition(self, key, f, sender, now)
   if not m then return Reject(why) end
   S.senders[key] = now
   S.nHeard[key] = { n = m.n, t = now }
+  if self.RallyHeardFrom then self:RallyHeardFrom(key) end
   m.key, m.name, m.whisper, m.heard = key, GS:StripRealm(key) or key, sender, now
   if GS:IsGuildMember(key) == false then
     GS:RequestRoster()
@@ -282,6 +284,7 @@ function M:OnGuildChanged()
     if not m.fake and not m.isSelf then self.members[key] = nil end
   end
   wipe(S.pending); wipe(S.senders); wipe(S.nHeard); wipe(S.heard)
+  if self.ForgetRallies then self:ForgetRallies() end
   self:RefreshPins()
 end
 

@@ -46,6 +46,11 @@ M.C = {
   FUTURE_SLACK = 120,
   HOLD_UNKNOWN = 60,
   ROSTER_EVERY = 120,
+  RALLY_TIME = 900,
+  RALLY_GAP = 30,
+  RALLY_RESEND_DELAY = 10,
+  RALLY_RESEND_GAP = 60,
+  RALLY_LABEL = 48,
 }
 
 function M:OnLoad()
@@ -55,6 +60,7 @@ end
 
 M.members = {}
 M.lastHeard = {}
+M.rallies = {}
 
 function M:FadeAfter(m)
   local C = self.C
@@ -166,19 +172,21 @@ function M:Refresh()
     if self:State(m) == "gone" then self.members[key], self.lastHeard[key] = nil, m.heard end
   end
   self:RefreshPins()
+  if self.RefreshRally then self:RefreshRally() end
   if self.RenderPage then self:RenderPage() end
 end
 
 function M:NeedsTick()
   local s = self.settings
   if not s then return false end
-  return s.share or s.selfPin or self.fakeOn or next(self.members) ~= nil
+  return s.share or s.selfPin or self.fakeOn or next(self.members) ~= nil or next(self.rallies) ~= nil
     or (self.sync ~= nil and next(self.sync.pending) ~= nil)
 end
 
 function M:Tick()
   self:MoveFakes()
   self:SyncTick()
+  if self.RallyTick then self:RallyTick() end
   self:Refresh()
   if not self:NeedsTick() and self.ticker then
     self.ticker:Cancel()
@@ -217,6 +225,8 @@ M:SetOptions({
     disabled = function() return not (M.settings and M.settings.worldmap) end },
   { type = "toggle", key = "hideGroup", label = L.SETTING_HIDE_GROUP, tooltip = L.TT_HIDE_GROUP },
   { type = "range", key = "size", label = L.SETTING_SIZE, tooltip = L.TT_SIZE, min = 0.5, max = 2, step = 0.1, format = "%.1f" },
+  { type = "header", label = L.SEC_RALLY },
+  { type = "toggle", key = "ignoreRally", label = L.SETTING_IGNORE_RALLY, tooltip = L.TT_IGNORE_RALLY },
   { type = "header", label = L.SEC_TESTING },
   { type = "toggle", key = "selfPin", label = L.SETTING_SELF, tooltip = L.TT_SELF },
   { id = "fake", type = "toggle", label = L.SETTING_FAKE, tooltip = L.TT_FAKE,

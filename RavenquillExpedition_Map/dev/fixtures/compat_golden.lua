@@ -75,6 +75,21 @@ return {
     "L;t5pco0",
     "L;0",
   },
+  ["map.rally.encode"] = {
+    "R;t5pco0;13o;i00;i00;0;Schwarzfelsspitze",
+    "R;t5pdd0;13p;5;zzu;3;",
+    "R;t5pdma;137;4g0;njz;14;Brücke über den Fluss",
+    "R;t5rhtr;13b;zzu;5;rs;Blackrock Spire",
+    "J;Rika Steinbeck;t5pco0",
+    "J;Anna Stone-Other Realm;t5pdma",
+    "X;t5pco0",
+  },
+  ["map.rally.scenario"] = {
+    "00001.0 Rika Steinbeck|R;<id>;13o;i00;i00;0;Schwarzfelsspitze",
+    "00021.0 Bert Hill|J;Rika Steinbeck;<id>",
+    "00281.0 Rika Steinbeck|R;<id>;13o;i00;i00;1;Schwarzfelsspitze",
+    "00421.0 Rika Steinbeck|X;<id>",
+  },
   ["map.scenario"] = {
     "00080.0 Anna Stone|P;13p;e5z;e0g;10;4;<ts>;;1",
     "00088.0 Anna Stone|P;13p;e20;e2u;10;4;<ts>;;1",

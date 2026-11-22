@@ -14,6 +14,7 @@ local LAYER_LEVEL = 500
 
 local pins = {}
 local pool = { world = {}, mini = {} }
+local Flags = { size = { world = 24, mini = 18 }, gold = { 1, 0.82, 0 }, shown = {}, pool = { world = {}, mini = {} } }
 local placed = {}
 M.worldPlaced = placed
 local layer
@@ -110,7 +111,7 @@ local function OnLeave() GameTooltip:Hide() end
 
 local function OnClick(self)
   local m = M.members[self.key] or self.unshared
-  if not m or m.fake or m.isSelf or type(m.name) ~= "string" then return end
+  if not m or m.fake or type(m.name) ~= "string" then return end
   M:Contact(self, m)
 end
 
@@ -238,7 +239,7 @@ local function NewPin(kind)
   if f then return f end
   f = CreateFrame("Button", nil, kind == "mini" and Minimap or Layer() or UIParent)
   f:Hide()
-  f.kind = kind
+  f.kind, f.home = kind, pool[kind]
   f.bg = f:CreateTexture(nil, "BACKGROUND")
   f.bg:SetTexture(DOT)
   f.bg:SetPoint("CENTER")
@@ -262,7 +263,7 @@ local function Release(p, kind)
   f:Hide()
   f.key, f.at = nil, nil
   p[kind] = nil
-  pool[kind][#pool[kind] + 1] = f
+  f.home[#f.home + 1] = f
 end
 
 local function PlaceWorld(f, m)
@@ -278,9 +279,9 @@ local function PlaceWorld(f, m)
   return true
 end
 
-local function Place(p, kind, m)
+local function Place(p, kind, m, New)
   local f = p[kind]
-  if not f then f = NewPin(kind); p[kind] = f end
+  if not f then f = (New or NewPin)(kind); p[kind] = f end
   f.key = m.key
   local at = m.mapID .. ":" .. m.x .. ":" .. m.y
   if f.at ~= at then
@@ -288,7 +289,7 @@ local function Place(p, kind, m)
     if kind == "world" then
       ok, added = pcall(PlaceWorld, f, m)
     else
-      ok, added = pcall(HBDPins.AddMinimapIconMap, HBDPins, REF, f, m.mapID, m.x, m.y, true, false)
+      ok, added = pcall(HBDPins.AddMinimapIconMap, HBDPins, REF, f, m.mapID, m.x, m.y, true, f.edge == true)
     end
     if not ok or not added then Release(p, kind); return end
     f.at = at
@@ -362,4 +363,68 @@ function M:CountPins()
     if p.mini then mm = mm + 1 end
   end
   return w, mm
+end
+
+function Flags.Art(parent, size)
+  local cloth, gold = parent:CreateTexture(nil, "ARTWORK"), Flags.gold
+  cloth:SetSize(size, size)
+  cloth:SetAtlas("Flag-2")
+  cloth:SetVertexColor(gold[1], gold[2], gold[3], 1)
+  local pole = parent:CreateTexture(nil, "OVERLAY")
+  pole:SetAllPoints(cloth)
+  pole:SetAtlas("Flag-1")
+  return cloth
+end
+
+function Flags.Enter(self)
+  local r, gold = M.rallies[self.key], Flags.gold
+  if not r then return end
+  GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+  GameTooltip:AddLine(L.RALLY_POINT, gold[1], gold[2], gold[3])
+  GameTooltip:AddLine(M:RallyHeadline(r), 1, 1, 1)
+  GameTooltip:AddLine(M:RallyDetails(r), 0.7, 0.7, 0.7)
+  GameTooltip:AddLine(L.TT_RALLY_CLICK, 0.5, 1, 0.5)
+  GameTooltip:Show()
+end
+
+function Flags.Click(self) M:FocusRally(self.key) end
+
+function Flags.New(kind)
+  local f = table.remove(Flags.pool[kind])
+  if f then return f end
+  local size = Flags.size[kind]
+  f = CreateFrame("Button", nil, kind == "mini" and Minimap or Layer() or UIParent)
+  f:Hide()
+  f.kind, f.home, f.edge = kind, Flags.pool[kind], true
+  f:SetSize(size, size)
+  Flags.Art(f, size):SetPoint("CENTER")
+  f:EnableMouse(true)
+  f:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  f:SetScript("OnEnter", Flags.Enter)
+  f:SetScript("OnLeave", OnLeave)
+  f:SetScript("OnClick", Flags.Click)
+  return f
+end
+
+function M:RefreshFlags()
+  local shown = {}
+  for _, r in ipairs(self:ShownRallies()) do shown[r.key] = r end
+  for key, p in pairs(Flags.shown) do
+    if not shown[key] then
+      Release(p, "world"); Release(p, "mini")
+      Flags.shown[key] = nil
+    end
+  end
+  for key, r in pairs(shown) do
+    local p = Flags.shown[key] or {}
+    Flags.shown[key] = p
+    Place(p, "world", r, Flags.New)
+    Place(p, "mini", r, Flags.New)
+  end
+end
+
+function M:RallyFlags()
+  local out = {}
+  for key, p in pairs(Flags.shown) do out[key] = { world = p.world, mini = p.mini } end
+  return out
 end

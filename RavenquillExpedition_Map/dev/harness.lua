@@ -266,6 +266,7 @@ local function FakeMenus(env)
     local menu = { owner = owner, titles = {}, entries = {} }
     local root = {
       CreateTitle = function(_, text) menu.titles[#menu.titles + 1] = text end,
+      CreateDivider = function() menu.entries[#menu.entries + 1] = { text = "---", enabled = true, fn = function() end } end,
       CreateButton = function(_, text, fn)
         local e = { text = text, fn = fn, enabled = true }
         e.SetEnabled = function(_, on) e.enabled = on end
@@ -298,7 +299,8 @@ local function SeenAs(env, unit, canInspect)
   env.UnitNameUnmodified = function(u) if u == unit then return "Hans", "Wurst" end end
   env.CanInspect = function() return canInspect end
 end
-local ALL_GREY = "Hans Wurst|Invite|Whisper|Inspect (grey)|View Talents (grey)"
+local RALLY_EN, RALLY_DE = "|---|Set rally point here", "|---|Sammelpunkt hier setzen"
+local ALL_GREY = "Hans Wurst|Invite|Whisper|Inspect (grey)|View Talents (grey)" .. RALLY_EN
 do
   local env = w.env
   local menus, calls, tells, ownName = FakeMenus(env), GameCalls(env), #w.tells, env.UnitNameUnmodified
@@ -313,7 +315,7 @@ do
   SeenAs(env, "party2", true)
   hp._scripts.OnClick(hp, "RightButton")
   local near = menus[#menus]
-  check(Shape(near) == "Hans Wurst|Invite|Whisper|Inspect|View Talents (grey)",
+  check(Shape(near) == "Hans Wurst|Invite|Whisper|Inspect|View Talents (grey)" .. RALLY_EN,
     "nearby in the group and inspectable: inspect enabled; talents only come from a stored spec, never the game's inspect: " .. Shape(near))
   for i = #calls, 1, -1 do calls[i] = nil end
   Entry(near, "Inspect").fn()
@@ -328,11 +330,12 @@ do
   hp._scripts.OnClick(hp, "RightButton")
   rawset(hp, "key", "Hans Wurst")
   M.members["@probe"] = nil
-  check(#menus == selfMenus, "your own dot opens no menu")
+  check(#menus == selfMenus + 1 and Shape(menus[#menus]) == "Me" .. RALLY_EN,
+    "your own dot opens a menu with only the rally entry under your name: " .. Shape(menus[#menus]))
   env.UNIT_FRAME_DROPDOWN_SUBSECTION_TITLE_INTERACT, env.WHISPER, env.INSPECT = "Game Interact", "Game Whisper", "SECRET"
   env.issecretvalue = function(v) return v == "SECRET" end
   hp._scripts.OnClick(hp, "RightButton")
-  check(Shape(menus[#menus]) == "Hans Wurst|Invite|Game Whisper|Inspect (grey)|View Talents (grey)",
+  check(Shape(menus[#menus]) == "Hans Wurst|Invite|Game Whisper|Inspect (grey)|View Talents (grey)" .. RALLY_EN,
     "labels are the game's own strings where it has them; a secret one falls back to ours; no Interact title: " .. Shape(menus[#menus]))
   env.UNIT_FRAME_DROPDOWN_SUBSECTION_TITLE_INTERACT, env.WHISPER, env.INSPECT, env.issecretvalue = nil, nil, nil, nil
   hp._scripts.OnEnter(hp)
@@ -378,11 +381,11 @@ do
   check(not deTip:find("Interagieren", 1, true), "German tooltip says nothing about Interagieren")
   pin._scripts.OnClick(pin, "RightButton")
   local HEAD = "Hans Wurst|Gruppeneinladung anfragen|Flüstern|"
-  check(Shape(menus[1]) == HEAD .. "Betrachten (grey)|Talente anzeigen (grey)",
+  check(Shape(menus[1]) == HEAD .. "Betrachten (grey)|Talente anzeigen (grey)" .. RALLY_DE,
     "German client without the game's strings: exactly these entries, read like the game's German menu, no Craft Advisor needed: " .. Shape(menus[1]))
   local craft = wd.RQ:NewModule("Craft", {})
   pin._scripts.OnClick(pin, "RightButton")
-  check(Shape(menus[#menus]) == HEAD .. "Betrachten (grey)|Talente anzeigen (grey)",
+  check(Shape(menus[#menus]) == HEAD .. "Betrachten (grey)|Talente anzeigen (grey)" .. RALLY_DE,
     "a Craft Advisor without the inspect window: Betrachten and Talente anzeigen stay greyed: " .. Shape(menus[#menus]))
   local gear, spec = {}, {}
   function craft:HasStoredGear(key) return gear[key] == true end
@@ -394,22 +397,22 @@ do
     return menus[#menus]
   end
   local menu = MenuWith(true, false)
-  check(Shape(menu) == HEAD .. "Betrachten|Talente anzeigen (grey)", "far away with stored gear only: Betrachten enabled, Talente anzeigen greyed: " .. Shape(menu))
+  check(Shape(menu) == HEAD .. "Betrachten|Talente anzeigen (grey)" .. RALLY_DE, "far away with stored gear only: Betrachten enabled, Talente anzeigen greyed: " .. Shape(menu))
   Entry(menu, "Betrachten").fn()
   Entry(menu, "Talente anzeigen").fn()
   check(table.concat(shown, " ") == "Hans Wurst:gear" and #calls == 0,
     "Betrachten opens Craft Advisor's window on the stored gear, not the game's inspect; the greyed talents do nothing: " .. table.concat(shown, " "))
   menu = MenuWith(false, true)
-  check(Shape(menu) == HEAD .. "Betrachten (grey)|Talente anzeigen", "far away with a stored spec only: Talente anzeigen enabled, Betrachten greyed: " .. Shape(menu))
+  check(Shape(menu) == HEAD .. "Betrachten (grey)|Talente anzeigen" .. RALLY_DE, "far away with a stored spec only: Talente anzeigen enabled, Betrachten greyed: " .. Shape(menu))
   Entry(menu, "Talente anzeigen").fn()
   check(shown[2] == "Hans Wurst:talents" and #shown == 2 and #calls == 0,
     "Talente anzeigen opens Craft Advisor's window on the talents page from anywhere, never the game's inspect: " .. tostring(shown[2]))
-  check(Shape(MenuWith(true, true)) == HEAD .. "Betrachten|Talente anzeigen", "gear and spec stored: both enabled")
-  check(Shape(MenuWith(false, false)) == HEAD .. "Betrachten (grey)|Talente anzeigen (grey)", "nothing stored and nobody nearby: both greyed")
+  check(Shape(MenuWith(true, true)) == HEAD .. "Betrachten|Talente anzeigen" .. RALLY_DE, "gear and spec stored: both enabled")
+  check(Shape(MenuWith(false, false)) == HEAD .. "Betrachten (grey)|Talente anzeigen (grey)" .. RALLY_DE, "nothing stored and nobody nearby: both greyed")
   SeenAs(wd.env, "party2", true)
   menu = MenuWith(false, true)
   Entry(menu, "Betrachten").fn()
-  check(Shape(menu) == HEAD .. "Betrachten|Talente anzeigen" and calls[#calls] == "InspectUnit(party2)" and #shown == 2,
+  check(Shape(menu) == HEAD .. "Betrachten|Talente anzeigen" .. RALLY_DE and calls[#calls] == "InspectUnit(party2)" and #shown == 2,
     "nearby without stored gear: Betrachten falls back to the game's inspect on their unit: " .. Shape(menu) .. " " .. tostring(calls[#calls]))
   check(#wd.errors == 0, "German menu with and without Craft Advisor: no Lua errors (" .. tostring(wd.errors[1]) .. ")")
 end
@@ -637,7 +640,7 @@ do
   local peterRow = s.Row("Peter Plain")
   peterRow._scripts.OnClick(peterRow, "RightButton")
   Entry(menus[3], "Invite").fn()
-  check(Shape(menus[3]) == "Peter Plain|Invite|Whisper|Inspect (grey)|View Talents (grey)" and calls[#calls] == "InviteUnit(Peter Plain)",
+  check(Shape(menus[3]) == "Peter Plain|Invite|Whisper|Inspect (grey)|View Talents (grey)" .. RALLY_EN and calls[#calls] == "InviteUnit(Peter Plain)",
     "map list: a guildmate without the addon gets the menu too, and Invite reaches them: " .. Shape(menus[3]))
   local headers, clickable = 0, 0
   for _, r in ipairs(s.Rows()) do

@@ -19,3 +19,5 @@ Menu.lua
 Pins.lua
 Page.lua
 Sync.lua
+Rally.lua
+RallyNotice.lua
