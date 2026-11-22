@@ -16,7 +16,7 @@ end
 local function Client(sched, bus, name, opts)
   opts = opts or {}
   return MapKit.Client(sched, bus, name, { pos = opts.pos, locale = opts.locale, class = opts.class, level = opts.level,
-    setup = function(env, c)
+    kitFrames = opts.kitFrames, setup = function(env, c)
       env.GetSubZoneText = function() return opts.subzone or "" end
       if opts.waypoints then Waypoints(env, c) end
       if opts.saved then env.RavenquillExpeditionMapDB = opts.saved end
@@ -93,7 +93,8 @@ local function Guild(opts)
   local sched, bus = Kit.Setup()
   local A = Client(sched, bus, "Anna Alpha", { pos = { 1429, 0.40, 0.40 }, subzone = "Schwarzfelsspitze", class = "MAGE",
     waypoints = opts and opts.waypoints })
-  local B = Client(sched, bus, "Bert Beta", { pos = { 1429, 0.60, 0.60 }, locale = "deDE", waypoints = opts and opts.waypoints })
+  local B = Client(sched, bus, "Bert Beta", { pos = { 1429, 0.60, 0.60 }, locale = "deDE", waypoints = opts and opts.waypoints,
+    kitFrames = opts and opts.kitFrames })
   local Cc = Client(sched, bus, "Cora Vale", { pos = { 1429, 0.70, 0.30 } })
   A.login(); B.login(); Cc.login()
   sched:advance(120)
@@ -250,6 +251,40 @@ do
 
 end
 
+Kit.section("/rq home: a running call is a row in 'Jetzt in der Gilde'")
+do
+  local sched, bus, A, B, Cc = Guild()
+  local function Now(c) return c.M:OverviewNow()[1] end
+  check(Now(B) == nil, "no call, no row")
+  A.M:CallRally()
+  sched:advance(10)
+  local row = Now(B)
+  check(row and row.title == "Sammelpunkt" and row.line == "Anna Alpha: Schwarzfelsspitze · 0 unterwegs · noch 15 min"
+    and row.action == "Ich komme" and row.ends == A.M:OwnRally().expires,
+    "without the waypoint API the row offers 'Ich komme' and ends with the call: " .. tostring(row and row.line))
+  check(Now(A) == nil, "the caller gets no row for her own call")
+  row.open()
+  sched:advance(10)
+  check(RallySends(bus, "J", "Bert Beta") == 1 and Now(B) == nil and Now(Cc).line:find("1 on the way", 1, true),
+    "'Ich komme' answers the call once; with nothing left to do Bert's row goes, Cora's count goes up: " .. Now(Cc).line)
+  local wsched, _, W1, W2 = Guild({ waypoints = true, kitFrames = true })
+  W1.M:CallRally()
+  wsched:advance(10)
+  W2.RQ:ToggleOverview()
+  local home = W2.env.RavenquillExpeditionOverview.home
+  local card = home.now.items[1]
+  check(card and rawget(card, "_shown") and card.title:GetText() == "Sammelpunkt" and card.open:GetText() == "Wegpunkt"
+    and card.line:GetText() == "Anna Alpha: Schwarzfelsspitze · 0 unterwegs · noch 15 min",
+    "with the waypoint API Bert's home shows the call as a card with 'Wegpunkt'")
+  card.open._scripts.OnClick(card.open)
+  local wp = W2.waypoints[1]
+  check(wp and wp.mapID == 1429 and Near(wp.x, 0.40) and Near(wp.y, 0.40), "and the button sets the waypoint at the call")
+  wsched:advance(15 * 60)
+  W2.RQ:ShowHome()
+  check(not rawget(card, "_shown"), "when the call runs out the card goes")
+  NoErrors({ A, B, Cc, W1, W2 }, "home row")
+end
+
 Kit.section("Ignoring rally calls")
 do
   local sched, _, A, B, Cc = Guild()
@@ -259,7 +294,8 @@ do
   B.set("ignoreRally", true)
   A.M:CallRally()
   sched:advance(10)
-  check(Notice(B) == "none" and Flag(B, "Anna Alpha") == nil, "Bert ignores calls: no notice, no flag")
+  check(Notice(B) == "none" and Flag(B, "Anna Alpha") == nil and B.M:OverviewNow()[1] == nil,
+    "Bert ignores calls: no notice, no flag, no row on his /rq home")
   check(Notice(Cc) ~= "none", "Cora still gets it")
   sched:advance(30)
   B.M:CallRally()

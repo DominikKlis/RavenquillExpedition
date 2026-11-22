@@ -34,6 +34,28 @@ function M:SetRallyWaypoint(key)
   end
 end
 
+local function NowAction(r)
+  if M.CanSetWaypoint(r.mapID) then return L.RALLY_WAYPOINT, function() M:SetRallyWaypoint(r.key) end end
+  if not r.joined then return L.RALLY_JOIN, function() M:JoinRally(r.key) end end
+end
+
+local function NowRow(r)
+  local action, open = NowAction(r)
+  if not action then return nil end
+  local left = L.RALLY_LEFT:format(math.max(1, math.ceil((r.expires - GS:Now()) / 60)))
+  return { title = L.RALLY_POINT, action = action, open = open, ends = r.expires,
+    line = table.concat({ M:RallyHeadline(r), L.RALLY_COMING:format(M.RallyCount(r)), left }, " · ") }
+end
+
+function M:OverviewNow()
+  local out, me = {}, GS:PlayerKey()
+  for _, r in ipairs(self:ShownRallies()) do
+    local row = r.key ~= me and NowRow(r)
+    if row then out[#out + 1] = row end
+  end
+  return out
+end
+
 function M:RallyAction(key)
   if key == GS:PlayerKey() then return self:CancelRally() end
   self:JoinRally(key)
