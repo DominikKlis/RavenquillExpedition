@@ -63,11 +63,14 @@ local function ClientZone(map)
   if name and name ~= "" then return name end
 end
 
-function A.Name(a)
+function A.ShortName(a)
   if a.name then return L["ACT_" .. a.name] end
-  local zone = ClientZone(a.map) or L["ZONE_" .. a.map]
-  if a.wing then return zone .. ": " .. L["WING_" .. a.wing] end
-  return zone
+  return ClientZone(a.map) or L["ZONE_" .. a.map]
+end
+
+function A.Name(a)
+  if a.wing then return A.ShortName(a) .. ": " .. L["WING_" .. a.wing] end
+  return A.ShortName(a)
 end
 
 function A.Title(a)

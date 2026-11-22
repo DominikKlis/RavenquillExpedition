@@ -15,3 +15,5 @@ Activities.lua
 Posts.lua
 View.lua
 Sync.lua
+Page.lua
+Form.lua

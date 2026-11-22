@@ -20,6 +20,10 @@ GK.Copy = Copy
 local function Stubs(opts)
   return function(env, c)
     c.whispers, c.invites, c.tells, c.menus = {}, {}, {}, {}
+    c.frameMethods.SetEnabled = function(s, v) s._disabled = not v end
+    c.frameMethods.Enable = function(s) s._disabled = false end
+    c.frameMethods.Disable = function(s) s._disabled = true end
+    c.frameMethods.IsEnabled = function(s) return not s._disabled end
     env.RAID_CLASS_COLORS = CLASS_COLORS
     env.SendChatMessage = function(msg, kind, _, target)
       c.whispers[#c.whispers + 1] = { msg = msg, kind = kind, target = target }
@@ -103,6 +107,52 @@ function GK.Since(t, typ, from)
 end
 
 function GK.Hear(c, sender, text) c.fire("CHAT_MSG_ADDON", "RQE1", text, "GUILD", sender .. "-Realm") end
+
+function GK.Plain(text)
+  return (tostring(text or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+end
+
+function GK.OpenPage(c)
+  c.RQ:ShowModulePage("Groups")
+  return c.G.page
+end
+
+function GK.Cards(c)
+  local page, byData, out = c.G.page, {}, {}
+  for _, f in ipairs(c.frames) do
+    if f.data ~= nil and rawget(f, "_shown") then byData[f.data] = f end
+  end
+  for i, d in ipairs(page.list.data or {}) do out[i] = byData[d] end
+  return out
+end
+
+function GK.PillTexts(card)
+  local out = {}
+  for _, pill in ipairs(card.pills) do
+    if rawget(pill, "_shown") then out[#out + 1] = pill.text:GetText() .. " [" .. pill.style .. "]" end
+  end
+  return table.concat(out, ", ")
+end
+
+function GK.Menu(gen, owner)
+  local entries = {}
+  local root = {}
+  local function add(kind, text, fn, data, isSel)
+    entries[#entries + 1] = { kind = kind, text = text, fn = fn, data = data, isSel = isSel }
+  end
+  function root.CreateTitle(_, text) add("title", text) end
+  function root.CreateButton(_, text, fn) add("button", text, fn) end
+  function root.CreateRadio(_, text, isSel, fn, data) add("radio", text, fn, data, isSel) end
+  gen(owner, root)
+  return entries
+end
+
+function GK.Pick(entries, text)
+  for _, e in ipairs(entries) do
+    if e.text and GK.Plain(e.text):find(text, 1, true) == 1 then return e.fn(e.data) end
+  end
+  error("no menu entry " .. text)
+end
 
 function GK.Click(button, ...)
   local fn = rawget(button, "_scripts").OnClick

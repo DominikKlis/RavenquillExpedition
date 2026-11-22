@@ -218,5 +218,16 @@ function G:OnGuildChanged()
   AskLater()
 end
 
+function G:OverviewDiagnostics()
+  local st, rej = ch:Status(), {}
+  for k, v in pairs(S.rejected) do rej[#rej + 1] = k .. "=" .. v end
+  table.sort(rej)
+  return {
+    ("posts: %d active, own %s"):format(#self:ActivePosts(), self:OwnPost() and "yes" or "no"),
+    ("channel GF: sent %d, received %d; ask %s"):format(st.sent, st.received, S.ask),
+    "rejected: " .. (rej[1] and table.concat(rej, ", ") or "none"),
+  }
+end
+
 G:RegisterEvent("PLAYER_ENTERING_WORLD", function() Sync.Flush() Sync.TryAsk() end)
 G:RegisterEvent("PLAYER_REGEN_ENABLED", function() Sync.Flush() Sync.TryAsk() end)

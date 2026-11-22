@@ -165,6 +165,24 @@ function G:Prune(now)
   PruneBy(Store("mine"), function(poster, m) return posts[poster] ~= nil and posts[poster].id == m.id end)
 end
 
+function G:OnlinePeers()
+  local n = 0
+  for key, e in GS:EachMember() do
+    if e.online and not GS:IsMe(key) and GS:IsPeer(key) then n = n + 1 end
+  end
+  return n
+end
+
+function G:OverviewStatus()
+  if not self.db then return end
+  return ns.View.Status(#self:ActivePosts(), self:OnlinePeers())
+end
+
+function G:OverviewHeadline()
+  if not self.db then return end
+  return { line = ns.View.Headline() }
+end
+
 G:SetOptions({
   { type = "toggle", key = "announce", label = L.OPT_ANNOUNCE, tooltip = L.OPT_ANNOUNCE_TIP },
 })

@@ -20,6 +20,25 @@ ns.Locales.enUS = {
   WHISPER = "Hi! I'd like to join your group for %s as %s. (Ravenquill)",
   WHISPER_WHEN = "Hi! I'm in for %s on %s as %s. (Ravenquill)",
 
+  STATUS = "%d groups open · %d online", STATUS_ONE = "1 group open · %d online", STATUS_NONE = "No group open · %d online",
+  HEAD_NONE = "Nobody is looking for a group right now", HEAD_POST = "%s is looking for %s", HEAD_FITS = " · fits you",
+  HEAD_RAID = "%s plans %s · %s", HEAD_SIGNUP = "%s signed up for your post (%s)", HEAD_SIGNUPS = "%d sign-ups for your post",
+  HEAD_OWN = "Your post for %s is open",
+
+  FIND = "Find group", FIND_EDIT = "Edit my post",
+  HINT = "Posts expire after an hour, raids after their start.",
+  EMPTY = "Nobody is looking for a group right now. Post one with \"Find group\".",
+  ROLE_WANTED = "%s wanted", ROLE_COUNT = "%s %d/%d",
+  FITS = "Fits your level", YOUR_POST = "Your post",
+  SIGN_UP = "Sign up", COMMIT = "I'm in", SIGNED_UP = "Signed up", COMMITTED = "You're in", FULL = "Full",
+  SIGN_UP_AS = "Sign up as",
+  EDIT = "Edit", CLOSE = "Close", INVITE = "Invite",
+  SIGNUP_ROW = "%s · %s", NO_SIGNUPS = "No sign-ups yet.",
+
+  FORM_NEW = "New post", FORM_EDIT = "Edit your post", FORM_ACTIVITY = "Where to?", FORM_FILLED = "Already in the group",
+  FORM_NOTE = "Note (optional)", FORM_WHEN = "Start", POST = "Post", UPDATE = "Update", CANCEL = "Cancel",
+  PAST = "That time has passed.", DUNGEONS = "Dungeons", RAIDS = "Raids",
+
   ZONE_389 = "Ragefire Chasm", ZONE_43 = "Wailing Caverns", ZONE_36 = "The Deadmines", ZONE_33 = "Shadowfang Keep",
   ZONE_48 = "Blackfathom Deeps", ZONE_34 = "The Stockade", ZONE_90 = "Gnomeregan", ZONE_47 = "Razorfen Kraul",
   ZONE_189 = "Scarlet Monastery", ZONE_129 = "Razorfen Downs", ZONE_70 = "Uldaman", ZONE_209 = "Zul'Farrak",

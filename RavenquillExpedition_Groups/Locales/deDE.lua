@@ -20,6 +20,25 @@ ns.Locales.deDE = {
   WHISPER = "Hallo! Ich melde mich für %s an, als %s. (Ravenquill)",
   WHISPER_WHEN = "Hallo! Ich sage für %s am %s zu, als %s. (Ravenquill)",
 
+  STATUS = "%d Gruppen offen · %d online", STATUS_ONE = "1 Gruppe offen · %d online", STATUS_NONE = "Keine Gruppe offen · %d online",
+  HEAD_NONE = "Gerade sucht niemand eine Gruppe", HEAD_POST = "%s sucht für %s", HEAD_FITS = " · passt zu dir",
+  HEAD_RAID = "%s plant %s · %s", HEAD_SIGNUP = "%s hat sich für dein Gesuch angemeldet (%s)",
+  HEAD_SIGNUPS = "%d Anmeldungen für dein Gesuch", HEAD_OWN = "Dein Gesuch für %s ist offen",
+
+  FIND = "Gruppe suchen", FIND_EDIT = "Gesuch ändern",
+  HINT = "Gesuche verfallen nach einer Stunde, Raids nach dem Termin.",
+  EMPTY = "Gerade sucht niemand eine Gruppe. Mit „Gruppe suchen“ legst du ein Gesuch an.",
+  ROLE_WANTED = "%s gesucht", ROLE_COUNT = "%s %d/%d",
+  FITS = "Passt zu deiner Stufe", YOUR_POST = "Dein Gesuch",
+  SIGN_UP = "Anmelden", COMMIT = "Zusagen", SIGNED_UP = "Angemeldet", COMMITTED = "Zugesagt", FULL = "Voll",
+  SIGN_UP_AS = "Anmelden als",
+  EDIT = "Ändern", CLOSE = "Schließen", INVITE = "Einladen",
+  SIGNUP_ROW = "%s · %s", NO_SIGNUPS = "Noch keine Anmeldungen.",
+
+  FORM_NEW = "Neues Gesuch", FORM_EDIT = "Gesuch ändern", FORM_ACTIVITY = "Wohin?", FORM_FILLED = "Schon dabei",
+  FORM_NOTE = "Notiz (optional)", FORM_WHEN = "Termin", POST = "Posten", UPDATE = "Aktualisieren", CANCEL = "Abbrechen",
+  PAST = "Der Termin liegt in der Vergangenheit.", DUNGEONS = "Dungeons", RAIDS = "Schlachtzüge",
+
   ZONE_389 = "Der Flammenschlund", ZONE_43 = "Die Höhlen des Wehklagens", ZONE_36 = "Die Todesminen",
   ZONE_33 = "Burg Schattenfang", ZONE_48 = "Tiefschwarze Grotte", ZONE_34 = "Das Verlies", ZONE_90 = "Gnomeregan",
   ZONE_47 = "Kral der Klingenhauer", ZONE_189 = "Scharlachrotes Kloster", ZONE_129 = "Hügel der Klingenhauer",
