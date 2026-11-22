@@ -181,5 +181,57 @@ for _, name in ipairs({ "fresh", "noFlags", "keysV1", "keysV2Done", "autoTargetO
   gold:compare("sv." .. name, splitLines(Golden.Serialize(shown)), check)
 end
 
+section("Orders layer: order messages and the saved order stay byte-identical")
+local orderGold = Golden.open(DEV .. "fixtures/compat_orders.lua", arg[1] == "--record-orders")
+for n, c in pairs(clients) do c.online = false; clients[n] = nil end
+NewWorld()
+local OA = Login("Anna Stone", copy(GEAR[1]))
+local OB = Login("Bert Hill", copy(GEAR[2]))
+for _, c in pairs(clients) do c.fire("GUILD_ROSTER_UPDATE") end
+sched:advance(60)
+local och = OA.GCA.orderChannel
+local fixed = { requester = "Anna Stone", id = 1800000123, crafter = "Bert Hill", line = 165, spell = 3762 }
+local function with(state, gain)
+  local m = {}
+  for k, v in pairs(fixed) do m[k] = v end
+  m.state, m.gain = state, gain
+  return m
+end
+local encoded = { och:Encode("o", with("requested", 18)), och:Encode("o", with("accepted")), och:Encode("o", with("received", 9999)),
+  och:Encode("k", { requester = "Anna Stone", id = 1800000123, state = "done" }) }
+orderGold:compare("orders.wire", encoded, check)
+local mark = #bus.log
+local oa = OA.GCA:PlaceOrder("Bert Hill", "Leatherworking", 3762, 18)
+sched:advance(30)
+local ob = OB.GCA:Orders()[OB.GCA.OrderKey("Anna Stone", oa.id)]
+OB.GCA:OrderAction(ob, "accept"); sched:advance(30)
+OB.GCA:OrderAction(ob, "done"); sched:advance(30)
+OA.GCA:OrderAction(oa, "receive"); sched:advance(30)
+local lifecycle = {}
+for i = mark + 1, #bus.log do
+  local e = bus.log[i]
+  if e.msg:match("^CO;") then lifecycle[#lifecycle + 1] = e.sender .. "|" .. e.msg:gsub(OA.GCA.b36(oa.id), "<id>") end
+end
+orderGold:compare("orders.lifecycle", lifecycle, check)
+local function savedOrders(c)
+  local shown = {}
+  for key, rec in pairs(c.getDB().guilds[c.RQ:GuildKey()].orders) do
+    local copyRec = {}
+    for k, v in pairs(rec) do copyRec[k] = v end
+    copyRec.t, copyRec.id = "<t>", "<id>"
+    shown[(key:gsub("#%d+$", "#<id>"))] = copyRec
+  end
+  return splitLines(Golden.Serialize(shown))
+end
+orderGold:compare("orders.sv.requester", savedOrders(OA), check)
+orderGold:compare("orders.sv.crafter", savedOrders(OB), check)
+local goldWire = orderGold.data["orders.wire"] or encoded
+local OC = Login("Cora Vale", copy(GEAR[3]))
+OC.fire("CHAT_MSG_ADDON", "RQE1", goldWire[1], "GUILD", "Anna Stone-Realm")
+local heard = OC.GCA.heardOrders[OC.GCA.OrderKey("Anna Stone", 1800000123)]
+check(heard and heard.crafter == "Bert Hill" and heard.prof == "Leatherworking" and heard.spell == 3762 and heard.state == "requested"
+  and heard.gain == 18, "the golden 'requested' message decodes to the same order")
+orderGold:finish()
+
 gold:finish()
 Kit.finish()

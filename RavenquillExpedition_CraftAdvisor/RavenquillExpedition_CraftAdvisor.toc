@@ -34,12 +34,14 @@ Core\Suggestions.lua
 Core\Crafted.lua
 Core\Crafters.lua
 Core\GuildCrafters.lua
+Core\Orders.lua
 Core\Debug.lua
 Core\Options.lua
 Auction.lua
 Spec.lua
 Sync.lua
 SyncRecipes.lua
+SyncOrders.lua
 RecipeSources.lua
 UI\Theme.lua
 UI\Text.lua

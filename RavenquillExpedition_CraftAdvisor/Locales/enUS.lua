@@ -462,4 +462,10 @@ ns.Locales.enUS = {
   WHISPER_ASK_CRAFT_COST = "Hi {name}! Could you craft {item} for me? I'd bring the materials (about {cost} on the AH).",
   WHISPER_ASK_ENCHANT_ANY = "Hi {name}! Could you do {item} for me when we meet? I'd bring the materials.",
   WHISPER_ASK_ENCHANT_COST = "Hi {name}! Could you do {item} for me when we meet? I'd bring the materials (about {cost} on the AH).",
+  ORDER_NOTICE_REQUESTED = "%s asks you to craft %s. It is under Orders in the Guild Craft Advisor.",
+  ORDER_NOTICE_ACCEPTED = "%s accepted your order: %s.",
+  ORDER_NOTICE_DECLINED = "%s declined your order: %s.",
+  ORDER_NOTICE_WITHDRAWN = "%s withdrew the order: %s.",
+  ORDER_NOTICE_DONE = "%s finished your order: %s. Confirm under Orders once you have it.",
+  ORDER_NOTICE_RECEIVED = "%s got the order: %s.",
 }

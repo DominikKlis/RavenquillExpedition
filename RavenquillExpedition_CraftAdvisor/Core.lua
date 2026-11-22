@@ -158,6 +158,7 @@ function GCA:OnLogin()
   C_Timer.After(self.PRUNE_DELAY + 1, function() RQ:RequestRoster() end)
   C_Timer.After(self.PROF_TRUST_DELAY + 2, function() self:RefreshKnown() end)
   if self.OnSyncLogin then self:OnSyncLogin() end
+  if self.OnOrdersLogin then self:OnOrdersLogin() end
 end
 
 local events = {}
@@ -185,6 +186,7 @@ function events:INSPECT_READY(guid) self:OnInspectReady(guid) end
 
 function events:GUILD_ROSTER_UPDATE()
   RQ:Call(self.PruneStale, self)
+  if self.OnOrdersRoster then RQ:Call(self.OnOrdersRoster, self) end
   self:Invalidate()
 end
 

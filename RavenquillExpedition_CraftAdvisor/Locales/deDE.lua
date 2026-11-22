@@ -442,4 +442,10 @@ ns.Locales.deDE = {
   WHISPER_ASK_CRAFT_COST = "Hallo {name}! Könntest du mir {item} herstellen? Die Materialien bringe ich mit (im AH etwa {cost}).",
   WHISPER_ASK_ENCHANT_ANY = "Hallo {name}! Könntest du mir {item} aufzaubern, wenn wir uns treffen? Die Materialien bringe ich mit.",
   WHISPER_ASK_ENCHANT_COST = "Hallo {name}! Könntest du mir {item} aufzaubern, wenn wir uns treffen? Die Materialien bringe ich mit (im AH etwa {cost}).",
+  ORDER_NOTICE_REQUESTED = "%s bittet dich um %s. Der Auftrag steht im Guild Craft Advisor unter „Aufträge“.",
+  ORDER_NOTICE_ACCEPTED = "%s hat deinen Auftrag angenommen: %s.",
+  ORDER_NOTICE_DECLINED = "%s hat deinen Auftrag abgelehnt: %s.",
+  ORDER_NOTICE_WITHDRAWN = "%s hat den Auftrag zurückgezogen: %s.",
+  ORDER_NOTICE_DONE = "%s hat deinen Auftrag fertiggestellt: %s. Bestätige ihn unter „Aufträge“, sobald du ihn hast.",
+  ORDER_NOTICE_RECEIVED = "%s hat den Auftrag erhalten: %s.",
 }
