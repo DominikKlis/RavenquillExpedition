@@ -249,6 +249,8 @@ local function OnLeave(self, key, f)
   self.lastHeard[key] = nil
 end
 
+M.handlers = { P = OnPosition, L = OnLeave }
+
 function M:OnMessage(key, text, sender)
   S.lastRaw, S.lastRawKey = sender, key
   if GS:InInstance() then return end
@@ -256,8 +258,8 @@ function M:OnMessage(key, text, sender)
   S.heard[#S.heard + 1] = now
   S.received = S.received + 1
   local f = Split(text)
-  if f[1] == "P" then return OnPosition(self, key, f, sender, now) end
-  if f[1] == "L" then return OnLeave(self, key, f) end
+  local handle = self.handlers[f[1]]
+  if handle then return handle(self, key, f, sender, now) end
   Reject("unknown type")
 end
 
