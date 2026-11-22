@@ -8,6 +8,7 @@ A WoW Forever (interface 16001) addon suite for the Ravenquill Expedition guild.
 | `RavenquillExpedition_Map` | Guildmates who run the addon on the world map and minimap | yes |
 | `RavenquillExpedition_Highlights` | Logs and shares the guild's cool moments | yes |
 | `RavenquillExpedition_CraftAdvisor` | Which of your crafts would be upgrades for guildmates, and which guildmates can craft yours | yes |
+| `RavenquillExpedition_Groups` | Guild group finder: post what your group needs, guildmates sign up, you invite them | yes |
 | `RavenquillExpedition_Dev` | Developer tools: a log in SavedVariables and in-game tests | never |
 
 CurseForge: project 1806854 (unlisted, alpha).

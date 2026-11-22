@@ -6,7 +6,7 @@ ignore = { "212", "542", "211/ADDON", "211/ns" }
 
 globals = {
   "RQDevInbox", "RavenquillExpedition", "RavenquillExpeditionCraftDB", "RavenquillExpeditionDB",
-  "RavenquillExpeditionDevDB", "RavenquillExpeditionHighlightsCharDB", "RavenquillExpeditionHighlightsDB",
+  "RavenquillExpeditionDevDB", "RavenquillExpeditionGroupsDB", "RavenquillExpeditionHighlightsCharDB", "RavenquillExpeditionHighlightsDB",
   "RavenquillExpeditionMap", "RavenquillExpeditionMapDB", "RavenquillExpedition_CraftAdvisor_OnCompartmentClick",
   "RavenquillExpedition_OnCompartmentClick", "SLASH_RAVENQUILL1", "SLASH_RAVENQUILL2", "SlashCmdList",
 }
