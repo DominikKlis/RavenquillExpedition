@@ -331,17 +331,14 @@ G.tags[90] = { tagID = 83 }
 G.tags[91] = { tagID = 62 }
 fire("QUEST_LOG_UPDATE"); advance(2)
 n = count()
-for _, qid in ipairs({ 166, 9, 77, 78, 79 }) do fire("QUEST_TURNED_IN", qid, 100, 10) end
-check(count() == n, "group, elite, dungeon, far-above and normal quests are no highlights")
+local actsBefore = #H.cdb.activity
+for _, qid in ipairs({ 166, 9, 77, 78, 79, 90, 91 }) do fire("QUEST_TURNED_IN", qid, 100, 10) end
+check(count() == n and #H.cdb.activity == actsBefore, "no quest is a highlight or an activity, legendary and raid quests included")
 fire("QUEST_TURNED_IN", 7848, 1000, 500)
-check(count() == n + 1 and last().tag == "special" and last().title == "Einstimmung auf den Kern",
-  "a quest from the notable list is a highlight")
+check(count() == n + 1 and last().tag == "special" and last().title == "Einstimmung auf den Kern" and not H:Shown(last()),
+  "an attunement step is kept for raid readiness, without a chronicle line")
 fire("QUEST_TURNED_IN", 7848, 1000, 500)
-check(count() == n + 1, "the same quest is logged once per character")
-fire("QUEST_TURNED_IN", 90, 100, 10)
-check(count() == n + 2 and last().tag == "legend", "a legendary quest is a highlight")
-fire("QUEST_TURNED_IN", 91, 100, 10)
-check(count() == n + 3 and last().tag == "raid", "a raid quest is a highlight")
+check(count() == n + 1, "the same step is kept once per character")
 
 n = count()
 G.level = 39; fire("PLAYER_LEVEL_UP", 39)
@@ -385,9 +382,7 @@ end
 check(actOf("gear") == 0, "gear changes leave no activity either")
 check(actOf("loot", function(a) return a.item == 300 and a.q == 2 end) == 1, "own green loot goes to the activity log")
 check(actOf("loot", function(a) return a.item == 303 end) == 0, "others' loot is not my activity")
-check(actOf("quest", function(a) return a.qid == 9 and a.title == "Gemüse sammeln" end) == 1, "a normal quest goes to the activity log")
-check(actOf("quest", function(a) return a.qid == 166 and a.tag == nil end) == 1, "a group quest goes to the activity log")
-check(actOf("quest", function(a) return a.qid == 7848 and a.tag == "special" end) == 1, "a repeated notable quest goes to the activity log")
+check(actOf("quest") == 0, "quests leave no activity")
 check(actOf("level", function(a) return a.lvl == 39 end) == 1, "a level that isn't a milestone goes to the activity log")
 check(actOf("boss", function(a) return a.boss == "Edwin VanCleef" and not a.first end) == 1, "a repeat dungeon kill goes to the activity log")
 check(actOf("boss", function(a) return a.boss == "Baron Rivendare" and a.first end) == 1, "a first kill at max level goes to the activity log")

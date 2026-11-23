@@ -231,36 +231,6 @@ do
   end
 end
 
-H.NOTABLE_QUESTS = { [7622] = true, [7636] = true, [7787] = true }
-for qid in pairs(H.ATTUNEMENT_QUESTS) do H.NOTABLE_QUESTS[qid] = true end
-
-local QuestTag
-do
-  local function ReadQuestTagID(qid)
-    local QL = C_QuestLog
-    if QL and QL.GetQuestTagInfo then
-      local info = SafeCall(QL.GetQuestTagInfo, qid)
-      if type(info) == "table" and not IsSecret(info) then return Plain(info.tagID, "number") end
-      return
-    end
-    if GetQuestTagInfo then return Plain(SafeCall(GetQuestTagInfo, qid), "number") end
-  end
-
-  local function IsOneOf(v, ...)
-    for i = 1, select("#", ...) do if v == select(i, ...) then return true end end
-    return false
-  end
-
-  QuestTag = function(qid)
-    if H.NOTABLE_QUESTS[qid] then return "special" end
-    local tagID = ReadQuestTagID(qid)
-    if not tagID then return end
-    local T = Enum and Enum.QuestTag or {}
-    if IsOneOf(tagID, T.Legendary, 83) then return "legend" end
-    if IsOneOf(tagID, T.Raid, T.Raid10, T.Raid25, 62, 88, 89) then return "raid" end
-  end
-end
-
 local OnQuestTurnedIn
 do
   local function QuestTitle(qid, c)
@@ -270,14 +240,10 @@ do
 
   OnQuestTurnedIn = function(qid)
     qid = Plain(qid, "number")
-    if not qid then return end
-    local c = qcache[qid] or {}
-    local title = QuestTitle(qid, c)
-    local tag = QuestTag(qid)
-    local fields = { qid = qid, title = title, ql = c.level, tag = tag }
-    if not tag or H.cdb.quests[qid] then H:Activity(Act("quest", fields)) return end
+    if not (qid and H.ATTUNEMENT_QUESTS[qid]) or H.cdb.quests[qid] then return end
     H.cdb.quests[qid] = true
-    H:Add(Own("quest", fields), "self")
+    local c = qcache[qid] or {}
+    H:Add(Own("quest", { qid = qid, title = QuestTitle(qid, c), ql = c.level, tag = "special" }), "self")
   end
 end
 

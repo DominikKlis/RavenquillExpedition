@@ -46,7 +46,8 @@ H.KINDS = {
     end,
   },
   quest = {
-    code = "q", chat = false, icon = "INV_Misc_Note_01",
+    code = "q", legacy = true, chat = false, icon = "INV_Misc_Note_01",
+    hidden = function(e) return H.ATTUNEMENT_QUESTS[e.qid] ~= nil end,
     format = function(_, e)
       local title = Gold(e.title or ("#" .. tostring(e.qid)))
       if e.act and not e.tag then return L.QUEST_PLAIN:format(title) end
@@ -170,7 +171,6 @@ H.RULES = {
   { k = "loot", title = "RULE_LOOT", text = "HOW_LOOT", args = { Q(H.LOOT_QUALITY) } },
   { k = "boss", title = "RULE_WORLD_BOSS", text = "HOW_WORLD_BOSS" },
   { k = "run", title = "RULE_RUN", text = "HOW_RUN" },
-  { k = "quest", title = "RULE_QUEST", text = "HOW_QUEST" },
   { k = "level", title = "RULE_LEVEL", text = "HOW_LEVEL", args = { H.LEVEL_STEP } },
   { k = "mount", title = "RULE_MOUNT", text = "HOW_MOUNT" },
   { k = "rep", title = "RULE_REP", text = "HOW_REP" },

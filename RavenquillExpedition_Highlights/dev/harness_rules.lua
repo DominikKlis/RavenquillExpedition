@@ -138,4 +138,25 @@ do
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
+section("Quests: an attunement step still reaches raid readiness without a line; an old guildmate's quest still reads")
+do
+  local w = World()
+  local mira, lyra = w.join("Mira Sturmfeder"), w.join("Lyra Distelbach")
+  w.start()
+  mira.fire("QUEST_TURNED_IN", 7848, 1000, 500)
+  mira.fire("QUEST_TURNED_IN", 7622, 100, 10)
+  w.settle(300)
+  local facts = lyra.H:AttunementFacts()["Mira Sturmfeder"] or {}
+  check(Sent(w, "q") == 1 and facts[7848] ~= nil, "Mira's Core Fragment step reaches Lyra's raid readiness, one message")
+  check(Count(Lines(lyra), OfKind("quest")) == 0 and Count(PaperEntries(lyra), OfKind("quest")) == 0
+    and Count(Lines(mira), OfKind("quest")) == 0, "the step is no line in either chronicle or paper")
+  local old = { k = "quest", t = NOW - 60, who = "Bodo Kesselring", id = "Bodo Kesselring#" .. (NOW - 60) .. "#4", qid = 90,
+    title = "Der Segen des Windsuchers", tag = "legend", lvl = 60 }
+  w.bus:member("Bodo Kesselring", "PALADIN", 60)
+  lyra.H:Add(old, "wire")
+  check(Count(Lines(lyra), OfKind("quest")) == 1 and lyra.H:Format(old):find("Der Segen des Windsuchers", 1, true),
+    "a legendary quest from a guildmate on an older version still has its line")
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
 Kit.finish()
