@@ -105,6 +105,25 @@ check(Presence(anna2, "Gerd Quiet") == "pending" and Presence(anna2, "Dora Plain
   "a guildmate heard yesterday who doesn't answer (instance, combat, an older release) stays pending, never absent")
 check(#anna.errors + #anna2.errors + #bert.errors + #cora.errors == 0, "no Lua errors (" .. tostring(anna.errors[1] or bert.errors[1]) .. ")")
 
+section("Presence: a guildmate in a dungeon can't answer, so they are not called absent")
+local schedI, busI = Kit.Setup()
+local randomI = Kit.Random(17)
+local ZONES = { [36] = "The Deadmines", [489] = "Warsong Gulch" }
+local function WithZones(env)
+  Released("0.10.0-beta")(env)
+  env.GetRealZoneText = function(map) return ZONES[map] end
+end
+busI:member("Erik Deep", "WARRIOR", 22, true, "The Deadmines")
+busI:member("Wanda Field", "MAGE", 22, true, "Westfall")
+local ina = Kit.Client(schedI, busI, "Ina Watch", { random = randomI, setup = WithZones })
+ina.login()
+AdvanceUntil(schedI, C.VERSION_DELAY + C.VERSION_JITTER + 10, function() return HelloOf(busI, "Ina Watch") ~= nil end)
+schedI:advance(C.REPLY_WINDOW + 10)
+check(Presence(ina, "Erik Deep") == "pending",
+  "Erik is in The Deadmines, where the addon sends nothing: pending, not absent (" .. tostring(Presence(ina, "Erik Deep")) .. ")")
+check(Presence(ina, "Wanda Field") == "absent", "Wanda in Westfall stays silent for a full window: absent")
+check(#ina.errors == 0, "no Lua errors (" .. tostring(ina.errors[1]) .. ")")
+
 section("Presence: several log in together without an answer storm")
 local schedS, busS = Kit.Setup()
 local randomS = Kit.Random(23)
