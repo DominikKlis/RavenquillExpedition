@@ -3,7 +3,7 @@ local ADDON, ns = ...
 local News = {}
 ns.News = News
 
-News.RANK = { raid = 100, epic = 90, run = 80, boss = 75, levelmax = 70, mount = 56, gear = 52, level = 46, quest = 40,
+News.RANK = { raid = 100, epic = 90, run = 80, boss = 75, levelmax = 95, mount = 56, gear = 52, level = 46, quest = 40,
   rep = 38, skill = 34, pvp = 32, duel = 24, group = 80, clear = 100, ready = 60, first = 1000 }
 News.LEVEL_RANK = { [50] = 66, [40] = 64 }
 News.BRIEF_MAX, News.QUEST_LIST_MAX, News.SAME_OUTING, News.EXTRA_MAX, News.HOME_STRETCH = 8, 3, 300, 2, 10

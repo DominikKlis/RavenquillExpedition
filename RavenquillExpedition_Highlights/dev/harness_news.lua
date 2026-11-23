@@ -428,7 +428,7 @@ do
   check(f:IsShown() and paper.meta.right:GetText() == "Nr. 3 · 1 Kupfer", "reopening starts on the latest issue again")
   Heard(c, E("level", "Mira Sturmfeder", At(20, 21, 15), { lvl = 60 }))
   sched:advance(1)
-  local told = paper.brief.items[1].text:GetText() .. " " .. (paper.third.head:GetText() or "")
+  local told = paper.lead.head:GetText() .. " " .. paper.brief.items[1].text:GetText() .. " " .. (paper.third.head:GetText() or "")
   check(told:find("Mira Sturmfeder", 1, true), "an entry arriving while the paper is open goes into today's issue")
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
