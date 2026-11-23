@@ -387,4 +387,73 @@ do
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
+local LEVEL_UP, RAID_WARNING, DUEL = 888, 8959, 3175
+
+section("Sounds: a guildmate reaching 60, the first in the guild and a duel win each play once, live over guild sync")
+do
+  local w = World()
+  local alex, lyra = w.join("Alex Morgenrot", { level = 59 }), w.join("Lyra Distelbach", { level = 40 })
+  local tamo = w.join("Tamo Eichengrund", { level = 59 })
+  w.start()
+  alex.fire("PLAYER_LEVEL_UP", 60)
+  w.settle(60)
+  check(table.concat(lyra.sounds, ",") == tostring(RAID_WARNING), "Alex first at 60: Lyra hears the raid warning ("
+    .. table.concat(lyra.sounds, ",") .. ")")
+  check(table.concat(alex.sounds, ",") == tostring(RAID_WARNING), "and Alex, for his own live entry, too")
+  SetLevel(w, "Alex Morgenrot", 60)
+  tamo.fire("PLAYER_LEVEL_UP", 60)
+  w.settle(60)
+  check(lyra.sounds[2] == LEVEL_UP and #lyra.sounds == 2, "Tamo reaches 60 next: the level-up sound")
+  tamo.fire("PLAYER_LEVEL_UP", 70)
+  tamo.H:Add(tamo.ns[HL].Own("duel", { foe = "Lyra Distelbach" }), "self")
+  w.settle(60)
+  check(#lyra.sounds == 3 and lyra.sounds[3] == DUEL, "a level that is not the max is silent; the duel win plays the short sound ("
+    .. table.concat(lyra.sounds, ",") .. ")")
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
+section("Sounds: no sound on catch-up, in combat or in an instance; a burst plays once; the two boxes turn them off")
+do
+  local w = World()
+  local lyra = w.join("Lyra Distelbach", { level = 40 })
+  w.bus:member("Bodo Kesselring", "PALADIN", 60)
+  w.start()
+  local seq = 0
+  local function Heard(k, fields, source)
+    seq = seq + 1
+    local t = lyra.env.time()
+    local e = { k = k, t = t, who = "Bodo Kesselring", lvl = 60, id = ("Bodo Kesselring#%d#%d"):format(t, seq) }
+    for key, v in pairs(fields or {}) do e[key] = v end
+    return lyra.H:Add(e, source or "wire")
+  end
+  local function Heard60(source) return Heard("level", { lvl = 60 }, source) end
+  Heard60("relay")
+  check(#lyra.sounds == 0, "a level 60 caught up after login is silent")
+  lyra.combat = true
+  Heard60()
+  lyra.combat = false
+  lyra.place = MC
+  Heard60()
+  lyra.place = TOWN
+  check(#lyra.sounds == 0, "in combat and in an instance it is silent")
+  w.settle(30)
+  Heard60(); w.settle(2); Heard("duel", { foe = "Lyra Distelbach" }); w.settle(2); Heard60()
+  check(#lyra.sounds == 1, "three entries within seconds play one sound (" .. #lyra.sounds .. ")")
+  w.settle(30)
+  local levelBox, duelBox = lyra.H:Option("soundLevel"), lyra.H:Option("soundDuel")
+  check(levelBox.get() and duelBox.get() and levelBox.label == "Sound, wenn jemand Stufe 60 erreicht"
+    and duelBox.label == "Sound bei einem Duellsieg in der Gilde", "both boxes are ticked by default, labelled as on the settings page")
+  levelBox.set(false)
+  Heard60()
+  check(#lyra.sounds == 1 and not levelBox.get(), "with the level box off, a level 60 is silent")
+  w.settle(30)
+  Heard("duel", { foe = "Lyra Distelbach" })
+  check(#lyra.sounds == 2 and lyra.sounds[2] == DUEL, "the duel box is separate: a duel win still plays")
+  duelBox.set(false)
+  w.settle(30)
+  Heard("duel", { foe = "Lyra Distelbach" })
+  check(#lyra.sounds == 2, "with the duel box off, a duel win is silent")
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
 Kit.finish()

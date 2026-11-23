@@ -194,9 +194,9 @@ local function OnSeenHere(self, e, source, opts)
 end
 
 local SOURCES = {
-  wire = { heard = true, after = function(self, e) OnHeard(self, e); self:Announce(e) end },
+  wire = { heard = true, live = true, after = function(self, e) OnHeard(self, e); self:Announce(e) end },
   relay = { heard = true, after = OnHeard },
-  self = { after = OnSeenHere },
+  self = { live = true, after = OnSeenHere },
   witness = { after = OnSeenHere },
   test = { test = true },
 }
@@ -227,6 +227,7 @@ function H:Add(e, source, opts)
   if s.heard then self:CapWho(events, idx, e.who) end
   self:Prune(gkey)
   if s.after then s.after(self, e, source, opts or {}) end
+  if s.live then self:Chime(e) end
   self:RefreshSoon()
   return e
 end

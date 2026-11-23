@@ -116,6 +116,10 @@ local L = {
   FIRST = "First in the guild", FIRST_LEVEL = "%s at level %d!", FIRST_KILL = "The guild's first kill", FIRST_BOSS = "%s: %s (%s)!",
   RULE_FIRST = "First in the guild",
   HOW_FIRST = "the guild's first kill of a raid or world boss and the first character at max level. A gold line, and the lead story of the paper.",
+  OPT_SOUND_H = "Sounds",
+  OPT_SOUND_LEVEL = "Sound when someone reaches level %d",
+  OPT_SOUND_DUEL = "Sound for a duel won in the guild",
+  OPT_SOUND_TIP = "Plays when the news arrives live over guild sync: not when catching up after login, not in combat and not in an instance. Several at once play one sound. A 'first in the guild' plays the raid warning.",
 }
 
 local deDE = {
@@ -232,6 +236,10 @@ local deDE = {
   FIRST = "Erster in der Gilde", FIRST_LEVEL = "%s auf Stufe %d!", FIRST_KILL = "Erster Kill der Gilde", FIRST_BOSS = "%s: %s (%s)!",
   RULE_FIRST = "Erster in der Gilde",
   HOW_FIRST = "der erste Kill eines Schlachtzug- oder Weltbosses in der Gilde und die erste Figur auf Höchststufe. Eine goldene Zeile und der Aufmacher im Rabenblatt.",
+  OPT_SOUND_H = "Sounds",
+  OPT_SOUND_LEVEL = "Sound, wenn jemand Stufe %d erreicht",
+  OPT_SOUND_DUEL = "Sound bei einem Duellsieg in der Gilde",
+  OPT_SOUND_TIP = "Spielt, wenn die Meldung live über den Gilden-Sync kommt: nicht beim Nachladen nach dem Einloggen, nicht im Kampf und nicht in Instanzen. Mehrere auf einmal ergeben einen Sound. Für „Erster in der Gilde“ ertönt die Raidwarnung.",
 }
 
 ns.Locales = { enUS = L, deDE = deDE }

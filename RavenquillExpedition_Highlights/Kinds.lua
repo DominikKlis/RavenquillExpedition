@@ -74,7 +74,7 @@ H.KINDS = {
     end,
   },
   level = {
-    code = "v", chat = true, icon = "Spell_Holy_InnerFire",
+    code = "v", chat = true, icon = "Spell_Holy_InnerFire", sound = "level",
     fact = function(e) return e.lvl and e.lvl == H.MaxLevel() and ("v" .. e.lvl) or nil end,
     format = function(_, e)
       local max = Plain(SafeCall(GetMaxPlayerLevel), "number")
@@ -104,7 +104,7 @@ H.KINDS = {
     end,
   },
   duel = {
-    code = "u", chat = true, icon = "Ability_Dualwield",
+    code = "u", chat = true, icon = "Ability_Dualwield", sound = "duel",
     format = function(_, e) return L.DUEL:format(NonEmpty(e.foe, "?")) end,
   },
   attune = {
@@ -126,7 +126,7 @@ H.KINDS = {
     format = function(_, e) return L.READY:format(Gold(L["RAID_" .. tostring(e.raid)])) end,
   },
   first = {
-    code = "t", chat = true, gold = true, icon = "INV_Crown_01", subject = WithGuild, fact = FirstFact,
+    code = "t", chat = true, gold = true, sound = "first", icon = "INV_Crown_01", subject = WithGuild, fact = FirstFact,
     same = function(self, a, b) return a.what == b.what and SameKill(self, a, b) end,
     stale = function(self, e)
       local t = self:FirstKnown(FirstFact(e))
@@ -138,6 +138,28 @@ H.KINDS = {
     end,
   },
 }
+
+H.SOUND_GAP = 10
+H.SOUNDS = {
+  level = { kit = 888, setting = "soundLevel", when = function(e) return e.lvl ~= nil and e.lvl == H.MaxLevel() end },
+  first = { kit = 8959, setting = "soundLevel" },
+  duel = { kit = 3175, setting = "soundDuel" },
+}
+
+local lastChime = -math.huge
+local function Muted(self, sound, e)
+  if not sound or (sound.when and not sound.when(e)) or self:Settings()[sound.setting] == false then return true end
+  return GS:InInstance() or Plain(SafeCall(InCombatLockdown)) and true or false
+end
+
+function H:Chime(e)
+  local kind = self.KINDS[e.k]
+  local sound = kind and kind.sound and self.SOUNDS[kind.sound]
+  if Muted(self, sound, e) then return end
+  local now, previous = GetTime(), lastChime
+  lastChime = now
+  if now - previous >= self.SOUND_GAP then SafeCall(PlaySound, sound.kit) end
+end
 
 local function Icon(name) return name and ("|TInterface\\Icons\\%s:14:14|t "):format(name) or "" end
 
@@ -258,6 +280,11 @@ local options = {
   { type = "toggle", key = "chat", label = L.OPT_CHAT, tooltip = L.OPT_CHAT_TIP },
   { type = "toggle", key = "chatAll", label = L.OPT_CHAT_ALL, disabled = ChatOff },
   { type = "toggle", key = "echoOwn", label = L.OPT_ECHO, disabled = ChatOff },
+  { type = "header", label = L.OPT_SOUND_H },
+  { type = "toggle", key = "soundLevel", label = L.OPT_SOUND_LEVEL:format(GS:MaxLevel()), tooltip = L.OPT_SOUND_TIP,
+    get = function() return H:Settings().soundLevel ~= false end },
+  { type = "toggle", key = "soundDuel", label = L.OPT_SOUND_DUEL, tooltip = L.OPT_SOUND_TIP,
+    get = function() return H:Settings().soundDuel ~= false end },
   { type = "header", label = L.OPT_RULES_H },
 }
 for _, rule in ipairs(H.RULES) do options[#options + 1] = { type = "note", label = RuleLine(rule) } end
