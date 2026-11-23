@@ -341,10 +341,19 @@ local actsBefore = #H.cdb.activity
 for _, qid in ipairs({ 166, 9, 77, 78, 79, 90, 91 }) do fire("QUEST_TURNED_IN", qid, 100, 10) end
 check(count() == n and #H.cdb.activity == actsBefore, "no quest is a highlight or an activity, legendary and raid quests included")
 fire("QUEST_TURNED_IN", 7848, 1000, 500)
-check(count() == n + 1 and last().tag == "special" and last().title == "Einstimmung auf den Kern" and not H:Shown(last()),
+local step, ready
+for _, e in ipairs(events()) do
+  if e.k == "quest" and e.qid == 7848 then step = e end
+  if e.k == "ready" then ready = e end
+end
+check(count() == n + 2 and step and step.tag == "special" and step.title == "Einstimmung auf den Kern" and not H:Shown(step),
   "an attunement step is kept for raid readiness, without a chronicle line")
+check(ready and ready.raid == "mc" and H:Shown(ready) and H:Format(ready):find("raidbereit für |cffffd100Geschmolzener Kern|r", 1, true),
+  "the last step for Molten Core makes the character raid ready, with a line of its own")
+local readyBack = ready and H.Decode("Me Smith", H.Encode(ready))
+check(readyBack and readyBack.k == "ready" and readyBack.raid == "mc" and readyBack.id == ready.id, "raid ready round trip")
 fire("QUEST_TURNED_IN", 7848, 1000, 500)
-check(count() == n + 1, "the same step is kept once per character")
+check(count() == n + 2, "the same step is kept once per character, and ready is said once")
 
 n = count()
 G.level = 39; fire("PLAYER_LEVEL_UP", 39)

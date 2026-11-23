@@ -113,7 +113,7 @@ local LEVEL = "lvl left half home lead leadtime lastname lasttime"
 local KNOWN = {
   raid = OUTING, boss = OUTING, run = "inst lastboss n nf first lo hi", epic = ITEM, gear = ITEM, levelmax = LEVEL, level = LEVEL,
   mount = "mount epic plain", quest = "quest quests rest n lastquest legend", rep = "fac standing exalted", skill = "skill rank top",
-  pvp = "bg prank", duel = "foe", group = "inst", clear = "inst grp",
+  pvp = "bg prank", duel = "foe", group = "inst", clear = "inst grp", ready = "raid",
 }
 local REQUIRED_SLOTS = { "kicker", "head", "dek", "body", "caption", "brief" }
 
@@ -241,7 +241,7 @@ local MINIMAL = {
   level = { "level", { lvl = 59 } }, mount = { "mount", {} }, quest = { "quest", { qid = 7, tag = "special" } },
   rep = { "rep", { st = 6 } }, skill = { "skill", { rank = 150 } }, pvp = { "pvp", { pk = "win" } },
   duel = { "duel", { foe = "Bodo Kesselring" } }, group = { "group", { with = { "Bodo Kesselring" } } },
-  clear = { "clear", {} },
+  clear = { "clear", {} }, ready = { "ready", { raid = "mc" } },
 }
 
 Kit.section("Degraded data: every kind still prints a full story")

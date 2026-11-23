@@ -1,5 +1,6 @@
 local ADDON, ns = ...
 local K = ns.NewsLocales.deDE.KINDS
+ns.NewsLocales.deDE.RAIDS = { mc = "Geschmolzener Kern", ony = "Onyxias Hort", bwl = "Pechschwingenhort" }
 
 K.group = {
   kicker = { "Gildengruppe", "Gemeinsam unterwegs", "{?night}Nachtschicht" },
@@ -33,4 +34,21 @@ K.clear = {
   caption = { "{inst}", "Schlachtzug" },
   brief = { "{inst}: Die Gilde cleart den Schlachtzug.", "{inst} gecleart.", "Ein Schlachtzug gecleart." },
   again = { "{gap} ein Clear in {inst}.", "{gap} ein kompletter Clear." },
+}
+
+K.ready = {
+  kicker = { "Raidbereit", "Einstimmung geschafft", "{?names}Verstärkung für den Schlachtzug" },
+  head = { "{name} ist raidbereit für {raid}", "{names} sind raidbereit für {raid}", "{raid}: {name} hat die Einstimmung",
+    "{raid}: {names} haben die Einstimmung", "{!raid}{name} ist raidbereit", "{!raid}{names} sind raidbereit" },
+  dek = { "Der letzte Schritt der Einstimmung ist geschafft.", "Um {time} Uhr war es so weit.", "{name} war dabei Stufe {clvl}." },
+  body = { "Um {time} Uhr meldete das Gildenbuch den letzten Schritt. Der Weg in den Schlachtzug ist frei.",
+    "Die Einstimmung ist geschafft. Ab sofort zählt beim Gildenraid ein Platz mehr.",
+    "{?night}Der letzte Schritt fiel {night}. Für Einstimmungen gibt es offenbar keine Sperrstunde." },
+  detail = { "Um {time} Uhr war es so weit.", "{name} war dabei Stufe {clvl}." },
+  more = { "Die Redaktion gratuliert.", "{!sure}Die Raidleitung dürfte sich freuen.",
+    "Wer noch einen Schritt braucht, sieht es unter Raidbereitschaft." },
+  caption = { "{raid}", "Raidbereit" },
+  brief = { "{name} ist raidbereit für {raid}.", "{names} sind raidbereit für {raid}.", "{name} ist raidbereit.",
+    "{names} sind raidbereit." },
+  again = { "{gap} raidbereit für {raid}.", "{gap} raidbereit." },
 }

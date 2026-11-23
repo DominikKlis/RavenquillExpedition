@@ -77,7 +77,7 @@ local L = {
   CAUGHT_UP = "Caught up on %d highlights from while you were away.",
   ATTUNE = "already attuned to %s (added by hand)",
   RULE_ATTUNE = "Raid readiness",
-  HOW_ATTUNE = "attunements from before the install. Tick each once in /rq hl under Raid readiness; the tick goes to the guild like your highlights and cannot be taken back.",
+  HOW_ATTUNE = "attunements from before the install. Tick each once under Raid readiness; the tick goes to the guild like your highlights, cannot be taken back and only shows there.",
   RAID_mc = "Molten Core", RAID_ony = "Onyxia's Lair", RAID_bwl = "Blackwing Lair",
   COL_mc = "Molten Core", COL_ony = "Onyxia", COL_bwl = "Blackwing",
   NOW_READY = "%d of %d ready for %s", NOW_MISSING = "You still need %s",
@@ -110,6 +110,9 @@ local L = {
   CLEAR = "cleared %s",
   RULE_CLEAR = "Raids",
   HOW_CLEAR = "a full clear, when the raid's last boss falls: one line for the group, without a boss count. One member of the group reports it for everyone.",
+  READY = "ready for %s",
+  RULE_READY = "Raid ready",
+  HOW_READY = "someone finishes the last attunement step for a raid, for every raid, with or without a weekly goal.",
 }
 
 local deDE = {
@@ -187,7 +190,7 @@ local deDE = {
   CAUGHT_UP = "%d Highlights nachgeholt, die du verpasst hast.",
   ATTUNE = "schon eingestimmt: %s (selbst nachgetragen)",
   RULE_ATTUNE = "Raidbereitschaft",
-  HOW_ATTUNE = "Einstimmungen von vor der Installation. Hake jede einmal in /rq hl unter Raidbereitschaft ab; der Haken geht wie deine Highlights an die Gilde und lässt sich nicht zurücknehmen.",
+  HOW_ATTUNE = "Einstimmungen von vor der Installation. Hake jede einmal unter Raidbereitschaft ab; der Haken geht wie deine Highlights an die Gilde, lässt sich nicht zurücknehmen und steht nur dort.",
   RAID_mc = "Geschmolzener Kern", RAID_ony = "Onyxias Hort", RAID_bwl = "Pechschwingenhort",
   COL_mc = "Gesch. Kern", COL_ony = "Onyxia", COL_bwl = "Pechschwingen",
   NOW_READY = "%d von %d bereit für %s", NOW_MISSING = "Dir fehlt noch: %s",
@@ -220,6 +223,9 @@ local deDE = {
   CLEAR = "%s gecleart",
   RULE_CLEAR = "Schlachtzüge",
   HOW_CLEAR = "der komplette Clear, wenn der Endboss fällt: eine Zeile für die Gruppe, ohne Bosszahl. Einer aus der Gruppe meldet ihn für alle.",
+  READY = "raidbereit für %s",
+  RULE_READY = "Raidbereit",
+  HOW_READY = "jemand schließt den letzten Einstimmungsschritt für einen Schlachtzug ab, für jeden Schlachtzug, mit oder ohne Wochenziel.",
 }
 
 ns.Locales = { enUS = L, deDE = deDE }

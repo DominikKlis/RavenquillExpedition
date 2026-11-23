@@ -280,14 +280,15 @@ do
   check(w.sent("^H;1;Ra;") >= 1, "it came as a catch-up relay")
 end
 
-Kit.section("Tick: the newspaper leaves ticks out, the chronicle keeps them")
+Kit.section("Tick: the newspaper and the chronicle leave ticks out, raid readiness shows them")
 do
   local w = NewWorld()
   local mira = Three(w)
   mira.H:DeclareAttuned("mc")
   w.sched:advance(10)
   local list = mira.H:LogLines()
-  check(list[#list] and list[#list].k == "attune", "the chronicle lists the tick")
+  check(not (list[#list] and list[#list].k == "attune") and mira.H:MyRaidStatus("mc").state == "done",
+    "the chronicle has no line for the tick; raid readiness counts it")
   check(#mira.H:Issues() == 0, "the paper has no issue made of a tick alone (" .. #mira.H:Issues() .. ")")
 end
 

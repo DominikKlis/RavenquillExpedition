@@ -39,6 +39,7 @@ local KIND_FIELDS = {
   a = Fields({ { "raid", "enum", H.RAID_KEYS } }),
   o = Fields({ { "inst", "text", 48 }, { "with", "text", H.GROUP_NAMES_MAX } }),
   c = Fields({ { "enc", "int", 0, 9999999, opt = true }, { "n", "int", 1, 80, opt = true }, { "inst", "text", 48 } }),
+  y = Fields({ { "raid", "enum", H.RAID_KEYS } }),
 }
 for code, fields in pairs(KIND_FIELDS) do
   ch:Define(code, { from = "guild", fields = fields })
@@ -78,6 +79,7 @@ local MessageFields = {
   attune = function(m, e) m.raid = e.raid end,
   group = function(m, e) m.inst, m.with = e.inst or "", table.concat(e.with or {}, ",") end,
   clear = function(m, e) m.enc, m.n, m.inst = Num(e.enc), Num(e.n), e.inst or "" end,
+  ready = function(m, e) m.raid = e.raid end,
 }
 
 local function WireSeq(e)
@@ -129,6 +131,7 @@ local EntryFields = {
   attune = function(e, m) e.raid = m.raid end,
   group = function(e, m) e.inst, e.with, e.grp = Str(m.inst), SplitNames(m.with, m.who), true end,
   clear = function(e, m) e.enc, e.n, e.inst, e.grp = m.enc, m.n, Str(m.inst), true end,
+  ready = function(e, m) e.raid = m.raid end,
 }
 
 local function OwnEntryId(m)

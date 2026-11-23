@@ -247,7 +247,7 @@ do
     if not (qid and H.ATTUNEMENT_QUESTS[qid]) or H.cdb.quests[qid] then return end
     H.cdb.quests[qid] = true
     local c = qcache[qid] or {}
-    H:Add(Own("quest", { qid = qid, title = QuestTitle(qid, c), ql = c.level, tag = "special" }), "self")
+    H:CompleteStep(Own("quest", { qid = qid, title = QuestTitle(qid, c), ql = c.level, tag = "special" }))
   end
 end
 

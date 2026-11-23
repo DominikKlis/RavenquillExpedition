@@ -106,6 +106,23 @@ function H:MyRaidStatus(raid)
   end
 end
 
+local function StepRaids(qid)
+  local out = {}
+  for _, a in ipairs(H.RaidsFor(H.MyFaction())) do
+    for _, step in ipairs(a.steps) do if step.quest == qid then out[#out + 1] = a.raid end end
+  end
+  return out
+end
+
+function H:CompleteStep(e)
+  local raids, before = StepRaids(e and e.qid), {}
+  for _, raid in ipairs(raids) do before[raid] = self:MyRaidStatus(raid).state end
+  self:Add(e, "self")
+  for _, raid in ipairs(raids) do
+    if before[raid] ~= "done" and self:MyRaidStatus(raid).state == "done" then self:Add(ns.Own("ready", { raid = raid }), "self") end
+  end
+end
+
 function H:DeclareAttuned(raid)
   local status = self.db and self:MyRaidStatus(raid)
   if not status or status.state == "done" then return end

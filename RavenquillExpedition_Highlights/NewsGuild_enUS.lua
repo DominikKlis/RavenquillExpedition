@@ -1,5 +1,6 @@
 local ADDON, ns = ...
 local K = ns.NewsLocales.enUS.KINDS
+ns.NewsLocales.enUS.RAIDS = { mc = "Molten Core", ony = "Onyxia's Lair", bwl = "Blackwing Lair" }
 
 K.group = {
   kicker = { "Guild group", "Out together", "{?night}Night shift" },
@@ -31,4 +32,20 @@ K.clear = {
   caption = { "{inst}", "Raid" },
   brief = { "{inst}: the guild clears the raid.", "{inst} cleared.", "A raid cleared." },
   again = { "{gap}, also a clear of {inst}.", "{gap}, also a full clear." },
+}
+
+K.ready = {
+  kicker = { "Raid ready", "Attuned", "{?names}Reinforcements for the raid" },
+  head = { "{name} is ready for {raid}", "{names} are ready for {raid}", "{raid}: {name} is attuned", "{raid}: {names} are attuned",
+    "{!raid}{name} is raid ready", "{!raid}{names} are raid ready" },
+  dek = { "The last step of the attunement is done.", "At {time} it was done.", "{name} was level {clvl} at the time." },
+  body = { "At {time} the guild book noted the last step. The way into the raid is open.",
+    "The attunement is done. From now on the guild raid has one more seat to fill.",
+    "{?night}The last step came {night}. Attunements, it seems, keep no closing time." },
+  detail = { "At {time} it was done.", "{name} was level {clvl} at the time." },
+  more = { "The editors congratulate.", "{!sure}The raid leaders will probably be pleased.",
+    "Whoever still needs a step can see it under Raid readiness." },
+  caption = { "{raid}", "Raid ready" },
+  brief = { "{name} is ready for {raid}.", "{names} are ready for {raid}.", "{name} is raid ready.", "{names} are raid ready." },
+  again = { "{gap}, also ready for {raid}.", "{gap}, also raid ready." },
 }

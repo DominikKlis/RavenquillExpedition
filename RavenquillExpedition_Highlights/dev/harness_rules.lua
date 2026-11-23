@@ -251,6 +251,26 @@ do
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
+section("Raidbereit: the last attunement step is one line for the guild, with or without a weekly goal; a tick is none")
+do
+  local w = World()
+  local mira, lyra = w.join("Mira Sturmfeder"), w.join("Lyra Distelbach")
+  w.start()
+  for _, qid in ipairs({ 4322, 6403 }) do mira.fire("QUEST_TURNED_IN", qid, 100, 10) end
+  w.settle(300)
+  check(Count(lyra.H:Log(), OfKind("ready")) == 0, "two of three Onyxia steps: not ready yet")
+  mira.fire("QUEST_TURNED_IN", 6502, 100, 10)
+  mira.H:DeclareAttuned("bwl")
+  w.settle(300)
+  local ready = {}
+  for _, e in ipairs(Lines(lyra)) do if e.k == "ready" then ready[#ready + 1] = lyra.H:Format(e) end end
+  check(#ready == 1 and ready[1]:find("Mira Sturmfeder  ·  raidbereit für |cffffd100Onyxias Hort|r", 1, true),
+    "the third step makes Mira raid ready for Onyxia, one line on Lyra's side: " .. tostring(ready[1]))
+  check(Sent(w, "y") == 1 and Count(Lines(lyra), OfKind("attune")) == 0, "one message; the Blackwing tick has no line")
+  check(lyra.RQ:Goal() == nil and Count(PaperEntries(lyra), OfKind("ready")) == 1, "no weekly goal is set, the paper still has it")
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
 section("Quests: an attunement step still reaches raid readiness without a line; an old guildmate's quest still reads")
 do
   local w = World()
