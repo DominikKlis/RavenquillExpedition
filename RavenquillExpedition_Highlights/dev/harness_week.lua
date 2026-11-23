@@ -67,6 +67,11 @@ do
   local one = News.Week({ Quest("Mira Sturmfeder", At(16, 9), 20), Quest("Mira Sturmfeder", At(18, 9), 21),
     Raid("Tamo Eichengrund", At(20, 21), "Onyxia", 1084), E("loot", "Rika Steinbeck", At(18, 20), { item = 5001, q = 4 }) }, DE, Ctx())
   check(Counts(one) == "1 Stufe gewonnen | 1 Boss besiegt | 1 epischer Fund", "one of each reads in the singular (" .. Counts(one) .. ")")
+  local clear = News.Week({ E("clear", "Rika Steinbeck", At(20, 1, 40), { enc = 672, inst = "Geschmolzener Kern", n = 10, grp = true, lvl = 60 }),
+    E("clear", "Mira Sturmfeder", At(20, 1, 41), { enc = 672, inst = "Geschmolzener Kern", n = 10, grp = true, lvl = 60 }),
+    E("clear", "Alex Morgenrot", At(21, 22), { enc = 1084, inst = "Onyxias Hort", n = 40, grp = true, lvl = 60 }) }, DE, Ctx())
+  check(Counts(clear) == "11 Bosse besiegt",
+    "a raid clear counts every boss of its raid, once even if two report it: Molten Core 10 + Onyxia 1 (" .. Counts(clear) .. ")")
   local en = News.Week(WEEK, EN, Ctx())
   check(Counts(en) == "5 levels gained | 15 bosses defeated | 1 epic find", "English: " .. Counts(en))
 end
@@ -82,6 +87,11 @@ do
     "each honor carries its rule's key")
   check(Honors(News.Week(Reversed(WEEK), DE, Ctx())) == Honors(week) and Counts(News.Week(Reversed(WEEK), DE, Ctx())) == Counts(week),
     "the same entries in another order give the same review")
+  local clear = News.Week({ E("clear", "Rika Steinbeck", At(20, 1, 40), { enc = 672, inst = "Geschmolzener Kern", n = 10, grp = true, lvl = 60 }),
+    E("clear", "Mira Sturmfeder", At(20, 1, 41), { enc = 672, inst = "Geschmolzener Kern", n = 10, grp = true, lvl = 60 }),
+    E("clear", "Alex Morgenrot", At(21, 22), { enc = 1084, inst = "Onyxias Hort", n = 40, grp = true, lvl = 60 }) }, DE, Ctx())
+  check(Counts(clear) == "11 Bosse besiegt",
+    "a raid clear counts every boss of its raid, once even if two report it: Molten Core 10 + Onyxia 1 (" .. Counts(clear) .. ")")
   local en = News.Week(WEEK, EN, Ctx())
   check(Honors(en) == "Crafter of the week · Ilsa Brunnhold · Leatherworking up to 225"
     .. " | Climber of the week · Ole Fichtental · from level 40 to 44"
@@ -329,12 +339,14 @@ local function Stories(issue)
   return out
 end
 
-local function Misdated(issue, weekdayOf, clock, on)
+local function Misdated(issue, weekdayOf, clock, dated)
   for _, s in ipairs(Stories(issue)) do
-    local phrase = weekdayOf[s.id] and on .. " " .. weekdayOf[s.id]
+    local day = weekdayOf[s.id]
     for _, text in ipairs(StoryTexts(s)) do
-      local at, named = text:find(clock), select(2, text:gsub(clock .. " " .. on .. " ", ""))
-      local right = not at or (phrase and named == 1 and text:find(clock .. " " .. phrase) == at) or (not phrase and named == 0)
+      local at = text:find(clock)
+      local named = select(2, text:gsub(dated("%a+"), ""))
+      local from, to = text:find(dated(day or "%a+"))
+      local right = not at or (day and named == 1 and from and from <= at and to >= at) or (not day and named == 0)
       if not right then return text end
     end
   end
@@ -353,16 +365,17 @@ Kit.section("Sunday edition: a story from earlier in the week names its day once
 do
   local _, _, paper = Paper(BIG_FRIDAY)
   local issue = paper.issue
-  check(issue.lead.dek == "Um 21:20 Uhr am Freitag war es so weit.", "Friday's first at 60: " .. tostring(issue.lead.dek))
+  check(issue.lead.dek == "Am Freitag um 21:20 Uhr war es so weit.",
+    "Friday's first at 60, the day in front of the time as German says it: " .. tostring(issue.lead.dek))
   local weekdayOf = { [ALEX_FIRST.id] = "Freitag", [BIG_FRIDAY[1].id] = "Montag", [BIG_FRIDAY[2].id] = "Donnerstag" }
-  local bad = Misdated(issue, weekdayOf, "%d+:%d%d Uhr", "am")
+  local bad = Misdated(issue, weekdayOf, "%d+:%d%d Uhr", function(day) return "[Aa]m " .. day .. " %a*%s?%d+:%d%d Uhr" end)
   check(bad == nil, "every earlier story names its weekday once, at its first time; Sunday's own stories name none (" .. tostring(bad) .. ")")
   local stale = Saying(issue, { "heute", "des Tages" })
   check(stale == nil, "no earlier story says 'heute' or 'des Tages' (" .. tostring(stale) .. ")")
   local en, _, ep = Paper(BIG_FRIDAY, "enUS")
   check(ep.issue.lead.dek == "At 21:20 on Friday it was done.", "English: " .. tostring(ep.issue.lead.dek))
   local enBad = Misdated(ep.issue, { [ALEX_FIRST.id] = "Friday", [BIG_FRIDAY[1].id] = "Monday", [BIG_FRIDAY[2].id] = "Thursday" },
-    "%d+:%d%d", "on") or Saying(ep.issue, { "today", "of the day" })
+    "%d+:%d%d", function(day) return "%d+:%d%d on " .. day end) or Saying(ep.issue, { "today", "of the day" })
   check(enBad == nil, "English: every earlier story names its weekday, none says today (" .. tostring(enBad) .. ")")
   check(#en.errors == 0, "no Lua errors (" .. tostring(en.errors[1]) .. ")")
 end

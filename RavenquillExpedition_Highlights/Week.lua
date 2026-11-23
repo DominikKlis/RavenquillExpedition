@@ -28,13 +28,54 @@ function News.Sunday(t)
   return { from = News.DayOf(noon - 6 * News.DAY), no = math.floor((date("*t", noon - 3 * News.DAY).yday - 1) / 7) + 1 }
 end
 
-local function Kills(g)
+function News.Past(v, t, ctx, T)
+  if not ctx.day or News.DayOf(t) == ctx.day then return end
+  v.past, v.on = "", News.Fill(T.ON_DAY, { weekday = T.WEEKDAYS[date("*t", t).wday] })
+end
+
+local CLOCKS = { "time", "start", "leadtime", "lasttime", "weartime" }
+
+local function Capitalized(s) return s:sub(1, 1):upper() .. s:sub(2) end
+
+local function DayBeforePrep(text, at, on, prep)
+  local word = text:sub(1, at - 1):match("(%a+) $")
+  if not (word and prep ~= "" and word:lower() == prep) then return nil end
+  local head = text:sub(1, at - #word - 2)
+  return head .. (word == Capitalized(word) and Capitalized(on) or on) .. " " .. prep .. " " .. text:sub(at)
+end
+
+function News.DayNamed(text, v, T)
+  local at, clock
+  for _, key in ipairs(CLOCKS) do
+    local c = v[key] and News.Fill(T.CLOCK, { time = v[key] })
+    local i = c and text:find(c, 1, true)
+    if i and (not at or i < at) then at, clock = i, c end
+  end
+  if not at then return text end
+  local before = DayBeforePrep(text, at, v.on, T.CLOCK_PREP)
+  if before then return before end
+  local cut = at + #clock - 1
+  return text:sub(1, cut) .. " " .. v.on .. text:sub(cut + 1)
+end
+
+local function RaidSize(e)
+  for _, range in pairs(ns.H.RAID_ENCOUNTERS) do
+    if (e.enc or 0) >= range[1] and (e.enc or 0) <= range[2] then return range[2] - range[1] + 1 end
+  end
+  return 1
+end
+
+local function OneKill() return 1 end
+local KILL_WORTH = { raid = OneKill, boss = OneKill, clear = RaidSize }
+
+local function Kills(g, last)
   if g.kind == "run" then return g.first.n or 1 end
-  if g.kind ~= "raid" and g.kind ~= "boss" then return 0 end
-  local last, n = {}, 0
+  local worth = KILL_WORTH[g.kind]
+  if not worth then return 0 end
+  local n = 0
   for _, e in ipairs(g.entries) do
     local id = tostring(e.enc or e.boss)
-    if not (last[id] and e.t - last[id] <= News.SAME_OUTING) then n = n + 1 end
+    if not (last[id] and math.abs(e.t - last[id]) <= News.SAME_OUTING) then n = n + worth(e) end
     last[id] = e.t
   end
   return n
@@ -78,7 +119,10 @@ end
 
 News.WEEK_COUNTS = {
   { key = "levels", count = function(w) return Gained(w.spans) end },
-  { key = "bosses", count = function(w) return Sum(w.groups, Kills) end },
+  { key = "bosses", count = function(w)
+    local last = {}
+    return Sum(w.groups, function(g) return Kills(g, last) end)
+  end },
   { key = "epics", count = function(w) return Sum(w.groups, Epic) end },
 }
 

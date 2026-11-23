@@ -18,7 +18,7 @@ ns.NewsLocales.deDE = {
   CHRONICLE = "Chronik",
   IN_BRIEF = "In Kürze",
   CLOCK = "{time} Uhr",
-  ON_DAY = "am {weekday}",
+  ON_DAY = "am {weekday}", CLOCK_PREP = "um",
   MORE_BRIEF = { "{?one}eine weitere Meldung steht in der Chronik.", "{!one}{n} weitere Meldungen stehen in der Chronik." },
   NO_BRIEF = "Keine weiteren Meldungen.",
   SUNDAY_EDITION = "Sonntagsausgabe · KW {week}",

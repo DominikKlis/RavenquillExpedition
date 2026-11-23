@@ -18,7 +18,7 @@ ns.NewsLocales.enUS = {
   CHRONICLE = "Chronicle",
   IN_BRIEF = "In brief",
   CLOCK = "{time}",
-  ON_DAY = "on {weekday}",
+  ON_DAY = "on {weekday}", CLOCK_PREP = "",
   MORE_BRIEF = { "{?one}one more report is in the chronicle.", "{!one}{n} more reports are in the chronicle." },
   NO_BRIEF = "No further reports.",
   SUNDAY_EDITION = "Sunday edition · week {week}",
