@@ -95,8 +95,8 @@ function Data.Highlights(NK)
     return e
   end
   return {
-    E("boss", "Rika Steinbeck", At(20, 0, 23), { inst = "Geschmolzener Kern", boss = "Lucifron", enc = 1 }),
-    E("boss", "Rika Steinbeck", At(20, 0, 51), { inst = "Geschmolzener Kern", boss = "Magmadar", enc = 2 }),
+    E("boss", "Rika Steinbeck", At(20, 0, 23), { inst = "Geschmolzener Kern", boss = "Lucifron", enc = 1, raid = true }),
+    E("boss", "Rika Steinbeck", At(20, 0, 51), { inst = "Geschmolzener Kern", boss = "Magmadar", enc = 2, raid = true }),
     E("gear", "Hanne Moosgrund", At(20, 2, 49), { item = 5004, q = 3, il = 55, oil = 44, slot = 17 }),
     E("level", "Ole Fichtental", At(20, 9, 5), { lvl = 44 }),
     E("skill", "Ilsa Brunnhold", At(20, 11, 11), { skill = "Leatherworking", rank = 225 }),
