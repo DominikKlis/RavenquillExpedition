@@ -260,6 +260,7 @@ check(count() == n + 1 and run.k == "run" and run.first and run.n == 2 and run.n
   and run.boss == "Rhahk'Zor" and H.cdb.run == nil, "entering another instance ends the run: one highlight for the dungeon")
 check(printedSince(runMark):find("Die Todesminen|r zum ersten Mal geschafft: 2 Bosse, zuletzt Rhahk'Zor", 1, true) ~= nil,
   "a first run is printed in chat with the boss count and the last boss")
+local raidMark = #printed
 fire("ENCOUNTER_END", 663, "Lucifron", 9, 40, 1)
 local luci = last()
 check(luci.k == "boss" and luci.grp and luci.n == 3 and H.cdb.outbox[luci.id] and H.cdb.outbox[luci.id].rank == 1,
@@ -267,7 +268,8 @@ check(luci.k == "boss" and luci.grp and luci.n == 3 and H.cdb.outbox[luci.id] an
 advance(4 * 3600)
 fire("ENCOUNTER_END", 664, "Magmadar", 9, 40, 1)
 local mag = last()
-check(lastPrinted():find("mit 2 aus der Gilde", 1, true), "group kill line names the guildie count")
+check(not printedSince(raidMark):find("Lucifron", 1, true) and not printedSince(raidMark):find("Magmadar", 1, true)
+  and not H:Shown(luci) and not H:Shown(mag), "raid boss kills are records for the weekly goal: no chat line, no chronicle line")
 G.inInstance, G.itype, G.raid, G.group, G.instName = false, "none", false, {}, "Burgschmied"
 fire("PLAYER_ENTERING_WORLD")
 advance(20)
@@ -400,7 +402,7 @@ for k = 2, #merged do if merged[k].t < merged[k - 1].t then sorted = false end e
 check(sorted, "merged by time")
 H:Settings().logOnlyHighlights = true
 merged = H:LogLines()
-check(#merged == count(), "'only highlights' hides the activity")
+check(#merged == #H:ShownLog(), "'only highlights' hides the activity")
 H:Settings().logOnlyHighlights = false
 
 n = count()
@@ -1384,7 +1386,7 @@ do
   LogOut(c)
 end
 
-Kit.section("New since you last looked: a raid kill you were at is not new to you")
+Kit.section("New since you last looked: raid kills are records, never new, whether I was at them or not")
 do
   local saved = { G.inInstance, G.itype, G.instName, G.raid, G.group }
   local c = Character(); c.login(); advance(40)
@@ -1420,7 +1422,7 @@ do
   report(132, 664, "Magmadar", myMag.t + 20)
   check(newCount() == 0, "Cara's later Magmadar report is not new either (" .. newCount() .. ")")
   report(133, 665, "Gehennas", T() - 60)
-  check(newCount() == 1, "a raid kill I was not at is new (" .. newCount() .. ")")
+  check(newCount() == 0, "a raid kill I was not at is not new either: it has no line to read (" .. newCount() .. ")")
   LogOut(c)
   G.inInstance, G.itype, G.instName, G.raid, G.group = saved[1], saved[2], saved[3], saved[4], saved[5]
 end

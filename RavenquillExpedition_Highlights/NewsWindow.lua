@@ -466,7 +466,7 @@ end
 
 local function NewsWorthy(events)
   local out = {}
-  for _, e in ipairs(events) do if (H.KINDS[e.k] or {}).paper ~= false then out[#out + 1] = e end end
+  for _, e in ipairs(events) do if (H.KINDS[e.k] or {}).paper ~= false and H:Shown(e) then out[#out + 1] = e end end
   return out
 end
 
@@ -543,7 +543,7 @@ function H:RenderPaper(f)
   local days = self:Issues()
   local i, ctx = IssueIndex(days, f.issueDay), self:NewsContext()
   local issue = days[i] and News.Issue(days[i], T, ctx)
-  if issue then issue.week = News.SundayEdition(days, i, T, ctx) end
+  if issue then issue.week = News.SundayEdition(days, i, T, ctx, self:Log()) end
   FillPaper(f.paper, issue)
   if f.fit then f.fit(f) end
   SetNav(f, i, #days, issue)

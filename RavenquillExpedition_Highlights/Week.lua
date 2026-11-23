@@ -150,13 +150,21 @@ function News.Week(entries, T, ctx)
   return { counts = counts, honors = Honors(w, T, ctx) }
 end
 
-function News.SundayEdition(days, i, T, ctx)
+local function AllEntries(days)
+  local out = {}
+  for _, rec in ipairs(days) do
+    for _, e in ipairs(rec.entries) do out[#out + 1] = e end
+  end
+  return out
+end
+
+function News.SundayEdition(days, i, T, ctx, pool)
   local sunday = days[i] and News.Sunday(days[i].entries[1].t)
   if not sunday then return nil end
-  local first, entries = i, {}
-  while first > 1 and days[first - 1].day >= sunday.from do first = first - 1 end
-  for j = first, i do
-    for _, e in ipairs(days[j].entries) do entries[#entries + 1] = e end
+  local entries = {}
+  for _, e in ipairs(pool or AllEntries(days)) do
+    local day = News.DayOf(e.t)
+    if day >= sunday.from and day <= days[i].day then entries[#entries + 1] = e end
   end
   local week = News.Week(entries, T, ctx)
   if week then week.no = sunday.no end

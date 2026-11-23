@@ -343,7 +343,7 @@ local ACT_MARK = "|cff555555·|r "
 local NEW_COLOR = { 0.25, 1, 0.4 }
 
 function H:LogLines()
-  local events = self:Log()
+  local events = self:ShownLog()
   local all = (self.cdb and self.cdb.activity) or {}
   local act = self:Settings().logOnlyHighlights and {} or all
   local out, i, j = {}, 1, 1
@@ -472,7 +472,7 @@ function H:OverviewHeadline()
   if not self.db then return end
   local n, newest = self:NewSinceLastLook()
   if n > 0 then return { line = L.OV_HEAD_NEW:format(n, newest.who), open = function() self:ShowWindow() end } end
-  local events = self:Log()
+  local events = self:ShownLog()
   local last = events[#events]
   return { line = last and L.OV_HEAD_QUIET:format(last.who) or L.OV_HEAD_EMPTY }
 end

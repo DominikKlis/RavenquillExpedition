@@ -30,7 +30,7 @@ H.KINDS = {
     end,
   },
   boss = {
-    code = "b", chat = true, icon = "INV_Misc_Bone_HumanSkull_01",
+    code = "b", chat = true, icon = "INV_Misc_Bone_HumanSkull_01", hidden = function(e) return e.raid end,
     format = function(_, e)
       local boss, inst = Gold(NonEmpty(e.boss, L.A_BOSS)), NonEmpty(e.inst, L.AN_INSTANCE)
       if e.grp and (e.n or 1) > 1 then return L.BOSS_GROUP:format(boss, inst, e.n - 1) end
@@ -105,7 +105,7 @@ end
 
 function H:ShouldPrint(e)
   local s = self:Settings()
-  if not s.chat then return false end
+  if not (s.chat and self:Shown(e)) then return false end
   if s.chatAll or e.test then return true end
   local kind = self.KINDS[e.k]
   if not (kind and kind.chat) then return false end
@@ -168,7 +168,6 @@ end
 local Q = H.QualityName
 H.RULES = {
   { k = "loot", title = "RULE_LOOT", text = "HOW_LOOT", args = { Q(H.LOOT_QUALITY) } },
-  { k = "boss", title = "RULE_RAID_BOSS", text = "HOW_RAID_BOSS" },
   { k = "boss", title = "RULE_WORLD_BOSS", text = "HOW_WORLD_BOSS" },
   { k = "run", title = "RULE_RUN", text = "HOW_RUN" },
   { k = "quest", title = "RULE_QUEST", text = "HOW_QUEST" },

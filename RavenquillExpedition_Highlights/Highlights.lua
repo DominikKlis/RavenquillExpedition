@@ -97,6 +97,17 @@ local function Valid(e)
   return true
 end
 
+function H:Shown(e)
+  local kind = self.KINDS[e.k]
+  return not (kind and kind.hidden and kind.hidden(e))
+end
+
+function H:ShownLog()
+  local out = {}
+  for _, e in ipairs((self:Log())) do if self:Shown(e) then out[#out + 1] = e end end
+  return out
+end
+
 function H:Remove(id, gkey)
   local events, idx = self:Log(gkey)
   if not idx[id] then return end
@@ -131,7 +142,7 @@ local function NewToMe(self, e)
 end
 
 local function OnHeard(self, e)
-  if NewToMe(self, e) then e.unseen = true end
+  if self:Shown(e) and NewToMe(self, e) then e.unseen = true end
   if e.k == "loot" then lootHeard[e.who .. "#" .. tostring(e.item)] = e.t end
   if e.k == "boss" and e.grp then self:Supersede(e) end
 end
@@ -343,7 +354,7 @@ function H:Open() self:ShowWindow() end
 
 function H:OverviewStatus()
   if not self.db then return end
-  local events, unseen, waiting = self:Log(), self:NewSinceLastLook(), 0
+  local events, unseen, waiting = self:ShownLog(), self:NewSinceLastLook(), 0
   for _ in pairs(self.cdb.outbox) do waiting = waiting + 1 end
   local s = L.OV_STATUS:format(#events, self:Settings().share and L.ON or L.OFF)
   if unseen > 0 then s = L.OV_NEW:format(unseen) .. " · " .. s end
