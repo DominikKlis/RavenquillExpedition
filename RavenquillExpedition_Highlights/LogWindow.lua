@@ -13,6 +13,7 @@ local GRAIN_ALPHA = 0.5
 local BOX = { outer = 2, inner = 1, gap = 3, hover = 0.08 }
 local BOX_EDGES = { { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" }, { "TOPLEFT", "BOTTOMLEFT", tall = true },
   { "TOPRIGHT", "BOTTOMRIGHT", tall = true } }
+local GLOW = { 1, 0.82, 0, fill = 0.2, edge = 0.75, pad = 4 }
 local EMPTY_BUTTON, EMPTY_GAP = { 220, 22 }, 12
 H.WINDOW_W, H.WINDOW_H, H.WINDOW_SHARE, H.WINDOW_MIN_H = 900, 780, 0.9, 480
 
@@ -60,18 +61,21 @@ local function BoxInset(point, inset)
   return point:find("LEFT") and inset or -inset, point:find("TOP") and -inset or inset
 end
 
-local function BoxRule(b, inset, thickness)
+local function BoxRule(owner, b, inset, thickness, color, alpha)
+  local edges = {}
   for _, edge in ipairs(BOX_EDGES) do
-    local t = b:CreateTexture(nil, "BORDER")
-    t:SetColorTexture(H.INK[1], H.INK[2], H.INK[3], 1)
+    local t = owner:CreateTexture(nil, "BORDER")
+    t:SetColorTexture(color[1], color[2], color[3], alpha)
     for i = 1, 2 do t:SetPoint(edge[i], b, edge[i], BoxInset(edge[i], inset)) end
     if edge.tall then t:SetWidth(thickness) else t:SetHeight(thickness) end
+    edges[#edges + 1] = t
   end
+  return edges
 end
 
 function H.InkBox(b)
-  BoxRule(b, 0, BOX.outer)
-  BoxRule(b, BOX.outer + BOX.gap, BOX.inner)
+  BoxRule(b, b, 0, BOX.outer, H.INK, 1)
+  BoxRule(b, b, BOX.outer + BOX.gap, BOX.inner, H.INK, 1)
   local hover = b:CreateTexture(nil, "BACKGROUND")
   hover:SetAllPoints()
   hover:SetColorTexture(H.INK[1], H.INK[2], H.INK[3], BOX.hover)
@@ -217,10 +221,54 @@ local function CloseMark(f)
   f.close = close
 end
 
+local function GoldBox(host)
+  local fill = host:CreateTexture(nil, "BACKGROUND")
+  fill:SetColorTexture(GLOW[1], GLOW[2], GLOW[3], GLOW.fill)
+  local box = BoxRule(host, fill, 0, 1, GLOW, GLOW.edge)
+  box.fill = fill
+  return box
+end
+
+local function ShowBox(box, line)
+  local on = line ~= nil
+  if on then
+    box.fill:ClearAllPoints()
+    box.fill:SetPoint("TOPLEFT", line, "TOPLEFT", -GLOW.pad, 0)
+    box.fill:SetPoint("BOTTOMRIGHT", line, "BOTTOMRIGHT", GLOW.pad, 0)
+  end
+  box.fill:SetShown(on)
+  for _, edge in ipairs(box) do edge:SetShown(on) end
+end
+
+local function GoldLine(line)
+  local info = line.messageInfo
+  return info and info.extraData and info.extraData[1] == true
+end
+
+local function BoxGoldLines(m)
+  local glow = m.glow
+  for i, line in ipairs(m.visibleLines) do
+    glow[i] = glow[i] or GoldBox(glow.host)
+    ShowBox(glow[i], GoldLine(line) and line or nil)
+  end
+  for i = #m.visibleLines + 1, #glow do ShowBox(glow[i], nil) end
+end
+
+local function GlowHost(f, insets)
+  local host = CreateFrame("Frame", nil, f)
+  host:SetPoint("TOPLEFT", insets[1] - GLOW.pad, insets[2])
+  host:SetPoint("BOTTOMRIGHT", insets[3] + GLOW.pad, insets[4])
+  host:SetClipsChildren(true)
+  return host
+end
+
 local function MessageArea(f, insets)
-  local msg = CreateFrame("ScrollingMessageFrame", nil, f)
-  msg:SetPoint("TOPLEFT", insets[1], insets[2])
-  msg:SetPoint("BOTTOMRIGHT", insets[3], insets[4])
+  local host = GlowHost(f, insets)
+  local msg = CreateFrame("ScrollingMessageFrame", nil, host)
+  msg:SetPoint("TOPLEFT", GLOW.pad, 0)
+  msg:SetPoint("BOTTOMRIGHT", -GLOW.pad, 0)
+  msg.glow = { host = host }
+  msg:AddOnDisplayRefreshedCallback(BoxGoldLines)
   msg:SetFontObject(GameFontHighlightSmall)
   msg:SetJustifyH("LEFT")
   msg:SetFading(false)
@@ -344,8 +392,9 @@ local NEW_COLOR = { 0.25, 1, 0.4 }
 local ROW = {
   activity = { time = "|cff888888", mark = ACT_MARK, color = { 0.75, 0.75, 0.75 } },
   highlight = { time = "|cff888888", mark = HL_MARK },
-  gold = { time = "|cffffd100", mark = "|cffffd100»»|r ", color = { 1, 0.9, 0.55 } },
+  gold = { time = "|cffffd100", mark = "|cffffd100»»|r ", color = { 1, 0.9, 0.55 }, box = true },
 }
+local NO_COLOR = {}
 
 local function RowStyle(self, e)
   if e.act then return ROW.activity end
@@ -378,7 +427,7 @@ local function LogMessages(self, list, firstUnseen)
     if e == firstUnseen then out[#out + 1] = { text = L.LOG_NEW, color = NEW_COLOR } end
     local row = RowStyle(self, e)
     local line = row.time .. date("%H:%M", e.t) .. "|r  " .. row.mark .. self:Format(e)
-    out[#out + 1] = { text = line, color = row.color, entry = e }
+    out[#out + 1] = { text = line, color = row.color, entry = e, box = row.box }
   end
   return out
 end
@@ -419,7 +468,8 @@ local function RenderLog(self, view, list, hidden)
   view.onlyHL:SetChecked(self:Settings().logOnlyHighlights and true or false)
   view.empty:SetShown(not list[1])
   for _, line in ipairs(messages) do
-    if line.color then m:AddMessage(line.text, line.color[1], line.color[2], line.color[3]) else m:AddMessage(line.text) end
+    local c = line.color or NO_COLOR
+    m:AddMessage(line.text, c[1], c[2], c[3], line.box)
   end
   if view.opening and view.firstUnseen then
     ScrollToFirstNew(m, messages, view.firstUnseen)
