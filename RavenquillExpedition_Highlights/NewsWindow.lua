@@ -544,8 +544,8 @@ end
 
 function H:PaperLead()
   local days = self:Issues()
-  local last = days[#days]
-  return last and News.Issue(last, T, self:NewsContext()).lead
+  local issue = News.Edition(days, #days, T, self:NewsContext())
+  return issue and issue.lead
 end
 
 function H:StepIssue(f, delta)
