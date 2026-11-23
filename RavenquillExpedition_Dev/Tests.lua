@@ -434,11 +434,11 @@ Dev:Register("craft.smoke", function(t)
       end
     end
     CraftStep(t, gca, "  sheet slot 1", function() UI:SetMemberMode("sheet"); UI:SelectSheetSlot(gca.SYNC_SLOTS[1]) end)
-    CraftStep(t, gca, "  guild needs view", function()
-      UI:SetView("needs")
+    CraftStep(t, gca, "  for everyone", function()
+      UI:SetView("make", "all")
       UI:SetNeedsOffline(true)
       UI:SetNeedsOffline(false)
-      UI:SetView("member")
+      UI:SetView("make", "member")
     end)
   end
   CraftStep(t, gca, "guild needs for all members", gca.GuildNeeds, gca)
@@ -827,12 +827,12 @@ function Shots.Paper()
   return rawget(_G, "RavenquillExpeditionHighlightsFrame")
 end
 
-function Shots.Advisor(view, mode)
+function Shots.Advisor(view, scope, mode)
   return function()
     local craft = RQ:GetModule("Craft")
     local f = rawget(_G, "RavenquillExpeditionCraftFrame")
     if not (f and f:IsShown()) then craft:Open() end
-    craft.UI:SetView(view)
+    craft.UI:SetView(view, scope)
     if mode then craft.UI:SetMemberMode(mode) end
     return rawget(_G, "RavenquillExpeditionCraftFrame")
   end
@@ -856,8 +856,8 @@ Shots.STEPS = {
   { "hl-set", Shots.Overview("Highlights", true) }, { "map-list", Shots.Overview("Map") },
   { "map-set", Shots.Overview("Map", true) }, { "craft-page", Shots.Overview("Craft") },
   { "craft-set", Shots.Overview("Craft", true) }, { "hl-paper", Shots.Paper },
-  { "ca-member", Shots.Advisor("member", "sheet") }, { "ca-member-list", Shots.Advisor("member", "list") },
-  { "ca-needs", Shots.Advisor("needs") }, { "ca-crafters", Shots.Advisor("crafters") },
+  { "ca-member", Shots.Advisor("make", "member", "sheet") }, { "ca-member-list", Shots.Advisor("make", "member", "list") },
+  { "ca-all", Shots.Advisor("make", "all") }, { "ca-commission", Shots.Advisor("commission") },
   { "ca-whisper", Shots.Whisper }, { "insp", Shots.Inspect },
 }
 

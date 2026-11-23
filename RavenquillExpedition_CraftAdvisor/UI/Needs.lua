@@ -148,7 +148,7 @@ local function CreateNeedMemberRow(parent)
   P.OnItemClick(b, function(self)
     local e = self.data
     if e and e.sug then return e.sug, e.member, e.sug.info.link end
-  end)
+  end, function(d, member) if member then UI:OpenMember(member.key, d.slot, d) end end)
   SetTip(b, "need member", function(self)
     local d, cur = P.RowCtx(self)
     if d then ShowSuggestionTooltip(self, d, cur) end

@@ -143,13 +143,13 @@ local function Paper()
   return env.RavenquillExpeditionHighlightsFrame
 end
 
-local function Advisor(view, mode)
+local function Advisor(view, scope, mode)
   return function()
     Hide(env.RavenquillExpeditionHighlightsFrame)
     if not (GCA.UI.frame and GCA.UI.frame:IsShown()) then GCA.UI:Toggle() end
     Settle()
-    GCA.UI:SetView(view)
-    if view == "member" then
+    GCA.UI:SetView(view, scope)
+    if scope == "member" then
       GCA.UI:OpenMember(Scene.FOCUS)
       GCA.UI:SetMemberMode(mode or "sheet")
     end
@@ -184,22 +184,22 @@ local SCREENS = {
   { id = "hl-set", title = "Gilden-Highlights: Einstellungen", show = Overview("Highlights", true) },
   { id = "map-list", title = "Gildenkarte", show = Overview("Map") },
   { id = "map-set", title = "Gildenkarte: Einstellungen", show = Overview("Map", true) },
-  { id = "craft-page", title = "Craft Advisor in /rq", show = Overview("Craft") },
-  { id = "craft-set", title = "Craft Advisor: Einstellungen in /rq", show = Overview("Craft", true) },
+  { id = "craft-page", title = "Gildenwerkstatt in /rq", show = Overview("Craft") },
+  { id = "craft-set", title = "Gildenwerkstatt: Einstellungen in /rq", show = Overview("Craft", true) },
   { id = "hl-paper", title = "Rabenblatt", show = Paper },
   { id = "map-menu", title = "Rechtsklick auf ein Gildenmitglied", menu = function()
     M:Contact(env.UIParent, M.members[Scene.ROSTER[2].name])
     return menus.context and menus.context.gen, menus.context and menus.context.owner
   end },
-  { id = "ca-member", title = "Berater: Nach Mitglied", show = Advisor("member", "sheet") },
-  { id = "ca-member-list", title = "Berater: Nach Mitglied, Liste", show = Advisor("member", "list") },
-  { id = "ca-filter", title = "Berater: Filter-Menü", menu = function()
+  { id = "ca-member", title = "Werkstatt: Herstellen, Nach Mitglied", show = Advisor("make", "member", "sheet") },
+  { id = "ca-member-list", title = "Werkstatt: Herstellen, Nach Mitglied, Liste", show = Advisor("make", "member", "list") },
+  { id = "ca-filter", title = "Werkstatt: Filter-Menü", menu = function()
     local fb = GCA.UI.filterButton
     local dd = fb and (fb.dropdown or fb)
     return dd and dd._gen, dd
   end },
-  { id = "ca-needs", title = "Berater: Gildenbedarf", show = Advisor("needs") },
-  { id = "ca-crafters", title = "Berater: Handwerker", show = Advisor("crafters") },
+  { id = "ca-all", title = "Werkstatt: Herstellen, Für alle", show = Advisor("make", "all") },
+  { id = "ca-commission", title = "Werkstatt: Herstellen lassen", show = Advisor("commission") },
   { id = "ca-whisper", title = "Angebots-Flüstertext", show = function()
     GCA.UI:OpenWhisperEditor()
     Settle()

@@ -223,20 +223,22 @@ do
 
   section("Window: K6 Filter dropdowns (L5 toggles), whisper editor (U2), help (U6)")
   local fb, mf = UIx.filterButton, UIx.memberFilter
-  check(UIx.optionsButton == nil and UIx.optionsPopup == nil and fb.native and mf.native and fb._template == "WowStyle1FilterDropdownTemplate"
-    and mf._template == "WowStyle1FilterDropdownTemplate" and fb._w == 90 and fb._h == 18 and UIx.filterPopup == nil,
-    "no Options button/popup; two native Filter dropdowns (needs bar + member list), 90x18 as the recipe list's")
+  check(UIx.optionsButton == nil and UIx.optionsPopup == nil and fb.native and mf.native and fb._template == "WowStyle1DropdownTemplate"
+    and mf._template == "WowStyle1DropdownTemplate" and fb._w == 110 and fb._h == 18 and UIx.filterPopup == nil
+    and fb._override == "By member" and mf._override == "By member",
+    "no Options button/popup; two native dropdowns (needs bar + member list), 110x18, naming the scope 'By member'")
   check(mf._points[1][1] == "TOPRIGHT" and mf._points[1][2] == UIx.memberInset and mf._points[1][4] == -8 and mf._points[1][5] == -9,
     "member list Filter at TOPRIGHT -8,-9 of its panel (the recipe list's own spot)")
   check(UIx.survival._parent == f.content and not UIx.survival._shown and UIx.helpButton == nil,
     "the bottom slider is hidden with the native Filter menu; no '?' help button")
   local op = menuOf(fb)
-  check(menuTexts(op) == "Show missing recipes|Look ahead 5 levels|Include offline members (0)|Settings in /rq craft ›" and #op == 5
-    and op[1].kind == "check" and op[2].kind == "check" and op[3].kind == "check" and op[4].kind == "divider" and op[5].kind == "button",
-    "filter menu: the three list filters, a divider, the way to the settings in /rq craft: " .. menuTexts(op))
+  check(menuTexts(op) == "By member|For everyone|Show missing recipes|Look ahead 5 levels|Include offline members (0)|Settings in /rq craft ›"
+    and #op == 8 and op[1].kind == "radio" and op[2].kind == "radio" and op[3].kind == "divider" and op[4].kind == "check"
+    and op[5].kind == "check" and op[6].kind == "check" and op[7].kind == "divider" and op[8].kind == "button",
+    "dropdown: the two scopes, a divider, the three list filters, a divider, the way to the settings in /rq craft: " .. menuTexts(op))
   local tips = 0
   for _, e in ipairs(op) do if e.tip then tips = tips + 1 end end
-  check(tips == #op - 1, "every entry but the divider has its tooltip (" .. tips .. ")")
+  check(tips == 4, "every filter entry and the settings link have their tooltip (" .. tips .. ")")
   local function settingsTouchedBy(entry)
     local before, touched = {}, {}
     for k, v in pairs(GCA.db.settings) do before[k] = v end
@@ -277,20 +279,20 @@ do
   check(retried == 1 and UIx.syncDot.state == "ok", "Retry sync resumes sync and the window shows it right away (" .. tostring(UIx.syncDot.state) .. ")")
   GCA.SyncState, GCA.SyncRetry = nil, nil
   local before = GCA.db.settings.showUnlearned
-  op[1]:click()
-  check(GCA.db.settings.showUnlearned == not before and menuOf(fb)[1]:on() == GCA.db.settings.showUnlearned and (fb._generated or 0) > 0,
-    "entry 1 toggles showUnlearned, the check follows, the open menu is regenerated")
-  menuOf(fb)[1]:click()
+  op[4]:click()
+  check(GCA.db.settings.showUnlearned == not before and menuOf(fb)[4]:on() == GCA.db.settings.showUnlearned and (fb._generated or 0) > 0,
+    "'Show missing recipes' toggles showUnlearned, the check follows, the open menu is regenerated")
+  menuOf(fb)[4]:click()
   check(GCA.db.settings.showUnlearned == before, "...and back")
   local la = GCA.db.settings.lookahead
-  menuOf(fb)[2]:click()
-  check(GCA.db.settings.lookahead == not la, "entry 2 toggles lookahead")
-  menuOf(fb)[2]:click()
+  menuOf(fb)[5]:click()
+  check(GCA.db.settings.lookahead == not la, "'Look ahead 5 levels' toggles lookahead")
+  menuOf(fb)[5]:click()
   local offline = GCA.db.settings.needsOffline
-  menuOf(mf)[3]:click()
-  check(offline == false and GCA.db.settings.needsOffline == true and menuOf(fb)[3]:on(),
-    "entry 3 includes offline members (default off; the member list's Filter and the needs bar's show one setting)")
-  menuOf(mf)[3]:click()
+  menuOf(mf)[6]:click()
+  check(offline == false and GCA.db.settings.needsOffline == true and menuOf(fb)[6]:on(),
+    "'Include offline members' (default off; the member list's dropdown and the needs bar's show one setting)")
+  menuOf(mf)[6]:click()
   for _, o in ipairs(GCA.options) do if o.label == ns.L.EDIT_WHISPER then o.func() end end
   local ed = UIx.whisperEditor
   check(ed and ed._shown, "/rq craft's 'Edit whisper text…' opens the whisper editor")
@@ -321,7 +323,8 @@ do
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   local UIx = GCA.UI
-  check(UIx.filterButton.native and UIx.optionsButton == nil, "German window has the native Filter dropdown (its text is the template's own)")
+  check(UIx.filterButton.native and UIx.optionsButton == nil and UIx.memberFilter._override == "Nach Mitglied",
+    "German window: the native dropdown names the scope 'Nach Mitglied'")
   check(UIx.survival.label._text == "Levelbonus (Ausdauer/Willenskraft): 50%", "slider in German (our fallback words): " .. tostring(UIx.survival.label._text))
   check(plain(UIx.subText._text):find("^Stufe 36 "), "sub-line uses our 'Stufe' when LEVEL is missing: " .. plain(UIx.subText._text))
   check(plain(UIx.subText._text):find("Ausrüstung deine eigene, von deinem Charakter gelesen", 1, true),

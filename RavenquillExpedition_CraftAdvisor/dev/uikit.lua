@@ -524,10 +524,10 @@ local function layoutChecks(UIx, f, label)
     and UIx.needDetail.w >= 500 and UIx.needDetail.h == winH - 102,
     label .. ": craft detail panel fills the rest, at least 500 wide, 62..H-40 " .. rstr(nd))
   local obx = R(UIx.filterButton)
-  check(sbx.l >= ni.l and sbx.t >= ni.t and sbx.b <= nl.t and obx.r == ni.r - 8 and obx.b <= nl.t and obx.l - sbx.r == 12
+  check(sbx.l >= ni.l and sbx.t >= ni.t and sbx.b <= nl.t and obx.r == ni.r - 8 and obx.b <= nl.t and obx.l - sbx.r == 6
     and cnt.t >= nl.b and cnt.b <= ni.b and cnt.l == ni.l + 10 and cnt.r == ni.r - 10
     and UIx.needsList.content._w == UIx.needsList.viewW,
-    label .. ": search (up to the Filter button) | Filter above the list, the count under it, all inside the list panel "
+    label .. ": search (up to the scope dropdown) | dropdown above the list, the count under it, all inside the list panel "
     .. rstr(sbx) .. " " .. rstr(obx) .. " " .. rstr(cnt))
   local ci, cl, cs, cd, ra = R(UIx.crafterInset), R(UIx.crafterList), R(UIx.crafterSearch), R(UIx.crafterDetail), R(UIx.recipeArea)
   check(ci.l == 10 and ci.r == 270 and ci.t == 62 and ci.b == winH - 40 and cl.r == ci.r - 25 and cl.b == ci.b - 5

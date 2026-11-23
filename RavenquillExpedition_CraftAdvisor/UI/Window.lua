@@ -52,7 +52,7 @@ function UI:OpenMember(key, slot, sug)
   self:SelectMember(key, slot, sug)
   ExpandGroupOf(self, key)
   ClearSearchHiding(self, key)
-  self:SetView("member")
+  self:SetView("make", "member")
   ScrollMemberIntoView(self, key)
   if slot and UI.MemberMode() == "list" then ScrollToSlotSection(self, slot) end
 end
@@ -62,7 +62,7 @@ function UI:RefreshMemberList()
   self.memberList:SetData(UI.MemberRows(self.lastMembers or {}, q))
 end
 
-local SEARCH_CHROME = 21 + 90 + 12
+local SEARCH_CHROME = 21 + UI.FILTER_W + 6
 UI.SEARCH_W = LEFT_W - SEARCH_CHROME
 function UI:LayoutFilterBar()
   if not (self.needsCount and self.frame) then return end
@@ -169,8 +169,8 @@ function UI:Layout()
   nd.w, nd.h = needDetailW, listH
   self:UpdateCraftDetail(nd.entry, nd.empty:GetText())
   self:LayoutFilterBar()
-  for _, def in ipairs(UI.VIEWS) do
-    if def.layout then self[def.layout](self, w, h) end
+  for _, pane in ipairs(UI.Panes()) do
+    if pane.layout then self[pane.layout](self, w, h) end
   end
 end
 
@@ -178,7 +178,7 @@ local Build = {}
 
 function Build.OnShow()
   if UI.selected ~= nil and UI.selected == UI.autoKey then UI:Select(nil) end
-  UI.view = UI.DEFAULT_VIEW
+  UI:ResetView()
   UI.collapsed.online, UI.collapsed.offline = false, true
   UI.needsCollapsed, UI.needSel = {}, nil
   UI:ApplyView()
@@ -352,7 +352,7 @@ end
 
 function UI:Create()
   local f, c = Build.Window(self)
-  self.view = UI.DEFAULT_VIEW
+  self:ResetView()
   f:SetScript("OnShow", Build.OnShow)
   if type(f.CloseButton) == "table" and f.CloseButton.SetScript then
     f.CloseButton:SetScript("OnClick", function() f:Hide() end)
@@ -555,7 +555,7 @@ function UI:Refresh()
   self.lastMembers = members
   self.memberList:SetData(UI.MemberRows(members, self.memberSearch and self.memberSearch:GetText() or ""))
   self.syncDot:Update(CountRecorded(members))
-  local refresh = UI.ViewDef(self.view).refresh
+  local refresh = self:Pane().refresh
   if refresh then self[refresh](self) end
   if not current then return ShowNoMember(self) end
   UpdateMemberDetail(self, current, prof, browse)

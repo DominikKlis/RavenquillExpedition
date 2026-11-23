@@ -129,9 +129,9 @@ end
 GCA.openHint = L.OPEN_HINT
 function GCA:Open() self:OpenWindow() end
 
-function GCA:OpenView(view)
+function GCA:OpenView(view, scope)
   self:OpenWindow()
-  self.UI:SetView(view)
+  self.UI:SetView(view, scope)
 end
 
 function GCA.NeedsCountText(prof, crafts, members)
@@ -165,17 +165,18 @@ local function CraftersLine(self)
 end
 
 local ENTRIES = {
-  { view = "needs", icon = "Interface\\Icons\\INV_Chest_Leather_09", line = NeedsLine },
-  { view = "member", icon = "Interface\\Icons\\INV_Helmet_41", line = MemberLine },
-  { view = "crafters", icon = "Interface\\Icons\\INV_Shoulder_08", line = CraftersLine },
+  { view = "make", scope = "all", icon = "Interface\\Icons\\INV_Chest_Leather_09", line = NeedsLine },
+  { view = "make", scope = "member", icon = "Interface\\Icons\\INV_Helmet_41", line = MemberLine },
+  { view = "commission", icon = "Interface\\Icons\\INV_Shoulder_08", line = CraftersLine },
 }
 
 function GCA:OverviewEntries()
   if not self.db then return end
   local members, out = self:GetMemberList(), {}
   for i, e in ipairs(ENTRIES) do
-    out[i] = { icon = e.icon, title = L[self.UI.ViewDef(e.view).label], line = e.line(self, members),
-      open = function() self:OpenView(e.view) end }
+    local pane = e.scope and self.UI.ScopeDef(e.scope) or self.UI.ViewDef(e.view)
+    out[i] = { icon = e.icon, title = L[pane.label], line = e.line(self, members),
+      open = function() self:OpenView(e.view, e.scope) end }
   end
   return out
 end
@@ -184,7 +185,7 @@ function GCA:OverviewHeadline()
   if not self.db then return end
   local _, who = NeedsMatch(self, self:GetMemberList())
   local line = who == 0 and L.ENTRY_NEEDS_NONE or who == 1 and L.OV_NEEDS_1 or string.format(L.OV_NEEDS, who)
-  return { line = line, open = function() self:OpenView("needs") end }
+  return { line = line, open = function() self:OpenView("make", "all") end }
 end
 
 function GCA:OverviewStatus()

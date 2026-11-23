@@ -3,24 +3,47 @@ local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 
 UI.VIEWS = {
-  { key = "member", label = "VIEW_MEMBER" },
-  { key = "needs", label = "VIEW_NEEDS", refresh = "RefreshNeeds" },
-  { key = "crafters", label = "VIEW_CRAFTERS", refresh = "RefreshCrafters", layout = "LayoutCrafters", build = "BuildCrafterView" },
+  { id = "make", label = "VIEW_MAKE", icon = "Interface\\Icons\\INV_Hammer_20",
+    scopes = { { id = "member", label = "SCOPE_MEMBER" }, { id = "all", label = "SCOPE_ALL", refresh = "RefreshNeeds" } } },
+  { id = "commission", label = "VIEW_COMMISSION", icon = "Interface\\Icons\\INV_Scroll_03",
+    refresh = "RefreshCrafters", layout = "LayoutCrafters", build = "BuildCrafterView" },
 }
-UI.DEFAULT_VIEW = "member"
+UI.DEFAULT_VIEW, UI.DEFAULT_SCOPE = "make", "member"
+UI.OLD_VIEWS = { member = { "make", "member" }, needs = { "make", "all" }, crafters = { "commission" } }
 
-function UI:BuildViews(c, painted, listH, rw)
-  local frames = { needs = self.needsView, member = self.memberView }
-  for _, def in ipairs(UI.VIEWS) do
-    if def.build then frames[def.key] = self[def.build](self, c, painted, listH, rw) end
+local function Find(list, id)
+  for _, def in ipairs(list or {}) do
+    if def.id == id then return def end
   end
-  return frames
 end
 
-function UI.ViewDef(key)
+function UI.ViewDef(id) return Find(UI.VIEWS, id) end
+
+function UI.Scopes() return UI.ViewDef("make").scopes end
+
+function UI.ScopeDef(id) return Find(UI.Scopes(), id) end
+
+function UI:Scope() return UI.ScopeDef(self.scope) or UI.Scopes()[1] end
+
+function UI:Pane()
+  local def = UI.ViewDef(self.view) or UI.VIEWS[1]
+  return def.scopes and self:Scope() or def
+end
+
+function UI.Panes()
+  local out = {}
   for _, def in ipairs(UI.VIEWS) do
-    if def.key == key then return def end
+    for _, pane in ipairs(def.scopes or { def }) do out[#out + 1] = pane end
   end
+  return out
+end
+
+function UI:BuildViews(c, painted, listH, rw)
+  local frames = { all = self.needsView, member = self.memberView }
+  for _, pane in ipairs(UI.Panes()) do
+    if pane.build then frames[pane.id] = self[pane.build](self, c, painted, listH, rw) end
+  end
+  return frames
 end
 
 local function CreateTemplatedTabs(f)
@@ -67,7 +90,7 @@ function UI.CreateViewTabs(f, c)
   local templated = tabs ~= nil
   if not templated then tabs = CreatePlainTabs(c) end
   for i, tab in ipairs(tabs) do
-    tab.view = UI.VIEWS[i].key
+    tab.view = UI.VIEWS[i].id
     tab:SetScript("OnClick", function(self) UI:SetView(self.view) end)
   end
   return tabs, templated
@@ -87,12 +110,20 @@ function UI:PaintTabs()
 end
 
 function UI:ApplyView()
-  for key, frame in pairs(self.viewFrames) do frame:SetShown(key == self.view) end
+  local pane = self:Pane().id
+  for key, frame in pairs(self.viewFrames) do frame:SetShown(key == pane) end
   self:PaintTabs()
 end
 
-function UI:SetView(view)
+function UI:ResetView()
+  self.view, self.scope = UI.DEFAULT_VIEW, UI.DEFAULT_SCOPE
+end
+
+function UI:SetView(view, scope)
+  local old = UI.OLD_VIEWS[view]
+  if old then view, scope = old[1], old[2] end
   self.view = UI.ViewDef(view) and view or UI.DEFAULT_VIEW
+  if Find(UI.ViewDef(self.view).scopes, scope) then self.scope = scope end
   if self.frame then
     self:ApplyView()
     self:Refresh()

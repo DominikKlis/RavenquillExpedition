@@ -320,7 +320,7 @@ function UI.ToggleSetting(key)
   return on
 end
 
-UI.FILTER_W, UI.FILTER_H = 90, 18
+UI.FILTER_W, UI.FILTER_H = 110, 18
 local function SettingOn(key)
   local s = GCA.db and GCA.db.settings or {}
   return s[key] and true or false
@@ -331,8 +331,14 @@ local function FilterItem(def)
     checked = function() return SettingOn(key) end,
     onClick = function() if def.set then def.set(not SettingOn(key)) else UI.ToggleSetting(key) end end }
 end
+local function ScopeItem(scope)
+  return { kind = "radio", label = L[scope.label], checked = function() return UI:Scope() == scope end,
+    onClick = function() UI:SetView("make", scope.id) end }
+end
 local function FilterItems()
   local items = {}
+  for _, scope in ipairs(UI.Scopes()) do items[#items + 1] = ScopeItem(scope) end
+  items[#items + 1] = { kind = "divider" }
   for _, def in ipairs(UI.FILTERS) do items[#items + 1] = FilterItem(def) end
   items[#items + 1] = { kind = "divider" }
   if UI.SyncState() == "paused" then
@@ -396,7 +402,7 @@ function UI.AddFilterReset(dd)
   dd.resetButton, dd.resetKind = rb, "own"
 end
 P.CreateFilterMenu = function(parent, window)
-  local dd = NewDropdown(parent, "WowStyle1FilterDropdownTemplate", UI.FILTER_W, UI.FILTER_H)
+  local dd = NewDropdown(parent, "WowStyle1DropdownTemplate", UI.FILTER_W, UI.FILTER_H)
   if dd then
     dd:SetupMenu(NativeMenu(FilterItems))
     KeepNativeHover(dd, "filter button", FilterTip)
@@ -412,9 +418,10 @@ P.CreateFilterMenu = function(parent, window)
 end
 
 function UI:RefreshFilters()
-  local atDefault = UI.FiltersAtDefault()
+  local atDefault, scope = UI.FiltersAtDefault(), L[self:Scope().label]
   for _, f in ipairs(self.filters or {}) do
-    if f.button.native then RefreshDropdown(f.button) elseif f.popup and f.popup:IsShown() then f.popup:Fill() end
+    if f.button.native then RefreshDropdown(f.button, scope) else f.button:SetText(scope) end
+    if f.popup and f.popup:IsShown() then f.popup:Fill() end
     if f.button.resetButton then f.button.resetButton:SetShown(not atDefault) end
     if f.button.resetKind == "native" and f.button.ValidateResetState then pcall(f.button.ValidateResetState, f.button) end
   end

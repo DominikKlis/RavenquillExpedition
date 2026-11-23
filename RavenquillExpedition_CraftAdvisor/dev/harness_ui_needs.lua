@@ -146,11 +146,18 @@ do
   UIx = GCA.UI
   local f = UIx.frame
   local before = UIx.errorCount
-  check(UIx.view == "member" and UIx.memberView._shown and not UIx.needsView._shown, "opens on 'For guildmates' (guild needs hidden)")
-  check(UIx.tabsTemplated and #UIx.tabs == 3 and UIx.tabs[1]._text == "For guildmates" and UIx.tabs[2]._text == "My recipes" and UIx.tabs[3]._text == "For me"
-    and selected[UIx.tabs[1]] == true and selected[UIx.tabs[2]] == false and selected[UIx.tabs[3]] == false,
-    "three PanelTabButtonTemplate tabs 'For guildmates | My recipes | For me', the first selected")
-  UIx:SetView("needs")
+  check(UIx.view == "make" and UIx.memberView._shown and not UIx.needsView._shown and UIx.memberFilter._override == "By member",
+    "opens on 'Craft' by member: the dropdown beside the member search says 'By member', 'For everyone' hidden")
+  check(UIx.tabsTemplated and #UIx.tabs == 2 and UIx.tabs[1]._text == "Craft" and UIx.tabs[2]._text == "Get crafted"
+    and selected[UIx.tabs[1]] == true and selected[UIx.tabs[2]] == false,
+    "two PanelTabButtonTemplate tabs 'Craft | Get crafted', the first selected")
+  local sm = menuOf(UIx.memberFilter)
+  check(sm[1].kind == "radio" and plain(sm[1].text) == "By member" and sm[1]:on() and sm[2].kind == "radio" and plain(sm[2].text) == "For everyone"
+    and not sm[2]:on() and sm[3].kind == "divider", "the dropdown starts with the two scopes, 'By member' picked, then a divider")
+  sm[2]:click()
+  check(UIx.view == "make" and UIx.needsView._shown and not UIx.memberView._shown and UIx.filterButton._override == "For everyone"
+    and menuOf(UIx.filterButton)[2]:on() and selected[UIx.tabs[1]] == true and selected[UIx.tabs[2]] == false,
+    "picking 'For everyone' shows your recipes by slot, its dropdown says 'For everyone', the 'Craft' tab stays selected")
   check(UIx.inspectButton == nil and UIx.scanButton == nil and UIx.optionsButton == nil and UIx.survival._points[1][1] == "BOTTOMLEFT",
     "no 'Inspect target' / 'Scan group' buttons; K6: no Options button, the slider in the bottom-left corner")
   local nl, nd = UIx.needsList, UIx.needDetail
@@ -173,7 +180,7 @@ do
     and cp[1].CollapseButton.text._text == "–" and UIx.collapseIconKind == "text" and cp[1].native == nil,
     "category header replicated from the probe: collapseExpand art + ADD hover 0.4, gold text at 8, 20 px CollapseButton at -6 ('–', no icon atlas in this mock)")
   local fm = menuOf(UIx.filterButton)
-  check(plain(UIx.needsCount._text) == "3 crafts are worth it for 2 members" and plain(fm[3].text) == "Include offline members (1)" and not fm[3]:on(),
+  check(plain(UIx.needsCount._text) == "3 crafts are worth it for 2 members" and plain(fm[6].text) == "Include offline members (1)" and not fm[6]:on(),
     "count line; K6: Filter menu entry 'Include offline members (1)', off by default: " .. plain(UIx.needsCount._text))
   local s1, s2 = nd.members.pools.default[1], nd.members.pools.default[2]
   check(UIx.needSel == "i9001" and nd.entry and nd.entry.group == K5.crafts1 or (nd.entry and nd.entry.group.key == "i9001"),
@@ -188,15 +195,15 @@ do
     "member row on one line: member column | worn icon + its name beside it | gain, 'Offer', box: " .. plain(s1.state._text))
   check(nd.members.viewH == 2 * 42 and nd.members.viewW == nd.w - 44 and s1.stateW >= 40,
     "the member list is as tall as its rows (2 x 42), as wide as the detail panel")
-  fm[3]:click()
+  fm[6]:click()
   r1 = nl.pools.default[1]
   check(GCA.db.settings.needsOffline == true and plain(r1.count._text) == "3 members" and nd.members.pools.default[1].data.member.key == "Olga Field"
     and nd.members.pools.default[1].name._alpha == 1 and nd.members.pools.default[1].name._text:find("StatusIcon-Offline", 1, true)
-    and not nd.members.pools.default[1].name._text:find("|cff7f7f7f", 1, true) and not nd.members.pools.default[1].offer._shown and menuOf(UIx.filterButton)[3]:on()
+    and not nd.members.pools.default[1].name._text:find("|cff7f7f7f", 1, true) and not nd.members.pools.default[1].offer._shown and menuOf(UIx.filterButton)[6]:on()
     and plain(UIx.needsCount._text) == "3 crafts are worth it for 3 members", "offline members on: saved, Olga (offline dot + softened class colour, no Offer) leads the vest craft")
   check(UIx.filterButton.resetButton and UIx.filterButton.resetButton._shown and UIx.filterButton.resetButton.icon._atlas == "auctionhouse-ui-filter-redx"
     and UIx.memberFilter.resetButton._shown, "a filter off its default -> the red reset badge on both Filter buttons")
-  menuOf(UIx.memberFilter)[3]:click()
+  menuOf(UIx.memberFilter)[6]:click()
   check(GCA.db.settings.needsOffline == false and plain(nl.pools.default[1].count._text) == "2 members" and not UIx.filterButton.resetButton._shown,
     "the member list's Filter turns it off again (one setting); the badge goes")
   GCA.db.settings.showUnlearned = true; UIx:RefreshFilters()
@@ -224,19 +231,17 @@ do
   linked = nil
   nd.members.pools.default[2]._scripts.OnClick(nd.members.pools.default[2])
   env.IsShiftKeyDown = function() return false end
-  check(linked == "|Hitem:9001|h[Vest]|h" and UIx.view == "needs", "shift-click on a member row links, stays on guild needs")
+  check(linked == "|Hitem:9001|h[Vest]|h" and UIx:Pane().id == "all", "shift-click on a member row links, stays on 'For everyone'")
   nd.members.pools.default[2]._scripts.OnClick(nd.members.pools.default[2])
-  check(UIx.view == "needs", "a plain click on a member row (their equipped item) does nothing")
-  local mrow = nd.members.pools.default[2].data
-  UIx:OpenMember(mrow.member.key, mrow.sug.slot, mrow.sug)
-  check(UIx.view == "member" and UIx.selected == "Bud Stone" and UIx.autoKey == nil and UIx.memberView._shown and selected[UIx.tabs[1]] == true
-    and UIx.current == K5.bud, "OpenMember still opens Bud in 'By member' (tab follows)")
+  check(UIx:Pane().id == "member" and UIx.selected == "Bud Stone" and UIx.autoKey == nil and UIx.memberView._shown and selected[UIx.tabs[1]] == true
+    and UIx.current == K5.bud and UIx.memberFilter._override == "By member",
+    "a plain click on Bud's row under the craft switches to 'By member' on Bud (the dropdown follows)")
   check(UIx.MemberMode() == "sheet" and UIx.sheet._shown and UIx.sheetSlot == 5 and UIx.sheet.centre.featured == K5.vestA,
     "sheet: that slot selected, that craft compared (" .. tostring(UIx.sheetSlot) .. ")")
   check(UIx.sugList.minimalBar == nil or not UIx.sugList.minimalBar._shown,
     "in the sheet view the hidden list's scroll bar is hidden too")
   GCA.db.settings.memberView = "list"
-  UIx:SetView("needs")
+  UIx:SetView("make", "all")
   UIx.needSel = "i9003"
   UIx:RefreshNeeds()
   local ringRow = nd.members.pools.default[1]
@@ -248,7 +253,7 @@ do
   check(secY and secY > 0 and UIx.sugList.scrolledTo == math.min(secY, math.max(0, UIx.sugList.contentH - UIx.sugList.viewH)),
     "list: ...scrolled to the rings section (" .. tostring(secY) .. ")")
   GCA.db.settings.memberView = "sheet"
-  UIx:SetView("needs")
+  UIx:SetView("make", "all")
   UIx.needSel = "i9001"; UIx:RefreshNeeds()
   cp[1]._scripts.OnClick(cp[1])
   check(UIx.needsCollapsed[5] and nkinds() == "#5,#6,Belt,#11,Future Ring" and cp[1].CollapseButton.text._text == "+" and UIx.needSel == "i9001"
@@ -309,7 +314,10 @@ do
     nd.iconBtn._scripts.OnClick(nd.iconBtn, "LeftButton")
     check(opened[1] == 9100, "Gildenbedarf: click on the craft's icon opens recipe 9100")
     nd.members.pools.default[1]._scripts.OnClick(nd.members.pools.default[1], "LeftButton")
-    check(#opened == 1, "Gildenbedarf: a click on a member row (their equipped item) opens nothing")
+    check(#opened == 1 and UIx:Pane().id == "member" and UIx.selected == "Bud Stone",
+      "For everyone: a click on a member row opens no recipe, it jumps to that member")
+    UIx:SetView("make", "all")
+    UIx:UpdateCraftDetail(rentry)
     local links, savedLink = {}, env.HandleModifiedItemClick
     env.HandleModifiedItemClick = function(l) links[#links + 1] = l end
     env.IsControlKeyDown = function() return true end
@@ -350,14 +358,25 @@ do
   check(UIx.collapsed.offline == false and UIx.selected == "Olga Field" and UIx.current == K5.olga, "opening an offline member expands the offline group")
   UIx.needsCollapsed[6] = true
   f:Hide(); GCA.UI:Toggle(); advance(1)
-  check(UIx.view == "member" and UIx.memberView._shown, "reopened: back on 'By member'")
+  check(UIx:Pane().id == "member" and UIx.memberView._shown, "reopened: back on 'By member'")
+  menuOf(UIx.memberFilter)[2]:click()
+  check(UIx:Pane().id == "all" and UIx.needsView._shown and next(UIx.needsCollapsed) == nil and UIx.needSel == "i9001" and UIx.collapsed.offline == true
+    and UIx.collapsed.online == false, "'For everyone': every category open, the best craft selected, offline group collapsed (not saved)")
   UIx.tabs[2]._scripts.OnClick(UIx.tabs[2])
-  check(UIx.view == "needs" and UIx.needsView._shown and next(UIx.needsCollapsed) == nil and UIx.needSel == "i9001" and UIx.collapsed.offline == true
-    and UIx.collapsed.online == false, "tab 2: guild needs, every category open, the best craft selected, offline group collapsed (not saved)")
+  check(UIx.view == "commission" and UIx.crafterView._shown and not UIx.needsView._shown and selected[UIx.tabs[2]] == true,
+    "tab 2 switches to 'Get crafted'")
   UIx.tabs[1]._scripts.OnClick(UIx.tabs[1])
-  check(UIx.view == "member" and UIx.memberView._shown, "tab 1 switches to the member view")
-  UIx.tabs[2]._scripts.OnClick(UIx.tabs[2])
-  check(UIx.view == "needs", "tab 2 back to guild needs")
+  check(UIx:Pane().id == "all" and UIx.needsView._shown, "tab 1 back to 'Craft', still for everyone (the scope is kept)")
+  local landed = {}
+  for _, id in ipairs({ "crafters", "member", "needs", "junk" }) do
+    UIx:SetView(id)
+    local shown = {}
+    for key, frame in pairs(UIx.viewFrames) do if frame._shown then shown[#shown + 1] = key end end
+    landed[#landed + 1] = id .. "=" .. UIx.view .. "/" .. table.concat(shown, "+")
+  end
+  check(table.concat(landed, " ") == "crafters=commission/commission member=make/member needs=make/all junk=make/all",
+    "old view ids still land: 'needs' on Craft for everyone, 'crafters' on Get crafted, 'member' on Craft by member, unknown on Craft: "
+    .. table.concat(landed, " "))
   local nbB = GCA.needsBuilds
   f:SetSize(1300, 900); advance(0.1); UIx:Layout(); UIx:Refresh(); UIx:Refresh()
   sb:SetText("vest"); sb._scripts.OnTextChanged(sb); sb:SetText(""); sb._scripts.OnTextChanged(sb)
@@ -365,7 +384,7 @@ do
   f:SetSize(980, 640); advance(0.1)
 
   section("member list (search, Online / Offline groups = native category headers, native rows)")
-  UIx:SetView("member")
+  UIx:SetView("make", "member")
   UIx.collapsed.online, UIx.collapsed.offline = false, true
   UIx.selected = "Bud Stone"
   UIx:Refresh()
@@ -479,7 +498,7 @@ do
   captureTip(); UIx.infoIcon._scripts.OnEnter(UIx.infoIcon)
   check(H.tip[1] == "Scoring" and (UIx.sourceLine == "" or tipText():find(UIx.sourceLine, 1, true)), "(i) tooltip shows the source line")
   check(UIx.errorCount == before, "no error reported (K2 window)")
-  UIx:SetView("needs")
+  UIx:SetView("make", "all")
   f:Hide()
   GCA.GetMemberList = origML
 
@@ -534,25 +553,27 @@ do
   GCA.UI.frame = nil
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
-  check(UIx.tabs[1]._text == "Für Mitglieder" and UIx.tabs[2]._text == "Meine Rezepte" and UIx.tabs[3]._text == "Für mich",
-    "German tabs 'Für Mitglieder | Meine Rezepte | Für mich'")
+  check(UIx.tabs[1]._text == "Herstellen" and UIx.tabs[2]._text == "Herstellen lassen" and UIx.memberFilter._override == "Nach Mitglied"
+    and menuTexts(menuOf(UIx.memberFilter), "radio") == "Nach Mitglied|Für alle",
+    "German tabs 'Herstellen | Herstellen lassen', the dropdown 'Nach Mitglied' with the radios 'Nach Mitglied | Für alle'")
   check(plain(UIx.RowGainText(fakeSug())) == "+12 Pkt" and UIx.CardGain(fakeSug()) == "+12 Pkt",
     "German score unit: row and card gains read '+12 Pkt', not 'pts'")
-  local oldNames = { "Nach Mitglied", "Gildenbedarf", "By member", "Guild needs" }
+  local oldNames = { "Für Mitglieder", "Meine Rezepte", "Gildenbedarf", "For guildmates", "My recipes", "Guild needs" }
   local function staleText(t, englishUnit)
     t = plain(t)
     if not englishUnit and t:find("%f[%a]pts%f[%A]") then return true end
     for _, old in ipairs(oldNames) do if t:find(old, 1, true) then return true end end
-    return t == "Handwerker" or t == "Crafters"
+    return t == "Handwerker" or t == "Crafters" or t == "Für mich" or t == "For me"
   end
   local stale = {}
-  for _, view in ipairs({ "member", "needs", "crafters" }) do
-    UIx:SetView(view)
+  for _, pane in ipairs({ { "make", "member" }, { "make", "all" }, { "commission" } }) do
+    UIx:SetView(pane[1], pane[2])
+    local view = table.concat(pane, "/")
     for _, o in ipairs(H.descendants(UIx.frame)) do
       if o.IsVisible and o:IsVisible() and type(o._text) == "string" and staleText(o._text) then stale[#stale + 1] = view .. ": " .. plain(o._text) end
     end
   end
-  check(#stale == 0, "German window, all three tabs: no visible text names an old tab or says 'pts': " .. table.concat(stale, "; "))
+  check(#stale == 0, "German window, both tabs and both scopes: no visible text names an old tab or says 'pts': " .. table.concat(stale, "; "))
   local staleKeys = {}
   for _, loc in ipairs({ "enUS", "deDE" }) do
     for key in pairs(ns.Locales.enUS) do
@@ -563,9 +584,10 @@ do
   ns.locale = "deDE"
   table.sort(staleKeys)
   check(#staleKeys == 0, "no English or German player text names an old tab, no German one says 'pts': " .. table.concat(staleKeys, ", "))
-  UIx:SetView("needs")
+  UIx:SetView("make", "all")
   check(plain(UIx.needsCount._text) == "3 Herstellungen lohnen für 2 Mitglieder" and UIx.searchBox.placeholder._text == "Suchen"
-    and plain(menuOf(UIx.filterButton)[3].text) == "Offline-Mitglieder einbeziehen (1)" and plain(menuOf(UIx.filterButton)[5].text) == "Einstellungen in /rq craft ›",
+    and UIx.filterButton._override == "Für alle"
+    and plain(menuOf(UIx.filterButton)[6].text) == "Offline-Mitglieder einbeziehen (1)" and plain(menuOf(UIx.filterButton)[8].text) == "Einstellungen in /rq craft ›",
     "German count, search instructions; K6 Filter menu entries: " .. plain(UIx.needsCount._text))
   local gr1 = UIx.needsList.pools.default[1]
   check(plain(gr1.count._text) == "2 Mitglieder" and UIx.needsList.pools.cat[1].text._text == "Chest" and UIx.needsList.pools.cat[3].text._text == "Ringe"
@@ -578,7 +600,7 @@ do
   check(UIx.needsEmpty._text == "Keine Verbesserung passt zu „zzz“.", "German no-match text")
   UIx.searchBox:SetText(""); UIx.searchBox._scripts.OnTextChanged(UIx.searchBox)
   UIx.selected, UIx.autoKey = "Bud Stone", nil
-  UIx:SetView("member")
+  UIx:SetView("make", "member")
   local gml = UIx.memberList
   check(gml.pools.group[1].text._text == "Online" and plain(gml.pools.default[2].name._text) == "Bud Stone  39"
     and UIx.modeToggle._override == "Ansicht: Charakterbogen" and UIx.syncDot.text._text == "Gilden-Sync · 3 erfasst" and UIx.memberSearch.placeholder._text == "Mitglied suchen"
@@ -628,8 +650,8 @@ do
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
   local errs = UIx.errorCount
-  check(not UIx.tabsTemplated and #UIx.tabs == 3 and UIx.tabs[1]._parent == UIx.frame.content and UIx.tabs[1]._text == "For guildmates",
-    "no tab template: three plain buttons beside the grip, each as wide as its label")
+  check(not UIx.tabsTemplated and #UIx.tabs == 2 and UIx.tabs[1]._parent == UIx.frame.content and UIx.tabs[1]._text == "Craft",
+    "no tab template: two plain buttons beside the grip, each as wide as its label")
   local cramped = {}
   for i, def in ipairs(UIx.VIEWS) do
     for _, loc in ipairs({ "enUS", "deDE" }) do
@@ -639,7 +661,7 @@ do
   end
   check(#cramped == 0, "no tab template: every tab name fits its plain button in English and German: " .. table.concat(cramped, "; "))
   UIx.tabs[2]._scripts.OnClick(UIx.tabs[2])
-  check(UIx.view == "needs" and UIx.errorCount == errs, "fallback buttons switch the view")
+  check(UIx.view == "commission" and UIx.crafterView._shown and UIx.errorCount == errs, "fallback buttons switch the view")
   UIx.frame:SetSize(840, 560); UIx:Layout()
   layoutChecks(UIx, UIx.frame, "tab fallback 840x560")
   UIx.frame:Hide()
@@ -669,18 +691,21 @@ do
   local errs4 = UIx.errorCount
   GCA.UI:Toggle(); advance(1)
   UIx = GCA.UI
-  check(not UIx.filterButton.native and UIx.filterButton._text == "Filter" and UIx.filterPopup and not UIx.searchBox.native
+  check(not UIx.filterButton.native and UIx.filterButton._text == "By member" and UIx.filterPopup and not UIx.searchBox.native
     and UIx.searchBox.placeholder and UIx.searchBox.clear and UIx.needsList.ScrollBar and UIx.needsList.minimalBar == nil,
-    "fallbacks: red 'Filter' button + popup, the K2 search box, UIPanelScrollFrameTemplate")
+    "fallbacks: a red button naming the scope + popup, the K2 search box, UIPanelScrollFrameTemplate")
   UIx.filterButton._scripts.OnClick(UIx.filterButton)
   local fp = UIx.filterPopup
-  check(fp._shown and #fp.buttons == 4 and plain(fp.buttons[3].text._text) == "Include offline members (1)"
-    and plain(fp.buttons[4].text._text) == "Settings in /rq craft ›",
-    "fallback Filter popup: the three list filters and the way to /rq craft")
-  fp.buttons[3]._scripts.OnClick(fp.buttons[3])
-  check(GCA.db.settings.needsOffline == true and fp.buttons[3].check._shown, "fallback popup toggles 'Include offline members'")
-  fp.buttons[3]._scripts.OnClick(fp.buttons[3]); fp:Hide()
-  UIx:SetView("member")
+  check(fp._shown and #fp.buttons == 6 and plain(fp.buttons[1].text._text) == "> By member" and plain(fp.buttons[2].text._text) == "For everyone"
+    and plain(fp.buttons[5].text._text) == "Include offline members (1)" and plain(fp.buttons[6].text._text) == "Settings in /rq craft ›",
+    "fallback Filter popup: the two scopes, the three list filters and the way to /rq craft")
+  fp.buttons[5]._scripts.OnClick(fp.buttons[5])
+  check(GCA.db.settings.needsOffline == true and fp.buttons[5].check._shown, "fallback popup toggles 'Include offline members'")
+  fp.buttons[5]._scripts.OnClick(fp.buttons[5])
+  fp.buttons[2]._scripts.OnClick(fp.buttons[2])
+  check(not fp._shown and UIx:Pane().id == "all" and UIx.filterButton._text == "For everyone",
+    "fallback popup: picking 'For everyone' closes it, shows the list and names the scope on the button")
+  UIx:SetView("make", "member")
   check(not UIx.modeToggle.native and UIx.modeToggle._text == "View: Character sheet", "fallback view switch: a red button naming the shown variant")
   UIx.modeToggle._scripts.OnClick(UIx.modeToggle)
   check(UIx.MemberMode() == "list" and UIx.modeToggle._text == "View: List", "...a click switches to the other variant")
@@ -697,9 +722,9 @@ do
   check(UIx.profPopup._shown and picked and not picked.mark._shown, "no check file: '> ' marks the pick in the fallback popup")
   UIx.profPopup:Hide()
   UIx.filterButton._scripts.OnClick(UIx.filterButton)
-  captureTip(); fp.buttons[1]._scripts.OnEnter(fp.buttons[1])
-  check(fp._shown and H.tip[1] == plain(fp.buttons[1].text._text) and #H.tip >= 2, "fallback Filter popup rows: the label as tooltip title + the explanation")
-  H.withStringHeights(function() fp.buttons[4]._scripts.OnClick(fp.buttons[4]) end)
+  captureTip(); fp.buttons[3]._scripts.OnEnter(fp.buttons[3])
+  check(fp._shown and H.tip[1] == plain(fp.buttons[3].text._text) and #H.tip >= 2, "fallback Filter popup rows: the label as tooltip title + the explanation")
+  H.withStringHeights(function() fp.buttons[6]._scripts.OnClick(fp.buttons[6]) end)
   local ovShown, ovPage = env.RavenquillExpedition:OverviewShown()
   check(not fp._shown and ovShown and ovPage == "Craft",
     "fallback Filter popup: 'Settings in /rq craft ›' closes the popup and opens /rq on the Craft settings (" .. tostring(ovPage) .. ")")

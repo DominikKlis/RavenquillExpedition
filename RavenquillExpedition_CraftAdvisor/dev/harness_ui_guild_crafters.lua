@@ -36,7 +36,7 @@ local function openCrafters()
   UIx.frame = nil
   UIx:Toggle(); advance(1)
   UIx = GCA.UI
-  UIx.tabs[3]._scripts.OnClick(UIx.tabs[3])
+  UIx.tabs[2]._scripts.OnClick(UIx.tabs[2])
 end
 local function listKinds(list)
   local out = {}
@@ -72,8 +72,8 @@ end
 
 section("Before anyone shared recipes: the tab explains where the list comes from")
 openCrafters()
-check(UIx.view == "crafters" and UIx.crafterView._shown and not UIx.memberView._shown and not UIx.needsView._shown,
-  "the third tab shows the crafters view and hides the other two")
+check(UIx.view == "commission" and UIx.crafterView._shown and not UIx.memberView._shown and not UIx.needsView._shown,
+  "the 'Get crafted' tab shows the crafters and hides both 'Craft' lists")
 check(listKinds(UIx.crafterList) == "*" and listKinds(UIx.recipeList) == "", "only the 'All crafters' entry, no recipes")
 check(UIx.recipeEmpty._text:find("No guildmate has shared their recipes yet", 1, true)
   and UIx.recipeEmpty._text:find("as they come online", 1, true), "empty text: guildmates need the addon, the list fills as they come online")
@@ -254,8 +254,8 @@ check(UIx.crafterSel == nil and listKinds(UIx.crafterList) == "*,Alice Wren,Cora
 section("German texts")
 H.ns.locale = "deDE"
 openCrafters()
-check(UIx.tabs[3]._text == "Für mich" and plain(UIx.crafterName._text) == "Alle Handwerker" and UIx.upgradesOnly.label._text == "Nur Verbesserungen für mich",
-  "German: tab 'Für mich', header 'Alle Handwerker', toggle")
+check(UIx.tabs[2]._text == "Herstellen lassen" and plain(UIx.crafterName._text) == "Alle Handwerker" and UIx.upgradesOnly.label._text == "Nur Verbesserungen für mich",
+  "German: tab 'Herstellen lassen', header 'Alle Handwerker', toggle")
 check(UIx.groupSwitch._override == "Gruppen: Platz" and menuTexts(menuOf(UIx.groupSwitch)) == "Platz|Beruf"
   and catTitles() == "Chest,Wrist,Schmuckstücke,Haupthand,Nebenhand,Sonstiges",
   "switch 'Gruppen: Platz' (Platz|Beruf), slot titles in German (Chest and Wrist are the client's own names, absent in the mock): " .. catTitles())

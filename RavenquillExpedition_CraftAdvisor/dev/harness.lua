@@ -127,14 +127,14 @@ do
     and (GCA.UI.errorCount or 0) == 0 and GCA:Diag().lastError == nil,
     "real refresh -> chest section first with the vest row, the 14 others folded into one last line, no reported error ("
     .. shownSecs .. " sections, " .. (fold and #fold.data.secs or 0) .. " folded)")
-  check(GCA.UI.view == "member", "the window opens on 'For guildmates'")
-  GCA.UI:SetView("needs")
+  check(GCA.UI.view == "make" and GCA.UI:Pane().id == "member", "the window opens on 'Craft', by member")
+  GCA.UI:SetView("make", "all")
   local nl = GCA.UI.needsList
-  check(GCA.UI.view == "needs" and nl.data[1] and nl.data[1].rowKind == "cat" and nl.data[1].cat == 5 and nl.data[2] and nl.data[2].group
+  check(GCA.UI:Pane().id == "all" and nl.data[1] and nl.data[1].rowKind == "cat" and nl.data[1].cat == 5 and nl.data[2] and nl.data[2].group
     and nl.data[2].rows[1].member.key == "Buddy Stone"
     and nl.data[2].group.sug == first.data.sec.rows[1] and nl.data[2].group == GCA:GuildNeedsByCraft(GCA.UI.lastMembers)[1]
     and GCA.UI.needDetail.entry == nl.data[2] and GCA.UI.needDetail.members.pools.default[1].data.member.key == "Buddy Stone",
-    "guild needs: 'Chest' category, first craft = Buddy's vest, shown in the detail panel (real Core GuildNeedsByCraft)")
+    "craft for everyone: 'Chest' category, first craft = Buddy's vest, shown in the detail panel (real Core GuildNeedsByCraft)")
   local mrow
   for _, r in ipairs(rawget(GCA.UI.memberList, "pools").default) do if r.data and r.data.key == "Buddy Stone" then mrow = r end end
   local line = mrow and GCA.UI.MemberLine(mrow.data) or ""
@@ -234,29 +234,29 @@ do
     if r.data and r.data.key == "Buddy Stone" then buddyGain = r.gain:GetText() end
   end
   ShowCraftPage()
-  check(tostring(buddyGain):match("^%+%d") and CardTexts() == "My recipes: 1 craft is worth it for 1 member | For guildmates: Buddy Stone gains the most: "
-    .. tostring(buddyGain) .. " | For me: Nobody has shared recipes yet",
+  check(tostring(buddyGain):match("^%+%d") and CardTexts() == "For everyone: 1 craft is worth it for 1 member | By member: Buddy Stone gains the most: "
+    .. tostring(buddyGain) .. " | Get crafted: Nobody has shared recipes yet",
     "/rq craft shows three cards with live text from the real data (Buddy's vest, the gain the member list shows): " .. CardTexts())
   local buddy = GCA.db.members["Buddy Stone"]
   GCA.db.members["Buddy Stone"] = nil
   GCA:StoreCrafter("Buddy Stone", 100, { Leatherworking = { rank = 150, ids = { 2149, 2160 } } })
   ShowCraftPage()
-  check(CardTexts() == "My recipes: Nobody needs anything you can craft right now | For guildmates: None of your crafts is an upgrade for a guildmate yet"
-    .. " | For me: 1 guildmate shares their recipes",
+  check(CardTexts() == "For everyone: Nobody needs anything you can craft right now | By member: None of your crafts is an upgrade for a guildmate yet"
+    .. " | Get crafted: 1 guildmate shares their recipes",
     "Buddy's gear gone and his recipes shared: the cards say so the next time the page is shown: " .. CardTexts())
   GCA.db.members["Buddy Stone"] = buddy
   GCA:ForgetCrafter("Buddy Stone")
   UIx.frame:Hide()
   ClickCard(1)
-  check(UIx.frame:IsShown() and UIx.view == "needs" and rawget(UIx.needsView, "_shown") and not rawget(UIx.memberView, "_shown"),
-    "'Open' on the My recipes card opens the window on the guild needs tab")
+  check(UIx.frame:IsShown() and UIx:Pane().id == "all" and rawget(UIx.needsView, "_shown") and not rawget(UIx.memberView, "_shown"),
+    "'Open' on the For everyone card opens the window on Craft, for everyone")
   ClickCard(3)
-  check(UIx.frame:IsShown() and UIx.view == "crafters" and rawget(UIx.crafterView, "_shown") and not rawget(UIx.needsView, "_shown"),
-    "with the window open, 'Open' on the For me card switches it to the crafters tab")
+  check(UIx.frame:IsShown() and UIx.view == "commission" and rawget(UIx.crafterView, "_shown") and not rawget(UIx.needsView, "_shown"),
+    "with the window open, 'Open' on the Get crafted card switches it to that tab")
   UIx.frame:Hide()
   ClickCard(2)
-  check(UIx.frame:IsShown() and UIx.view == "member" and rawget(UIx.memberView, "_shown") and UIx.selected == "Buddy Stone",
-    "'Open' on the For guildmates card opens the member tab on Buddy, the member the card names")
+  check(UIx.frame:IsShown() and UIx:Pane().id == "member" and rawget(UIx.memberView, "_shown") and UIx.selected == "Buddy Stone",
+    "'Open' on the By member card opens Craft by member on Buddy, the member the card names")
   env.RavenquillExpeditionOverview:Hide()
 end
 do
@@ -274,9 +274,9 @@ do
   check(Line() == "1 guildmate could use your crafts", "/rq home: the Craft row counts the guildmates your crafts would upgrade: " .. tostring(Line()))
   local craftRow = CraftRow()
   if craftRow then rawget(craftRow, "_scripts").OnClick(craftRow) end
-  check(UIx.frame:IsShown() and UIx.view == "needs" and rawget(UIx.needsView, "_shown")
+  check(UIx.frame:IsShown() and UIx:Pane().id == "all" and rawget(UIx.needsView, "_shown")
     and tostring(UIx.needsCount:GetText()):find("for 1 member", 1, true) ~= nil,
-    "clicking it opens the window on My recipes, whose count names the same member: " .. tostring(UIx.needsCount:GetText()))
+    "clicking it opens the window on Craft for everyone, whose count names the same member: " .. tostring(UIx.needsCount:GetText()))
   local buddy = GCA.db.members["Buddy Stone"]
   GCA.db.members["Buddy Stone"] = nil
   check(Line() == "Nobody needs anything you can craft right now", "Buddy's gear gone: the row says so on the next refresh: " .. tostring(Line()))
