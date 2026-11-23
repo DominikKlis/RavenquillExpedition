@@ -7,6 +7,7 @@ H.QUEST_TAGS = { elite = "TAG_ELITE", group = "TAG_GROUP", dungeon = "TAG_DUNGEO
   hard = "TAG_HARD", special = "TAG_SPECIAL", legend = "TAG_LEGEND" }
 
 local function Gold(text) return "|cffffd100" .. text .. "|r" end
+local function Always() return true end
 local function NonEmpty(s, fallback) return (s and s ~= "") and s or fallback end
 
 local function SameKill(self, a, b) return a.enc == b.enc and math.abs(a.t - b.t) <= self.BOSS_SAME end
@@ -28,7 +29,7 @@ end
 
 H.KINDS = {
   gear = {
-    code = "g", legacy = true, chat = true, chatMinQuality = 4, icon = "INV_Chest_Chain_05",
+    code = "g", legacy = true, chat = true, chatMinQuality = 4, icon = "INV_Chest_Chain_05", hidden = Always,
     format = function(self, e)
       local item = self:ItemText(e)
       local quality = e.q or 0
@@ -39,7 +40,7 @@ H.KINDS = {
     end,
   },
   loot = {
-    code = "l", chat = true, icon = "INV_Misc_Bag_08",
+    code = "l", chat = true, icon = "INV_Misc_Bag_08", hidden = function(e) return e.src == "bag" end,
     format = function(self, e)
       local count = (e.n or 1) > 1 and ("x" .. e.n) or ""
       local text = (e.src == "bag" and L.LOOT_GOT) or (e.src == "craft" and L.LOOT_CRAFTED) or (e.src == "quest" and L.LOOT_QUEST)
@@ -65,8 +66,7 @@ H.KINDS = {
     end,
   },
   quest = {
-    code = "q", legacy = true, chat = false, icon = "INV_Misc_Note_01",
-    hidden = function(e) return H.ATTUNEMENT_QUESTS[e.qid] ~= nil end,
+    code = "q", legacy = true, chat = false, icon = "INV_Misc_Note_01", hidden = Always,
     format = function(_, e)
       local title = Gold(e.title or ("#" .. tostring(e.qid)))
       if e.act and not e.tag then return L.QUEST_PLAIN:format(title) end
@@ -86,18 +86,18 @@ H.KINDS = {
     format = function(_, e) return e.epic and L.MOUNT_EPIC or L.MOUNT end,
   },
   rep = {
-    code = "f", chat = true, icon = "INV_Scroll_03",
+    code = "f", chat = true, icon = "INV_Scroll_03", hidden = function(e) return (e.st or 0) < H.REP_MILESTONE end,
     format = function(_, e)
       local standing = Plain(_G["FACTION_STANDING_LABEL" .. tostring(e.st)], "string") or tostring(e.st)
       return L.REP:format(standing, Gold(NonEmpty(e.fac, "?")))
     end,
   },
   skill = {
-    code = "s", chat = false, icon = "Trade_BlackSmithing",
+    code = "s", chat = false, icon = "Trade_BlackSmithing", hidden = function(e) return (e.rank or 0) < H.SKILL_TOP end,
     format = function(_, e) return L.SKILL:format(Gold(NonEmpty(ns.News.LocalName(e.skill, L.LOCALE), "?")), e.rank or 0) end,
   },
   pvp = {
-    code = "p", chat = true, icon = "INV_BannerPVP_02",
+    code = "p", chat = true, icon = "INV_BannerPVP_02", hidden = function(e) return e.pk ~= "rank" end,
     format = function(_, e)
       if e.pk == "rank" then return L.PVP_RANK:format(e.pr or 0, NonEmpty(e.name, "?")) end
       return L.PVP_WIN:format(Gold(NonEmpty(ns.News.LocalName(e.name, L.LOCALE), "?")))
@@ -108,7 +108,7 @@ H.KINDS = {
     format = function(_, e) return L.DUEL:format(NonEmpty(e.foe, "?")) end,
   },
   attune = {
-    code = "a", chat = false, paper = false, icon = "INV_Misc_Key_14", hidden = function() return true end,
+    code = "a", chat = false, icon = "INV_Misc_Key_14", hidden = Always,
     format = function(_, e) return L.ATTUNE:format(Gold(L["RAID_" .. tostring(e.raid)])) end,
   },
   group = {

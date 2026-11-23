@@ -351,7 +351,7 @@ local function FirstUnseen(events)
 end
 
 function H:OpenLog(view)
-  view.firstUnseen = self.db and FirstUnseen(self:Log())
+  view.firstUnseen = self.db and FirstUnseen(self:ShownLog())
   view.opening = true
   self:Refresh()
 end
@@ -523,7 +523,7 @@ end
 
 function H:NewSinceLastLook()
   local n, newest = 0, nil
-  for _, e in ipairs(self:Log()) do
+  for _, e in ipairs(self:ShownLog()) do
     if e.unseen then n, newest = n + 1, e end
   end
   return n, newest

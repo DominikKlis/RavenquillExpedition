@@ -324,7 +324,7 @@ local function Saved(c, events)
   c.env.RavenquillExpeditionHighlightsDB = { v = 3, guilds = { ["Die Gilde@Forever"] = { events = events } } }
 end
 
-local function Heard(c, e)
+local function FromOlder(c, e)
   local body = c.H.Encode(e)
   c.fire("CHAT_MSG_ADDON", "RQE1", "H;" .. body, "GUILD", e.who)
 end
@@ -427,12 +427,12 @@ do
   local heard = Entries(OLD_RULES, at)
   for _, case in ipairs(OLD_RULES) do
     local printed, logged = #lyra.printed, #lyra.H:Log()
-    Heard(lyra, case.entry)
+    FromOlder(lyra, case.entry)
     w.settle(5)
     check(#lyra.H:Log() == logged + 1 and #lyra.printed == printed and lyra.H:NewSinceLastLook() == 0 and #Lines(lyra) == 0,
       case[1] .. " from an older version: logged, but no chat line, no line and nothing new")
   end
-  for _, e in ipairs(Entries(NEW_RULES, at + 3600)) do Heard(lyra, e); heard[#heard + 1] = e end
+  for _, e in ipairs(Entries(NEW_RULES, at + 3600)) do FromOlder(lyra, e); heard[#heard + 1] = e end
   w.settle(5)
   check(#lyra.H:Log() == #heard and lyra.H:NewSinceLastLook() == #NEW_RULES and #Lines(lyra) == #NEW_RULES,
     "what the new rules keep still arrives as a line and counts as new (" .. lyra.H:NewSinceLastLook() .. ")")

@@ -464,13 +464,7 @@ function H:NewsContext()
   return { maxLevel = Plain(SafeCall(GetMaxPlayerLevel), "number"), time = Clock, item = ItemFacts, standing = Standing }
 end
 
-local function NewsWorthy(events)
-  local out = {}
-  for _, e in ipairs(events) do if (H.KINDS[e.k] or {}).paper ~= false and H:Shown(e) then out[#out + 1] = e end end
-  return out
-end
-
-function H:Issues() return News.Days(NewsWorthy(self:Log()), DayOf) end
+function H:Issues() return News.Days(self:ShownLog(), DayOf) end
 
 function H.StoryImage(story)
   local kind = H.KINDS[story.k]

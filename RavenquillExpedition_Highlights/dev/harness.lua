@@ -705,8 +705,8 @@ do
     shown[#shown + 1] = e.k .. (e.q or "") .. "=" .. tostring(H:ShouldPrint(e))
   end
   s.chatAll = chatAll
-  check(table.concat(shown, " ") == "gear3=false gear4=true loot3=true boss=true quest=false level=true other=false",
-    "chat by default: epic gear, loot, boss kills and levels, no quests (" .. table.concat(shown, " ") .. ")")
+  check(table.concat(shown, " ") == "gear3=false gear4=false loot3=true boss=true quest=false level=true other=false",
+    "chat by default: loot, boss kills and levels, no gear and no quests (" .. table.concat(shown, " ") .. ")")
 end
 
 do
@@ -724,7 +724,7 @@ end
 do
   OpenLog(env)
   G.items[309] = { name = "Spätes Schwert", q = 4, il = 50, unloaded = true }
-  recv("Dora Dunn", ("1;g;%d;951;Dora Dunn;33;5;309;50;4;40;16"):format(T()))
+  recv("Dora Dunn", ("1;l;%d;951;Dora Dunn;33;5;309;4;"):format(T()))
   advance(1)
   local waiting = lines[#lines] or ""
   G.items[309].unloaded = nil
@@ -734,7 +734,7 @@ do
   advance(1)
   local arrived = lines[#lines] or ""
   check(waiting:find("[item:309]", 1, true) and quiet == waiting and arrived:find("[Spätes Schwert]", 1, true),
-    "a received item without data shows its id, and its name once the item data arrives (" .. arrived .. ")")
+    "a heard item without data shows its id, and its name once the item data arrives (" .. arrived .. ")")
   local footer = LogPage(env).footer
   G.guild = nil
   H:Refresh()

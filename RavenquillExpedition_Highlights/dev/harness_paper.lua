@@ -27,13 +27,13 @@ local BUSY_DAY = {
   E("boss", "Rika Steinbeck", At(20, 0, 23), { inst = "Dalaran", boss = "Atrexis der Grabritter", enc = 1 }),
   E("boss", "Rika Steinbeck", At(20, 0, 40), { inst = "Dalaran", boss = "Mortis", enc = 2 }),
   E("boss", "Rika Steinbeck", At(20, 1, 16), { inst = "Dalaran", boss = "Schemen des Erzmagiers", enc = 3 }),
-  E("gear", "Hanne Moosgrund", At(20, 2, 49), { item = 5004, q = 3, il = 55, oil = 44, slot = 17 }),
+  E("level", "Hanne Moosgrund", At(20, 2, 49), { lvl = 40 }),
   E("level", "Ole Fichtental", At(20, 1, 5), { lvl = 10 }),
-  E("skill", "Ole Fichtental", At(20, 3, 11), { skill = "Alchemy", rank = 150 }),
-  E("skill", "Ole Fichtental", At(20, 3, 13), { skill = "Leatherworking", rank = 150 }),
-  E("quest", "Mira Sturmfeder", At(20, 9), { qid = 11, title = "Die Köpfe der Bande des Defias-Rudels", tag = "special" }),
+  E("skill", "Ole Fichtental", At(20, 3, 11), { skill = "Alchemy", rank = 300 }),
+  E("skill", "Ole Fichtental", At(20, 3, 13), { skill = "Leatherworking", rank = 300 }),
+  E("rep", "Mira Sturmfeder", At(20, 9), { st = 8, fac = "Die Hydraxianer" }),
   E("mount", "Tamo Eichengrund", At(20, 11), { lvl = 40 }),
-  E("rep", "Bodo Kesselring", At(20, 12), { st = 7, fac = "Argentumdämmerung" }),
+  E("rep", "Bodo Kesselring", At(20, 12), { st = 8, fac = "Argentumdämmerung" }),
 }
 
 local function Busy(name, locale, extra)
