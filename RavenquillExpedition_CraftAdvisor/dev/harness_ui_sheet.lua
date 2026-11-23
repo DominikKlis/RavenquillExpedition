@@ -110,6 +110,12 @@ do
     and plain(c.best.name._text) == "Craft Ring" and c.best.gain._text == "+50 pts" and c.best.points._text == ""
     and c.best._shown and c.arrow._shown, "middle: 'Ring 2 · 1 craftable upgrade', Ring B -> Craft Ring, big '+50 pts' (no size line without a share)")
   check(c.worn.score._text == "1.0 pts" and c.best.score._text == "2.0 pts", "card scores = the comparison's old/new score (as the tooltip)")
+  local onLine = {}
+  for _, card in ipairs({ c.worn, c.best }) do
+    local score, label, name = H.rectOf(card.score, UIx.frame), H.rectOf(card.label, UIx.frame), H.rectOf(card.name, UIx.frame)
+    onLine[#onLine + 1] = score.t == label.t and score.b == label.b and score.l > label.r and score.t >= name.b
+  end
+  check(onLine[1] and onLine[2], "each card's score sits on its 'Equipped' / 'Best craft' line, right of the label, below the item name")
   sh.slots[5]._scripts.OnClick(sh.slots[5])
   check(UIx.sheetSlot == 5 and not UIx.sheetAuto and sh.slots[5].sel._shown and not sh.slots[12].sel._shown and c.featured == s1
     and c.count._text == "2 craftable upgrades" and plain(c.header._text) == "Chest", "slot click: the chest in the middle, highlight moves")
