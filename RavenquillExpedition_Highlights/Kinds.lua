@@ -59,6 +59,8 @@ H.KINDS = {
   },
   run = {
     code = "d", legacy = true, chat = true, icon = "INV_Misc_Key_03",
+    fold = { into = "group", keep = { "inst" },
+      same = function(self, a, b) return a.inst == b.inst and math.abs(a.t - b.t) <= self.RUN_FOLD end },
     format = function(_, e)
       local inst, bosses = Gold(NonEmpty(e.inst, L.AN_INSTANCE)), (e.n or 1) == 1 and L.ONE_BOSS or L.N_BOSSES:format(e.n)
       if e.first then return L.RUN_FIRST:format(inst, bosses) .. (NonEmpty(e.boss) and L.RUN_LAST:format(e.boss) or "") end

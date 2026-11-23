@@ -125,12 +125,71 @@ end
 
 function H:Shown(e)
   local kind = self.KINDS[e.k]
-  return not (kind and kind.hidden and kind.hidden(e))
+  return not (kind and (kind.fold or (kind.hidden and kind.hidden(e))))
+end
+
+local foldLines = setmetatable({}, { __mode = "k" })
+
+local function Among(members, who)
+  for _, m in ipairs(members) do if m.who == who then return true end end
+  return false
+end
+
+local function AnyUnseen(members)
+  for _, m in ipairs(members) do if m.unseen then return true end end
+  return false
+end
+
+local function Join(self, folds, rule, e)
+  for _, f in ipairs(folds) do
+    if f.rule == rule and not Among(f, e.who) and rule.same(self, f[1], e) then
+      f[#f + 1] = e
+      return
+    end
+  end
+  folds[#folds + 1] = { rule = rule, e }
+end
+
+local function FoldLine(f)
+  local first, rule = f[1], f.rule
+  local line = foldLines[first] or {}
+  foldLines[first] = line
+  line.k, line.t, line.id, line.who, line.cls, line.lvl, line.grp = rule.into, first.t, first.id, first.who, first.cls, first.lvl, true
+  for _, key in ipairs(rule.keep) do line[key] = first[key] end
+  line.with = {}
+  for i = 2, #f do line.with[i - 1] = f[i].who end
+  line.unseen = AnyUnseen(f) and not Among(f, GS:PlayerKey()) or nil
+  return line
+end
+
+local function Told(self, line, events)
+  local same = self.KINDS[line.k].same
+  for _, o in ipairs(events) do
+    if o.k == line.k and same(self, o, line) then return true end
+  end
+  return false
+end
+
+local function FoldLines(self, events)
+  local folds, at = {}, {}
+  for _, e in ipairs(events) do
+    local kind = self.KINDS[e.k]
+    if kind and kind.fold then Join(self, folds, kind.fold, e) end
+  end
+  for _, f in ipairs(folds) do
+    local line = f[2] and FoldLine(f)
+    if line and not Told(self, line, events) then at[f[1]] = line end
+  end
+  return at
 end
 
 function H:ShownLog()
-  local out = {}
-  for _, e in ipairs((self:Log())) do if self:Shown(e) then out[#out + 1] = e end end
+  local events = self:Log()
+  local folded, out = FoldLines(self, events), {}
+  for _, e in ipairs(events) do
+    local line = folded[e] or (self:Shown(e) and e)
+    if line then out[#out + 1] = line end
+  end
   return out
 end
 
@@ -180,7 +239,7 @@ local function NewToMe(self, e)
 end
 
 local function Arriving(self, e)
-  if self:Shown(e) and NewToMe(self, e) then e.unseen = true end
+  if NewToMe(self, e) then e.unseen = true end
   if e.grp then self:Supersede(e) end
 end
 

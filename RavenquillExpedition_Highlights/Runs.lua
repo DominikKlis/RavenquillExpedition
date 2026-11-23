@@ -4,6 +4,7 @@ local H = ns.H
 local SafeCall, Plain = GS.SafeCall, GS.Plain
 
 H.RUN_GRACE = 600
+H.RUN_FOLD = 2 * H.RUN_GRACE
 
 local function CurrentInstance()
   local inst, itype = SafeCall(GetInstanceInfo)

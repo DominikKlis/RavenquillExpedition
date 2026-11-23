@@ -375,7 +375,7 @@ do
   Heard(c, E("level", "Bodo Kesselring", At(16, 10), { lvl = 20, cls = "WARRIOR" }))
   Heard(c, E("mount", "Mira Sturmfeder", At(18, 13, 24), { lvl = 40 }))
   Heard(c, E("loot", "Tamo Eichengrund", At(20, 20), { item = 5001, q = 4 }))
-  Heard(c, E("run", "Bodo Kesselring", At(20, 11, 38), { inst = "Zul'Farrak", boss = "Wasserbeschwörerin Velratha", n = 7, nf = 7 }))
+  Heard(c, E("group", "Bodo Kesselring", At(20, 11, 38), { inst = "Zul'Farrak", with = { "Tamo Eichengrund" }, grp = true }))
   check(c.H:OverviewStatus():find("^4 neu"), "four new entries before the paper is opened (" .. c.H:OverviewStatus() .. ")")
   c.H:ShowWindow()
   local f = Frame(c)
