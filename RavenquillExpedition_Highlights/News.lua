@@ -568,21 +568,37 @@ function News.Brief(g, T, ctx, desk, prev)
   return { id = g.id, time = time, clock = News.Fill(T.BRIEF_TIME, { time = time }), text = late and text .. " " .. late or text }
 end
 
+local function Without(groups, a, b)
+  local out = {}
+  for _, g in ipairs(groups) do if g ~= a and g ~= b then out[#out + 1] = g end end
+  return out
+end
+
 local function InBrief(issue, groups, told, T, ctx, desk)
   local shown = {}
-  for i = 3, #groups do
-    if #shown < News.BRIEF_MAX then shown[#shown + 1] = groups[i] else issue.more = issue.more + 1 end
+  for _, g in ipairs(groups) do
+    if #shown < News.BRIEF_MAX then shown[#shown + 1] = g else issue.more = issue.more + 1 end
   end
   table.sort(shown, function(a, b) return Earlier(a.first, b.first) end)
   for i, g in ipairs(shown) do issue.brief[i] = News.Brief(g, T, ctx, not told[g] and desk or nil, not told[shown[i - 1]] and shown[i - 1] or nil) end
 end
 
-function News.Issue(day, T, ctx)
-  local groups, desk, told = News.Groups(day.entries, ctx), News.Desk(T), {}
+local function Ranked(week, day, own, ctx)
+  local all = {}
+  for _, d in ipairs(week) do
+    for _, g in ipairs(d == day and own or News.Groups(d.entries, ctx)) do all[#all + 1] = g end
+  end
+  table.sort(all, Ahead)
+  return all
+end
+
+function News.Issue(day, T, ctx, week)
+  local own, desk, told = News.Groups(day.entries, ctx), News.Desk(T), {}
+  local groups = week and Ranked(week, day, own, ctx) or own
   local issue = { day = day.day, no = day.no, t = day.entries[1] and day.entries[1].t, brief = {}, more = 0, extra = {} }
   issue.lead = groups[1] and News.Story(groups[1], T, ctx, desk, true)
   issue.second = groups[2] and News.Story(groups[2], T, ctx, desk)
   for i = 3, math.min(#groups, 2 + News.EXTRA_MAX) do issue.extra[#issue.extra + 1], told[groups[i]] = News.Story(groups[i], T, ctx, desk), true end
-  InBrief(issue, groups, told, T, ctx, desk)
+  InBrief(issue, Without(own, groups[1], groups[2]), told, T, ctx, desk)
   return issue
 end

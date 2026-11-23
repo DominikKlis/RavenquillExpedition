@@ -152,7 +152,7 @@ do
   entries[#entries + 1] = Raid("Tamo Eichengrund", At(15, 21), "Onyxia", 1084)
   local days = News.Days(entries, News.DayOf)
   local function Edition(day)
-    for i, d in ipairs(days) do if d.day == day then return News.SundayEdition(days, i, DE, Ctx()) end end
+    for i, d in ipairs(days) do if d.day == day then return News.Edition(days, i, DE, Ctx()).week end end
     return "no issue"
   end
   local this, last = Edition("2026-11-22"), Edition("2026-11-15")

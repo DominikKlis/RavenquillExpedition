@@ -535,9 +535,8 @@ end
 
 function H:RenderPaper(f)
   local days = self:Issues()
-  local i, ctx = IssueIndex(days, f.issueDay), self:NewsContext()
-  local issue = days[i] and News.Issue(days[i], T, ctx)
-  if issue then issue.week = News.SundayEdition(days, i, T, ctx) end
+  local i = IssueIndex(days, f.issueDay)
+  local issue = News.Edition(days, i, T, self:NewsContext())
   FillPaper(f.paper, issue)
   if f.fit then f.fit(f) end
   SetNav(f, i, #days, issue)
