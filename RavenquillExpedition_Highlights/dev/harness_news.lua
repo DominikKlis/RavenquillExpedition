@@ -414,32 +414,35 @@ do
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
-Kit.section("Now row: the Rabenblatt card names the latest issue's lead while there is news, and opens the paper")
+Kit.section("Now row: the Rabenblatt card shows the latest issue's lead story while there is news, and opens the paper")
 do
   local function PaperCard(c)
-    for _, row in ipairs(c.H:OverviewNow() or {}) do if row.title == "Rabenblatt" then return row end end
+    for _, row in ipairs(c.H:OverviewNow() or {}) do if (row.kicker or ""):find("^Rabenblatt") then return row end end
   end
-  local c = Client("Lyra Distelbach")
+  local function Textures(_, cl) cl.frameMethods.SetTexture = function(t, path) t._texture = path end end
+  local c = Client("Lyra Distelbach", "deDE", Textures)
   check(PaperCard(c) == nil, "no issue yet: no card")
-  Heard(c, E("mount", "Mira Sturmfeder", At(18, 13, 24), { lvl = 40 }))
+  Heard(c, E("loot", "Tamo Eichengrund", At(20, 20), { item = 5001, q = 4 }))
   local row = PaperCard(c)
   if row then row.open() end
-  local head = Frame(c).paper.lead.head:GetText()
-  check(row and row.line == "Zuletzt im Rabenblatt: " .. head and row.action == "Lesen" and Frame(c):IsShown(),
-    "news in an older issue: 'Zuletzt im Rabenblatt' with its lead headline, and 'Lesen' opens the paper (" .. tostring(row and row.line) .. ")")
+  local lead = Frame(c) and Frame(c).paper.lead
+  local section = row and row.kicker:match("^Rabenblatt · (.+)$")
+  check(row and Frame(c):IsShown() and row.title == lead.head:GetText() and section and c.H.Upper(section) == lead.kicker:GetText(),
+    "the card carries the lead's headline as its title and 'Rabenblatt · <section>' above it, and opens the paper ("
+    .. tostring(row and row.kicker) .. " / " .. tostring(row and row.title) .. ")")
+  check(row and row.icon == 135274 and row.icon == lead.photo.icon._texture and row.line == nil and row.action == nil,
+    "its image is the lead story's picture (the blade), not the newspaper icon; no line under it and no 'Lesen'")
   Frame(c):Hide()
   check(PaperCard(c) == nil, "once the paper is read the card goes away")
-  Heard(c, E("loot", "Tamo Eichengrund", At(20, 20), { item = 5001, q = 4 }))
+  Heard(c, E("mount", "Mira Sturmfeder", At(20, 21), { lvl = 40 }))
   row = PaperCard(c)
   if row then row.open() end
-  head = Frame(c).paper.lead.head:GetText()
-  check(row and row.line == "Heute im Rabenblatt: " .. head and Frame(c):IsShown(),
-    "news today: today's lead headline, and the card opens today's paper (" .. tostring(row and row.line) .. ")")
+  check(row and row.title == Frame(c).paper.lead.head:GetText(), "news again: the card is back with the lead of the day")
   Frame(c):Hide()
   local en = Client("Mira Sturmfeder", "enUS")
   Heard(en, E("loot", "Tamo Eichengrund", At(20, 20), { item = 5001, q = 4 }))
   row = PaperCard(en)
-  check(row and row.line:find("^Today in the Rabenblatt: ") and row.action == "Read", "English: " .. tostring(row and row.line))
+  check(row and row.kicker:find("^Rabenblatt · %S") and row.title ~= "", "English: " .. tostring(row and row.kicker))
   check(#c.errors == 0 and #en.errors == 0, "no Lua errors (" .. tostring(c.errors[1] or en.errors[1]) .. ")")
 end
 
@@ -464,7 +467,7 @@ do
   local function PaperCard(c)
     c.RQ:ShowHome()
     for _, card in ipairs(c.env.RavenquillExpeditionOverview.home.now.items) do
-      if rawget(card, "_shown") and card.title:GetText() == "Rabenblatt" then return card end
+      if rawget(card, "_shown") and (card.kicker:GetText() or ""):find("^Rabenblatt · ") then return card end
     end
   end
   local c = Client("Lyra Distelbach")
@@ -475,10 +478,10 @@ do
   check(head.line == "2 neue seit deinem letzten Blick · zuletzt Rika Steinbeck",
     "two entries heard since the last look: the headline counts them and names the newest: " .. tostring(head.line))
   local card = PaperCard(c)
-  check(card ~= nil and Line(c) == nil and card.open:GetText() == "Lesen",
-    "with news the home shows the Rabenblatt card in 'Jetzt in der Gilde' instead of the module rows")
-  if card then Click(card.open) end
-  check(PaperShown(c) and not ChronicleShown(c), "and its 'Lesen' opens the Rabenblatt")
+  check(card ~= nil and Line(c) == nil and card.open == nil and (card.title:GetText() or "") ~= "",
+    "with news the home shows the Rabenblatt card, without a 'Lesen' button, in 'Jetzt in der Gilde' instead of the module rows")
+  if card then Click(card) end
+  check(PaperShown(c) and not ChronicleShown(c), "and a click anywhere on the card opens the Rabenblatt")
   if Frame(c) then Frame(c):Hide() end
   check(PaperCard(c) == nil and Line(c) == "Nichts Neues · zuletzt Rika Steinbeck",
     "once read, the card is gone and the module row says nothing is new: " .. tostring(Line(c)))

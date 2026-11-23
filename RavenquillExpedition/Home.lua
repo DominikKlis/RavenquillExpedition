@@ -7,7 +7,7 @@ local Text = ns.Text
 local WIDE_CARD = "Profession-overview-Card"
 local SIZE = { edge = 24, top = 41, header = 62, footer = 62, pad = 20, gap = 14, bottom = 10 }
 local SECTION = { title = 20, below = 6, after = 10 }
-local NOW_CARD = { height = 44, gap = 6, icon = 32, inset = 10, button = 104 }
+local NOW_CARD = { height = 44, gap = 6, icon = 32, inset = 10 }
 local NOW_MAX, FEED_MAX, MIN_ROWS = 2, 5, 3
 
 local function BuildHeader(home)
@@ -70,7 +70,7 @@ local function BuildBook(home, body)
   home.goal = ns.BuildGoalSection(book, function() SetMode(home, "pick") end)
   home.goal:SetPoint("TOPLEFT", SIZE.pad, -SIZE.gap)
   home.goal:SetPoint("RIGHT", book, "RIGHT", -SIZE.pad - 4, 0)
-  home.now = Section(book, ns.EntryCards(book, NOW_CARD))
+  home.now = Section(book, ns.NowCards(book, NOW_CARD))
   home.list = Section(book, ns.EntryRows(book))
   home.online = Section(book, ns.RosterRows(book))
   home.feeds = {}

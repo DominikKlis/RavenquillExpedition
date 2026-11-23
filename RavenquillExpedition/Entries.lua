@@ -22,7 +22,7 @@ function ns.Entries(raw, icon)
     local title = type(e) == "table" and Plain(e.title, "string")
     if title then
       out[#out + 1] = { title = title, line = Plain(e.line, "string") or "", icon = Texture(e.icon) or icon, open = Opener(e.open),
-        action = Plain(e.action, "string"), ends = Plain(e.ends, "number") }
+        action = Plain(e.action, "string"), ends = Plain(e.ends, "number"), kicker = Plain(e.kicker, "string") }
     end
   end
   return out
@@ -76,6 +76,48 @@ function Card.Fill(card, e)
   card.open.entry = e
   card.open:SetText(e.action or L.OPEN)
   card.open:SetShown(e.open ~= nil)
+end
+
+local NowCard = { Step = Card.Step }
+
+function NowCard.New(list, i)
+  local size = list.size
+  local card = CreateFrame("Button", nil, list, "BackdropTemplate")
+  card:SetHeight(size.height)
+  card:SetPoint("TOPLEFT", 0, -(i - 1) * NowCard.Step(list))
+  card:SetPoint("RIGHT", list, "RIGHT", 0, 0)
+  Backdrop(card)
+  card.hover = card:CreateTexture(nil, "HIGHLIGHT")
+  card.hover:SetAllPoints()
+  card.hover:SetColorTexture(ns.GOLD[1], ns.GOLD[2], ns.GOLD[3], 0.1)
+  card.icon = ns.Icon(card, size.icon)
+  card.icon:SetPoint("LEFT", size.inset, 0)
+  card.more = ns.Text(card, "GameFontNormalLarge", "RIGHT")
+  card.more:SetPoint("RIGHT", -size.inset, 0)
+  card.more:SetText(ROW.more)
+  card.kicker = ns.Text(card, "GameFontDisableSmall")
+  card.kicker:SetPoint("BOTTOMLEFT", card.icon, "RIGHT", size.inset, 2)
+  card.kicker:SetPoint("RIGHT", card.more, "LEFT", -size.inset, 0)
+  card.title = ns.Text(card, "GameFontNormalLarge")
+  card.title:SetMaxLines(1)
+  card.line = ns.Text(card, "GameFontHighlight")
+  card.line:SetPoint("TOPLEFT", card.icon, "RIGHT", size.inset, -3)
+  card.line:SetPoint("RIGHT", card.more, "LEFT", -size.inset, 0)
+  card.line:SetMaxLines(1)
+  card.inset = size.inset
+  card:SetScript("OnClick", function(self) GS:Call(self.entry and self.entry.open, self) end)
+  return card
+end
+
+function NowCard.Fill(card, e)
+  card.icon:SetTexture(e.icon)
+  card.kicker:SetText(e.kicker or "")
+  card.title:SetText(e.title)
+  card.line:SetText(e.kicker and "" or e.line)
+  card.title:ClearAllPoints()
+  if e.kicker then card.title:SetPoint("TOPLEFT", card.icon, "RIGHT", card.inset, -1)
+  else card.title:SetPoint("BOTTOMLEFT", card.icon, "RIGHT", card.inset, 1) end
+  card.title:SetPoint("RIGHT", card.more, "LEFT", -card.inset, 0)
 end
 
 local Row = {}
@@ -227,6 +269,7 @@ local function EntryList(parent, style, size)
 end
 
 function ns.EntryCards(parent, size) return EntryList(parent, Card, size or CARD) end
+function ns.NowCards(parent, size) return EntryList(parent, NowCard, size) end
 function ns.EntryRows(parent) return EntryList(parent, Row) end
 function ns.FeedRows(parent) return EntryList(parent, Feed) end
 function ns.RosterRows(parent) return EntryList(parent, Roster) end

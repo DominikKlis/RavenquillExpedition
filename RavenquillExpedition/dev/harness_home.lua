@@ -56,7 +56,11 @@ local function Items(list, text)
   return table.concat(out, " | ")
 end
 local function Cards(home)
-  return Items(home.now, function(card) return card.title:GetText() .. ": " .. card.line:GetText() .. " [" .. card.open:GetText() .. "]" end)
+  return Items(home.now, function(card)
+    local parts = {}
+    for _, fs in ipairs({ card.kicker, card.title, card.line }) do if (fs:GetText() or "") ~= "" then parts[#parts + 1] = fs:GetText() end end
+    return table.concat(parts, " / ")
+  end)
 end
 local function Rows(home) return Items(home.list, function(row) return row.title:GetText() .. ": " .. row.line:GetText() end) end
 local function Online(home)
@@ -183,36 +187,46 @@ do
   hanneMods.board.GoalProgress = nil
 end
 
-section("Home: 'Jetzt in der Gilde' lists what modules offer to do now, one action each")
+section("Home: 'Jetzt in der Gilde' lists what modules offer to do now, each card opened by a click on it")
 do
   local now, opened, line = hanne.RQ:Now(), {}, "2 Aushänge für dich"
   function hanneMods.board:OverviewNow()
-    return { { title = "Anschlagbrett", line = line, action = "Lesen", open = function(b) opened[#opened + 1] = { "Brett", b } end },
-      { title = "Ohne Knopf", line = "nichts zu tun" } }
+    return { { title = "Anschlagbrett", line = line, open = function(b) opened[#opened + 1] = { "Brett", b } end },
+      { title = "Ohne Ziel", line = "nichts zu tun" } }
   end
   function hanneMods.coach:OverviewNow()
-    return { { title = "Postkutsche", line = "fährt in 5 min", action = "Einsteigen", ends = now + 300,
+    return { { title = "Postkutsche", line = "fährt in 5 min", ends = now + 300,
       open = function() opened[#opened + 1] = { "Kutsche" } end } }
   end
   local home = Home(hanne)
-  check(Cards(home) == "Postkutsche: fährt in 5 min [Einsteigen] | Anschlagbrett: 2 Aushänge für dich [Lesen]"
+  check(Cards(home) == "Postkutsche / fährt in 5 min | Anschlagbrett / 2 Aushänge für dich"
     and Shown(home.now) and not Shown(home.list),
-    "each module's rows are cards with their one action; what ends soonest comes first; rows without an action are left out: "
+    "each module's rows are cards, title over line; what ends soonest comes first; rows with nothing to open are left out: "
     .. Cards(home))
   local card = home.now.items[2]
-  Click(card.open)
-  check(#opened == 1 and opened[1][1] == "Brett" and opened[1][2] == card.open,
-    "the card's button runs the row's open, handing it the button (to anchor a menu)")
+  check(card.open == nil and Shown(card.more) and card.more:GetText() == "›", "a card has no button, only a '›' on the right")
+  Click(card)
+  check(#opened == 1 and opened[1][1] == "Brett" and opened[1][2] == card,
+    "a click anywhere on the card runs the row's open, handing it the card (to anchor a menu)")
   line = "3 Aushänge für dich"
   home = Home(hanne)
-  check(Cards(home):find("Anschlagbrett: 3 Aushänge für dich [Lesen]", 1, true), "the rows are read anew on each refresh")
+  check(Cards(home):find("Anschlagbrett / 3 Aushänge für dich", 1, true), "the rows are read anew on each refresh")
+  function hanneMods.coach:OverviewNow()
+    return { { kicker = "Postkutsche · Fahrplan", title = "Die Kutsche nach Sturmwind fährt", line = "nicht gezeigt",
+      icon = "Interface\\Icons\\INV_Misc_Note_01", ends = now + 60, open = function() end } }
+  end
+  home = Home(hanne)
+  card = home.now.items[1]
+  check(Cards(home):find("^Postkutsche · Fahrplan / Die Kutsche nach Sturmwind fährt | ")
+    and card.icon._file == "Interface\\Icons\\INV_Misc_Note_01",
+    "a row with a kicker shows it with its title and the row's own image, without the line: " .. Cards(home))
   function hanneMods.coach:OverviewNow()
     local out = {}
-    for i = 1, 7 do out[i] = { title = "Kutsche " .. i, line = "Halt " .. i, action = "Einsteigen", ends = now + i, open = function() end } end
+    for i = 1, 7 do out[i] = { title = "Kutsche " .. i, line = "Halt " .. i, ends = now + i, open = function() end } end
     return out
   end
   home = Home(hanne)
-  local shown = select(2, Cards(home):gsub("%[", ""))
+  local shown = select(2, Cards(home):gsub("Halt ", ""))
   check(shown == 2 and Headings(home) == "Jetzt in der Gilde | Neu am Brett | Gerade online",
     "at most two cards, so the feed and the online list keep their room: " .. shown .. " cards; " .. Headings(home))
   check(select(2, Feed(home.feeds.Board):gsub("»", "")) == 3 and select(2, Online(home):gsub(" | ", "")) == 2,
@@ -220,7 +234,7 @@ do
   function hanneMods.coach:OverviewNow() error("Kutsche kaputt") end
   local errorsBefore = #hanne.errors
   home = Home(hanne)
-  check(Cards(home) == "Anschlagbrett: 3 Aushänge für dich [Lesen]" and #hanne.errors == errorsBefore + 1,
+  check(Cards(home) == "Anschlagbrett / 3 Aushänge für dich" and #hanne.errors == errorsBefore + 1,
     "a failing hook reaches BugSack and the other modules' rows stay: " .. Cards(home))
   hanne.errors[#hanne.errors] = nil
   function hanneMods.board:OverviewNow() return {} end

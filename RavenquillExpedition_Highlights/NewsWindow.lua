@@ -472,15 +472,15 @@ end
 
 function H:Issues() return News.Days(NewsWorthy(self:Log()), DayOf) end
 
+function H.StoryImage(story)
+  local kind = H.KINDS[story.k]
+  return story.icon or (kind and ("Interface\\Icons\\" .. kind.icon)) or H.FALLBACK_ICON
+end
+
 local FillPaper
 do
-  local function KindIcon(k)
-    local kind = H.KINDS[k]
-    return kind and ("Interface\\Icons\\" .. kind.icon) or H.FALLBACK_ICON
-  end
-
   local function SetPhoto(photo, story)
-    if photo.icon:SetTexture(story.icon or KindIcon(story.k)) == false then photo.icon:SetTexture(H.FALLBACK_ICON) end
+    if photo.icon:SetTexture(H.StoryImage(story)) == false then photo.icon:SetTexture(H.FALLBACK_ICON) end
     photo.text = story.caption
   end
 
@@ -549,17 +549,10 @@ function H:RenderPaper(f)
   SetNav(f, i, #days, issue)
 end
 
-local function PaperLineText(today, now)
-  if not today then return T.TEASER_LAST end
-  return News.Sunday(now) and T.NOW_SUNDAY or T.TEASER_TODAY
-end
-
-function H:PaperLine()
+function H:PaperLead()
   local days = self:Issues()
   local last = days[#days]
-  if not last then return nil end
-  local issue, now = News.Issue(last, T, self:NewsContext()), GS:Now()
-  return News.Fill(PaperLineText(last.day == DayOf(now), now), { head = issue.lead.head })
+  return last and News.Issue(last, T, self:NewsContext()).lead
 end
 
 function H:StepIssue(f, delta)

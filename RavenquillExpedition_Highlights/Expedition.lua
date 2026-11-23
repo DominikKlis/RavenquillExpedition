@@ -65,14 +65,14 @@ local function ReadinessRow(self)
   local i = Column(model, goal.raid)
   local line = i and ReadinessLine(model, goal.raid, i)
   if not line then return nil end
-  return { icon = H.RAID_ICON, title = L.VIEW_RAID, line = line, action = L.NOW_VIEW,
-    open = function() self:ShowRaid(goal.raid) end }
+  return { icon = H.RAID_ICON, title = L.VIEW_RAID, line = line, open = function() self:ShowRaid(goal.raid) end }
 end
 
 local function PaperRow(self)
-  local line = self:NewSinceLastLook() > 0 and self:PaperLine()
-  if not line then return nil end
-  return { title = T.MASTHEAD, line = line, action = L.NOW_READ, open = function() self:ShowWindow() end }
+  local lead = self:NewSinceLastLook() > 0 and self:PaperLead()
+  if not lead then return nil end
+  local section = lead.kicker and lead.kicker ~= "" and T.MASTHEAD .. " · " .. lead.kicker or T.MASTHEAD
+  return { icon = H.StoryImage(lead), kicker = section, title = lead.head, open = function() self:ShowWindow() end }
 end
 
 function H:OverviewFeed(max)

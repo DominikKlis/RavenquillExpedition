@@ -116,8 +116,9 @@ do
   ole.RQ:SetGoal({ kind = "raid", raid = "mc" })
   w.sched:advance(10)
   local row = Row(lyra, "Raidbereitschaft")
-  check(row and row.line == "Dir fehlt noch: Kernfragment aus den Schwarzfelstiefen" and row.action == "Ansehen",
-    "a Molten Core goal: the row tells Lyra the step she still needs: " .. tostring(row and row.line))
+  check(row and row.line == "Dir fehlt noch: Kernfragment aus den Schwarzfelstiefen" and row.action == nil
+    and row.icon == "Interface\\Icons\\INV_Misc_Key_14",
+    "a Molten Core goal: the row, with the key, tells Lyra the step she still needs: " .. tostring(row and row.line))
   check(Row(hanne, "Raidbereitschaft") == nil, "Hanne, below raid level, gets no readiness row")
   if row then row.open() end
   local opt = lyra.env.RavenquillExpeditionOverview.optView
@@ -139,9 +140,10 @@ do
   w.sched:advance(10)
   check(Row(lyra, "Raidbereitschaft") == nil, "Zul'Gurub needs no attunement, so no row")
   Heard(lyra, E("loot", "Rika Steinbeck", At(22, 17), { item = 5001, q = 4 }))
-  row = Row(lyra, "Rabenblatt")
-  check(row and row.line:find("^Sonntagsausgabe: ") and row.action == "Lesen",
-    "on Sunday, news makes the Rabenblatt row point at the Sunday edition: " .. tostring(row and row.line))
+  local paper
+  for _, r in ipairs(lyra.H:OverviewNow() or {}) do if (r.kicker or ""):find("^Rabenblatt · ") then paper = r end end
+  check(paper and paper.title ~= "" and paper.action == nil,
+    "news brings the Rabenblatt card next to the goal's rows: " .. tostring(paper and paper.kicker))
   check(#lyra.errors + #ole.errors == 0, "no Lua errors (" .. tostring(lyra.errors[1] or ole.errors[1]) .. ")")
 end
 
