@@ -110,6 +110,12 @@ end
 local function OfKind(k) return function(e) return e.k == k end end
 local function Sent(w, code) return w.bus:count(function(m) return m.msg:find("^H;1;" .. code .. ";") ~= nil end) end
 local function Lines(c) return (c.H:LogLines()) end
+local DUNGEON = { run = true, group = true, visit = true }
+local function DungeonLines(c)
+  local out = {}
+  for _, e in ipairs(c.H:ShownLog()) do if DUNGEON[e.k] then out[#out + 1] = c.H:Format(e) end end
+  return out
+end
 local function PaperEntries(c)
   local out = {}
   for _, day in ipairs(c.H:Issues()) do for _, e in ipairs(day.entries) do out[#out + 1] = e end end
@@ -205,13 +211,13 @@ do
   w.settle(ole.H.RUN_GRACE + 600)
   check(Sent(w, "o") == 1, "Hanne and Tamo leave later and send nothing: one message for the run (" .. Sent(w, "o") .. ")")
   local lines = {}
-  for _, c in ipairs({ lyra, ole, hanne, tamo }) do lines[#lines + 1] = Count(Lines(c), OfKind("group")) end
-  check(table.concat(lines, ",") == "1,1,1,1", "every chronicle has exactly one line for it (" .. table.concat(lines, ",") .. ")")
-  local e = lyra.H:Log()[#lyra.H:Log()]
-  local text = lyra.H:Format(e)
+  for _, c in ipairs({ lyra, ole, hanne, tamo }) do lines[#lines + 1] = #DungeonLines(c) end
+  check(table.concat(lines, ",") == "1,1,1,1", "every chronicle has exactly one line for it, the three first runs included ("
+    .. table.concat(lines, ",") .. ")")
+  local text = DungeonLines(lyra)[1] or ""
   check(text:find("Ole Fichtental", 1, true) and text:find("Hanne Moosgrund", 1, true) and text:find("Tamo Eichengrund", 1, true)
-    and text:find("Die Todesminen|r geschafft", 1, true) and not text:find("Boss", 1, true),
-    "the line names all three and the dungeon, without a boss count: " .. text)
+    and text:find("Die Todesminen|r zum ersten Mal geschafft", 1, true) and not text:find("Boss", 1, true),
+    "the line names all three and the dungeon, new to all of them, without a boss count: " .. text)
   check(lyra.H:NewSinceLastLook() == 1 and hanne.H:NewSinceLastLook() == 0 and tamo.H:NewSinceLastLook() == 0,
     "it is new to Lyra, who was not there, and not to the ones who were")
   check(select(1, lyra.H:GoalProgress(lyra.RQ:Goal())) == 1, "the weekly runs goal counts the run once")
@@ -221,16 +227,75 @@ do
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
-section("Guild group: a run without guildmates is no line and no message")
+local function Through(w, party, place, kills)
+  w.group(party)
+  w.go(party, place)
+  for i, kill in ipairs(kills) do
+    if i > 1 then w.settle(240) end
+    w.kill(party, kill[1], kill[2])
+  end
+  w.go(party, TOWN)
+  w.settle(1200)
+end
+
+local DEADMINES_BOSSES = { { 1143, "Rhahk'Zor" }, { 1144, "Edwin VanCleef" } }
+
+local RUN_OF_0_10_0 = { { "t", "int", 1, 4102444800 }, { "seq", "word", 5 }, { "who", "key" }, { "lvl", "int", 1, 200, opt = true },
+  { "cls", "int", 0, 99 }, { "first", "flag" }, { "n", "int", 1, 99 }, { "nf", "int", 1, 99 }, { "boss", "text", 48 },
+  { "inst", "text", 48 } }
+
+local function ReadBy010(w, c)
+  local ch = setmetatable({ tag = "H", version = 1, types = {} }, c.coreNs.Channel)
+  ch:Define("d", { from = "guild", fields = RUN_OF_0_10_0 })
+  for _, m in ipairs(w.bus.log) do
+    if m.msg:find("^H;1;d;") then return ch:Decode(m.sender, m.msg:sub(3)) end
+  end
+end
+
+section("Erster Abschluss: a first run through a dungeon is one line, with strangers too; the next run there is none")
 do
   local w = World()
-  local ole = w.join("Ole Fichtental")
+  local lyra, ole = w.join("Lyra Distelbach"), w.join("Ole Fichtental")
   w.start()
-  w.go({ ole }, DEADMINES)
-  w.kill({ ole }, 1144, "Edwin VanCleef")
-  w.go({ ole }, TOWN)
-  w.settle(ole.H.RUN_GRACE + 300)
-  check(Sent(w, "o") == 0 and Count(ole.H:Log(), OfKind("group")) == 0, "a solo run is no line and no message")
+  lyra.H:Settings().chat = true
+  local printed = #lyra.printed
+  Through(w, { ole, "Rando Pug" }, DEADMINES, DEADMINES_BOSSES)
+  local lines = DungeonLines(lyra)
+  check(Sent(w, "d") == 1 and Sent(w, "o") == 0, "Ole's first Deadmines goes to the guild once, as no guild group ("
+    .. Sent(w, "d") .. " d, " .. Sent(w, "o") .. " o)")
+  check(#lines == 1 and lines[1]:find("Ole Fichtental  ·  |cffffd100Die Todesminen|r zum ersten Mal geschafft", 1, true),
+    "Lyra's Chronik has one line for it: " .. tostring(lines[1]))
+  check(#DungeonLines(ole) == 1 and lyra.H:NewSinceLastLook() == 1 and #lyra.printed == printed + 1,
+    "Ole's own Chronik has it too; for Lyra it is new and one chat line")
+  check(Story(lyra).k == "run", "the Rabenblatt tells it: " .. tostring(Story(lyra).head))
+  local code, m = ReadBy010(w, lyra)
+  check(code == "d" and m.first and m.n == 2 and m.nf == 2 and m.inst == "Die Todesminen" and m.boss == "Edwin VanCleef",
+    "a guildmate on 0.10.0 reads the message as the first run it knows, two bosses, last Edwin VanCleef")
+  Through(w, { ole, "Rando Pug" }, DEADMINES, { { 1144, "Edwin VanCleef" } })
+  check(Sent(w, "d") == 1 and #DungeonLines(lyra) == 1 and #DungeonLines(ole) == 1, "the next run there is no line and no message")
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
+section("Erster Abschluss: a guild group run that is a first for one member is one line, the group's, naming who was new")
+do
+  local w = World()
+  local lyra = w.join("Lyra Distelbach")
+  local ole, hanne = w.join("Ole Fichtental"), w.join("Hanne Moosgrund")
+  w.start()
+  Through(w, { ole }, DEADMINES, DEADMINES_BOSSES)
+  local before = {}
+  for _, c in ipairs({ lyra, ole, hanne }) do before[c] = #DungeonLines(c) end
+  Through(w, { ole, hanne }, DEADMINES, DEADMINES_BOSSES)
+  check(Sent(w, "o") == 1 and Sent(w, "d") == 2,
+    "the group is reported once, Hanne's first run goes out on its own (" .. Sent(w, "o") .. " o, " .. Sent(w, "d") .. " d)")
+  for _, c in ipairs({ lyra, ole, hanne }) do
+    local lines = DungeonLines(c)
+    check(#lines == before[c] + 1 and lines[#lines]:find("|cffffd100Die Todesminen|r geschafft, für Hanne Moosgrund zum ersten Mal", 1, true)
+      and lines[#lines]:find("Ole Fichtental", 1, true), c.name .. ": one more line, the group's, with Hanne's first: " .. tostring(lines[#lines]))
+  end
+  check(DungeonLines(lyra)[1]:find("Ole Fichtental  ·  |cffffd100Die Todesminen|r zum ersten Mal geschafft", 1, true),
+    "Ole's own first run there, half an hour before, keeps its line: " .. tostring(DungeonLines(lyra)[1]))
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
 section("Raid clear: when the last boss falls, one line for the raid, without a boss count, sent once")
@@ -362,10 +427,7 @@ local OLD_RULES = {
   { "a battleground win", "pvp", "Bodo Kesselring", { pk = "win", name = "Warsong Gulch" } },
   { "an epic by mail, trade or auction", "loot", "Rika Steinbeck", { item = 5002, q = 4, src = "bag" } },
   { "a dungeon boss kill", "boss", "Ole Fichtental", { enc = 4, boss = "Hochinquisitor Weißsträhne", inst = "Scharlachrotes Kloster" } },
-  { "a dungeon boss's first kill from before 0.10.0", "boss", "Hanne Moosgrund",
-    { enc = 596, boss = "Theka der Märtyrer", inst = "Zul'Farrak", first = true } },
-  { "a dungeon boss's first kill in English from before 0.10.0", "boss", "Tamo Eichengrund",
-    { enc = 427, boss = "Tinkerer Gizlock", inst = "Maraudon", first = true } },
+  { "a repeat run through a dungeon", "run", "Tamo Eichengrund", { inst = "Gnomeregan", boss = "Mekgineer Thermaplugg", n = 5, nf = 2 } },
 }
 
 local NEW_RULES = {
@@ -379,6 +441,7 @@ local NEW_RULES = {
   { "a world boss's first kill", "boss", "Kael Wintermoor", { enc = 1100, boss = "Azuregos", inst = "Azshara", first = true } },
   { "a world boss's first kill by its encounter", "boss", "Bodo Kesselring",
     { enc = 3026, boss = "Lord Kazzak", inst = "Verwüstete Lande", first = true } },
+  { "a first run through a dungeon", "run", "Tamo Eichengrund", { inst = "Uldaman", boss = "Archaedas", n = 7, nf = 7, first = true } },
 }
 
 local function Entries(cases, at)
@@ -453,37 +516,82 @@ local function GroupLines(c)
   return out
 end
 
-section("Old dungeon runs: three guildmates' saved run entries from one dungeon are one Gildengruppe line; a lone run is none")
+section("Old dungeon runs: a saved first run is a line; guildmates within twenty minutes are one Gildengruppe line naming who was new")
 do
   local w = World()
   local lyra = w.join("Lyra Distelbach")
   Members(w)
-  local function Run(who, t, inst, n) return Old("run", who, t, { inst = inst, boss = "Edwin VanCleef", n = n, nf = n, first = true }) end
+  local function Run(who, t, inst, n, first)
+    return Old("run", who, t, { inst = inst, boss = "Edwin VanCleef", n = n, nf = first and n or 1, first = first or nil })
+  end
   local saved = {
-    Run("Mira Sturmfeder", At(20, 10, 5), "Die Todesminen", 5),
+    Run("Mira Sturmfeder", At(20, 10, 5), "Die Todesminen", 5, true),
     Run("Bodo Kesselring", At(20, 15, 10), "Uldaman", 7),
-    Run("Ole Fichtental", At(20, 18, 40), "Die Todesminen", 5),
+    Run("Ole Fichtental", At(20, 18, 40), "Die Todesminen", 5, true),
     Run("Hanne Moosgrund", At(20, 18, 43), "Die Todesminen", 5),
-    Run("Tamo Eichengrund", At(20, 18, 51), "Die Todesminen", 4),
+    Run("Tamo Eichengrund", At(20, 18, 51), "Die Todesminen", 4, true),
     Run("Kael Wintermoor", At(20, 19, 5), "Die Todesminen", 3),
   }
   Saved(lyra, saved)
   w.start()
-  local groups = GroupLines(lyra)
-  check(#groups == 1 and Count(Lines(lyra), OfKind("run")) == 0, "one guild group line and no run line in the Chronik ("
-    .. #groups .. " group, " .. Count(Lines(lyra), OfKind("run")) .. " run)")
-  check(groups[1] and groups[1]:find("Ole Fichtental, Hanne Moosgrund und Tamo Eichengrund  ·  |cffffd100Die Todesminen|r geschafft", 1, true)
-    and not groups[1]:find("Boss", 1, true), "the three who finished within twenty minutes, by the new group line, without a boss count: "
-    .. tostring(groups[1]))
-  check(not Holds(groups, "Uldaman") and not Holds(groups, "Mira Sturmfeder") and not Holds(groups, "Kael Wintermoor"),
-    "Bodo's lone Uldaman, Mira's run that morning and Kael's 25 minutes later are no line")
-  check(Count(PaperEntries(lyra), OfKind("group")) == 1 and Count(PaperEntries(lyra), OfKind("run")) == 0 and Story(lyra).k == "group",
-    "the Rabenblatt tells it as one guild group story (" .. tostring(Story(lyra).head) .. ")")
+  local lines = DungeonLines(lyra)
+  check(#lines == 2, "two lines in the Chronik: " .. table.concat(lines, " / "))
+  check(lines[1] and lines[1]:find("Mira Sturmfeder  ·  |cffffd100Die Todesminen|r zum ersten Mal geschafft", 1, true),
+    "Mira's first run that morning, with strangers, is her own line: " .. tostring(lines[1]))
+  check(lines[2] and lines[2]:find("Ole Fichtental, Hanne Moosgrund und Tamo Eichengrund  ·  |cffffd100Die Todesminen|r geschafft, "
+    .. "für Ole Fichtental und Tamo Eichengrund zum ersten Mal", 1, true) and not lines[2]:find("Boss", 1, true),
+    "the three who finished within twenty minutes are one group line that names the two who were new, without a boss count: "
+    .. tostring(lines[2]))
+  check(not Holds(lines, "Uldaman") and not Holds(lines, "Kael Wintermoor"), "Bodo's repeat Uldaman and Kael's repeat run are no line")
+  check(Count(PaperEntries(lyra), OfKind("group")) == 1 and Count(PaperEntries(lyra), OfKind("run")) == 1 and Story(lyra).k == "group",
+    "the Rabenblatt leads with the guild group, Mira's first run is in it too (" .. tostring(Story(lyra).head) .. ")")
   local feed = FeedTexts(lyra)
-  check(#feed == 1 and feed[1] == lyra.H:Format(Lines(lyra)[1]), "the home feed has the one line")
-  check(lyra.H:NewSinceLastLook() == 1 and lyra.H:OverviewStatus():find("^1 neu · 1 Einträge · "),
-    "it counts as one new entry: " .. lyra.H:OverviewStatus())
+  check(#feed == 2 and feed[1] == lines[2] and feed[2] == lines[1], "the home feed has the two lines, newest first")
+  check(lyra.H:NewSinceLastLook() == 2 and lyra.H:OverviewStatus():find("^2 neu · 2 Einträge · "),
+    "they count as two new entries: " .. lyra.H:OverviewStatus())
   check(#lyra.H:Log() == #saved, "the saved log still holds the six run entries")
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
+section("Old dungeon first kills: one line per person and dungeon, saying how many bosses; it yields to a run or group line there")
+do
+  local w = World()
+  local lyra = w.join("Lyra Distelbach")
+  Members(w)
+  local function Kill(who, t, inst, enc, boss) return Old("boss", who, t, { enc = enc, boss = boss, inst = inst, first = true }) end
+  local saved = {
+    Kill("Hanne Moosgrund", At(19, 21, 0), "Zul'Farrak", 596, "Theka der Märtyrer"),
+    Kill("Tamo Eichengrund", At(19, 21, 1), "Zul'Farrak", 596, "Theka the Martyr"),
+    Kill("Hanne Moosgrund", At(19, 21, 9), "Zul'Farrak", 597, "Hexendoktor Zum'rah"),
+    Kill("Bodo Kesselring", At(20, 9, 0), "Uldaman", 2748, "Archaedas"),
+    Old("group", "Rika Steinbeck", At(20, 11, 0), { inst = "Uldaman", with = { "Bodo Kesselring" }, grp = true }),
+    Kill("Kael Wintermoor", At(20, 12, 0), "Azshara", 1100, "Azuregos"),
+    Kill("Hanne Moosgrund", At(20, 17, 40), "Zul'Farrak", 600, "Häuptling Ukorz Sandskalp"),
+    Kill("Hanne Moosgrund", At(20, 18, 0), "Maraudon", 427, "Tüftler Gizlock"),
+    Kill("Ole Fichtental", At(20, 19, 0), "Maraudon", 422, "Noxxion"),
+    Kill("Ole Fichtental", At(20, 19, 20), "Maraudon", 429, "Prinzessin Theradras"),
+    Old("run", "Ole Fichtental", At(20, 20, 5), { inst = "Maraudon", boss = "Prinzessin Theradras", n = 8, nf = 6, first = true }),
+  }
+  Saved(lyra, saved)
+  w.start()
+  local lines = DungeonLines(lyra)
+  local visits = {}
+  for _, text in ipairs(lines) do if text:find("zum ersten Mal in ", 1, true) then visits[#visits + 1] = text end end
+  check(#visits == 3, "three first-time lines from nine old boss kills: " .. table.concat(visits, " / "))
+  check(Holds(visits, "Hanne Moosgrund  ·  zum ersten Mal in |cffffd100Zul'Farrak|r: 3 Bosse")
+    and Holds(visits, "Tamo Eichengrund  ·  zum ersten Mal in |cffffd100Zul'Farrak|r: ein Boss")
+    and Holds(visits, "Hanne Moosgrund  ·  zum ersten Mal in |cffffd100Maraudon|r: ein Boss"),
+    "Hanne's three Zul'Farrak kills over two days are one line, Tamo's English one is his own, Hanne's Maraudon another")
+  check(not Holds(visits, "Ole Fichtental") and Holds(lines, "Ole Fichtental  ·  |cffffd100Maraudon|r zum ersten Mal geschafft"),
+    "Ole's first run through Maraudon replaces his Maraudon kills: it says more")
+  check(not Holds(visits, "Bodo Kesselring") and Holds(lines, "Rika Steinbeck und Bodo Kesselring  ·  |cffffd100Uldaman|r geschafft"),
+    "Bodo's Uldaman kill yields to the guild group line that names him there")
+  check(Count(Lines(lyra), OfKind("boss")) == 1, "the world boss Azuregos keeps its own line")
+  check(Count(PaperEntries(lyra), OfKind("visit")) == 3 and Holds(FeedTexts(lyra), visits[1]),
+    "the Rabenblatt and the home feed get the same lines")
+  check(lyra.H:NewSinceLastLook() == 6, "six new lines: three first-time, Ole's run, the group and Azuregos ("
+    .. lyra.H:NewSinceLastLook() .. ")")
+  check(#lyra.H:Log() == #saved, "the saved log is untouched")
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 

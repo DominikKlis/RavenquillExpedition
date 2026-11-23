@@ -273,9 +273,12 @@ G.itype, G.instName, G.raid = "raid", "Geschmolzener Kern", true
 G.group = { raid1 = { "Me", "Smith" }, raid2 = { "Cara", "Moss" }, raid3 = { "Bud", "Stone" }, raid4 = { "Rando", "Pug" } }
 local runMark = #printed
 fire("PLAYER_ENTERING_WORLD")
-local run = last()
-check(count() == n + 1 and run.k == "group" and run.inst == "Die Todesminen" and #run.with == 1 and run.with[1] == "Bud Stone"
+local run, firstRun = lastOf("group"), lastOf("run")
+check(count() == n + 2 and run.k == "group" and run.inst == "Die Todesminen" and #run.with == 1 and run.with[1] == "Bud Stone"
   and H.cdb.run == nil, "entering another instance ends the run: one guild group line for the dungeon")
+check(firstRun and firstRun.first and firstRun.inst == "Die Todesminen" and firstRun.n == 2 and firstRun.nf == 2
+  and firstRun.boss == "Rhahk'Zor" and firstRun.t == run.t and not H.cdb.outbox[firstRun.id].grp,
+  "it was Me's first run there: a first-run entry too, two new bosses, last Rhahk'Zor, the run's time, sent as Me's own")
 check(printedSince(runMark):find("|cfffff569Me Smith|r und |cffff7d0aBud Stone|r  ·  |cffffd100Die Todesminen|r geschafft", 1, true)
   ~= nil and not printedSince(runMark):find("Boss", 1, true), "its chat line names everyone in class colours, without a boss count")
 local raidMark = #printed
@@ -297,8 +300,8 @@ fire("PLAYER_ENTERING_WORLD")
 advance(20)
 recv("Cara Moss", ("1;b;%d;9;Cara Moss;31;7;663;0;1;Lucifron;Geschmolzener Kern;3"):format(luci.t + 30))
 advance(200)
-check(sentKind("b") == 1 and sentKind("o") == 1 and sentKind("d") == 0,
-  "after a 4 h raid: the guild group and Magmadar sent, Lucifron left to Cara, no old run message")
+check(sentKind("b") == 1 and sentKind("o") == 1 and sentKind("d") == 1,
+  "after a 4 h raid: the guild group, Me's first Deadmines and Magmadar sent, Lucifron left to Cara")
 local _, idx = H:Log()
 check(idx[luci.id] == nil and H.cdb.outbox[luci.id] == nil and idx[mag.id] ~= nil, "my Lucifron replaced by Cara's report, Magmadar kept")
 echoAll(); advance(5)
@@ -309,7 +312,9 @@ n = count()
 fire("BOSS_KILL", 456, "Baron Rivendare")
 G.inInstance, G.itype, G.instName, G.group = false, "none", "Westfall", {}
 fire("PLAYER_ENTERING_WORLD"); advance(H.RUN_GRACE + 5)
-check(count() == n and H.cdb.run == nil, "a run without guildmates is no line")
+check(count() == n + 1 and last().k == "run" and last().first and last().inst == "Stratholme" and sentKind("o") == 1
+  and H.cdb.run == nil, "a first run without guildmates is a first-run entry and no guild group")
+n = count()
 G.inInstance, G.itype, G.instName = true, "party", "Die Todesminen"
 G.group = { party1 = { "Dora", "Dunn" } }
 fire("PLAYER_ENTERING_WORLD")
@@ -320,9 +325,10 @@ fire("PLAYER_ENTERING_WORLD"); advance(H.RUN_GRACE - 10)
 check(count() == n, "the run stays open for a while after leaving")
 advance(20)
 run = last()
-check(count() == n + 1 and run.k == "group" and run.with[1] == "Dora Dunn", "a later run with a guildmate is its own line")
-check(H:Format({ k = "run", who = "Me Smith", first = true, n = 1, inst = "Die Todesminen" }):find("geschafft: ein Boss", 1, true),
-  "an old run entry still reads as before")
+check(count() == n + 1 and run.k == "group" and run.with[1] == "Dora Dunn",
+  "a later run with a guildmate is its own line, and no first-run entry: Me has been there")
+check(H:Format({ k = "run", who = "Me Smith", first = true, n = 1, inst = "Die Todesminen" })
+  :find("Me Smith  ·  |cffffd100Die Todesminen|r zum ersten Mal geschafft", 1, true), "an old first-run entry reads as a first run")
 local runBack = H.Decode("Me Smith", H.Encode(run))
 check(runBack and runBack.k == "group" and runBack.inst == "Die Todesminen" and #runBack.with == 1 and runBack.with[1] == "Dora Dunn"
   and runBack.grp and runBack.id == run.id, "guild group round trip")
@@ -560,7 +566,7 @@ local all = panel.controls[iAll]
 all:SetChecked(true); rawget(all, "_scripts").OnClick(all)
 check(H:Settings().chatAll and all:IsEnabled(), "chat all")
 rawget(panel.controls[opt(L.OPT_TEST)], "_scripts").OnClick()
-check(lastPrinted():find("12 Testeinträge", 1, true), "test button adds 12 test entries, one of each kind with a line")
+check(lastPrinted():find("13 Testeinträge", 1, true), "test button adds 13 test entries, one of each kind with a line")
 H:Open()
 local hlFrame = env.RavenquillExpeditionHighlightsFrame
 check(H.openLabel == "Zeitung" and hlFrame:IsShown() and hlFrame.paper:IsShown() and hlFrame.msg == nil
@@ -1210,8 +1216,8 @@ do
   check(empty and not shown:find("/rq hl >", 1, true) and empty.tests:GetText() == "Testeinträge hinzufügen",
     "instead of a path into the settings the empty log offers a 'Testeinträge hinzufügen' button")
   if empty then rawget(empty.tests, "_scripts").OnClick(empty.tests) end
-  check(#fresh.H:Log() == 12 and empty and not empty:IsShown() and lines[#lines]:find("Stufe 60 – Höchststufe!", 1, true),
-    "one click adds the 12 test entries and the log lists them in place of the hint")
+  check(#fresh.H:Log() == 13 and empty and not empty:IsShown() and lines[#lines]:find("Stufe 60 – Höchststufe!", 1, true),
+    "one click adds the 13 test entries and the log lists them in place of the hint")
   local shownKinds, missing = {}, {}
   for _, e in ipairs(fresh.H:Log()) do shownKinds[e.k] = fresh.H:Shown(e) or nil end
   for k, kind in pairs(fresh.H.KINDS) do

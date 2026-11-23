@@ -523,8 +523,8 @@ do
     and not table.concat(f.paper.lead.body, " "):find("/rq hl >", 1, true),
     "the empty paper offers a 'Testeinträge hinzufügen' button instead of a path into the settings")
   Click(tests)
-  check(#c.H:Log() == 12 and f.paper.lead.head:GetText() ~= DE.EMPTY_HEAD and f.issueLabel:GetText() ~= DE.NO_ISSUE
-    and not tests:IsShown(), "one click adds the 12 test entries and the paper prints them as today's issue, without the button")
+  check(#c.H:Log() == 13 and f.paper.lead.head:GetText() ~= DE.EMPTY_HEAD and f.issueLabel:GetText() ~= DE.NO_ISSUE
+    and not tests:IsShown(), "one click adds the 13 test entries and the paper prints them as today's issue, without the button")
   local en = Client("Mira Sturmfeder", "enUS")
   en.H:ShowWindow()
   check(Frame(en).paper.lead.tests:GetText() == "Add test entries", "English: 'Add test entries'")
