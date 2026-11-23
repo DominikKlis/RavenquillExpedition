@@ -136,15 +136,30 @@ end
 
 local lootHeard = {}
 
-local function NewToMe(self, e)
-  if e.who == GS:PlayerKey() then return false end
-  return not (e.k == "boss" and e.grp and self:WasAtKill(e))
+function H.People(e)
+  local out = { e.who }
+  for _, key in ipairs(e.with or {}) do out[#out + 1] = key end
+  return out
 end
 
-local function OnHeard(self, e)
+local function Listed(list, key)
+  for _, x in ipairs(list or {}) do if x == key then return true end end
+  return false
+end
+
+local function NewToMe(self, e)
+  local me = GS:PlayerKey()
+  if e.who == me or Listed(e.with, me) then return false end
+  return not (e.grp and self:WasThere(e))
+end
+
+local function Arriving(self, e)
   if self:Shown(e) and NewToMe(self, e) then e.unseen = true end
+  if e.grp then self:Supersede(e) end
+end
+
+local function OnHeard(_, e)
   if e.k == "loot" then lootHeard[e.who .. "#" .. tostring(e.item)] = e.t end
-  if e.k == "boss" and e.grp then self:Supersede(e) end
 end
 
 local function OnSeenHere(self, e, source, opts)
@@ -165,13 +180,17 @@ local function OutsideKeptWindow(self, t)
   return t > now + self.FUTURE_SLACK or t < now - self.MAX_AGE
 end
 
+local function Admissible(self, events, idx, e, s)
+  if s.heard and not idx[e.id] then Arriving(self, e) end
+  return not (idx[e.id] or IsRecentLootRepeat(self, events, e) or self:Reported(e))
+end
+
 function H:Add(e, source, opts)
-  if not self.db or not Valid(e) then return end
-  if OutsideKeptWindow(self, e.t) then return end
+  if not self.db or not Valid(e) or OutsideKeptWindow(self, e.t) then return end
   local gkey = self:GuildKey()
   local events, idx = self:Log(gkey)
-  if idx[e.id] or IsRecentLootRepeat(self, events, e) then return end
   local s = SOURCES[source]
+  if not Admissible(self, events, idx, e, s) then return end
   if s.test then e.test = true end
   InsertByTime(events, e)
   idx[e.id] = e

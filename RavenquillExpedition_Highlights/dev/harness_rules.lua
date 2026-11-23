@@ -138,6 +138,25 @@ do
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
+section("Group reports: one report per group moment, also when two guildmates report it at the same time")
+do
+  local w = World()
+  local lyra = w.join("Lyra Distelbach")
+  w.bus:member("Cara Moss", "MAGE", 60)
+  w.bus:member("Bud Stone", "DRUID", 60)
+  w.start()
+  local function Report(who, seq, t)
+    return { k = "boss", t = t, who = who, id = ("%s#%d#%d"):format(who, t, seq), enc = 672, boss = "Ragnaros",
+      inst = MC.name, raid = true, grp = true, n = 12, lvl = 60 }
+  end
+  lyra.H:Add(Report("Cara Moss", 1, NOW - 3000), "wire")
+  lyra.H:Add(Report("Bud Stone", 2, NOW - 2960), "wire")
+  lyra.H:Add(Report("Bud Stone", 3, NOW - 3000 + lyra.H.BOSS_SAME + 60), "wire")
+  check(Count(lyra.H:Log(), OfKind("boss")) == 2,
+    "Bud's report of the same Ragnaros kill is not stored again; a kill after the same-kill window is ("
+    .. Count(lyra.H:Log(), OfKind("boss")) .. ")")
+end
+
 section("Quests: an attunement step still reaches raid readiness without a line; an old guildmate's quest still reads")
 do
   local w = World()

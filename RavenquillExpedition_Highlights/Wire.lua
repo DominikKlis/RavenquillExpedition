@@ -180,31 +180,35 @@ function H:Share(e, opts)
   return true
 end
 
-local function SameKill(self, o, e)
-  return o.k == "boss" and o.enc == e.enc and math.abs(o.t - e.t) <= self.BOSS_SAME
+local function SameMoment(self, o, e)
+  local kind = o.k == e.k and self.KINDS[e.k]
+  return kind and kind.same ~= nil and kind.same(self, o, e) or false
 end
 
-local function MyGroupKill(self, o, e)
-  return o.grp and o.who == GS:PlayerKey() and SameKill(self, o, e)
+local function MyGroupReport(self, o, e)
+  return o.grp and o.who == GS:PlayerKey() and SameMoment(self, o, e)
+end
+
+function H:Reported(e)
+  if not e.grp then return false end
+  local events = self:Log()
+  for i = #events, 1, -1 do
+    local o = events[i]
+    if o.who ~= e.who and SameMoment(self, o, e) then return true end
+  end
+  return false
 end
 
 function H:StillWanted(e)
   if e.k == "loot" and e.by then
     return not (self:LootReportedByOthers(e) or GS:IsPeer(e.who))
   end
-  if e.k == "boss" and e.grp then
-    local events = self:Log()
-    for i = #events, 1, -1 do
-      local o = events[i]
-      if o.who ~= e.who and SameKill(self, o, e) then return false end
-    end
-  end
-  return true
+  return not self:Reported(e)
 end
 
-function H:WasAtKill(r)
+function H:WasThere(r)
   for _, o in ipairs(self:Log()) do
-    if MyGroupKill(self, o, r) then return true end
+    if MyGroupReport(self, o, r) then return true end
   end
   return false
 end
@@ -213,7 +217,7 @@ function H:Supersede(r)
   local events = self:Log()
   for i = #events, 1, -1 do
     local o = events[i]
-    if MyGroupKill(self, o, r) and self.cdb.outbox[o.id] and not inflight[o.id] then
+    if MyGroupReport(self, o, r) and self.cdb.outbox[o.id] and not inflight[o.id] then
       self:Remove(o.id)
     end
   end
