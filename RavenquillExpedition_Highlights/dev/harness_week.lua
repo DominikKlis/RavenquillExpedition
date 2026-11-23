@@ -206,13 +206,29 @@ local function Read(list)
   return table.concat(out, " / ")
 end
 
-local REVIEW_DE = "Die Woche in Zahlen / 5 / Stufen gewonnen / 15 / Bosse besiegt / 1 / epischer Fund"
-  .. " / MEISTERHAND DER WOCHE / Ilsa Brunnhold / Lederverarbeitung auf 225 / AUFSTIEG DER WOCHE / Ole Fichtental"
+local function Group(who, t, inst, with, lvl) return E("group", who, t, { inst = inst, with = { with }, grp = true, lvl = lvl }) end
+
+local function WorldBoss(who, t, inst, boss, enc) return E("boss", who, t, { inst = inst, boss = boss, enc = enc, first = true, lvl = 60 }) end
+
+local SHOWN_WEEK = {
+  E("level", "Ole Fichtental", At(16, 10), { lvl = 40 }),
+  Group("Rika Steinbeck", At(17, 19), "Uldaman", "Ole Fichtental", 44),
+  E("skill", "Ilsa Brunnhold", At(18, 11), { skill = "Leatherworking", rank = 300, lvl = 36 }),
+  E("rep", "Ole Fichtental", At(19, 22), { st = 8, fac = "Argentumdämmerung", lvl = 44 }),
+  WorldBoss("Tamo Eichengrund", At(20, 21, 20), "Azshara", "Azuregos", 1100),
+  WorldBoss("Bodo Kesselring", At(20, 21, 50), "Verwüstete Lande", "Lord Kazzak", 1101),
+  E("loot", "Rika Steinbeck", At(21, 20), { item = 5001, q = 4, lvl = 45 }),
+  E("mount", "Hanne Moosgrund", At(22, 12), { lvl = 40 }),
+  Group("Hanne Moosgrund", At(22, 15), "Zul'Farrak", "Rika Steinbeck", 40),
+}
+
+local REVIEW_DE = "Die Woche in Zahlen / 5 / Stufen gewonnen / 2 / Bosse besiegt / 1 / epischer Fund"
+  .. " / MEISTERHAND DER WOCHE / Ilsa Brunnhold / Lederverarbeitung auf 300 / AUFSTIEG DER WOCHE / Ole Fichtental"
   .. " / von Stufe 40 auf 44 / TREUE SEELE DER WOCHE / Rika Steinbeck / zwei Dungeonläufe mit Gildenmitgliedern"
 
 Kit.section("Window: the Sunday paper prints the week in numbers and the honors instead of In Kürze")
 do
-  local c, f, paper = Paper(WEEK)
+  local c, f, paper = Paper(SHOWN_WEEK)
   check(paper.meta.mid:GetText() == "Sonntag, 22. November", "the latest issue is Sunday's (" .. paper.meta.mid:GetText() .. ")")
   local side = Read(SideTexts(c, paper))
   check(side == REVIEW_DE, "the side column reads the review top to bottom (" .. side .. ")")
@@ -223,9 +239,9 @@ do
     "Saturday's issue has the normal In Kürze column and footer (" .. saturday .. ")")
   f.next:GetScript("OnClick")(f.next)
   check(Read(SideTexts(c, paper)) == REVIEW_DE and f.issueLabel:GetText() == "Sonntagsausgabe · KW 47", "and back on Sunday the review")
-  local en, ef, ep = Paper(WEEK, "enUS")
+  local en, ef, ep = Paper(SHOWN_WEEK, "enUS")
   local english = Read(SideTexts(en, ep))
-  check(english:find("^The week in numbers / 5 / levels gained / 15 / bosses defeated / 1 / epic find / CRAFTER OF THE WEEK / ")
+  check(english:find("^The week in numbers / 5 / levels gained / 2 / bosses defeated / 1 / epic find / CRAFTER OF THE WEEK / ")
     and ef.issueLabel:GetText() == "Sunday edition · week 47", "English: " .. english .. " · " .. ef.issueLabel:GetText())
   check(#c.errors == 0 and #en.errors == 0, "no Lua errors (" .. tostring(c.errors[1] or en.errors[1]) .. ")")
 end
@@ -321,17 +337,17 @@ end
 
 Kit.section("Layout: the review fits its column at full size, on a small screen and in English")
 do
-  local c, f, paper = Paper(WEEK)
+  local c, f, paper = Paper(SHOWN_WEEK)
   Fits(c, paper, " at 900 px")
   local low = math.huge
   for _, fs in ipairs(Layout.Texts(c, paper)) do low = math.min(low, R(fs).bottom) end
   local fr, spare = R(f), low - R(f.footerRule).top
   check(fr.height <= 780 and fr.height >= c.H.WINDOW_MIN_H and spare >= 0 and spare < 60,
     ("the sheet grows to hold the review and ends just under its last text (%.0f px high, %.0f px spare)"):format(fr.height, spare))
-  local small, _, sp = Paper(WEEK, "deDE", function(env) Layout.Pin(env.UIParent, 0, 0, 1024, 600) end)
+  local small, _, sp = Paper(SHOWN_WEEK, "deDE", function(env) Layout.Pin(env.UIParent, 0, 0, 1024, 600) end)
   Fits(small, sp, " on a 1024x600 screen")
   check(Read(SideTexts(small, sp)) == REVIEW_DE, "with all three honors")
-  local en, _, ep = Paper(WEEK, "enUS")
+  local en, _, ep = Paper(SHOWN_WEEK, "enUS")
   Fits(en, ep, " in English")
   check(#c.errors + #small.errors + #en.errors == 0, "no Lua errors")
 end
@@ -339,13 +355,13 @@ end
 Kit.section("Layout: on a very short sheet the honors that do not fit are left out whole")
 do
   local c = LayoutClient()
-  for _, e in ipairs(WEEK) do c.H:Add(e, "wire") end
+  for _, e in ipairs(SHOWN_WEEK) do c.H:Add(e, "wire") end
   c.H.WINDOW_W, c.H.WINDOW_H = 640, 395
   c.H:ShowWindow()
   local paper = c.env.RavenquillExpeditionHighlightsFrame.paper
   local off, side = Offenders(c, paper, SideTexts(c, paper)), Read(SideTexts(c, paper))
   check(#off == 0, "every text of the review stays on the page (" .. (off[1] or "none") .. ")")
-  check(side:find("^Die Woche in Zahlen / 5 / Stufen gewonnen / 15 / Bosse besiegt / 1 / epischer Fund / MEISTERHAND DER WOCHE / ")
+  check(side:find("^Die Woche in Zahlen / 5 / Stufen gewonnen / 2 / Bosse besiegt / 1 / epischer Fund / MEISTERHAND DER WOCHE / ")
     and not side:find("TREUE SEELE", 1, true), "the numbers stay, the last honors are dropped (" .. side .. ")")
   local whole = true
   for _, h in ipairs(c.env.RavenquillExpeditionHighlightsFrame.paper.week.honors) do

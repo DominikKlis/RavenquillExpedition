@@ -161,15 +161,14 @@ local function AllEntries(days)
   return out
 end
 
-function News.SundayEdition(days, i, T, ctx, pool)
+function News.SundayEdition(days, i, T, ctx)
   local sunday = days[i] and News.Sunday(days[i].entries[1].t)
   if not sunday then return nil end
-  local entries = {}
-  for _, e in ipairs(pool or AllEntries(days)) do
-    local day = News.DayOf(e.t)
-    if day >= sunday.from and day <= days[i].day then entries[#entries + 1] = e end
+  local week = {}
+  for j = 1, i do
+    if days[j].day >= sunday.from then week[#week + 1] = days[j] end
   end
-  local week = News.Week(entries, T, ctx)
-  if week then week.no = sunday.no end
-  return week
+  local review = News.Week(AllEntries(week), T, ctx)
+  if review then review.no = sunday.no end
+  return review
 end
