@@ -384,6 +384,33 @@ do
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
+Kit.section("Sunday edition: two firsts in the guild from one week each carry a kicker, whatever their ids")
+do
+  local function TwoFirsts(i)
+    return {
+      E("level", "Ole Fichtental", At(16, 10) + i, { lvl = 40 }),
+      E("first", "Alex Morgenrot", At(19, 22, 14) + i, { what = "level", lvl = 60 }),
+      E("loot", "Rika Steinbeck", At(20, 12) + i, { item = 5001, q = 4, lvl = 58 }),
+      E("first", "Rika Steinbeck", At(20, 21, 20) + i, { what = "boss", enc = 1084, boss = "Onyxia", inst = "Onyxias Hort", n = 12,
+        grp = true }),
+      E("mount", "Hanne Moosgrund", At(22, 11, 5) + i, { lvl = 40 }),
+    }
+  end
+  for _, L in ipairs({ DE, EN }) do
+    local bare, firsts = nil, 0
+    for i = 0, 39 do
+      local days = News.Days(TwoFirsts(i), News.DayOf)
+      local issue = News.Edition(days, #days, L, Ctx())
+      if issue.lead.kind == "first" and issue.second.kind == "first" then firsts = firsts + 1 end
+      for _, s in ipairs({ issue.lead, issue.second }) do
+        if (s.kicker or "") == "" then bare = bare or s.head end
+      end
+    end
+    check(firsts == 40 and bare == nil, L.LOCALE .. ": in 40 weeks with two firsts, both lead and each has a kicker ("
+      .. firsts .. " weeks, without kicker: " .. tostring(bare) .. ")")
+  end
+end
+
 Kit.section("Home: on a Sunday the Rabenblatt card shows the lead the Sunday edition opens with")
 do
   local c = LayoutClient()
