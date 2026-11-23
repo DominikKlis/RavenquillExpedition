@@ -81,7 +81,7 @@ local function FindNeedSelection(all)
   return sel or all[1]
 end
 
-local function NeedsCountText(prof, crafts, members)
+function UI.NeedsCountText(prof, crafts, members)
   local who = UI.MembersText(members)
   if prof == "Enchanting" then
     return crafts == 1 and string.format(L.NEEDS_COUNT_ENCH_1, who) or string.format(L.NEEDS_COUNT_ENCH, crafts, who)
@@ -118,7 +118,7 @@ function UI:RefreshNeeds()
   local sel = FindNeedSelection(all)
   UI.needSel = sel and sel.group.key or nil
   self.needsList:SetData(data)
-  self.needsCount:SetText(NeedsCountText(prof, crafts, members) .. NeedsCountSuffix(prof, s, all))
+  self.needsCount:SetText(UI.NeedsCountText(prof, crafts, members) .. NeedsCountSuffix(prof, s, all))
   if UI.offlineN ~= offN then
     UI.offlineN = offN
     self:RefreshFilters()

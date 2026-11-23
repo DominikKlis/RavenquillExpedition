@@ -209,54 +209,62 @@ do
 end
 do
   local RQc, UIx = client.RQ, GCA.UI
-  local function CraftCards()
+  local function CraftPage()
     local ov = env.RavenquillExpeditionOverview
-    local page = ov and ov.optView.pages.Craft
-    return page and page.entries and page.entries.items or {}
+    return ov and ov.optView.pages.Craft
   end
-  local function CardTexts()
+  local function Rows() return (CraftPage() or {}).rows or {} end
+  local function RowTexts()
     local out = {}
-    for _, card in ipairs(CraftCards()) do
-      if rawget(card, "_shown") then out[#out + 1] = card.title:GetText() .. ": " .. card.line:GetText() end
-    end
+    for _, r in ipairs(Rows()) do out[#out + 1] = r.label:GetText() .. " " .. tostring(r.count:GetText()) end
     return table.concat(out, " | ")
+  end
+  local function RowTip(i)
+    local lines, gt = {}, env.GameTooltip
+    local setText, addLine = gt.SetText, gt.AddLine
+    gt.SetText = function(_, t) lines[#lines + 1] = t end
+    gt.AddLine = function(_, t) lines[#lines + 1] = t end
+    rawget(Rows()[i], "_scripts").OnEnter(Rows()[i])
+    gt.SetText, gt.AddLine = setText, addLine
+    return table.concat(lines, " / ")
   end
   local function ShowCraftPage()
     RQc:ShowHome()
     RQc:ShowModulePage("Craft")
   end
-  local function ClickCard(i)
-    local card = CraftCards()[i]
-    if card then rawget(card.open, "_scripts").OnClick(card.open) end
-  end
+  local function ClickRow(i) rawget(Rows()[i], "_scripts").OnClick(Rows()[i]) end
   local buddyGain
   for _, r in ipairs(rawget(UIx.memberList, "pools").default) do
     if r.data and r.data.key == "Buddy Stone" then buddyGain = r.gain:GetText() end
   end
+  client.frameMethods.SetTexture = function(t, file) t._tex = file end
   ShowCraftPage()
-  check(tostring(buddyGain):match("^%+%d") and CardTexts() == "For everyone: 1 craft is worth it for 1 member | By member: Buddy Stone gains the most: "
-    .. tostring(buddyGain) .. " | Get crafted: Nobody has shared recipes yet",
-    "/rq craft shows three cards with live text from the real data (Buddy's vest, the gain the member list shows): " .. CardTexts())
+  client.frameMethods.SetTexture = nil
+  local rows = Rows()
+  check(#rows == 2 and RowTexts() == "Craft 1 | Get crafted 0" and rows[1].icon._tex == "Interface\\Icons\\INV_Hammer_20"
+    and rows[2].icon._tex == "Interface\\Icons\\INV_Scroll_03" and rows[1].more:GetText() == "›",
+    "/rq craft: two rows, hammer 'Craft' with 1 craft worth making, recipe scroll 'Get crafted' with 0 crafters: " .. RowTexts())
+  check(#CraftPage()._children == 2 and CraftPage()._children[1] == rows[1] and CraftPage()._children[2] == rows[2] and CraftPage().entries == nil,
+    "the page holds only the two clickable rows: no cards with subtitles, no 'Open' buttons")
+  check(tostring(buddyGain):match("^%+%d") and RowTip(1) == "Craft / 1 craft is worth it for 1 member / Buddy Stone gains the most: " .. tostring(buddyGain)
+    and RowTip(2) == "Get crafted / Nobody has shared recipes yet",
+    "the details sit in the row tooltips (the gain the member list shows): " .. RowTip(1) .. " | " .. RowTip(2))
   local buddy = GCA.db.members["Buddy Stone"]
   GCA.db.members["Buddy Stone"] = nil
   GCA:StoreCrafter("Buddy Stone", 100, { Leatherworking = { rank = 150, ids = { 2149, 2160 } } })
   ShowCraftPage()
-  check(CardTexts() == "For everyone: Nobody needs anything you can craft right now | By member: None of your crafts is an upgrade for a guildmate yet"
-    .. " | Get crafted: 1 guildmate shares their recipes",
-    "Buddy's gear gone and his recipes shared: the cards say so the next time the page is shown: " .. CardTexts())
+  check(RowTexts() == "Craft 0 | Get crafted 1" and RowTip(1) == "Craft / Nobody needs anything you can craft right now"
+    and RowTip(2) == "Get crafted / 1 guildmate shares their recipes",
+    "Buddy's gear gone and his recipes shared: counts and tooltips follow the next time the page is shown: " .. RowTexts())
   GCA.db.members["Buddy Stone"] = buddy
   GCA:ForgetCrafter("Buddy Stone")
   UIx.frame:Hide()
-  ClickCard(1)
-  check(UIx.frame:IsShown() and UIx:Pane().id == "all" and rawget(UIx.needsView, "_shown") and not rawget(UIx.memberView, "_shown"),
-    "'Open' on the For everyone card opens the window on Craft, for everyone")
-  ClickCard(3)
-  check(UIx.frame:IsShown() and UIx.view == "commission" and rawget(UIx.crafterView, "_shown") and not rawget(UIx.needsView, "_shown"),
-    "with the window open, 'Open' on the Get crafted card switches it to that tab")
-  UIx.frame:Hide()
-  ClickCard(2)
+  ClickRow(1)
   check(UIx.frame:IsShown() and UIx:Pane().id == "member" and rawget(UIx.memberView, "_shown") and UIx.selected == "Buddy Stone",
-    "'Open' on the By member card opens Craft by member on Buddy, the member the card names")
+    "a click anywhere on the Craft row opens the window on Craft by member, on Buddy")
+  ClickRow(2)
+  check(UIx.frame:IsShown() and UIx.view == "commission" and rawget(UIx.crafterView, "_shown") and not rawget(UIx.memberView, "_shown"),
+    "with the window open, a click on the Get crafted row switches it to that tab")
   env.RavenquillExpeditionOverview:Hide()
 end
 do

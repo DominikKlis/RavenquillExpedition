@@ -63,3 +63,4 @@ UI\Geometry.lua
 UI\Controls.lua
 UI\Views.lua
 UI\Window.lua
+UI\Page.lua

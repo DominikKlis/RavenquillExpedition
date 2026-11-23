@@ -126,7 +126,6 @@ function GCA:OverviewDiagnostics()
   return out
 end
 
-GCA.openHint = L.OPEN_HINT
 function GCA:Open() self:OpenWindow() end
 
 function GCA:OpenView(view, scope)
@@ -134,66 +133,17 @@ function GCA:OpenView(view, scope)
   self.UI:SetView(view, scope)
 end
 
-function GCA.NeedsCountText(prof, crafts, members)
-  local who = members == 1 and L.NEEDS_MEMBERS_1 or string.format(L.NEEDS_MEMBERS, members)
-  if prof == "Enchanting" then
-    return crafts == 1 and string.format(L.NEEDS_COUNT_ENCH_1, who) or string.format(L.NEEDS_COUNT_ENCH, crafts, who)
-  end
-  return crafts == 1 and string.format(L.NEEDS_COUNT_1, who) or string.format(L.NEEDS_COUNT, crafts, who)
-end
-
-local function NeedsMatch(self, members)
-  return self:MatchNeeds(self:GuildNeeds(members), "", self.db.settings.needsOffline)
-end
-
-local function NeedsLine(self, members)
-  local matched, who = NeedsMatch(self, members)
-  if #matched == 0 then return L.ENTRY_NEEDS_NONE end
-  return self.NeedsCountText(self:SelectedProfession(), #matched, who)
-end
-
-local function MemberLine(self, members)
-  local top = self.DefaultMember(members)
-  if not top then return L.ENTRY_MEMBER_NONE end
-  return string.format(L.ENTRY_MEMBER_TOP, top.key, self.UI.GainNum(top.best.points))
-end
-
-local function CraftersLine(self)
-  local n = #self:CrafterRoster()
-  if n == 0 then return L.ENTRY_CRAFTERS_NONE end
-  return n == 1 and L.ENTRY_CRAFTERS_1 or string.format(L.ENTRY_CRAFTERS, n)
-end
-
-local ENTRIES = {
-  { view = "make", scope = "all", icon = "Interface\\Icons\\INV_Chest_Leather_09", line = NeedsLine },
-  { view = "make", scope = "member", icon = "Interface\\Icons\\INV_Helmet_41", line = MemberLine },
-  { view = "commission", icon = "Interface\\Icons\\INV_Shoulder_08", line = CraftersLine },
-}
-
-function GCA:OverviewEntries()
-  if not self.db then return end
-  local members, out = self:GetMemberList(), {}
-  for i, e in ipairs(ENTRIES) do
-    local pane = e.scope and self.UI.ScopeDef(e.scope) or self.UI.ViewDef(e.view)
-    out[i] = { icon = e.icon, title = L[pane.label], line = e.line(self, members),
-      open = function() self:OpenView(e.view, e.scope) end }
-  end
-  return out
+function GCA:CraftNeeds()
+  return self:MatchNeeds(self:GuildNeeds(self:GetMemberList()), "", self.db.settings.needsOffline)
 end
 
 function GCA:OverviewHeadline()
   if not self.db then return end
-  local _, who = NeedsMatch(self, self:GetMemberList())
+  local _, who = self:CraftNeeds()
   local line = who == 0 and L.ENTRY_NEEDS_NONE or who == 1 and L.OV_NEEDS_1 or string.format(L.OV_NEEDS, who)
   return { line = line, open = function() self:OpenView("make", "all") end }
 end
 
-function GCA:OverviewStatus()
-  if not self.db then return end
-  local recorded = 0
-  for key in pairs(self.db.members) do if key ~= self.playerKey then recorded = recorded + 1 end end
-  local s = self:Settings()
-  return string.format(L.OV_STATUS, recorded, s and s.sync and L.OV_ON or L.OV_OFF)
-end
+function GCA:OverviewStatus() return "" end
 
 GCA:SetOptions(GCA:BuildOptions())

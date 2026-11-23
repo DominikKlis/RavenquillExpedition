@@ -70,12 +70,13 @@ check(env.SlashCmdList.GUILDCRAFTADVISOR == nil and env.GuildCraftAdvisor == nil
   "no standalone path left: no GUILDCRAFTADVISOR slash handler, no GuildCraftAdvisor globals")
 check(type(mod.Open) == "function" and type(mod.OnSlash) == "function" and type(mod.OverviewStatus) == "function", "Open, OnSlash, OverviewStatus present")
 do
-  local members, sync = mod.db.members, mod.db.settings.sync
-  mod.db.members = { [mod.playerKey or "Me"] = {}, ["Anna Stone"] = {}, ["Bert Hill"] = {} }
-  mod.db.settings.sync = true
-  local line = mod:OverviewStatus()
-  mod.db.members, mod.db.settings.sync = members, sync
-  check(line == "2 Gildenmitglieder erfasst · Teilen an", "the overview card counts the recorded guildmates (not you) and the sharing state: " .. tostring(line))
+  RQ:ShowModulePage("Craft")
+  local opt = env.RavenquillExpeditionOverview.optView
+  local pageStatus = opt.status._text
+  RQ:ShowModuleOptions("Craft")
+  check(mod:OverviewStatus() == "" and pageStatus == "" and opt.status._text == "" and opt.pages.Craft.hint == nil,
+    "no status line above the /rq page or its settings, no intro sentence: '" .. tostring(pageStatus) .. "'")
+  env.RavenquillExpeditionOverview:Hide()
 end
 
 io.write("== Migrations: numbered, each once (core API 2)\n")

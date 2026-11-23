@@ -2,10 +2,27 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 
+local function MakeCount() return #GCA:CraftNeeds() end
+
+local function MakeTip()
+  local matched, who = GCA:CraftNeeds()
+  local lines = { #matched == 0 and L.ENTRY_NEEDS_NONE or UI.NeedsCountText(GCA:SelectedProfession(), #matched, who) }
+  local top = GCA.DefaultMember(GCA:GetMemberList())
+  if top then lines[2] = string.format(L.ENTRY_MEMBER_TOP, top.key, UI.GainNum(top.best.points)) end
+  return lines
+end
+
+local function CommissionCount() return #GCA:CrafterRoster() end
+
+local function CommissionTip()
+  local n = CommissionCount()
+  return { n == 0 and L.ENTRY_CRAFTERS_NONE or n == 1 and L.ENTRY_CRAFTERS_1 or string.format(L.ENTRY_CRAFTERS, n) }
+end
+
 UI.VIEWS = {
-  { id = "make", label = "VIEW_MAKE", icon = "Interface\\Icons\\INV_Hammer_20",
+  { id = "make", label = "VIEW_MAKE", icon = "Interface\\Icons\\INV_Hammer_20", count = MakeCount, tooltip = MakeTip,
     scopes = { { id = "member", label = "SCOPE_MEMBER" }, { id = "all", label = "SCOPE_ALL", refresh = "RefreshNeeds" } } },
-  { id = "commission", label = "VIEW_COMMISSION", icon = "Interface\\Icons\\INV_Scroll_03",
+  { id = "commission", label = "VIEW_COMMISSION", icon = "Interface\\Icons\\INV_Scroll_03", count = CommissionCount, tooltip = CommissionTip,
     refresh = "RefreshCrafters", layout = "LayoutCrafters", build = "BuildCrafterView" },
 }
 UI.DEFAULT_VIEW, UI.DEFAULT_SCOPE = "make", "member"
