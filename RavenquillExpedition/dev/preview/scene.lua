@@ -260,4 +260,19 @@ function Data.Highlights(NK)
   return list
 end
 
+local withOldFirstKills = Data.Highlights
+function Data.Highlights(NK)
+  local list, At = withOldFirstKills(NK), NK.At
+  local function E(k, who, t, fields)
+    local e = NK.E(k, who, t, fields)
+    e.cls = ClassOf(who) or e.cls
+    return e
+  end
+  for _, e in ipairs({
+    E("run", "Hanne Moosgrund", At(19, 19, 2), { inst = "Die Todesminen", boss = "Edwin VanCleef", n = 6, nf = 6, first = true }),
+    E("run", "Kael Wintermoor", At(20, 20, 50), { inst = "Gnomeregan", boss = "Mekgineer Thermaplugg", n = 5, nf = 5, first = true }),
+  }) do list[#list + 1] = e end
+  return list
+end
+
 return Data
