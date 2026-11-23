@@ -49,3 +49,23 @@ K.ready = {
   brief = { "{name} is ready for {raid}.", "{names} are ready for {raid}.", "{name} is raid ready.", "{names} are raid ready." },
   again = { "{gap}, also ready for {raid}.", "{gap}, also raid ready." },
 }
+
+K.first = {
+  kicker = { "A first for the guild", "Never before", "{?lvl}Ahead of everyone" },
+  head = { "{?lvl}A first for the guild: {name} reaches level {lvl}", "{?lvl}Ahead of everyone: {name} at level {lvl}",
+    "{?boss}A first for the guild: {boss} defeated", "{?boss}{boss} falls for the first time",
+    "{?boss}{inst}: {boss} falls for the first time", "{!lvl}{!boss}A first for the guild" },
+  dek = { "{?lvl}Nobody in the guild had come this far before.", "{?boss}The guild had never beaten this foe before.",
+    "At {time} it was done.", "{grp} from the guild were there." },
+  body = { "{?lvl}At {time} the guild book noted level {lvl}. Nobody from the guild had ever come this far.",
+    "{?boss}{boss} fell at {time}. A victory the guild had never had before.",
+    "At {time} it was done. A day the guild will remember.",
+    "{?night}The first came {night}. History, it seems, keeps no closing time." },
+  detail = { "At {time} it was done.", "{grp} from the guild were on the roster.", "The scene: {inst}." },
+  more = { "The editors congratulate and take a bow.", "{!sure}The others will probably follow soon.",
+    "The guild book has a new first page." },
+  caption = { "A first for the guild", "{?lvl}Level {lvl}", "{boss}" },
+  brief = { "{?lvl}A first for the guild: {name} reaches level {lvl}.", "{?boss}A first for the guild: {boss} defeated.",
+    "A first for the guild." },
+  again = { "{?lvl}{gap}, a first: level {lvl}.", "{gap}, a first for the guild." },
+}

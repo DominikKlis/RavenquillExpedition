@@ -99,6 +99,30 @@ local function Valid(e)
   return true
 end
 
+function H.MaxLevel() return Plain(SafeCall(GetMaxPlayerLevel), "number") end
+
+local function FirstFact(self, e)
+  local kind = self.KINDS[e.k]
+  return kind and kind.fact and kind.fact(e) or nil
+end
+
+function H:KeepFirst(gkey, e)
+  local fact = not e.test and FirstFact(self, e)
+  if not fact then return end
+  local g = self.db.guilds[gkey]
+  if type(g.firsts) ~= "table" then g.firsts = {} end
+  if not g.firsts[fact] or e.t < g.firsts[fact] then g.firsts[fact] = e.t end
+end
+
+function H:FirstKnown(fact)
+  local g = self.db.guilds[self:GuildKey()]
+  local t = g and type(g.firsts) == "table" and g.firsts[fact] or nil
+  for _, e in ipairs((self:Log())) do
+    if not e.test and FirstFact(self, e) == fact and (not t or e.t < t) then t = e.t end
+  end
+  return t
+end
+
 function H:Shown(e)
   local kind = self.KINDS[e.k]
   return not (kind and kind.hidden and kind.hidden(e))
@@ -183,6 +207,8 @@ local function OutsideKeptWindow(self, t)
 end
 
 local function Admissible(self, events, idx, e, s)
+  local stale = self.KINDS[e.k].stale
+  if s.heard and stale and stale(self, e) then return false end
   if s.heard and not idx[e.id] then Arriving(self, e) end
   return not (idx[e.id] or IsRecentLootRepeat(self, events, e) or self:Reported(e))
 end
@@ -197,6 +223,7 @@ function H:Add(e, source, opts)
   InsertByTime(events, e)
   idx[e.id] = e
   self:KeepAttunement(gkey, e)
+  self:KeepFirst(gkey, e)
   if s.heard then self:CapWho(events, idx, e.who) end
   self:Prune(gkey)
   if s.after then s.after(self, e, source, opts or {}) end

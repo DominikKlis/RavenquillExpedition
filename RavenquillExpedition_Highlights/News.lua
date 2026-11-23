@@ -4,14 +4,15 @@ local News = {}
 ns.News = News
 
 News.RANK = { raid = 100, epic = 90, run = 80, boss = 75, levelmax = 70, mount = 56, gear = 52, level = 46, quest = 40,
-  rep = 38, skill = 34, pvp = 32, duel = 24, group = 80, clear = 100, ready = 60 }
+  rep = 38, skill = 34, pvp = 32, duel = 24, group = 80, clear = 100, ready = 60, first = 1000 }
 News.LEVEL_RANK = { [50] = 66, [40] = 64 }
 News.BRIEF_MAX, News.QUEST_LIST_MAX, News.SAME_OUTING, News.EXTRA_MAX, News.HOME_STRETCH = 8, 3, 300, 2, 10
 News.PAPER_HEX = { [2] = "1f6b12", [3] = "0b5cad", [4] = "7b2cbf", [5] = "b35900" }
 News.SUBJECT, News.PERSONAL = { name = true, names = true }, { clvl = true, lo = true, hi = true }
 News.KEY = { raid = "n boss lastboss night", boss = "n boss lastboss night", run = "n nf first lastboss night", epic = "il item night",
   gear = "il item gain night", quest = "n rest night", rep = "standing night", skill = "rank night", level = "left night",
-  levelmax = "people night", mount = "night", pvp = "night", duel = "night", group = "inst night", clear = "inst grp night", ready = "raid night" }
+  levelmax = "people night", mount = "night", pvp = "night", duel = "night", group = "inst night", clear = "inst grp night", ready = "raid night",
+  first = "lvl boss night" }
 News.FACT_OF = { thingnom = "thing", quests = "quest rest", lastquest = "quest", before = "boss middle prev",
   middle = "middle prev", timeline = "boss start middle prev", lead = "order time", leadtime = "order time",
   lastname = "order time", lasttime = "order time", soon = "worn", weartime = "worn", clvl = "levels", lo = "levels",
@@ -510,6 +511,11 @@ local VARS = {
   duel = function(v, g) v.foe = g.first.foe end, group = function(v, g) v.inst = g.first.inst end,
   clear = function(v, g, _, T) v.inst, v.grp = g.first.inst, (g.first.n or 1) >= 2 and Count(g.first.n, T) or nil end,
   ready = function(v, g, _, T) v.raid = T.RAIDS[g.first.raid] end,
+  first = function(v, g, _, T)
+    local e = g.first
+    if e.what == "level" then v.lvl = e.lvl else v.boss, v.inst = e.boss, e.inst end
+    if (e.n or 1) >= 2 then v.grp = Count(e.n, T) end
+  end,
 }
 
 function News.Vars(g, ctx, T)

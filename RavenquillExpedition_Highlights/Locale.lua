@@ -113,6 +113,9 @@ local L = {
   READY = "ready for %s",
   RULE_READY = "Raid ready",
   HOW_READY = "someone finishes the last attunement step for a raid, for every raid, with or without a weekly goal.",
+  FIRST = "First in the guild", FIRST_LEVEL = "%s at level %d!", FIRST_KILL = "The guild's first kill", FIRST_BOSS = "%s: %s (%s)!",
+  RULE_FIRST = "First in the guild",
+  HOW_FIRST = "the guild's first kill of a raid or world boss and the first character at max level. A gold line, and the lead story of the paper.",
 }
 
 local deDE = {
@@ -226,6 +229,9 @@ local deDE = {
   READY = "raidbereit für %s",
   RULE_READY = "Raidbereit",
   HOW_READY = "jemand schließt den letzten Einstimmungsschritt für einen Schlachtzug ab, für jeden Schlachtzug, mit oder ohne Wochenziel.",
+  FIRST = "Erster in der Gilde", FIRST_LEVEL = "%s auf Stufe %d!", FIRST_KILL = "Erster Kill der Gilde", FIRST_BOSS = "%s: %s (%s)!",
+  RULE_FIRST = "Erster in der Gilde",
+  HOW_FIRST = "der erste Kill eines Schlachtzug- oder Weltbosses in der Gilde und die erste Figur auf Höchststufe. Eine goldene Zeile und der Aufmacher im Rabenblatt.",
 }
 
 ns.Locales = { enUS = L, deDE = deDE }

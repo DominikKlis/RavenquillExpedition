@@ -164,6 +164,10 @@ H.db.settings.chat = true
 
 local function events() return (H:Log()) end
 local function last() local e = events(); return e[#e] end
+local function lastOf(k)
+  local list = events()
+  for i = #list, 1, -1 do if list[i].k == k then return list[i] end end
+end
 local function count() return #events() end
 local function equip(slot, id) G.equipped[slot] = id; fire("PLAYER_EQUIPMENT_CHANGED", slot, id ~= nil) end
 local function sendsOf(pattern)
@@ -276,14 +280,18 @@ check(printedSince(runMark):find("|cfffff569Me Smith|r und |cffff7d0aBud Stone|r
   ~= nil and not printedSince(runMark):find("Boss", 1, true), "its chat line names everyone in class colours, without a boss count")
 local raidMark = #printed
 fire("ENCOUNTER_END", 663, "Lucifron", 9, 40, 1)
-local luci = last()
+local luci = lastOf("boss")
+local luciFirst = lastOf("first")
 check(luci.k == "boss" and luci.grp and luci.n == 3 and H.cdb.outbox[luci.id] and H.cdb.outbox[luci.id].rank == 1,
   "raid kill = group report, 3 guildies, my rank 1")
 advance(4 * 3600)
 fire("ENCOUNTER_END", 664, "Magmadar", 9, 40, 1)
-local mag = last()
-check(not printedSince(raidMark):find("Lucifron", 1, true) and not printedSince(raidMark):find("Magmadar", 1, true)
-  and not H:Shown(luci) and not H:Shown(mag), "raid boss kills are records for the weekly goal: no chat line, no chronicle line")
+local mag = lastOf("boss")
+check(not printedSince(raidMark):find("– mit 2 aus der Gilde", 1, true) and not H:Shown(luci) and not H:Shown(mag),
+  "raid boss kills are records for the weekly goal: no chat line, no chronicle line")
+check(luciFirst and luciFirst.what == "boss" and luciFirst.enc == 663 and luciFirst.grp and H:Shown(luciFirst)
+  and printedSince(raidMark):find("Erster Kill der Gilde|r: |cffffd100Lucifron|r (Geschmolzener Kern)!", 1, true),
+  "the guild's first Lucifron is a 'first in the guild' line of its own, reported for the raid")
 G.inInstance, G.itype, G.raid, G.group, G.instName = false, "none", false, {}, "Burgschmied"
 fire("PLAYER_ENTERING_WORLD")
 advance(20)
@@ -924,8 +932,12 @@ do
   check(back and back.src == "craft", "the crafted source survives the wire")
   G.level, G.instName = 60, "Azshara"
   fire("ENCOUNTER_END", 1100, "Azuregos", 0, 40, 1)
-  check(count() == before + 2 and last().k == "boss" and last().first and last().boss == "Azuregos",
-    "a first world boss kill at max level is a highlight")
+  check(count() == before + 2 and last().k == "first" and last().what == "boss" and last().boss == "Azuregos",
+    "the guild's first kill of a world boss is a 'first in the guild' line instead of the boss line")
+  H.db.guilds[H:GuildKey()].firsts.e1101 = T() - 86400
+  fire("ENCOUNTER_END", 1101, "Lord Kazzak", 0, 40, 1)
+  check(count() == before + 3 and last().k == "boss" and last().first and last().boss == "Lord Kazzak",
+    "a world boss the guild has killed before is the usual first-kill line for this character")
   G.level = 30
 end
 
@@ -1161,6 +1173,10 @@ Kit.section("Raid night: kills a guildmate reports for the raid do not use up my
 do
   local c = Character(); c.login(); advance(5)
   c.RQ:NotePeer("Bud Stone")
+  c.H:Log()
+  local known = {}
+  for i = 1, 8 do known["e" .. (610 + i)] = T() - 7 * 86400 end
+  c.H.db.guilds[c.H:GuildKey()].firsts = known
   local level = G.level
   G.level, G.inInstance, G.itype, G.instName, G.raid = 60, true, "raid", "Pechschwingenhort", true
   G.group = { raid1 = { "Me", "Smith" }, raid2 = { "Bud", "Stone" } }

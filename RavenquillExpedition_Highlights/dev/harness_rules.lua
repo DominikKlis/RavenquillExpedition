@@ -44,6 +44,8 @@ local function World()
       class = opts.class or "PALADIN", level = opts.level or 60, epoch = NOW, random = Kit.Random(#bus.clients + 31),
       addons = { HL }, setup = function(env, cl)
         cl.place, cl.party, cl.raid, cl.sounds = TOWN, {}, false, {}
+        cl.frameMethods.AddMessage = function(s, m, r, g, b) s._lines = s._lines or {}; s._lines[#s._lines + 1] = { m, r, g, b } end
+        cl.frameMethods.Clear = function(s) s._lines = {} end
         Stubs(cl, env)
       end })
     c.H = c.ns[HL].H
@@ -84,6 +86,15 @@ local function World()
   return w
 end
 
+local function Known(w, encs)
+  for _, c in ipairs(w.list) do
+    c.H:Log()
+    local g = c.H.db.guilds[c.H:GuildKey()]
+    g.firsts = g.firsts or {}
+    for _, enc in ipairs(encs) do g.firsts["e" .. enc] = NOW - 7 * 86400 end
+  end
+end
+
 local function Count(list, pred)
   local n = 0
   for _, e in ipairs(list) do if pred(e) then n = n + 1 end end
@@ -116,6 +127,7 @@ do
   w.bus:member("Bodo Kesselring", "PALADIN", 60)
   w.start()
   ole.RQ:SetGoal({ kind = "raid", raid = "mc" })
+  Known(w, { 663, 664 })
   lyra.H:Settings().chat = true
   w.settle(10)
   local printedBefore = #lyra.printed
@@ -230,6 +242,7 @@ do
     raid[#raid + 1] = name
   end
   w.start()
+  Known(w, { 671, 672 })
   w.group(raid, true)
   w.go(raid, MC)
   w.kill(raid, 671, "Majordomo Executus")
@@ -289,6 +302,88 @@ do
   lyra.H:Add(old, "wire")
   check(Count(Lines(lyra), OfKind("quest")) == 1 and lyra.H:Format(old):find("Der Segen des Windsuchers", 1, true),
     "a legendary quest from a guildmate on an older version still has its line")
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
+local function ChronicleRow(c, needle)
+  c.RQ:ShowModulePage("Highlights")
+  local page = c.env.RavenquillExpeditionOverview.optView.pages.Highlights
+  for _, line in ipairs(page.msg._lines or {}) do
+    if line[1]:find(needle, 1, true) then return line end
+  end
+end
+
+local function SetLevel(w, name, level)
+  for _, r in ipairs(w.bus.roster) do if r.name == name then r.level = level end end
+  for _, c in ipairs(w.list) do c.fire("GUILD_ROSTER_UPDATE") end
+end
+
+section("Erster in der Gilde: the first character at max level is a gold line and leads the paper; the next one is a level line")
+do
+  local w = World()
+  local alex, lyra = w.join("Alex Morgenrot", { level = 59 }), w.join("Lyra Distelbach", { level = 40 })
+  local tamo = w.join("Tamo Eichengrund", { level = 59 })
+  w.start()
+  alex.fire("PLAYER_LEVEL_UP", 60)
+  w.settle(120)
+  local first = lyra.H:Log()[#lyra.H:Log()]
+  check(Sent(w, "t") == 1 and Sent(w, "v") == 0 and first and first.k == "first" and first.what == "level" and first.lvl == 60,
+    "Alex is the first at 60: one 'first in the guild' message instead of the level line")
+  local row = ChronicleRow(lyra, "Erster in der Gilde")
+  check(row and row[1]:find("Alex Morgenrot  ·  |cffffd100Erster in der Gilde|r auf Stufe 60!", 1, true)
+    and row[1]:find("^|cffffd100%d%d:%d%d|r  |cffffd100»»|r ") and row[2] == 1 and row[3] == 0.9 and row[4] == 0.55,
+    "Lyra's chronicle draws it as a gold row: gold time, gold mark, gold line (" .. tostring(row and row[1]) .. ")")
+  check(lyra.H.KINDS[first.k].gold and Story(lyra).k == "first", "the kind is gold and the paper leads with it: " .. tostring(Story(lyra).head))
+  SetLevel(w, "Alex Morgenrot", 60)
+  tamo.fire("PLAYER_LEVEL_UP", 60)
+  w.settle(120)
+  check(Sent(w, "t") == 1 and Sent(w, "v") == 1 and lyra.H:Log()[#lyra.H:Log()].k == "level",
+    "Tamo reaches 60 second: an ordinary level line")
+  w.settle(lyra.H.BOSS_SAME)
+  local at = lyra.env.time()
+  local late = { k = "first", what = "level", t = at, who = "Bodo Kesselring", lvl = 60, id = "Bodo Kesselring#" .. at .. "#3" }
+  w.bus:member("Bodo Kesselring", "PALADIN", 60)
+  lyra.H:Add(late, "wire")
+  check(Count(lyra.H:Log(), OfKind("first")) == 1, "a later claim to be first at 60 is not stored")
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
+section("Erster in der Gilde: a raid's first kill of a boss is one gold line; a late claim for a known boss is refused")
+do
+  local w = World()
+  local rika, lyra, ole = w.join("Rika Steinbeck"), w.join("Lyra Distelbach"), w.join("Ole Fichtental")
+  local raid = { rika, lyra }
+  for i = 1, 8 do
+    local name = "Gast Nummer" .. string.char(64 + i)
+    w.bus:member(name, "WARRIOR", 60)
+    raid[#raid + 1] = name
+  end
+  w.start()
+  w.group(raid, true)
+  w.go(raid, MC)
+  w.kill(raid, 663, "Lucifron")
+  w.go(raid, TOWN)
+  w.settle(600)
+  check(Sent(w, "t") == 1 and Sent(w, "b") == 1, "one first message for the raid next to the kill record")
+  local firsts = {}
+  for _, c in ipairs({ rika, lyra, ole }) do firsts[#firsts + 1] = Count(Lines(c), OfKind("first")) end
+  check(table.concat(firsts, ",") == "1,1,1", "each chronicle has one first line (" .. table.concat(firsts, ",") .. ")")
+  local e
+  for _, x in ipairs(ole.H:Log()) do if x.k == "first" then e = x end end
+  check(e and ole.H:Format(e):find("Lyra Distelbach und 9 aus der Gilde  ·  |cffffd100Erster Kill der Gilde|r: |cffffd100Lucifron|r",
+    1, true), "the line: the reporter and nine from the guild, the guild's first Lucifron: " .. tostring(e and ole.H:Format(e)))
+  local newcomer = w.join("Neu Ankunft")
+  newcomer.login()
+  w.settle(5)
+  local later = { newcomer, "Gast NummerA" }
+  w.group(later, true)
+  w.go(later, MC)
+  w.sched:advance(8 * 86400)
+  newcomer.fire("ENCOUNTER_END", 663, "Lucifron", 9, 40, 1)
+  w.go(later, TOWN)
+  w.settle(600)
+  check(Count(newcomer.H:Log(), OfKind("first")) == 1 and Count(ole.H:Log(), OfKind("first")) == 1,
+    "a newcomer who never heard of the old kill claims it; Ole knows better and keeps one first line")
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 

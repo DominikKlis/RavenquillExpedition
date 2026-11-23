@@ -341,6 +341,16 @@ local SHOW_MAX = 1500
 local HL_MARK = "|cffffd100»|r "
 local ACT_MARK = "|cff555555·|r "
 local NEW_COLOR = { 0.25, 1, 0.4 }
+local ROW = {
+  activity = { time = "|cff888888", mark = ACT_MARK, color = { 0.75, 0.75, 0.75 } },
+  highlight = { time = "|cff888888", mark = HL_MARK },
+  gold = { time = "|cffffd100", mark = "|cffffd100»»|r ", color = { 1, 0.9, 0.55 } },
+}
+
+local function RowStyle(self, e)
+  if e.act then return ROW.activity end
+  return (self.KINDS[e.k] or {}).gold and ROW.gold or ROW.highlight
+end
 
 function H:LogLines()
   local events = self:ShownLog()
@@ -366,8 +376,9 @@ local function LogMessages(self, list, firstUnseen)
       lastDay = day
     end
     if e == firstUnseen then out[#out + 1] = { text = L.LOG_NEW, color = NEW_COLOR } end
-    local line = "|cff888888" .. date("%H:%M", e.t) .. "|r  " .. (e.act and ACT_MARK or HL_MARK) .. self:Format(e)
-    out[#out + 1] = { text = line, color = e.act and { 0.75, 0.75, 0.75 } or nil, entry = e }
+    local row = RowStyle(self, e)
+    local line = row.time .. date("%H:%M", e.t) .. "|r  " .. row.mark .. self:Format(e)
+    out[#out + 1] = { text = line, color = row.color, entry = e }
   end
   return out
 end

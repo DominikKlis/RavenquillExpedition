@@ -162,11 +162,25 @@ do
     return inst, itype
   end
 
+  local function GuildFirst(fields, first)
+    return first and fields.enc ~= nil and not H:FirstKnown("e" .. fields.enc)
+  end
+
+  local function ReportGuildFirst(fields)
+    local guildies = GS:GroupGuildies()
+    local e = Own("first", { what = "boss", enc = fields.enc, boss = fields.boss, inst = fields.inst })
+    if not guildies[1] then return H:Add(e, "self") end
+    e.grp, e.n = true, #guildies + 1
+    H:Add(e, "self", { group = true, rank = (GS:ElectionRank(guildies)) })
+  end
+
   local function ReportRaidKill(fields, first)
     local guildies = GS:GroupGuildies()
     local share = { group = true, rank = (GS:ElectionRank(guildies)) }
+    local guildFirst = GuildFirst(fields, first)
     fields.raid, fields.grp, fields.n, fields.first = true, true, #guildies + 1, first or nil
     H:Add(Own("boss", fields), "self", share)
+    if guildFirst then ReportGuildFirst(fields) end
     if not H.RAID_FINALE[fields.enc or 0] then return end
     H:Add(Own("clear", { enc = fields.enc, inst = fields.inst, n = fields.n, grp = true }), "self", share)
   end
@@ -174,6 +188,7 @@ do
   local function ReportKill(fields, first, dungeon)
     if dungeon then H:NoteDungeonKill(fields.inst) end
     if first and not dungeon then
+      if GuildFirst(fields, first) then return ReportGuildFirst(fields) end
       fields.first = true
       H:Add(Own("boss", fields), "self")
       return
@@ -251,10 +266,19 @@ do
   end
 end
 
+local function FirstAtLevel(level)
+  if not next(GS.roster) or H:FirstKnown("v" .. level) then return false end
+  for key, member in GS:EachMember() do
+    if not GS:IsMe(key) and (member.level or 0) >= level then return false end
+  end
+  return true
+end
+
 local function OnLevelUp(level)
   level = Plain(level, "number")
   if not level then return end
   local max = MaxLevel()
+  if max and level == max and FirstAtLevel(level) then return H:Add(Own("first", { what = "level", lvl = level }), "self") end
   if level % H.LEVEL_STEP == 0 or (max and level == max) then
     local e = Own("level", {})
     if e then e.lvl = level; H:Add(e, "self") end

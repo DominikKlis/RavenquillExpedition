@@ -52,3 +52,23 @@ K.ready = {
     "{names} sind raidbereit." },
   again = { "{gap} raidbereit für {raid}.", "{gap} raidbereit." },
 }
+
+K.first = {
+  kicker = { "Gildenpremiere", "Zum ersten Mal", "{?lvl}Vor allen anderen" },
+  head = { "{?lvl}Gildenpremiere: {name} erreicht Stufe {lvl}", "{?lvl}Vor allen anderen: {name} auf Stufe {lvl}",
+    "{?boss}Gildenpremiere: {boss} besiegt", "{?boss}{boss} fällt zum ersten Mal", "{?boss}{inst}: {boss} fällt zum ersten Mal",
+    "{!lvl}{!boss}Eine Premiere für die Gilde" },
+  dek = { "{?lvl}Niemand in der Gilde war bisher so weit.", "{?boss}Diesen Gegner hatte die Gilde noch nie besiegt.",
+    "Um {time} Uhr war es so weit.", "{grp} aus der Gilde waren dabei." },
+  body = { "{?lvl}Um {time} Uhr meldete das Gildenbuch Stufe {lvl}. Noch nie war jemand aus der Gilde so weit gekommen.",
+    "{?boss}Um {time} Uhr fiel {boss}. Ein Sieg, den es in der Gilde vorher nicht gab.",
+    "Um {time} Uhr war es so weit. Ein Tag, den sich die Gilde merken wird.",
+    "{?night}Die Premiere kam {night}. Für Geschichte gibt es offenbar keine Sperrstunde." },
+  detail = { "Um {time} Uhr war es so weit.", "{grp} aus der Gilde standen im Aufgebot.", "Schauplatz war {inst}." },
+  more = { "Die Redaktion gratuliert und verneigt sich.", "{!sure}Die anderen dürften bald folgen.",
+    "Das Gildenbuch hat eine neue erste Seite." },
+  caption = { "Gildenpremiere", "{?lvl}Stufe {lvl}", "{boss}" },
+  brief = { "{?lvl}Gildenpremiere: {name} erreicht Stufe {lvl}.", "{?boss}Gildenpremiere: {boss} besiegt.",
+    "Eine Premiere für die Gilde." },
+  again = { "{?lvl}{gap} als Premiere Stufe {lvl}.", "{gap} eine Premiere für die Gilde." },
+}

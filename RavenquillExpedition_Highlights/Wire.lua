@@ -40,6 +40,8 @@ local KIND_FIELDS = {
   o = Fields({ { "inst", "text", 48 }, { "with", "text", H.GROUP_NAMES_MAX } }),
   c = Fields({ { "enc", "int", 0, 9999999, opt = true }, { "n", "int", 1, 80, opt = true }, { "inst", "text", 48 } }),
   y = Fields({ { "raid", "enum", H.RAID_KEYS } }),
+  t = Fields({ { "what", "enum", { "level", "boss" } }, { "enc", "int", 0, 9999999, opt = true }, { "n", "int", 1, 80, opt = true },
+    { "boss", "text", 48 }, { "inst", "text", 48 } }),
 }
 for code, fields in pairs(KIND_FIELDS) do
   ch:Define(code, { from = "guild", fields = fields })
@@ -80,6 +82,9 @@ local MessageFields = {
   group = function(m, e) m.inst, m.with = e.inst or "", table.concat(e.with or {}, ",") end,
   clear = function(m, e) m.enc, m.n, m.inst = Num(e.enc), Num(e.n), e.inst or "" end,
   ready = function(m, e) m.raid = e.raid end,
+  first = function(m, e)
+    m.what, m.enc, m.n, m.boss, m.inst = e.what, Num(e.enc), e.grp and Num(e.n) or nil, e.boss or "", e.inst or ""
+  end,
 }
 
 local function WireSeq(e)
@@ -132,6 +137,10 @@ local EntryFields = {
   group = function(e, m) e.inst, e.with, e.grp = Str(m.inst), SplitNames(m.with, m.who), true end,
   clear = function(e, m) e.enc, e.n, e.inst, e.grp = m.enc, m.n, Str(m.inst), true end,
   ready = function(e, m) e.raid = m.raid end,
+  first = function(e, m)
+    e.what, e.enc, e.boss, e.inst = m.what, m.enc, Str(m.boss), Str(m.inst)
+    if m.n then e.grp, e.n = true, m.n end
+  end,
 }
 
 local function OwnEntryId(m)

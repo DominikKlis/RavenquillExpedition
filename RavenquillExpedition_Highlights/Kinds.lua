@@ -10,6 +10,8 @@ local function Gold(text) return "|cffffd100" .. text .. "|r" end
 local function NonEmpty(s, fallback) return (s and s ~= "") and s or fallback end
 
 local function SameKill(self, a, b) return a.enc == b.enc and math.abs(a.t - b.t) <= self.BOSS_SAME end
+local function KillFact(e) return e.enc and ("e" .. e.enc) or nil end
+local function FirstFact(e) if e.what == "level" then return "v" .. tostring(e.lvl) end return KillFact(e) end
 
 local function WithGuild(self, e)
   local who = self.ClassColorName(e.who, e.cls)
@@ -47,7 +49,7 @@ H.KINDS = {
   },
   boss = {
     code = "b", chat = true, icon = "INV_Misc_Bone_HumanSkull_01", hidden = function(e) return e.raid end,
-    same = SameKill,
+    same = SameKill, fact = KillFact,
     format = function(_, e)
       local boss, inst = Gold(NonEmpty(e.boss, L.A_BOSS)), NonEmpty(e.inst, L.AN_INSTANCE)
       if e.grp and (e.n or 1) > 1 then return L.BOSS_GROUP:format(boss, inst, e.n - 1) end
@@ -73,6 +75,7 @@ H.KINDS = {
   },
   level = {
     code = "v", chat = true, icon = "Spell_Holy_InnerFire",
+    fact = function(e) return e.lvl and e.lvl == H.MaxLevel() and ("v" .. e.lvl) or nil end,
     format = function(_, e)
       local max = Plain(SafeCall(GetMaxPlayerLevel), "number")
       return ((max and e.lvl == max) and L.LEVEL_MAX or L.LEVEL):format(e.lvl or 0)
@@ -115,12 +118,24 @@ H.KINDS = {
     format = function(_, e) return L.GROUP:format(Gold(NonEmpty(e.inst, L.AN_INSTANCE))) end,
   },
   clear = {
-    code = "c", chat = true, icon = "INV_Misc_Bone_Skull_02", same = SameKill, subject = WithGuild,
+    code = "c", chat = true, icon = "INV_Misc_Bone_Skull_02", same = SameKill, subject = WithGuild, fact = KillFact,
     format = function(_, e) return L.CLEAR:format(Gold(NonEmpty(e.inst, L.AN_INSTANCE))) end,
   },
   ready = {
     code = "y", chat = true, icon = "INV_Misc_Key_14",
     format = function(_, e) return L.READY:format(Gold(L["RAID_" .. tostring(e.raid)])) end,
+  },
+  first = {
+    code = "t", chat = true, gold = true, icon = "INV_Crown_01", subject = WithGuild, fact = FirstFact,
+    same = function(self, a, b) return a.what == b.what and SameKill(self, a, b) end,
+    stale = function(self, e)
+      local t = self:FirstKnown(FirstFact(e))
+      return t ~= nil and t < e.t - self.BOSS_SAME
+    end,
+    format = function(_, e)
+      if e.what == "level" then return L.FIRST_LEVEL:format(Gold(L.FIRST), e.lvl or 0) end
+      return L.FIRST_BOSS:format(Gold(L.FIRST_KILL), Gold(NonEmpty(e.boss, L.A_BOSS)), NonEmpty(e.inst, L.AN_INSTANCE))
+    end,
   },
 }
 
@@ -222,6 +237,7 @@ H.RULES = {
   { k = "skill", title = "RULE_SKILL", text = "HOW_SKILL" },
   { k = "pvp", title = "RULE_PVP", text = "HOW_PVP" },
   { k = "duel", title = "RULE_DUEL", text = "HOW_DUEL" },
+  { k = "first", title = "RULE_FIRST", text = "HOW_FIRST" },
   { k = "ready", title = "RULE_READY", text = "HOW_READY" },
   { k = "attune", title = "RULE_ATTUNE", text = "HOW_ATTUNE" },
 }
