@@ -265,6 +265,49 @@ do
   ClickRow(2)
   check(UIx.frame:IsShown() and UIx.view == "commission" and rawget(UIx.crafterView, "_shown") and not rawget(UIx.memberView, "_shown"),
     "with the window open, a click on the Get crafted row switches it to that tab")
+  local ownProfessions, ownProfessionInfo = env.GetProfessions, env.GetProfessionInfo
+  env.GetProfessions = function() return 1 end
+  env.GetProfessionInfo = function() return "Herbalism", nil, 120, 150, nil, nil, 182 end
+  GCA:RefreshKnown()
+  ShowCraftPage()
+  check(Rows()[1].count:GetText() == "" and Rows()[2].count:GetText() == "0"
+    and RowTip(1) == "Craft / You have no crafting profession. \"Get crafted\" shows who in the guild crafts for you.",
+    "only a gathering profession: the Craft row shows no count, its tooltip says why: " .. RowTexts() .. " | " .. RowTip(1))
+  local landed = {}
+  for _, open in ipairs({ function() GCA:Open() end, function() GCA:OnSlash("") end, env.RavenquillExpedition_CraftAdvisor_OnCompartmentClick }) do
+    UIx.frame:Hide()
+    open()
+    landed[#landed + 1] = tostring(UIx.frame:IsShown() and UIx.view)
+  end
+  check(table.concat(landed, ",") == "commission,commission,commission" and rawget(UIx.crafterView, "_shown")
+    and not rawget(UIx.memberView, "_shown"),
+    "no crafting profession: the window opens on Get crafted from /rq craft, the slash command and the compartment: " .. table.concat(landed, ","))
+  check(UIx.profButton.label:GetText() == "Choose a profession" and not GCA:IsBrowse(),
+    "nothing preselected: the profession button asks for a profession, nothing is browsed: " .. tostring(UIx.profButton.label:GetText()))
+  ClickRow(1)
+  local memberWhy = UIx.emptyText:GetText()
+  UIx:SetView("make", "all")
+  local allWhy = UIx.needsEmpty:GetText()
+  local noProfession = "You have no crafting profession.\n\nPick one above to browse what it could make for your guild."
+  check(UIx.view == "make" and rawget(UIx.needsView, "_shown") and memberWhy == noProfession and allWhy == noProfession
+    and UIx.profButton.label:GetText() == "Choose a profession",
+    "the Craft row still opens Craft: both scopes say you have no crafting profession and point at the picker: " .. tostring(memberWhy))
+  GCA:SelectProfession("Blacksmithing")
+  UIx:Refresh()
+  check(GCA:IsBrowse() and UIx.profButton.label:GetText():find("(browse)", 1, true),
+    "browsing stays possible: Blacksmithing picked in the dropdown is browsed: " .. tostring(UIx.profButton.label:GetText()))
+  UIx.frame:Hide()
+  GCA:Open()
+  check(UIx.view == "commission", "a browse pick does not change where the window opens without a crafting profession")
+  GCA.db.profSel[GCA.charKey] = nil
+  env.GetProfessions, env.GetProfessionInfo = ownProfessions, ownProfessionInfo
+  GCA:RefreshKnown()
+  UIx.frame:Hide()
+  GCA:Open()
+  ShowCraftPage()
+  check(UIx.view == "make" and UIx:Pane().id == "member" and rawget(UIx.memberView, "_shown")
+    and RowTexts() == "Craft 1 | Get crafted 0" and RowTip(1):find("1 craft is worth it", 1, true),
+    "with Leatherworking again: the window opens on Craft by member and the row counts as before: " .. RowTexts())
   env.RavenquillExpeditionOverview:Hide()
 end
 local mark = #printed

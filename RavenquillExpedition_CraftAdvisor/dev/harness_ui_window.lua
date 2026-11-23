@@ -47,6 +47,25 @@ do
   local firstLabel, firstHeader = pb.label._text or "", GCA.UI.sugHeader._text or ""
   check(firstLabel:find("(browse)", 1, true) and firstHeader:find("browsing", 1, true),
     "a dropped profession shows as browse on the very first refresh, button and header alike: " .. firstLabel .. " / " .. firstHeader)
+  GCA.db.profSel[GCA.charKey] = nil
+  env.GetProfessions = function() return 3 end
+  env.GetProfessionInfo = function() return "Kräuterkunde", nil, 75, 150, nil, nil, 182 end
+  GCA.UI:Refresh()
+  local none = menuOf(pb.drop)
+  local ticked = {}
+  for _, e in ipairs(none) do if e.kind == "radio" and e:on() then ticked[#ticked + 1] = e.text end end
+  check(none[1].kind == "title" and #none == 6 and #ticked == 0 and pb.label._text == "Choose a profession",
+    "no crafting profession: the menu starts at its 'Browse' title (no divider above), nothing ticked, the button asks for one: "
+      .. tostring(none[1].kind) .. ", " .. #ticked .. " ticked, " .. tostring(pb.label._text))
+  menuOf(pb.drop)[3]:click()
+  GCA.UI:Refresh()
+  check(GCA:SelectedProfession() == "Blacksmithing" and GCA:IsBrowse() and pb.label._text:find("(browse)", 1, true),
+    "picking one in the menu browses it: " .. tostring(pb.label._text))
+  GCA.db.profSel[GCA.charKey] = "Leatherworking"
+  env.GetProfessionInfo = function(i)
+    if i == 1 then return "Lederverarbeitung", nil, 120, 150, nil, nil, 165 end
+    if i == 2 then return "Verzauberkunst", nil, 90, 150, nil, nil, 333 end
+  end
   env.GetProfessions = function() return 1, 2 end
   GCA:RefreshKnown()
   GCA.UI:Refresh()

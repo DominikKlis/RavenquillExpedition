@@ -350,4 +350,11 @@ local w60, w600 = 0, 0
 for _, g in ipairs(GUILD) do w60, w600 = math.max(w60, bus:maxPer(60, g.name)), math.max(w600, bus:maxPer(600, g.name)) end
 check(w60 <= 4 and w600 <= 22, ("max messages by one client: %d in any 60 s, %d in any 600 s"):format(w60, w600))
 
+section("Only a gathering profession: a clean login with no profession preselected")
+local gatherer = Login("Finn Moor", { profs = { { 182, 75 } } })
+advance(20)
+check(#gatherer.errors == 0 and gatherer.GCA:SelectedProfession() == nil and not gatherer.GCA:IsBrowse(),
+  "Finn (Herbalism only) logs in without an error and nothing is selected or browsed: "
+    .. tostring(gatherer.GCA:SelectedProfession()) .. " " .. tostring(gatherer.errors[1]))
+
 Kit.finish()
