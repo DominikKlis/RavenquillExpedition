@@ -241,6 +241,26 @@ do
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
+Kit.section("Window: the Sunday edition reviews only what the Chronik shows, not the entries the rules hide")
+do
+  local c, _, paper = Paper({
+    E("level", "Ole Fichtental", At(16, 10), { lvl = 40 }),
+    E("skill", "Ilsa Brunnhold", At(18, 11), { skill = "Leatherworking", rank = 225, lvl = 36 }),
+    Quest("Ole Fichtental", At(19, 22), 44),
+    Raid("Tamo Eichengrund", At(20, 21, 20), "Lucifron", 663),
+    Raid("Tamo Eichengrund", At(20, 21, 50), "Magmadar", 664),
+    E("loot", "Rika Steinbeck", At(21, 20), { item = 5001, q = 4, lvl = 45 }),
+    E("mount", "Ole Fichtental", At(22, 12), { lvl = 42 }),
+  })
+  check(#c.H:Log() == 7 and #c.H:ShownLog() == 3, "all seven entries are kept, the Chronik shows three of them ("
+    .. #c.H:Log() .. ", " .. #c.H:ShownLog() .. ")")
+  local side = Read(SideTexts(c, paper))
+  check(side == "Die Woche in Zahlen / 2 / Stufen gewonnen / 1 / epischer Fund / AUFSTIEG DER WOCHE / Ole Fichtental"
+    .. " / von Stufe 40 auf 42 / GLÜCKSPILZ DER WOCHE / Rika Steinbeck / |cff7b2cbf[Klinge der Morgenröte]|r",
+    "the hidden quest, raid kill records and leatherworking step count for nothing (" .. side .. ")")
+  check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
+end
+
 local function Offenders(c, paper, texts)
   local pr, out = R(paper), {}
   for _, fs in ipairs(texts or Layout.Texts(c, paper)) do
