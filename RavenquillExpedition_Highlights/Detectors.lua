@@ -39,14 +39,9 @@ local function ItemFacts(link)
   link = Plain(link, "string")
   if not link then return end
   local f = { id = ItemID(link) }
-  local name, _, q, il = H.ItemInfo(link)
-  local dil = Plain(SafeCall((C_Item and C_Item.GetDetailedItemLevelInfo) or GetDetailedItemLevelInfo, link), "number")
-  if dil and dil > 0 then il = dil end
-  f.name = Plain(name, "string")
+  local name, _, q = H.ItemInfo(link)
   f.q = Plain(q, "number") or LinkQuality(link)
-  f.il = Plain(il, "number")
-  f.ready = f.name ~= nil and f.il ~= nil
-  if not f.ready and f.id then H.RequestItemData(f.id) end
+  if not Plain(name, "string") and f.id then H.RequestItemData(f.id) end
   return f
 end
 
@@ -104,87 +99,27 @@ end
 local GEAR_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 }
 local IS_GEAR = {}
 for _, s in ipairs(GEAR_SLOTS) do IS_GEAR[s] = true end
-local snap, snapReady = {}, false
+local ownedSeeded = false
 
-local function ReadSlot(slot) return Plain(SafeCall(GetInventoryItemLink, "player", slot), "string") end
+local function WornItem(slot) return ItemID(Plain(SafeCall(GetInventoryItemLink, "player", slot), "string")) end
 
 local function MarkOwned(id)
   if id then H.cdb.ownedEpics[id] = true end
 end
 
-local function TakeSnapshot()
-  for _, s in ipairs(GEAR_SLOTS) do
-    local l = ReadSlot(s)
-    snap[s] = l
-    local id = ItemID(l)
-    if id then
-      H.cdb.everEquipped[id] = true
-      MarkOwned(id)
-    end
-  end
-  if not H.cdb.bagsSeeded then
-    EachItem(BagList(), function(_, _, id) if id then H.cdb.everEquipped[id] = true; MarkOwned(id) end end)
-    H.cdb.bagsSeeded = true
-  else
-    EachItem(BagList(), function(_, _, id) MarkOwned(id) end)
-  end
-  snapReady = true
-end
-
-local EvaluateGear
-do
-  local function StillLoading(nf, of) return not nf.ready or (of and not of.ready) end
-
-  local function ItemLevelGain(nf, of)
-    if of and nf.il and of.il then return nf.il - of.il end
-  end
-
-  local function GearWorthSharing(nf, of)
-    local q, gain = nf.q or 0, ItemLevelGain(nf, of)
-    local epicNew = q >= H.EPIC_QUALITY and (not of or (of.q or 0) < H.EPIC_QUALITY)
-    local bigGain = gain and gain >= H.MIN_GAIN and q >= H.GEAR_QUALITY
-    return bigGain or epicNew
-  end
-
-  local function LootHighlighted(id)
-    local me = GS:PlayerKey()
-    for _, e in ipairs((H:Log())) do
-      if e.k == "loot" and e.item == id and e.who == me then return true end
-    end
-    return false
-  end
-
-  EvaluateGear = function(slot, old, new, tries)
-    local nf, of = ItemFacts(new), old and ItemFacts(old)
-    if not nf then return end
-    if StillLoading(nf, of) and tries < 5 then
-      C_Timer.After(1, function() GS:Call(EvaluateGear, slot, old, new, tries + 1) end)
-      return
-    end
-    local fields = { item = nf.id, link = new, il = nf.il, q = nf.q, oil = of and of.il, slot = slot }
-    if GearWorthSharing(nf, of) and not LootHighlighted(nf.id) then
-      H:Add(Own("gear", fields), "self")
-    else
-      H:Activity(Act("gear", fields))
-    end
-  end
+local function SeedOwned()
+  for _, s in ipairs(GEAR_SLOTS) do MarkOwned(WornItem(s)) end
+  EachItem(BagList(), function(_, _, id) MarkOwned(id) end)
+  ownedSeeded = true
 end
 
 local function OnEquipmentChanged(slot)
-  if not snapReady or type(slot) ~= "number" or not IS_GEAR[slot] then return end
-  local old, new = snap[slot], ReadSlot(slot)
-  snap[slot] = new
-  if not new or new == old then return end
-  local id = ItemID(new)
-  if not id or H.cdb.everEquipped[id] then return end
-  H.cdb.everEquipped[id] = true
-  MarkOwned(id)
-  EvaluateGear(slot, old, new, 0)
+  if ownedSeeded and IS_GEAR[slot] then MarkOwned(WornItem(slot)) end
 end
 
 local bankOpen = false
 local function ScanBagsForEpics()
-  if not snapReady or not H.cdb.bagsSeeded then return end
+  if not ownedSeeded then return end
   EachItem(BagList(), function(link, q, id)
     if not id or H.cdb.ownedEpics[id] then return end
     MarkOwned(id)
@@ -194,13 +129,7 @@ end
 
 local function OnBankOpened()
   bankOpen = true
-  EachItem(BankList(), function(_, _, id)
-    if id then
-      MarkOwned(id)
-      if not H.cdb.bankSeeded then H.cdb.everEquipped[id] = true end
-    end
-  end)
-  H.cdb.bankSeeded = true
+  EachItem(BankList(), function(_, _, id) MarkOwned(id) end)
 end
 
 local recentKill = {}
@@ -466,7 +395,7 @@ do
   local Handlers = {
     PLAYER_ENTERING_WORLD = function(initialLogin)
       if Plain(initialLogin) then GS:Call(H.EndMountSeeding, H) end
-      if not snapReady then Soon("snap", 3, TakeSnapshot) end
+      if not ownedSeeded then Soon("owned", 3, SeedOwned) end
       QueueQuestScan()
       local inside = GS:InInstance()
       if wasInInstance and not inside then GS:Call(H.OnLeftInstance, H) end

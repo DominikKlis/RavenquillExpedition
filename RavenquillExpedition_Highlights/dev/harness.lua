@@ -185,38 +185,24 @@ check(GS:NormName("Bud Stone-Forever") == "Bud Stone", "realm suffix stripped")
 check(GS:NormName("Anna Muller-Lee") == "Anna Muller-Lee", "hyphenated surname kept")
 check(GS:IsGuildMember("Bud Stone") == true and GS:IsGuildMember("Stranger X") == false, "roster read (names with -Realm)")
 
-equip(1, 101); advance(2)
-check(count() == 1 and last().k == "gear" and last().il == 30 and last().oil == 20, "big rare upgrade logged (+10)")
-check(not lastPrinted():find("Neuer Helm", 1, true), "gear upgrades stay out of chat by default")
-equip(1, 100); advance(2)
-check(count() == 1, "re-equipping an old item is not logged")
-equip(1, 102); advance(2)
-check(count() == 1, "small upgrade (+3) not logged")
-equip(1, 104); advance(2)
-check(count() == 1, "green upgrade (+22) not logged (rare or better only)")
-equip(11, 201); equip(12, 200); advance(2)
-check(count() == 1, "ring swap not logged")
-equip(16, 105); advance(2)
-check(count() == 1, "a sword that was in the bags at install is not logged (review #4)")
-equip(1, 103); advance(2)
-check(count() == 2 and last().q == 4, "first epic in a slot logged even with a tiny gain")
-check(lastPrinted():find("Epischer Helm", 1, true), "epic gear is printed in chat")
+for _, worn in ipairs({ { 1, 101 }, { 1, 102 }, { 1, 104 }, { 1, 103 }, { 16, 105 }, { 17, 301 } }) do equip(worn[1], worn[2]) end
+advance(10)
+check(count() == 0 and #H.cdb.activity == 0 and sentKind("g") == 0,
+  "putting on gear, a rare upgrade or an epic, is no highlight, no activity and never sent")
+fire("PLAYER_LEVEL_UP", 10); advance(1)
+check(count() == 1 and last().k == "level" and lastPrinted():find("Stufe 10", 1, true), "a level highlight is printed in chat")
 local chatHead = "|cff33ff99Ravenquill Expedition|r |cffbbbbbbGilden-Highlights|r: "
 check(lastPrinted():sub(1, #chatHead) == chatHead, "highlight chat lines start with the suite and module title")
-G.items[301].unloaded = true
-equip(17, 301); advance(1)
-check(count() == 2, "unloaded item waits")
-G.items[301].unloaded = nil; advance(2)
-check(count() == 3 and last().item == 301, "logged after the item data arrives (empty slot + epic)")
-advance(3)
+fire("PLAYER_LEVEL_UP", 20); advance(3)
+fire("PLAYER_LEVEL_UP", 30); advance(3)
 local CC = GS.CommConst
-local gTimes = {}
-for _, x in ipairs(G.sent) do if x.msg:find("H;1;g;", 1, true) then gTimes[#gTimes + 1] = x.t end end
-check(CC.BURST >= 3 and #gTimes == 3, "three highlights sent within the burst (" .. #gTimes .. ")")
-check(gTimes[3] and gTimes[3] - gTimes[2] < 1 / CC.RATE, ("the third without waiting for a refill (%s s after the second)"):format(
-  gTimes[3] and tostring(gTimes[3] - gTimes[2]) or "-"))
+local vTimes = {}
+for _, x in ipairs(G.sent) do if x.msg:find("H;1;v;", 1, true) then vTimes[#vTimes + 1] = x.t end end
+check(CC.BURST >= 3 and #vTimes == 3, "three highlights sent within the burst (" .. #vTimes .. ")")
+check(vTimes[3] and vTimes[3] - vTimes[2] < 1 / CC.RATE, ("the third without waiting for a refill (%s s after the second)"):format(
+  vTimes[3] and tostring(vTimes[3] - vTimes[2]) or "-"))
 advance(40)
-check(sentKind("g") == 3, "nothing sent twice while waiting for the echo")
+check(sentKind("v") == 3, "nothing sent twice while waiting for the echo")
 check(G.sent[1].prefix == "RQE1" and G.sent[1].chan == "GUILD", "shared prefix on GUILD")
 echoAll(); advance(20)
 check(outboxSize() == 0, "echo clears the outbox")
@@ -394,8 +380,7 @@ local function actOf(k, pred)
   for _, a in ipairs(act) do if a.k == k and (not pred or pred(a)) then c = c + 1 end end
   return c
 end
-check(actOf("gear", function(a) return a.item == 102 end) == 1 and actOf("gear", function(a) return a.item == 104 end) == 1,
-  "small and green upgrades go to the activity log")
+check(actOf("gear") == 0, "gear changes leave no activity either")
 check(actOf("loot", function(a) return a.item == 300 and a.q == 2 end) == 1, "own green loot goes to the activity log")
 check(actOf("loot", function(a) return a.item == 303 end) == 0, "others' loot is not my activity")
 check(actOf("quest", function(a) return a.qid == 9 and a.title == "Gemüse sammeln" end) == 1, "a normal quest goes to the activity log")
@@ -471,7 +456,7 @@ end
 
 echoAll(); advance(130)
 env.wipe(H.cdb.outbox); env.wipe(H.cdb.shareLog)
-equip(2, 303); advance(2)
+fire("PLAYER_LEVEL_UP", 100); advance(2)
 local id = last().id
 local mine = ";" .. id:match("#(%d+)$") .. ";Me Smith;"
 advance(40)
@@ -805,16 +790,17 @@ do
   local notes = {}
   for i, o in ipairs(H.options) do if o.type == "note" then notes[#notes + 1] = panel.controls[i]:GetText() end end
   local page = table.concat(notes, "\n")
-  check(page:find("Ausrüstung:|r ein neuer Gegenstand, den du anlegst, ab Qualität |cff0070ddSelten|r und mindestens 8 Gegenstandsstufen", 1, true)
-    and page:find("in Qualität |cffa335eeEpisch|r, wenn er eine niedrigere Qualität oder einen leeren Platz ersetzt", 1, true),
-    "the gear line names the item level gain and the game's coloured quality names")
+  check(not page:find("Ausrüstung:", 1, true) and not page:find(H.KINDS.gear.icon, 1, true),
+    "gear has no line any more: putting an item on is no highlight")
   check(page:find("Beute:|r Gegenstände ab Qualität |cffa335eeEpisch|r", 1, true) and page:find("Stufen:|r alle 10 Stufen und die Höchststufe", 1, true)
     and page:find("„Nur Highlights“ im Protokollfenster", 1, true), "the loot, level and activity lines carry the fixed numbers")
-  local unexplained = {}
+  local unexplained, retired = {}, {}
   for k, kind in pairs(H.KINDS) do
-    if not page:find(kind.icon, 1, true) then unexplained[#unexplained + 1] = k end
+    if not kind.legacy and not page:find(kind.icon, 1, true) then unexplained[#unexplained + 1] = k end
   end
+  for _, rule in ipairs(H.RULES) do if H.KINDS[rule.k].legacy then retired[#retired + 1] = rule.k end end
   check(#unexplained == 0, "every kind of highlight has a line on the page (" .. table.concat(unexplained, ", ") .. ")")
+  check(#retired == 0, "no line explains a retired kind (" .. table.concat(retired, ", ") .. ")")
   local untranslated = {}
   for _, rule in ipairs(H.RULES) do
     for locale, t in pairs(H.locale) do
@@ -1031,29 +1017,12 @@ do
   end
 end
 
-Kit.section("Gear whose item data never loads")
+Kit.section("Gear: putting an epic on is no highlight, taking it off into the bags is not news either")
 do
-  local base = count()
-  G.items[315] = { name = "Lila Nebelklinge", q = 4, il = 50, unloaded = true }
-  equip(16, 315); advance(10)
-  check(count() == base + 1 and last().k == "gear" and last().item == 315 and last().q == 4,
-    "an epic whose item data never loads is still a gear highlight after the retries, its quality read from the link")
-  G.items[315].unloaded = nil
-end
-
-Kit.section("One item, one highlight")
-do
-  local base = count()
-  equip(5, 310); advance(2)
-  local a = H.cdb.activity[#H.cdb.activity]
-  check(count() == base and a.k == "gear" and a.item == 310,
-    "equipping the crafted epic that was already a loot highlight goes to the activity log, not a second highlight")
-  base = count()
+  local base, acts = count(), #H.cdb.activity
   G.items[316] = { name = "Lila Handschuhe", q = 4, il = 45 }
   equip(10, 316); advance(2)
-  check(count() == base + 1 and last().k == "gear" and last().item == 316,
-    "an epic that was never a loot highlight is a gear highlight when equipped")
-  base = count()
+  check(count() == base and #H.cdb.activity == acts, "an epic that was never loot is no highlight when it is put on")
   equip(10, nil); G.bags[0][10] = 316; fire("BAG_UPDATE_DELAYED"); advance(2)
   check(count() == base, ("taken off into the bags, that epic is not reported as received afterwards (%d new)"):format(count() - base))
 end

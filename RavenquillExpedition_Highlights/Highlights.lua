@@ -16,9 +16,6 @@ local H = GS:NewModule("Highlights", {
 })
 ns.H = H
 
-H.MIN_GAIN = 8
-H.GEAR_QUALITY = 3
-H.EPIC_QUALITY = 4
 H.LOOT_QUALITY = 4
 H.LEVEL_STEP = 10
 H.SHARE_CAP = 8

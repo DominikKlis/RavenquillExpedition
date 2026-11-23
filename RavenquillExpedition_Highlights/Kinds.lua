@@ -11,7 +11,7 @@ local function NonEmpty(s, fallback) return (s and s ~= "") and s or fallback en
 
 H.KINDS = {
   gear = {
-    code = "g", chat = true, chatMinQuality = 4, icon = "INV_Chest_Chain_05",
+    code = "g", legacy = true, chat = true, chatMinQuality = 4, icon = "INV_Chest_Chain_05",
     format = function(self, e)
       local item = self:ItemText(e)
       local quality = e.q or 0
@@ -167,7 +167,6 @@ end
 
 local Q = H.QualityName
 H.RULES = {
-  { k = "gear", title = "RULE_GEAR", text = "HOW_GEAR", args = { Q(H.GEAR_QUALITY), H.MIN_GAIN, Q(H.EPIC_QUALITY) } },
   { k = "loot", title = "RULE_LOOT", text = "HOW_LOOT", args = { Q(H.LOOT_QUALITY) } },
   { k = "boss", title = "RULE_RAID_BOSS", text = "HOW_RAID_BOSS" },
   { k = "boss", title = "RULE_WORLD_BOSS", text = "HOW_WORLD_BOSS" },
