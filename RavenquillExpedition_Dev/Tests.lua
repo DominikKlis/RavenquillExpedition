@@ -526,6 +526,77 @@ Dev:Register("highlights.smoke", function(t)
   t:after(1, function() CheckTab(t) end)
 end, 30)
 
+local function MarkedLine(msg, text)
+  for i, line in ipairs(msg.visibleLines or {}) do
+    local info = line.messageInfo
+    if info and info.message == text then return i, info end
+  end
+end
+
+local function BoxOnLine(box, line)
+  if not (box and line and box.fill:IsShown()) then return false end
+  local _, anchor = box.fill:GetPoint(1)
+  local top, bottom = box.fill:GetTop(), box.fill:GetBottom()
+  return anchor == line and top ~= nil and math.abs(top - line:GetTop()) < 0.5 and math.abs(bottom - line:GetBottom()) < 0.5
+end
+
+local function GoldMarked(line)
+  local info = line.messageInfo
+  return info ~= nil and type(info.extraData) == "table" and info.extraData[1] == true
+end
+
+local function StrayBox(msg)
+  for i, line in ipairs(msg.visibleLines) do
+    local shown = msg.glow[i] ~= nil and msg.glow[i].fill:IsShown()
+    if shown ~= GoldMarked(line) then return i end
+  end
+end
+
+local function CheckBoxMoved(t, msg, text, want, how)
+  local at, stray = MarkedLine(msg, text), StrayBox(msg)
+  t:ok(at == want and BoxOnLine(msg.glow[want], msg.visibleLines[want]) and stray == nil,
+    ("%s: the box moved with its line to line %s, every other line boxed only if gold (first mismatch: %s)"):format(how,
+      tostring(at), tostring(stray)))
+end
+
+local function CheckBoxDrawn(t, H, msg, text)
+  local lines = msg.visibleLines
+  t:ok(type(lines) == "table" and lines[1] ~= nil and #lines == msg:GetNumVisibleLines() and lines[1]:GetObjectType() == "FontString",
+    ("the message frame lists its %s visible lines as FontStrings"):format(tostring(type(lines) == "table" and #lines)))
+  local at, info = MarkedLine(msg, text)
+  t:ok(at == 1 and type(info.extraData) == "table" and info.extraData[1] == true,
+    ("the newest line carries its messageInfo with the gold mark (line %s)"):format(tostring(at)))
+  t:ok(at ~= nil and BoxOnLine(msg.glow[at], lines[at]), "the gold box is shown, anchored to that line and level with it on screen")
+  t:ok(msg.glow.host:DoesClipChildren(), "the box host clips, so a half-scrolled top line's box is cut like its text")
+  msg:AddMessage(text .. " (newer)")
+  t:after(0.2, function()
+    CheckBoxMoved(t, msg, text, 2, "a newer line below it")
+    msg:ScrollUp()
+    t:after(0.2, function()
+      CheckBoxMoved(t, msg, text, 1, "one wheel step up")
+      H:Refresh()
+      if RQ:OverviewShown() then RQ:ToggleOverview() end
+      t:done()
+    end)
+  end)
+end
+
+Dev:Register("highlights.logbox", function(t)
+  local H = RQ:GetModule("Highlights")
+  if not (H and H.db) then t:note("Highlights not loaded") t:done() return end
+  if not RQ:OverviewShown() then RQ:ToggleOverview() end
+  RQ:ShowModulePage("Highlights")
+  local ov = _G.RavenquillExpeditionOverview
+  local msg = ov and ov.optView.pages.Highlights and ov.optView.pages.Highlights.msg
+  t:ok(msg ~= nil and type(msg.AddOnDisplayRefreshedCallback) == "function" and msg.glow ~= nil,
+    "the Chronik's message frame takes a display-refreshed callback and has its gold boxes")
+  if not (msg and msg.glow) then t:done() return end
+  local text = "Ravenquill gold box test " .. time()
+  msg:ScrollToBottom()
+  msg:AddMessage(text, 1, 0.9, 0.55, true)
+  t:after(0.2, function() CheckBoxDrawn(t, H, msg, text) end)
+end, 10)
+
 local MILESTONE_APIS = { "IsMounted", "GetUnitSpeed", "UnitOnTaxi", "GetBattlefieldWinner", "UnitFactionGroup",
   "GetProfessions", "GetProfessionInfo", "UnitPVPRank", "GetPVPRankInfo", "PlaySound" }
 local MILESTONE_STRINGS = { "LOOT_ITEM_CREATED_SELF", "FACTION_STANDING_CHANGED", "FACTION_STANDING_LABEL7",
