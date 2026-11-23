@@ -7,9 +7,9 @@ local SafeCall, Plain = GS.SafeCall, GS.Plain
 H.RAID_ENCOUNTERS = { zg = { 784, 793 }, mc = { 663, 672 }, ony = { 1084, 1084 }, bwl = { 610, 617 },
   aq20 = { 718, 723 }, aq40 = { 709, 717 }, naxx = { 1107, 1121 } }
 
-local function ThisWeek(self)
+local function ThisWeek(list)
   local week, out = GS.Week(GS:Now()), {}
-  for _, e in ipairs(self:Log()) do
+  for _, e in ipairs(list) do
     if not e.test and e.t >= week.from and e.t < week.to then out[#out + 1] = e end
   end
   return out
@@ -29,13 +29,13 @@ local PROGRESS = {
     local range = H.RAID_ENCOUNTERS[goal.raid]
     if range then return BossesKilled(entries, range), range[2] - range[1] + 1 end
   end,
-  runs = function(self, entries, goal) return News.RunsTogether(entries, self:NewsContext()), goal.target end,
+  runs = function(self, _, goal) return News.RunsTogether(ThisWeek(self:ShownLog()), self:NewsContext()), goal.target end,
   levels = function(_, entries, goal) return News.LevelsGained(entries), goal.target end,
 }
 
 function H:GoalProgress(goal)
   local measure = self.db and PROGRESS[goal.kind]
-  if measure then return measure(self, ThisWeek(self), goal) end
+  if measure then return measure(self, ThisWeek(self:Log()), goal) end
 end
 
 function H:ShowRaid(raid)

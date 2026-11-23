@@ -3,7 +3,9 @@ local GS = RavenquillExpedition
 local H = ns.H
 
 local KIND_CODE, CODE_KIND = {}, {}
-for k, kind in pairs(H.KINDS) do KIND_CODE[k], CODE_KIND[kind.code] = kind.code, k end
+for k, kind in pairs(H.KINDS) do
+  if kind.code then KIND_CODE[k], CODE_KIND[kind.code] = kind.code, k end
+end
 local CLASSES, CLASS_IDX = GS.Wire.CLASSES, GS.Wire.CLASS_IDX
 local QUEST_TAGS = H.QUEST_TAGS
 

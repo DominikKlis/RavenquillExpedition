@@ -11,6 +11,7 @@
 Locale.lua
 Highlights.lua
 Kinds.lua
+Lines.lua
 Attunements.lua
 Wire.lua
 Catchup.lua

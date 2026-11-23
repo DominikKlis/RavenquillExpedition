@@ -576,11 +576,11 @@ do
   w.start()
   local lines = DungeonLines(lyra)
   local visits = {}
-  for _, text in ipairs(lines) do if text:find("zum ersten Mal in ", 1, true) then visits[#visits + 1] = text end end
+  for _, text in ipairs(lines) do if text:find("zum ersten Mal besiegt", 1, true) then visits[#visits + 1] = text end end
   check(#visits == 3, "three first-time lines from nine old boss kills: " .. table.concat(visits, " / "))
-  check(Holds(visits, "Hanne Moosgrund  ·  zum ersten Mal in |cffffd100Zul'Farrak|r: 3 Bosse")
-    and Holds(visits, "Tamo Eichengrund  ·  zum ersten Mal in |cffffd100Zul'Farrak|r: ein Boss")
-    and Holds(visits, "Hanne Moosgrund  ·  zum ersten Mal in |cffffd100Maraudon|r: ein Boss"),
+  check(Holds(visits, "Hanne Moosgrund  ·  |cffffd100Zul'Farrak|r: 3 Bosse zum ersten Mal besiegt")
+    and Holds(visits, "Tamo Eichengrund  ·  |cffffd100Zul'Farrak|r: ein Boss zum ersten Mal besiegt")
+    and Holds(visits, "Hanne Moosgrund  ·  |cffffd100Maraudon|r: ein Boss zum ersten Mal besiegt"),
     "Hanne's three Zul'Farrak kills over two days are one line, Tamo's English one is his own, Hanne's Maraudon another")
   check(not Holds(visits, "Ole Fichtental") and Holds(lines, "Ole Fichtental  ·  |cffffd100Maraudon|r zum ersten Mal geschafft"),
     "Ole's first run through Maraudon replaces his Maraudon kills: it says more")

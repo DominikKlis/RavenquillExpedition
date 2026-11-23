@@ -186,7 +186,7 @@ do
   end
 
   local function ReportKill(fields, first, dungeon)
-    if dungeon then H:NoteDungeonKill(fields.inst) end
+    if dungeon then H:NoteDungeonKill(fields.inst, fields.boss, first) end
     if first and not dungeon then
       if GuildFirst(fields, first) then return ReportGuildFirst(fields) end
       fields.first = true

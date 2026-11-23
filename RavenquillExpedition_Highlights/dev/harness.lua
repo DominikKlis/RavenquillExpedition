@@ -299,7 +299,7 @@ G.inInstance, G.itype, G.raid, G.group, G.instName = false, "none", false, {}, "
 fire("PLAYER_ENTERING_WORLD")
 advance(20)
 recv("Cara Moss", ("1;b;%d;9;Cara Moss;31;7;663;0;1;Lucifron;Geschmolzener Kern;3"):format(luci.t + 30))
-advance(200)
+for _ = 1, 20 do advance(10); echoAll() end
 check(sentKind("b") == 1 and sentKind("o") == 1 and sentKind("d") == 1,
   "after a 4 h raid: the guild group, Me's first Deadmines and Magmadar sent, Lucifron left to Cara")
 local _, idx = H:Log()
@@ -312,8 +312,9 @@ n = count()
 fire("BOSS_KILL", 456, "Baron Rivendare")
 G.inInstance, G.itype, G.instName, G.group = false, "none", "Westfall", {}
 fire("PLAYER_ENTERING_WORLD"); advance(H.RUN_GRACE + 5)
-check(count() == n + 1 and last().k == "run" and last().first and last().inst == "Stratholme" and sentKind("o") == 1
-  and H.cdb.run == nil, "a first run without guildmates is a first-run entry and no guild group")
+check(count() == n + 1 and last().k == "run" and last().first and last().inst == "Stratholme" and H.cdb.run == nil,
+  "a first run without guildmates is a first-run entry and no guild group")
+echoAll()
 n = count()
 G.inInstance, G.itype, G.instName = true, "party", "Die Todesminen"
 G.group = { party1 = { "Dora", "Dunn" } }
@@ -332,7 +333,8 @@ check(H:Format({ k = "run", who = "Me Smith", first = true, n = 1, inst = "Die T
 local runBack = H.Decode("Me Smith", H.Encode(run))
 check(runBack and runBack.k == "group" and runBack.inst == "Die Todesminen" and #runBack.with == 1 and runBack.with[1] == "Dora Dunn"
   and runBack.grp and runBack.id == run.id, "guild group round trip")
-echoAll(); advance(200); echoAll(); advance(5)
+for _ = 1, 20 do advance(10); echoAll() end
+advance(5)
 
 G.quests = {
   { title = "Westfall", header = true, id = 0 },
@@ -349,6 +351,7 @@ G.tags[77] = { tagID = 1 }
 G.tags[79] = { tagID = 81 }
 G.tags[90] = { tagID = 83 }
 G.tags[91] = { tagID = 62 }
+env.wipe(H.cdb.shareLog)
 fire("QUEST_LOG_UPDATE"); advance(2)
 n = count()
 local actsBefore = #H.cdb.activity
@@ -581,7 +584,7 @@ for _, o in ipairs(H.options) do
 end
 check(noClutter, "the options hold no log-window duplicates and no diagnostics")
 rawget(panel.controls[opt(L.OPT_CLEARTEST)], "_scripts").OnClick()
-check(lastPrinted():find("12 Testeinträge entfernt", 1, true), "test entries removed")
+check(lastPrinted():find("13 Testeinträge entfernt", 1, true), "test entries removed")
 GS:ShowCopyBox("Diagnose", GS:DiagLines())
 local box = env.RavenquillExpeditionCopyBox
 check(box and box:IsShown() and box.text:find("== " .. H.title, 1, true) and box.text:find("events seen", 1, true)

@@ -33,6 +33,38 @@ local function SharePeople(a, b)
   return false
 end
 
+local DUNGEON_ICON = "INV_Misc_Lantern_01"
+local function Bosses(n) return (n or 1) == 1 and L.ONE_BOSS or L.N_BOSSES:format(n) end
+local function NotFirst(e) return not e.first end
+local function DungeonFirst(e) return e.first and not e.raid and not WorldBoss(e) end
+
+local function SameRun(self, f, e)
+  for _, m in ipairs(f) do if m.who == e.who then return false end end
+  return f[1].inst == e.inst and math.abs(f[1].t - e.t) <= self.RUN_FOLD
+end
+
+local function SameVisit(_, f, e) return f[1].who == e.who and f[1].inst == e.inst end
+
+local function GroupFill(line, f)
+  line.grp, line.with, line.firsts = true, {}, H.Firsts(f)
+  for i = 2, #f do line.with[i - 1] = f[i].who end
+end
+
+local function VisitFill(line, f) line.n, line.boss = #f, f[#f].boss end
+
+local function SameGroupRun(self, g, r)
+  if not H.Involves(g, r.who) then return false end
+  local after = r.t - g.t
+  return math.abs(after) <= self.KILL_SLACK or (g.inst == r.inst and after >= 0 and after <= self.RUN_SAME)
+end
+
+local function AllNew(e)
+  local new = {}
+  for _, who in ipairs(e.firsts) do new[who] = true end
+  for _, who in ipairs(H.People(e)) do if not new[who] then return false end end
+  return true
+end
+
 H.KINDS = {
   gear = {
     code = "g", legacy = true, chat = true, chatMinQuality = 4, icon = "INV_Chest_Chain_05", hidden = Always,
@@ -57,6 +89,7 @@ H.KINDS = {
   boss = {
     code = "b", chat = true, icon = "INV_Misc_Bone_HumanSkull_01", hidden = function(e) return e.raid or not (e.first and WorldBoss(e)) end,
     same = SameKill, fact = KillFact,
+    fold = { into = "visit", of = DungeonFirst, keep = { "inst" }, min = 1, joins = SameVisit, fill = VisitFill },
     format = function(_, e)
       local boss, inst = Gold(NonEmpty(e.boss, L.A_BOSS)), NonEmpty(e.inst, L.AN_INSTANCE)
       if e.grp and (e.n or 1) > 1 then return L.BOSS_GROUP:format(boss, inst, e.n - 1) end
@@ -64,14 +97,13 @@ H.KINDS = {
     end,
   },
   run = {
-    code = "d", legacy = true, chat = true, icon = "INV_Misc_Key_03",
-    fold = { into = "group", keep = { "inst" },
-      same = function(self, a, b) return a.inst == b.inst and math.abs(a.t - b.t) <= self.RUN_FOLD end },
-    format = function(_, e)
-      local inst, bosses = Gold(NonEmpty(e.inst, L.AN_INSTANCE)), (e.n or 1) == 1 and L.ONE_BOSS or L.N_BOSSES:format(e.n)
-      if e.first then return L.RUN_FIRST:format(inst, bosses) .. (NonEmpty(e.boss) and L.RUN_LAST:format(e.boss) or "") end
-      return L.RUN_NEW:format(inst, bosses, e.nf or 1)
-    end,
+    code = "d", chat = true, icon = DUNGEON_ICON, hidden = NotFirst,
+    fold = { into = "group", keep = { "inst" }, min = 2, joins = SameRun, fill = GroupFill },
+    format = function(_, e) return (e.first and L.RUN_FIRST or L.GROUP):format(Gold(NonEmpty(e.inst, L.AN_INSTANCE))) end,
+  },
+  visit = {
+    legacy = true, chat = false, icon = DUNGEON_ICON, yieldsTo = { run = true, group = true },
+    format = function(_, e) return L.VISIT:format(Gold(NonEmpty(e.inst, L.AN_INSTANCE)), Bosses(e.n)) end,
   },
   quest = {
     code = "q", legacy = true, chat = false, icon = "INV_Misc_Note_01", hidden = Always,
@@ -122,8 +154,14 @@ H.KINDS = {
   group = {
     code = "o", chat = true, icon = "INV_Misc_Key_03",
     same = function(self, a, b) return a.inst == b.inst and math.abs(a.t - b.t) <= self.RUN_SAME and SharePeople(a, b) end,
+    holds = SameGroupRun,
     subject = function(self, e) return self:PeopleText(e) end,
-    format = function(_, e) return L.GROUP:format(Gold(NonEmpty(e.inst, L.AN_INSTANCE))) end,
+    format = function(self, e)
+      local inst = Gold(NonEmpty(e.inst, L.AN_INSTANCE))
+      if not (e.firsts and e.firsts[1]) then return L.GROUP:format(inst) end
+      if AllNew(e) then return L.RUN_FIRST:format(inst) end
+      return L.GROUP_FIRSTS:format(inst, self:NamesText(e.firsts))
+    end,
   },
   clear = {
     code = "c", chat = true, icon = "INV_Misc_Bone_Skull_02", same = SameKill, subject = WithGuild, fact = KillFact,
@@ -176,11 +214,21 @@ local function MemberName(self, key, cls)
   return self.ClassColorName(key, cls or (member and member.class))
 end
 
+local function JoinNames(names)
+  if #names < 2 then return names[1] end
+  return table.concat(names, L.COMMA, 1, #names - 1) .. L.AND .. names[#names]
+end
+
 function H:PeopleText(e)
   local names = { MemberName(self, e.who, e.cls) }
   for _, key in ipairs(e.with or {}) do names[#names + 1] = MemberName(self, key) end
-  if #names < 2 then return names[1] end
-  return table.concat(names, L.COMMA, 1, #names - 1) .. L.AND .. names[#names]
+  return JoinNames(names)
+end
+
+function H:NamesText(keys)
+  local names = {}
+  for _, key in ipairs(keys) do names[#names + 1] = MemberName(self, key) end
+  return JoinNames(names)
 end
 
 function H:Format(e)
@@ -230,6 +278,7 @@ function H:AddTests()
   local list = {
     E("loot", { item = 869, q = 4 }),
     E("group", { inst = L.TEST_DEADMINES, with = { "Bud Stone" }, grp = true }),
+    E("run", { t = t - 3600, inst = L.TEST_MARAUDON, boss = "Noxxion", n = 8, nf = 8, first = true }),
     E("clear", { enc = 672, inst = L.TEST_MOLTEN_CORE, n = 12, grp = true }),
     E("boss", { enc = 1100, boss = "Azuregos", inst = L.TEST_AZSHARA, first = true }),
     E("first", { what = "level", lvl = 60 }),
@@ -262,6 +311,7 @@ H.RULES = {
   { k = "clear", title = "RULE_CLEAR", text = "HOW_CLEAR" },
   { k = "boss", title = "RULE_WORLD_BOSS", text = "HOW_WORLD_BOSS" },
   { k = "group", title = "RULE_GROUP", text = "HOW_GROUP" },
+  { k = "run", title = "RULE_RUN", text = "HOW_RUN" },
   { k = "level", title = "RULE_LEVEL", text = "HOW_LEVEL", args = { H.LEVEL_STEP } },
   { k = "mount", title = "RULE_MOUNT", text = "HOW_MOUNT" },
   { k = "rep", title = "RULE_REP", text = "HOW_REP" },
