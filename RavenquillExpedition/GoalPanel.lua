@@ -101,14 +101,14 @@ function ns.RenderGoalSection(s)
   local goal, officer = GS:Goal(), IAmOfficer()
   s.goal = goal
   s:SetShown(goal ~= nil or officer)
-  if not (goal or officer) then return false end
+  if not (goal or officer) then return nil end
   ShowParts(s, goal, officer)
   if goal then
     s.label:SetText(ns.GoalLabel(goal))
     RenderBar(s.bar, goal, GS:GoalProgress(goal))
     s.left:SetText(DaysLeft(GS.Week(GS:Now()).left))
   end
-  return true
+  return goal and HEIGHT.goal or HEIGHT.none
 end
 
 local function IndexOf(list, v)

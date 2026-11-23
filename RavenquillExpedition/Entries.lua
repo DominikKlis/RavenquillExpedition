@@ -117,6 +117,109 @@ function Row.Fill(row, e)
   row:SetAlpha(e.dim and ROW.dim or 1)
 end
 
+local FEED = { height = 18, glow = 0.2, edge = 0.75, time = "|cff888888%s|r |cffffd100»|r %s" }
+
+local function Clock(t)
+  local today = date("%Y%m%d", GS:Now()) == date("%Y%m%d", t)
+  return date(today and "%H:%M" or "%d.%m.", t)
+end
+
+local function FeedRow(e, open)
+  if type(e) ~= "table" then return nil end
+  local t, text = Plain(e.t, "number"), Plain(e.text, "string")
+  if t and text then return { clock = Clock(t), text = text, highlight = e.highlight == true, open = open } end
+end
+
+function ns.Feed(mod, max, open)
+  local raw = mod and GS:Call(mod.OverviewFeed, mod, max)
+  local title = type(raw) == "table" and Plain(raw.title, "string")
+  if not (title and type(raw.rows) == "table") then return nil end
+  local rows = {}
+  for _, e in ipairs(raw.rows) do
+    if #rows < max then rows[#rows + 1] = FeedRow(e, open) end
+  end
+  return rows[1] and { title = title, rows = rows } or nil
+end
+
+local function Outline(row, c)
+  local edges = { { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" }, { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }
+  local out = {}
+  for i, e in ipairs(edges) do
+    local t = row:CreateTexture(nil, "BORDER")
+    t:SetColorTexture(c[1], c[2], c[3], FEED.edge)
+    t:SetPoint(e[1])
+    t:SetPoint(e[2])
+    if i <= 2 then t:SetHeight(1) else t:SetWidth(1) end
+    out[i] = t
+  end
+  return out
+end
+
+local Feed = {}
+
+function Feed.Step() return FEED.height end
+
+function Feed.New(list, i)
+  local row = CreateFrame("Button", nil, list)
+  row:SetHeight(FEED.height)
+  row:SetPoint("TOPLEFT", 0, -(i - 1) * FEED.height)
+  row:SetPoint("RIGHT", list, "RIGHT", 0, 0)
+  row.hover = row:CreateTexture(nil, "HIGHLIGHT")
+  row.hover:SetAllPoints()
+  row.hover:SetColorTexture(ns.GOLD[1], ns.GOLD[2], ns.GOLD[3], 0.12)
+  row.glow = { ns.Fill(row, "BACKGROUND", ns.GOLD[1], ns.GOLD[2], ns.GOLD[3], FEED.glow) }
+  for _, t in ipairs(Outline(row, ns.GOLD)) do row.glow[#row.glow + 1] = t end
+  row.text = ns.Text(row, "GameFontHighlight")
+  row.text:SetPoint("LEFT", 2, 0)
+  row.text:SetPoint("RIGHT", -2, 0)
+  row.text:SetMaxLines(1)
+  row:SetScript("OnClick", function(self) GS:Call(self.entry and self.entry.open, self) end)
+  return row
+end
+
+function Feed.Fill(row, e)
+  row.text:SetText(FEED.time:format(e.clock, e.text))
+  for _, t in ipairs(row.glow) do t:SetShown(e.highlight) end
+end
+
+local ROSTER = { height = 20, name = 160, level = 46, more = { 0.6, 0.6, 0.6 } }
+
+local function ClassColor(class)
+  local colors = CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS
+  local c = class and colors and colors[class]
+  if c and c.r then return c.r, c.g, c.b end
+  return 1, 1, 1
+end
+
+local Roster = {}
+
+function Roster.Step() return ROSTER.height end
+
+function Roster.New(list, i)
+  local row = CreateFrame("Frame", nil, list)
+  row:SetHeight(ROSTER.height)
+  row:SetPoint("TOPLEFT", 0, -(i - 1) * ROSTER.height)
+  row:SetPoint("RIGHT", list, "RIGHT", 0, 0)
+  row.name = ns.Text(row, "GameFontHighlightSmall")
+  row.name:SetPoint("LEFT", 6, 0)
+  row.name:SetWidth(ROSTER.name)
+  row.level = ns.Text(row, "GameFontHighlightSmall")
+  row.level:SetPoint("LEFT", row.name, "RIGHT", 0, 0)
+  row.level:SetWidth(ROSTER.level)
+  row.zone = ns.Text(row, "GameFontHighlightSmall")
+  row.zone:SetPoint("LEFT", row.level, "RIGHT", 0, 0)
+  row.zone:SetPoint("RIGHT", -4, 0)
+  row.zone:SetMaxLines(1)
+  return row
+end
+
+function Roster.Fill(row, e)
+  row.name:SetText(e.name)
+  if e.more then row.name:SetTextColor(ROSTER.more[1], ROSTER.more[2], ROSTER.more[3]) else row.name:SetTextColor(ClassColor(e.class)) end
+  row.level:SetText(e.level and tostring(e.level) or "")
+  row.zone:SetText(e.zone or "")
+end
+
 local function EntryList(parent, style, size)
   local list = CreateFrame("Frame", nil, parent)
   list.style, list.size, list.items = style, size, {}
@@ -125,6 +228,8 @@ end
 
 function ns.EntryCards(parent, size) return EntryList(parent, Card, size or CARD) end
 function ns.EntryRows(parent) return EntryList(parent, Row) end
+function ns.FeedRows(parent) return EntryList(parent, Feed) end
+function ns.RosterRows(parent) return EntryList(parent, Roster) end
 
 function ns.RenderEntries(list, entries)
   local style, items = list.style, list.items

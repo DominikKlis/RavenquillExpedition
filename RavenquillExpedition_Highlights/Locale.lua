@@ -105,6 +105,7 @@ local L = {
   STEP_BLOOD = "the Blood of the Black Dragon Champion from General Drakkisath",
   STEP_SEAL = "the Seal of Ascension (key to Upper Blackrock Spire)",
   STEP_ORB = "Blackhand's Command (the orb behind General Drakkisath)",
+  HOME_FEED = "New in the Chronicle",
 }
 
 local deDE = {
@@ -210,6 +211,7 @@ local deDE = {
   STEP_BLOOD = "Blut des Schwarzen Drachenchampions von General Drakkisath",
   STEP_SEAL = "Siegel des Aufstiegs (Schlüssel zur Oberen Schwarzfelsspitze)",
   STEP_ORB = "Schwarzfausts Befehl (die Kugel hinter General Drakkisath)",
+  HOME_FEED = "Neu in der Chronik",
 }
 
 ns.Locales = { enUS = L, deDE = deDE }

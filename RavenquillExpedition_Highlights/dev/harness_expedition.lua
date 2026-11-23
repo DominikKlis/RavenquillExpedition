@@ -145,4 +145,36 @@ do
   check(#lyra.errors + #ole.errors == 0, "no Lua errors (" .. tostring(lyra.errors[1] or ole.errors[1]) .. ")")
 end
 
+section("Home feed: 'Neu in der Chronik' lists the newest log lines, a gold kind highlighted, and opens the Chronik")
+do
+  local w = World(At(20, 21, 30))
+  local lyra = w.join("Lyra Distelbach")
+  w.start()
+  Heard(lyra, E("level", "Tamo Eichengrund", At(20, 19), { lvl = 40 }))
+  Heard(lyra, E("duel", "Hanne Moosgrund", At(20, 21), { foe = "Ole Fichtental" }))
+  Heard(lyra, E("mount", "Bodo Kesselring", At(20, 20), { lvl = 40 }))
+  local function Entry(who) for _, e in ipairs(lyra.H:Log()) do if e.who == who then return e end end end
+  lyra.H.KINDS.duel.gold = true
+  local feed = lyra.H:OverviewFeed(2)
+  local first, second = feed and feed.rows[1], feed and feed.rows[2]
+  check(feed and feed.title == "Neu in der Chronik" and #feed.rows == 2 and first.t == At(20, 21)
+    and first.text == lyra.H:Format(Entry("Hanne Moosgrund")) and first.highlight == true
+    and second.text == lyra.H:Format(Entry("Bodo Kesselring")) and second.highlight == false,
+    "the feed hands the newest entries first, as the Chronik words them, the gold kind marked")
+  lyra.RQ:ToggleOverview()
+  local home = lyra.env.RavenquillExpeditionOverview.home
+  local list, lines = home.feeds.Highlights, {}
+  for _, row in ipairs(list and list.items or {}) do
+    if row._shown then lines[#lines + 1] = (row.text:GetText():gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|T.-|t ", "")) end
+  end
+  check(list and list.heading:GetText() == "Neu in der Chronik" and #lines == 3 and lines[1] == "21:00 » Hanne Moosgrund  ·  "
+    .. "Duell gegen Ole Fichtental gewonnen" and lines[3]:find("^19:00 » Tamo Eichengrund"),
+    "the /rq home shows them under 'Neu in der Chronik': " .. table.concat(lines, " / "))
+  rawget(list.items[2], "_scripts").OnClick(list.items[2])
+  check(select(2, lyra.RQ:OverviewShown()) == "Highlights" and lyra.H:NewSinceLastLook() == 0,
+    "a click on a line opens the Chronik, which marks them read")
+  lyra.H.KINDS.duel.gold = nil
+  check(#lyra.errors == 0, "no Lua errors (" .. tostring(lyra.errors[1]) .. ")")
+end
+
 Kit.finish()

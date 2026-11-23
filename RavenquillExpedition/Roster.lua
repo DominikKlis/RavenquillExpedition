@@ -88,6 +88,15 @@ end
 
 function GS:EachMember() return pairs(self.roster) end
 
+function GS:OnlineGuildmates()
+  local me, out = self:PlayerKey(), {}
+  for key, e in pairs(self.roster) do
+    if e.online and key ~= me then out[#out + 1] = { name = key, class = e.class, level = e.level, zone = e.zone } end
+  end
+  table.sort(out, function(a, b) return a.name < b.name end)
+  return out
+end
+
 function GS:GroupGuildies()
   local out = {}
   local n = Plain(SafeCall(GetNumGroupMembers), "number") or 0

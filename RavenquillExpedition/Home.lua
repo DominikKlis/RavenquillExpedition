@@ -5,13 +5,14 @@ local L = GS.OverviewL
 local Text = ns.Text
 
 local WIDE_CARD = "Profession-overview-Card"
-local SIZE = { edge = 24, header = 62, footer = 62, pad = 20, top = 14 }
-local NOW_CARD = { height = 48, gap = 8, icon = 32, inset = 10, button = 104 }
-local NOW_MAX = { withGoal = 5, alone = 6 }
+local SIZE = { edge = 24, top = 41, header = 62, footer = 62, pad = 20, gap = 14, bottom = 10 }
+local SECTION = { title = 20, below = 6, after = 10 }
+local NOW_CARD = { height = 44, gap = 6, icon = 32, inset = 10, button = 104 }
+local NOW_MAX, FEED_MAX, MIN_ROWS = 2, 5, 3
 
 local function BuildHeader(home)
   local card = ns.SlicedCard(home, WIDE_CARD, SIZE.edge)
-  card:SetPoint("TOPLEFT", 5, -41)
+  card:SetPoint("TOPLEFT", 5, -SIZE.top)
   card:SetPoint("RIGHT", home, "RIGHT", -4, 0)
   card:SetHeight(SIZE.header)
   home.guild = Text(card, "GameFontNormal")
@@ -55,30 +56,34 @@ local function SetMode(home, mode)
   GS:RefreshOverview()
 end
 
+local function Section(book, list)
+  list.heading = Text(book, "GameFontNormalLarge")
+  list:SetPoint("TOPLEFT", list.heading, "BOTTOMLEFT", 0, -SECTION.below)
+  list:SetPoint("RIGHT", book, "RIGHT", -SIZE.pad - 4, 0)
+  return list
+end
+
 local function BuildBook(home, body)
   local book = CreateFrame("Frame", nil, body)
   book:SetAllPoints()
   home.book = book
   home.goal = ns.BuildGoalSection(book, function() SetMode(home, "pick") end)
-  home.goal:SetPoint("TOPLEFT", SIZE.pad, -SIZE.top)
+  home.goal:SetPoint("TOPLEFT", SIZE.pad, -SIZE.gap)
   home.goal:SetPoint("RIGHT", book, "RIGHT", -SIZE.pad - 4, 0)
-  home.nowTitle = Text(book, "GameFontNormalLarge")
-  home.nowTitle:SetText(L.NOW_TITLE)
-  home.now = ns.EntryCards(book, NOW_CARD)
-  home.list = ns.EntryRows(book)
-  for _, list in ipairs({ home.now, home.list }) do
-    list:SetPoint("TOPLEFT", home.nowTitle, "BOTTOMLEFT", 0, -10)
-    list:SetPoint("RIGHT", book, "RIGHT", -SIZE.pad - 4, 0)
-  end
+  home.now = Section(book, ns.EntryCards(book, NOW_CARD))
+  home.list = Section(book, ns.EntryRows(book))
+  home.online = Section(book, ns.RosterRows(book))
+  home.feeds = {}
 end
 
-function ns.BuildHome(f)
+function ns.BuildHome(f, height)
   local home = CreateFrame("Frame", nil, f)
   home:SetAllPoints()
   local header = BuildHeader(home)
   local body = ns.SlicedCard(home, WIDE_CARD, SIZE.edge)
   body:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 5)
   body:SetPoint("BOTTOMRIGHT", -4, SIZE.footer + 5)
+  home.room = height - SIZE.top - SIZE.header - SIZE.footer - SIZE.bottom
   BuildBook(home, body)
   home.picker = ns.BuildGoalPicker(body, function() SetMode(home, nil) end)
   home.picker:SetAllPoints()
@@ -134,21 +139,99 @@ local function NowEntries(rows, max)
   return out
 end
 
-local function PlaceNowTitle(home, goalShown)
-  home.nowTitle:ClearAllPoints()
-  if goalShown then home.nowTitle:SetPoint("TOPLEFT", home.goal, "BOTTOMLEFT", 0, -14)
-  else home.nowTitle:SetPoint("TOPLEFT", home.book, "TOPLEFT", SIZE.pad, -SIZE.top) end
+local function FeedList(home, name)
+  if not home.feeds[name] then home.feeds[name] = Section(home.book, ns.FeedRows(home.book)) end
+  return home.feeds[name]
+end
+
+local function FeedSections(home, rows)
+  local out = {}
+  for _, d in ipairs(rows) do
+    local feed = d.name and ns.Feed(GS.modules[d.name], FEED_MAX, function() GS:ShowModulePage(d.name) end)
+    if feed then out[#out + 1] = { title = feed.title, rows = feed.rows, list = FeedList(home, d.name) } end
+  end
+  return out
+end
+
+local function MoreOnline(n) return { name = L.ONLINE_MORE:format(n), more = true } end
+
+local function NowSection(home, rows)
+  local list, entries = home.now, NowEntries(rows, NOW_MAX)
+  if not entries[1] then list, entries = home.list, HomeEntries(rows) end
+  return { title = L.NOW_TITLE, list = list, rows = entries, min = #entries }
+end
+
+local function Sections(home, rows)
+  local out = { NowSection(home, rows) }
+  for _, s in ipairs(FeedSections(home, rows)) do out[#out + 1] = s end
+  out[#out + 1] = { title = L.ONLINE_TITLE, list = home.online, rows = GS:OnlineGuildmates(), more = MoreOnline }
+  return out
+end
+
+local function ClearLists(home)
+  local lists = { home.now, home.list, home.online }
+  for _, list in pairs(home.feeds) do lists[#lists + 1] = list end
+  for _, list in ipairs(lists) do
+    ns.RenderEntries(list, {})
+    list.heading:Hide()
+    list:Hide()
+  end
+end
+
+local function NextCost(s, n)
+  local step = s.list.style.Step(s.list)
+  if n == 0 then return SECTION.title + SECTION.below + step + SECTION.after end
+  return step
+end
+
+local function Grow(sections, counts, room, limit)
+  for i, s in ipairs(sections) do
+    local want = math.min(#s.rows, limit(s))
+    while counts[i] < want and NextCost(s, counts[i]) <= room do
+      room = room - NextCost(s, counts[i])
+      counts[i] = counts[i] + 1
+    end
+  end
+  return room
+end
+
+local function Fit(sections, room)
+  local counts = {}
+  for i in ipairs(sections) do counts[i] = 0 end
+  room = Grow(sections, counts, room, function(s) return s.min or MIN_ROWS end)
+  Grow(sections, counts, room, function(s) return #s.rows end)
+  return counts
+end
+
+local function Visible(s, n)
+  local rows = {}
+  for i = 1, n do rows[i] = s.rows[i] end
+  if #s.rows > n and s.more then rows[n] = s.more(#s.rows - n + 1) end
+  return rows
+end
+
+local function Place(home, s, y, n)
+  local heading = s.list.heading
+  heading:ClearAllPoints()
+  heading:SetPoint("TOPLEFT", home.book, "TOPLEFT", SIZE.pad, -y)
+  heading:SetText(s.title)
+  heading:Show()
+  ns.RenderEntries(s.list, Visible(s, n))
+  s.list:Show()
+  return y + SECTION.title + SECTION.below + n * s.list.style.Step(s.list) + SECTION.after
+end
+
+local function Stack(home, sections, y)
+  ClearLists(home)
+  local counts = Fit(sections, home.room + SECTION.after - y)
+  for i, s in ipairs(sections) do
+    if counts[i] > 0 then y = Place(home, s, y, counts[i]) end
+  end
 end
 
 local function RenderBook(home, rows)
-  local goalShown = ns.RenderGoalSection(home.goal)
-  PlaceNowTitle(home, goalShown)
-  local now = NowEntries(rows, goalShown and NOW_MAX.withGoal or NOW_MAX.alone)
-  local fallback = not now[1]
-  ns.RenderEntries(home.now, now)
-  ns.RenderEntries(home.list, fallback and HomeEntries(rows) or {})
-  home.now:SetShown(not fallback)
-  home.list:SetShown(fallback)
+  local goalHeight = ns.RenderGoalSection(home.goal)
+  Stack(home, Sections(home, rows), SIZE.gap + (goalHeight and goalHeight + SIZE.gap or 0))
 end
 
 function ns.RenderHome(home, rows)
