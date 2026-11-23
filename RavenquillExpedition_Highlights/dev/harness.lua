@@ -700,13 +700,13 @@ do
   local chatAll = s.chatAll
   s.chatAll = false
   local shown = {}
-  for _, e in ipairs({ { k = "gear", q = 3 }, { k = "gear", q = 4 }, { k = "loot", q = 3 }, { k = "boss" }, { k = "quest" },
+  for _, e in ipairs({ { k = "gear", q = 3 }, { k = "gear", q = 4 }, { k = "loot", q = 3 }, { k = "boss", first = true }, { k = "quest" },
     { k = "level" }, { k = "other" } }) do
     shown[#shown + 1] = e.k .. (e.q or "") .. "=" .. tostring(H:ShouldPrint(e))
   end
   s.chatAll = chatAll
   check(table.concat(shown, " ") == "gear3=false gear4=false loot3=true boss=true quest=false level=true other=false",
-    "chat by default: loot, boss kills and levels, no gear and no quests (" .. table.concat(shown, " ") .. ")")
+    "chat by default: loot, first boss kills and levels, no gear and no quests (" .. table.concat(shown, " ") .. ")")
 end
 
 do

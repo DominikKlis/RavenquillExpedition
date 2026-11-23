@@ -49,7 +49,7 @@ H.KINDS = {
     end,
   },
   boss = {
-    code = "b", chat = true, icon = "INV_Misc_Bone_HumanSkull_01", hidden = function(e) return e.raid end,
+    code = "b", chat = true, icon = "INV_Misc_Bone_HumanSkull_01", hidden = function(e) return e.raid or not e.first end,
     same = SameKill, fact = KillFact,
     format = function(_, e)
       local boss, inst = Gold(NonEmpty(e.boss, L.A_BOSS)), NonEmpty(e.inst, L.AN_INSTANCE)
