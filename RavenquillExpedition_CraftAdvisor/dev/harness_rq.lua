@@ -123,9 +123,13 @@ do
   for _, o in ipairs(opts) do shown[#shown + 1] = (o.type == "header" and "# " or "") .. o.label end
   check(table.concat(shown, " | ") == "# Teilen | Meine Ausrüstung mit der Gilde teilen"
     .. " | # Ausrüstung einlesen | Gruppe und Ziel automatisch einlesen | Ziel jetzt betrachten | Gruppe jetzt einlesen"
-    .. " | # Bewertung | Levelbonus (Ausdauer/Willenskraft) | Wie viel Ausdauer und Willenskraft beim Leveln zählen."
-    .. " | # Angebote | Flüstertext bearbeiten…",
-    "/rq craft holds every Craft setting in four groups: " .. table.concat(shown, " | "))
+    .. " | # Levelbonus | Ausdauer und Willenskraft beim Leveln"
+    .. " | # Flüstertext | Flüstertext bearbeiten…",
+    "/rq craft holds every Craft setting in four groups, the slider named for what it changes, no sentence under it: "
+    .. table.concat(shown, " | "))
+  local bonus = opts[8]
+  check(bonus.type == "range" and bonus.tooltip:find("^Wie viel Ausdauer und Willenskraft beim Leveln zählen%.\n\nWie viel Zusatzgewicht"),
+    "the sentence that stood under the slider now opens its tooltip, the details follow: " .. tostring(bonus.tooltip))
 end
 local missingOpt = {}
 for k in pairs(ns.missingL) do if k:match("^OPT_") then missingOpt[#missingOpt + 1] = k end end
@@ -205,7 +209,7 @@ do
     for _, v in pairs(e.set.source.plan and e.set.source.plan.added or {}) do sum = sum + v end
     return sum
   end
-  local bonus = control("Levelbonus (Ausdauer/Willenskraft)")
+  local bonus = control("Ausdauer und Willenskraft beim Leveln")
   GCA:SetSurvival(50)
   local half = GCA:WeightSetFor("ROGUE", "COMBAT", 30)
   bonus.plus._scripts.OnClick()

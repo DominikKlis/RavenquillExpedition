@@ -79,8 +79,9 @@ local function Action(label, tip, func)
 end
 
 local function LevelingBonus(stamina, spirit)
-  return { type = "range", label = string.format(L.SLIDER_TIP_TITLE, stamina, spirit),
-    tooltip = string.format(L.SLIDER_TIP, stamina, spirit), min = 0, max = 100, step = 25, format = "%d %%",
+  local tip = string.format(L.OPT_LEVEL_BONUS_NOTE, stamina, spirit) .. "\n\n" .. string.format(L.SLIDER_TIP, stamina, spirit)
+  return { type = "range", label = string.format(L.OPT_LEVEL_BONUS, stamina, spirit), tooltip = tip,
+    min = 0, max = 100, step = 25, format = "%d %%",
     get = function() return math.floor(GCA:SurvivalShare() * 100 + 0.5) end,
     set = function(v) GCA:SetSurvival(v) end }
 end
@@ -94,10 +95,9 @@ function GCA:BuildOptions()
     SettingToggle("autoInspect", "OPT_AUTO_INSPECT", "OPT_AUTO_INSPECT_TIP"),
     Action("OPT_INSPECT_NOW", "OPT_INSPECT_NOW_TIP", function() GCA:InspectTarget() end),
     Action("OPT_SCAN_NOW", "OPT_SCAN_NOW_TIP", function() GCA:ScanGroup() end),
-    { type = "header", label = L.OPT_H_SCORING },
+    { type = "header", label = L.OPT_H_LEVEL_BONUS },
     LevelingBonus(stamina, spirit),
-    { type = "note", label = string.format(L.OPT_LEVEL_BONUS_NOTE, stamina, spirit) },
-    { type = "header", label = L.OPT_H_OFFERS },
+    { type = "header", label = L.OPT_H_WHISPER },
     Action("EDIT_WHISPER", "EDIT_WHISPER_TIP", function() GCA.UI:OpenWhisperEditor() end),
   }
 end
