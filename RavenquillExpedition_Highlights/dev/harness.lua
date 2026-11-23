@@ -985,11 +985,21 @@ do
   check(count() == before + 2 and newest().skill == "Kochkunst", "secondary skills count too")
 end
 
+local PVP_RANK_FACTION = 2800
+local function ForeverPvpRank(cenv, rank)
+  local TITLES = { PVP_RANK_5_1 = "Gefreiter", PVP_RANK_6_1 = "Fußknecht", PVP_RANK_7_1 = "Landsknecht", PVP_RANK_8_1 = "Unteroffizier" }
+  cenv.UnitPVPRank, cenv.GetPVPRankInfo = nil, nil
+  cenv.Enum.PvPRanks = { RankNone = 0, Rank_1 = 5 }
+  cenv.UnitSex = function() return 2 end
+  cenv.GetText = function(key) return TITLES[key] end
+  cenv.C_MajorFactions = { GetMajorFactionProgressionInfo = function(id)
+    if id == PVP_RANK_FACTION then return { renownLevel = rank(), renownReputationEarned = 0, renownLevelThreshold = 500 } end
+  end }
+end
+
 do
   local index = 0
-  local RANKS = { [5] = "Gefreiter", [6] = "Fußknecht", [7] = "Landsknecht" }
-  env.UnitPVPRank = function() return index end
-  env.GetPVPRankInfo = function(i) return RANKS[i], i - 4 end
+  ForeverPvpRank(env, function() return index end)
   env.UnitFactionGroup = function() return "Alliance" end
   env.GetBattlefieldWinner = function() return 1 end
   local before = count()
@@ -999,13 +1009,13 @@ do
   check(count() == before, "a battleground win is no highlight any more")
   fire("PLAYER_PVP_RANK_CHANGED")
   check(count() == before and H.cdb.pvpRank == 0, "without a rank there is nothing to report")
-  index = 5; fire("PLAYER_PVP_RANK_CHANGED"); fire("PLAYER_PVP_RANK_CHANGED")
+  index = 1; fire("PLAYER_PVP_RANK_CHANGED", "player"); fire("PLAYER_PVP_RANK_CHANGED", "player")
   check(count() == before + 1 and newest().pk == "rank" and newest().pr == 1 and newest().name == "Gefreiter",
     "the first PvP rank is a highlight, reported once")
   check(H:Format(newest()):find("PvP-Rang 1 (Gefreiter)", 1, true), "its line names the rank number and title")
-  index = 7; fire("PLAYER_PVP_RANK_CHANGED")
+  index = 3; fire("MAJOR_FACTION_RENOWN_LEVEL_CHANGED", PVP_RANK_FACTION, 3, 1)
   check(count() == before + 2 and newest().pr == 3, "a higher rank is a highlight")
-  index = 6; fire("PLAYER_PVP_RANK_CHANGED"); index = 7; fire("PLAYER_PVP_RANK_CHANGED")
+  index = 2; fire("PLAYER_PVP_RANK_CHANGED", "player"); index = 3; fire("MAJOR_FACTION_RENOWN_LEVEL_CHANGED", PVP_RANK_FACTION, 3, 2)
   check(count() == before + 2, "losing a rank and gaining it back is not news")
 end
 
@@ -1288,19 +1298,19 @@ end
 
 Kit.section("A PvP rank the character had at install is not news; the next one is")
 do
-  local index = 7
+  local index = 3
   local c = Character()
-  c.env.UnitPVPRank = function() return index end
-  c.env.GetPVPRankInfo = function(i) return "Rang " .. (i - 4), i - 4 end
+  ForeverPvpRank(c.env, function() return index end)
   c.login(); advance(5)
   check(Kinds(c, "pvp") == 0 and c.H.cdb.pvpRank == 3, "rank 3 at install: no highlight, the record starts there")
   local saved = LogOut(c)
-  index = 8
+  index = 4
   local later = Reload(saved); advance(5)
-  later.env.UnitPVPRank = function() return index end
-  later.env.GetPVPRankInfo = function(i) return "Rang " .. (i - 4), i - 4 end
-  later.fire("PLAYER_PVP_RANK_CHANGED")
-  check(Kinds(later, "pvp") == 1 and later.H.cdb.pvpRank == 4, "rank 4 after a relog is a highlight")
+  ForeverPvpRank(later.env, function() return index end)
+  later.fire("MAJOR_FACTION_RENOWN_LEVEL_CHANGED", PVP_RANK_FACTION, 4, 3)
+  local e = later.H:Log()[#later.H:Log()]
+  check(Kinds(later, "pvp") == 1 and later.H.cdb.pvpRank == 4 and e.pr == 4 and e.name == "Unteroffizier",
+    "rank 4 after a relog is a highlight, with its title (" .. tostring(e.name) .. ")")
   LogOut(later)
 end
 
