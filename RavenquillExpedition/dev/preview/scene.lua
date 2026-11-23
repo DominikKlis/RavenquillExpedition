@@ -242,4 +242,22 @@ function Data.Sunday(NK)
   }, At(22, 21, 30)
 end
 
+local withWorldBosses = Data.Highlights
+function Data.Highlights(NK)
+  local list, At = withWorldBosses(NK), NK.At
+  local function E(k, who, t, fields)
+    local e = NK.E(k, who, t, fields)
+    e.cls = ClassOf(who) or e.cls
+    return e
+  end
+  for _, e in ipairs({
+    E("boss", "Bodo Kesselring", At(20, 17, 40), { enc = 427, boss = "Tüftler Gizlock", inst = "Maraudon", first = true }),
+    E("boss", "Hanne Moosgrund", At(20, 19, 10), { enc = 596, boss = "Theka der Märtyrer", inst = "Zul'Farrak", first = true }),
+    E("boss", "Tamo Eichengrund", At(20, 19, 11), { enc = 596, boss = "Theka der Märtyrer", inst = "Zul'Farrak", first = true }),
+    E("boss", "Ole Fichtental", At(20, 19, 11), { enc = 596, boss = "Theka der Märtyrer", inst = "Zul'Farrak", first = true }),
+    E("boss", "Ole Fichtental", At(20, 19, 34), { enc = 600, boss = "Häuptling Ukorz Sandskalp", inst = "Zul'Farrak", first = true }),
+  }) do list[#list + 1] = e end
+  return list
+end
+
 return Data
