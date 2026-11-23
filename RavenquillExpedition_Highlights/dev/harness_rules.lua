@@ -221,21 +221,16 @@ do
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
-section("Guild group: a run without guildmates is no line, and an old guildmate's run entry still reads")
+section("Guild group: a run without guildmates is no line and no message")
 do
   local w = World()
-  local ole, lyra = w.join("Ole Fichtental"), w.join("Lyra Distelbach")
+  local ole = w.join("Ole Fichtental")
   w.start()
   w.go({ ole }, DEADMINES)
   w.kill({ ole }, 1144, "Edwin VanCleef")
   w.go({ ole }, TOWN)
   w.settle(ole.H.RUN_GRACE + 300)
   check(Sent(w, "o") == 0 and Count(ole.H:Log(), OfKind("group")) == 0, "a solo run is no line and no message")
-  local old = { k = "run", t = NOW - 60, who = "Ole Fichtental", id = "Ole Fichtental#" .. (NOW - 60) .. "#9", inst = "Uldaman",
-    boss = "Archaedas", n = 7, nf = 7, first = true, lvl = 44 }
-  lyra.H:Add(old, "wire")
-  check(Count(Lines(lyra), OfKind("run")) == 1 and lyra.H:Format(old):find("Uldaman", 1, true),
-    "an old peer's dungeon run still has its line")
 end
 
 section("Raid clear: when the last boss falls, one line for the raid, without a boss count, sent once")
@@ -291,7 +286,7 @@ do
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
-section("Quests: an attunement step still reaches raid readiness without a line; an old guildmate's quest still reads")
+section("Quests: an attunement step still reaches raid readiness without a line")
 do
   local w = World()
   local mira, lyra = w.join("Mira Sturmfeder"), w.join("Lyra Distelbach")
@@ -303,12 +298,144 @@ do
   check(Sent(w, "q") == 1 and facts[7848] ~= nil, "Mira's Core Fragment step reaches Lyra's raid readiness, one message")
   check(Count(Lines(lyra), OfKind("quest")) == 0 and Count(PaperEntries(lyra), OfKind("quest")) == 0
     and Count(Lines(mira), OfKind("quest")) == 0, "the step is no line in either chronicle or paper")
-  local old = { k = "quest", t = NOW - 60, who = "Bodo Kesselring", id = "Bodo Kesselring#" .. (NOW - 60) .. "#4", qid = 90,
-    title = "Der Segen des Windsuchers", tag = "legend", lvl = 60 }
-  w.bus:member("Bodo Kesselring", "PALADIN", 60)
-  lyra.H:Add(old, "wire")
-  check(Count(Lines(lyra), OfKind("quest")) == 1 and lyra.H:Format(old):find("Der Segen des Windsuchers", 1, true),
-    "a legendary quest from a guildmate on an older version still has its line")
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
+local GUILD = { ["Hanne Moosgrund"] = "ROGUE", ["Rika Steinbeck"] = "WARRIOR", ["Mira Sturmfeder"] = "PRIEST",
+  ["Ilsa Brunnhold"] = "SHAMAN", ["Bodo Kesselring"] = "PALADIN", ["Ole Fichtental"] = "DRUID", ["Tamo Eichengrund"] = "HUNTER",
+  ["Kael Wintermoor"] = "WARLOCK" }
+
+local function Members(w)
+  local names = {}
+  for name in pairs(GUILD) do names[#names + 1] = name end
+  table.sort(names)
+  for _, name in ipairs(names) do if not w.by[name] then w.bus:member(name, GUILD[name], 60) end end
+end
+
+local oldSeq = 0
+local function Old(k, who, t, fields)
+  oldSeq = oldSeq + 1
+  local e = { k = k, t = t, who = who, lvl = 40, cls = GUILD[who], id = ("%s#%d#%d"):format(who, t, oldSeq), unseen = true }
+  for key, v in pairs(fields) do e[key] = v end
+  return e
+end
+
+local function Saved(c, events)
+  c.env.RavenquillExpeditionHighlightsDB = { v = 3, guilds = { ["Die Gilde@Forever"] = { events = events } } }
+end
+
+local function Heard(c, e)
+  local body = c.H.Encode(e)
+  c.fire("CHAT_MSG_ADDON", "RQE1", "H;" .. body, "GUILD", e.who)
+end
+
+local function Listed(list, e)
+  for _, x in ipairs(list) do if x == e then return true end end
+  return false
+end
+
+local function FeedTexts(c)
+  local out = {}
+  for _, row in ipairs((c.H:OverviewFeed(100) or {}).rows or {}) do out[#out + 1] = row.text end
+  return out
+end
+
+local function ChronicleTexts(c)
+  c.RQ:ShowModulePage("Highlights")
+  local out = {}
+  for _, line in ipairs(c.env.RavenquillExpeditionOverview.optView.pages.Highlights.msg._lines or {}) do out[#out + 1] = line[1] end
+  return out
+end
+
+local function Holds(texts, needle)
+  for _, text in ipairs(texts) do if text:find(needle, 1, true) then return true end end
+  return false
+end
+
+local OLD_RULES = {
+  { "a gear upgrade", "gear", "Hanne Moosgrund", { item = 5004, q = 3, il = 55, oil = 44, slot = 17 } },
+  { "an epic put on", "gear", "Rika Steinbeck", { item = 5006, q = 4, il = 50, oil = 45, slot = 16 } },
+  { "a quest milestone", "quest", "Mira Sturmfeder", { qid = 90, title = "Der Segen des Windsuchers", tag = "legend" } },
+  { "a profession at 150", "skill", "Ilsa Brunnhold", { skill = "Leatherworking", rank = 150 } },
+  { "a profession at 225", "skill", "Ilsa Brunnhold", { skill = "Leatherworking", rank = 225 } },
+  { "reputation at Revered", "rep", "Mira Sturmfeder", { st = 7, fac = "Argentumdämmerung" } },
+  { "a battleground win", "pvp", "Bodo Kesselring", { pk = "win", name = "Warsong Gulch" } },
+  { "an epic by mail, trade or auction", "loot", "Rika Steinbeck", { item = 5002, q = 4, src = "bag" } },
+}
+
+local NEW_RULES = {
+  { "an epic quest reward", "loot", "Rika Steinbeck", { item = 5003, q = 4, src = "quest" } },
+  { "a looted epic", "loot", "Bodo Kesselring", { item = 5001, q = 4 } },
+  { "a crafted epic", "loot", "Ilsa Brunnhold", { item = 5005, q = 4, src = "craft" } },
+  { "a profession at 300", "skill", "Ilsa Brunnhold", { skill = "Leatherworking", rank = 300 } },
+  { "reputation at Exalted", "rep", "Mira Sturmfeder", { st = 8, fac = "Argentumdämmerung" } },
+  { "a PvP rank", "pvp", "Bodo Kesselring", { pk = "rank", pr = 3, name = "Unteroffizier" } },
+  { "a level step", "level", "Ole Fichtental", { lvl = 40 } },
+}
+
+local function Entries(cases, at)
+  local out = {}
+  for i, case in ipairs(cases) do
+    case.entry = Old(case[2], case[3], at + i * 180, case[4])
+    out[#out + 1] = case.entry
+  end
+  return out
+end
+
+section("Old entries: a saved entry the new rules no longer log has no line anywhere and is not counted; the log keeps it")
+do
+  local w = World()
+  local lyra = w.join("Lyra Distelbach")
+  Members(w)
+  local saved = Entries(OLD_RULES, At(20, 8))
+  for _, e in ipairs(Entries(NEW_RULES, At(20, 12))) do saved[#saved + 1] = e end
+  Saved(lyra, saved)
+  w.start()
+  local lines, paper, feed = Lines(lyra), PaperEntries(lyra), FeedTexts(lyra)
+  for _, case in ipairs(OLD_RULES) do
+    local text = lyra.H:Format(case.entry)
+    check(not Listed(lines, case.entry) and not Listed(paper, case.entry) and not Holds(feed, text),
+      "saved " .. case[1] .. ": no line in the Chronik, no story in the Rabenblatt, no row in the home feed")
+  end
+  for _, case in ipairs(NEW_RULES) do
+    check(Listed(lines, case.entry) and Listed(paper, case.entry) and Holds(feed, lyra.H:Format(case.entry)),
+      "saved " .. case[1] .. ": still in the Chronik, the Rabenblatt and the home feed")
+  end
+  check(lyra.H:NewSinceLastLook() == #NEW_RULES and lyra.H:OverviewStatus():find("^7 neu · 7 Einträge · "),
+    "the counts only count the seven lines: " .. lyra.H:OverviewStatus())
+  local texts = ChronicleTexts(lyra)
+  local marker
+  for i, text in ipairs(texts) do if text == "– neu seit deinem letzten Blick –" then marker = i end end
+  check(marker and texts[marker + 1]:find(lyra.H:Format(NEW_RULES[1].entry), 1, true),
+    "the Chronik's 'new' mark sits above the first line it shows (" .. tostring(marker and texts[marker + 1]) .. ")")
+  local _, idx = lyra.H:Log()
+  local kept = 0
+  for _, e in ipairs(saved) do if idx[e.id] == e then kept = kept + 1 end end
+  check(#lyra.H:Log() == #saved and kept == #saved and lyra.H:NewSinceLastLook() == 0,
+    "the saved log still holds all " .. #saved .. " entries after the Chronik was read (" .. kept .. ")")
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
+section("Old entries: a guildmate on 0.10.0 sends what the new rules no longer log: no chat line, nothing new, kept in the log")
+do
+  local w = World()
+  local lyra = w.join("Lyra Distelbach")
+  Members(w)
+  w.start()
+  lyra.H:Settings().chat, lyra.H:Settings().chatAll = true, true
+  local at = lyra.env.time() - 7200
+  local heard = Entries(OLD_RULES, at)
+  for _, case in ipairs(OLD_RULES) do
+    local printed, logged = #lyra.printed, #lyra.H:Log()
+    Heard(lyra, case.entry)
+    w.settle(5)
+    check(#lyra.H:Log() == logged + 1 and #lyra.printed == printed and lyra.H:NewSinceLastLook() == 0 and #Lines(lyra) == 0,
+      case[1] .. " from an older version: logged, but no chat line, no line and nothing new")
+  end
+  for _, e in ipairs(Entries(NEW_RULES, at + 3600)) do Heard(lyra, e); heard[#heard + 1] = e end
+  w.settle(5)
+  check(#lyra.H:Log() == #heard and lyra.H:NewSinceLastLook() == #NEW_RULES and #Lines(lyra) == #NEW_RULES,
+    "what the new rules keep still arrives as a line and counts as new (" .. lyra.H:NewSinceLastLook() .. ")")
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
