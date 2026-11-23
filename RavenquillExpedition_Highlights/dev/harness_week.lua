@@ -277,6 +277,46 @@ do
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
+local ALEX_FIRST = E("first", "Alex Morgenrot", At(20, 21, 20), { what = "level", lvl = 60 })
+local SUNDAY_MOUNT = E("mount", "Hanne Moosgrund", At(22, 12), { lvl = 40 })
+local SUNDAY_REP = E("rep", "Mira Sturmfeder", At(22, 15), { st = 8, fac = "Argentumdämmerung", lvl = 60 })
+local BIG_FRIDAY = {
+  E("level", "Ole Fichtental", At(16, 10), { lvl = 40 }),
+  E("loot", "Rika Steinbeck", At(19, 20), { item = 5001, q = 4, lvl = 45 }),
+  ALEX_FIRST,
+  E("duel", "Bodo Kesselring", At(21, 18), { foe = "Ole Fichtental" }),
+  SUNDAY_MOUNT,
+  SUNDAY_REP,
+}
+
+local function BriefIds(issue)
+  local out = {}
+  for _, b in ipairs(issue and issue.brief or {}) do out[#out + 1] = b.id end
+  table.sort(out)
+  return table.concat(out, " ")
+end
+
+Kit.section("Window: the Sunday edition leads with the week's biggest stories, In Kürze keeps Sunday's own")
+do
+  local c, f, paper = Paper(BIG_FRIDAY)
+  local issue = paper.issue
+  check(f.issueLabel:GetText() == "Sonntagsausgabe · KW 47" and issue.lead.id == ALEX_FIRST.id
+    and paper.lead.head:GetText():find("Alex Morgenrot", 1, true),
+    "Friday's first in the guild at 60 is the Sunday lead (" .. paper.lead.head:GetText() .. ")")
+  check(issue.second.kind == "epic" and paper.second.head:GetText():find("Rika Steinbeck", 1, true),
+    "Thursday's epic is the second story (" .. paper.second.head:GetText() .. ")")
+  local extras = {}
+  for i, s in ipairs(issue.extra) do extras[i] = s.kind end
+  check(table.concat(extras, ",") == "level,mount", "then Monday's level 40 and Sunday's mount (" .. table.concat(extras, ",") .. ")")
+  local sunday = { SUNDAY_MOUNT.id, SUNDAY_REP.id }
+  table.sort(sunday)
+  check(BriefIds(issue) == table.concat(sunday, " "), "In Kürze holds only Sunday's lines (" .. BriefIds(issue) .. ")")
+  f.prev:GetScript("OnClick")(f.prev)
+  check(f.issueLabel:GetText() == "Ausgabe vom 21. November" and paper.issue.lead.kind == "duel" and paper.issue.second == nil,
+    "Saturday's issue is still Saturday's own: the duel, nothing else (" .. paper.lead.head:GetText() .. ")")
+  check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
+end
+
 local function Offenders(c, paper, texts)
   local pr, out = R(paper), {}
   for _, fs in ipairs(texts or Layout.Texts(c, paper)) do
