@@ -27,7 +27,7 @@ K.clear = {
     "Schauplatz war {inst}." },
   body = { "Um {time} Uhr fiel der Endboss. Danach gab es dort nichts mehr zu tun.",
     "{grp} aus der Gilde standen im Aufgebot. Gemeldet hat es {name}.",
-    "{?night}{!sure}Der letzte Gegner fiel {night}. Der Schlaf dürfte heute kürzer ausfallen." },
+    "{?night}{!sure}{!past}Der letzte Gegner fiel {night}. Der Schlaf dürfte heute kürzer ausfallen." },
   detail = { "Um {time} Uhr fiel der letzte Gegner.", "{grp} aus der Gilde standen im Aufgebot.", "Schauplatz war {inst}." },
   more = { "Die Beute wird, wie üblich, nach eingehender Beratung verteilt.",
     "Die Reparaturkosten bleiben, wie immer, Privatsache.", "{!sure}Nächste Woche dürfte es wieder losgehen." },

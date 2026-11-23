@@ -137,7 +137,7 @@ local REQUIRED_SLOTS = { "kicker", "head", "dek", "body", "caption", "brief" }
 
 local function KnownSet(kind)
   local set = { name = true, names = true, people = true, time = true, clvl = true, night = true, midnight = true, gap = true,
-    sure = true }
+    sure = true, past = true }
   for key in KNOWN[kind]:gmatch("%S+") do set[key] = true end
   return set
 end

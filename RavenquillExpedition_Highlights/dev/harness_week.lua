@@ -346,6 +346,7 @@ local function Saying(issue, words)
       for _, word in ipairs(words) do if text:lower():find(word:lower(), 1, true) then return text end end
     end
   end
+  return nil
 end
 
 Kit.section("Sunday edition: a story from earlier in the week names its day once at its first time, and never says today")

@@ -518,6 +518,11 @@ local VARS = {
   end,
 }
 
+local function Past(v, t, ctx, T)
+  if not ctx.day or News.DayOf(t) == ctx.day then return end
+  v.past, v.on = "", News.Fill(T.ON_DAY, { weekday = T.WEEKDAYS[date("*t", t).wday] })
+end
+
 function News.Vars(g, ctx, T)
   local v = { name = g.first.who, time = ctx.time(g.first.t), clvl = g.first.lvl }
   local people = g.people or {}
@@ -526,7 +531,22 @@ function News.Vars(g, ctx, T)
   if fill then fill(v, g, ctx, T) end
   local hour = tonumber(v.time:match("^(%d+):"))
   v.night, v.midnight = T.NIGHT[hour], T.NIGHT[hour] and hour <= 1 and "" or nil
+  Past(v, g.first.t, ctx, T)
   return v
+end
+
+local CLOCKS = { "time", "start", "leadtime", "lasttime", "weartime" }
+
+local function DayNamed(text, v, T)
+  local at, clock
+  for _, key in ipairs(CLOCKS) do
+    local c = v[key] and News.Fill(T.CLOCK, { time = v[key] })
+    local i = c and text:find(c, 1, true)
+    if i and (not at or i < at) then at, clock = i, c end
+  end
+  if not at then return text end
+  local cut = at + #clock - 1
+  return text:sub(1, cut) .. " " .. v.on .. text:sub(cut + 1)
 end
 
 local function Tell(Slot, st, long)
@@ -539,7 +559,10 @@ end
 function News.Story(g, T, ctx, desk, long)
   local v, st = News.Vars(g, ctx, T), { used = {}, key = {} }
   local texts = T.KINDS[g.kind] or {}
-  local function Slot(slot, state) return News.Pick(texts[slot], g.id .. "|" .. slot, v, state, desk) end
+  local function Slot(slot, state)
+    local text = News.Pick(texts[slot], g.id .. "|" .. slot, v, state, desk)
+    return text and v.on and DayNamed(text, v, T) or text
+  end
   local story = { kind = g.kind, k = g.first.k, id = g.id, time = v.time, icon = v.icon }
   story.kicker = g.first.test and T.TEST_KICKER or Slot("kicker")
   story.head = Slot("head", { used = st.used, key = {} }) or ""
@@ -565,7 +588,7 @@ function News.Brief(g, T, ctx, desk, prev)
   local text = v.gap and News.Pick(texts.again, nil, v, nil, desk) or News.Pick(texts.brief, nil, v, nil, desk)
     or Upper(Fit(texts.brief, v) or "")
   local late = desk and g.first == g.last and News.Pick(T.LATE, nil, v, nil, desk)
-  return { id = g.id, time = time, clock = News.Fill(T.BRIEF_TIME, { time = time }), text = late and text .. " " .. late or text }
+  return { id = g.id, time = time, clock = News.Fill(T.CLOCK, { time = time }), text = late and text .. " " .. late or text }
 end
 
 local function Without(groups, a, b)
@@ -592,7 +615,15 @@ local function Ranked(week, day, own, ctx)
   return all
 end
 
+local function OnPaper(ctx, day)
+  local out = {}
+  for k, v in pairs(ctx) do out[k] = v end
+  out.day = day
+  return out
+end
+
 function News.Issue(day, T, ctx, week)
+  if week then ctx = OnPaper(ctx, day.day) end
   local own, desk, told = News.Groups(day.entries, ctx), News.Desk(T), {}
   local groups = week and Ranked(week, day, own, ctx) or own
   local issue = { day = day.day, no = day.no, t = day.entries[1] and day.entries[1].t, brief = {}, more = 0, extra = {} }

@@ -25,7 +25,7 @@ K.clear = {
   dek = { "No boss was left standing.", "{grp} from the guild were there.", "The last foe fell at {time}.", "The scene: {inst}." },
   body = { "The final boss fell at {time}. After that, there was nothing left to do.",
     "{grp} from the guild were on the roster. {name} sent the report.",
-    "{?night}{!sure}The last foe fell {night}. Sleep will probably be short today." },
+    "{?night}{!sure}{!past}The last foe fell {night}. Sleep will probably be short today." },
   detail = { "The last foe fell at {time}.", "{grp} from the guild were on the roster.", "The scene: {inst}." },
   more = { "The loot, as usual, is shared out after careful deliberation.", "Repair bills, as always, are a private matter.",
     "{!sure}Next week will probably bring the next one." },
