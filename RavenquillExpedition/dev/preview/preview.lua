@@ -254,6 +254,17 @@ for _, def in ipairs({
   end },
 }) do SCREENS[#SCREENS + 1] = def end
 
+local function SundayPaper()
+  Hide(GCA.UI.frame)
+  Hide(env.RavenquillExpeditionOverview)
+  local entries, now = Scene.Sunday(NK)
+  sched:advance(now - env.time())
+  for _, e in ipairs(entries) do H:Add(e, "wire") end
+  return Paper()
+end
+
+SCREENS[#SCREENS + 1] = { id = "hl-paper-sunday", title = "Rabenblatt, Sonntagsausgabe", show = SundayPaper }
+
 local shots = {}
 
 local function Capture1(def)

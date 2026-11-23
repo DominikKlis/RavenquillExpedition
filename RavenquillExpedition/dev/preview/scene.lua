@@ -227,4 +227,19 @@ function Data.Highlights(NK)
   return list
 end
 
+function Data.Sunday(NK)
+  local At = NK.At
+  local function E(k, who, t, fields)
+    local e = NK.E(k, who, t, fields)
+    e.cls = ClassOf(who) or e.cls
+    return e
+  end
+  return {
+    E("mount", "Hanne Moosgrund", At(22, 11, 5), { lvl = 40 }),
+    E("duel", "Ole Fichtental", At(22, 14, 30), { foe = "Bodo Kesselring" }),
+    E("rep", "Ole Fichtental", At(22, 18, 10), { st = 8, fac = "Thoriumbruderschaft" }),
+    E("group", "Rika Steinbeck", At(22, 20, 15), { inst = "Schwarzfelstiefen", with = { "Bodo Kesselring" }, grp = true }),
+  }, At(22, 21, 30)
+end
+
 return Data
