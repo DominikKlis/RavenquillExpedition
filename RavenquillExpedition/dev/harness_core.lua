@@ -229,8 +229,9 @@ check(env.RavenquillExpeditionCopyBox == nil or not env.RavenquillExpeditionCopy
 if diagLink then rawget(diagLink, "_scripts").OnClick(diagLink) end
 local diagBox = env.RavenquillExpeditionCopyBox
 check(diagBox and diagBox:IsShown() and diagBox.text:find("Ravenquill Expedition v", 1, true)
-  and diagBox.text:find("sync: queue", 1, true) and diagBox.text:find("kaputt im Test", 1, true),
-  "clicking the link opens the copy box with the version, the sync state and the last error")
+  and diagBox.text:find("sync: queue", 1, true) and diagBox.text:find("kaputt im Test", 1, true)
+  and diagBox.text:find("\nGilden-Sync: noch nichts gesendet\n", 1, true),
+  "clicking the link opens the copy box with the version, the sync state in words and the last error")
 
 section("Overview home: one clickable row per module, its headline or its status")
 do

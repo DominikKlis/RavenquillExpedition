@@ -297,6 +297,7 @@ function GS:DiagLines()
     "Ravenquill Expedition v" .. self.version .. "  build " .. tostring((select(4, GetBuildInfo()))),
     "player: " .. tostring(self:PlayerKey()) .. "  guild: " .. tostring(self:GuildKey()),
     "sync: " .. PlainText(self:CommStatus()),
+    PlainText(self:OverviewSyncLine()),
     "roster members: " .. (function() local n = 0; for _ in pairs(self.roster) do n = n + 1 end; return n end)(),
   }
   out[#out + 1] = "peers: " .. PeerList(self:Peers(), self:PeerVersions() or {})

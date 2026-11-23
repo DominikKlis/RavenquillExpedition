@@ -790,8 +790,10 @@ do
   check(GS.optionsModule == "Highlights" and not GS.moduleSettings and LogPage(env):IsShown(),
     "clicking the Highlights line opens its chronicle in /rq")
   rawget(tabs[1], "_scripts").OnClick(tabs[1])
-  check(ov.home.peers:GetText() == GS:OverviewPeersLine() and ov.home.sync:GetText() == GS:OverviewSyncLine()
-    and ov.home.peersBar == nil, "the header states sync and peers as text, without a progress bar")
+  local syncLine = GS:OverviewSyncLine():gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+  check(ov.home.peers:GetText() == GS:OverviewPeersLine() and ov.home.peersBar == nil
+    and table.concat(GS:DiagLines(), "\n"):find(syncLine, 1, true),
+    "the header states the peers as text, without a progress bar; the sync state is in the diagnostics")
   check(hlTab.status == H:OverviewStatus(), "a side tab's tooltip carries the module's status line")
   fm.SetTitle, fm.SetPortraitToAsset = nil, nil
   env.SlashCmdList.RAVENQUILL("")
