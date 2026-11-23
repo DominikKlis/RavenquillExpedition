@@ -361,6 +361,7 @@ local OLD_RULES = {
   { "reputation at Revered", "rep", "Mira Sturmfeder", { st = 7, fac = "Argentumdämmerung" } },
   { "a battleground win", "pvp", "Bodo Kesselring", { pk = "win", name = "Warsong Gulch" } },
   { "an epic by mail, trade or auction", "loot", "Rika Steinbeck", { item = 5002, q = 4, src = "bag" } },
+  { "a dungeon boss kill", "boss", "Ole Fichtental", { enc = 4, boss = "Hochinquisitor Weißsträhne", inst = "Scharlachrotes Kloster" } },
 }
 
 local NEW_RULES = {
@@ -371,6 +372,7 @@ local NEW_RULES = {
   { "reputation at Exalted", "rep", "Mira Sturmfeder", { st = 8, fac = "Argentumdämmerung" } },
   { "a PvP rank", "pvp", "Bodo Kesselring", { pk = "rank", pr = 3, name = "Unteroffizier" } },
   { "a level step", "level", "Ole Fichtental", { lvl = 40 } },
+  { "a world boss's first kill", "boss", "Kael Wintermoor", { enc = 1100, boss = "Azuregos", inst = "Azshara", first = true } },
 }
 
 local function Entries(cases, at)
@@ -401,8 +403,8 @@ do
     check(Listed(lines, case.entry) and Listed(paper, case.entry) and Holds(feed, lyra.H:Format(case.entry)),
       "saved " .. case[1] .. ": still in the Chronik, the Rabenblatt and the home feed")
   end
-  check(lyra.H:NewSinceLastLook() == #NEW_RULES and lyra.H:OverviewStatus():find("^7 neu · 7 Einträge · "),
-    "the counts only count the seven lines: " .. lyra.H:OverviewStatus())
+  check(lyra.H:NewSinceLastLook() == #NEW_RULES and lyra.H:OverviewStatus():find(("^%d neu · %d Einträge · "):format(#NEW_RULES, #NEW_RULES)),
+    "the counts only count the " .. #NEW_RULES .. " lines: " .. lyra.H:OverviewStatus())
   local texts = ChronicleTexts(lyra)
   local marker
   for i, text in ipairs(texts) do if text == "– neu seit deinem letzten Blick –" then marker = i end end
