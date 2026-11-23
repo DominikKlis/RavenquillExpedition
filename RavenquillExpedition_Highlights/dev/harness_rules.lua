@@ -439,6 +439,76 @@ do
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
+local function GroupLines(c)
+  local out = {}
+  for _, e in ipairs(Lines(c)) do if e.k == "group" then out[#out + 1] = c.H:Format(e) end end
+  return out
+end
+
+section("Old dungeon runs: three guildmates' saved run entries from one dungeon are one Gildengruppe line; a lone run is none")
+do
+  local w = World()
+  local lyra = w.join("Lyra Distelbach")
+  Members(w)
+  local function Run(who, t, inst, n) return Old("run", who, t, { inst = inst, boss = "Edwin VanCleef", n = n, nf = n, first = true }) end
+  local saved = {
+    Run("Mira Sturmfeder", At(20, 10, 5), "Die Todesminen", 5),
+    Run("Bodo Kesselring", At(20, 15, 10), "Uldaman", 7),
+    Run("Ole Fichtental", At(20, 18, 40), "Die Todesminen", 5),
+    Run("Hanne Moosgrund", At(20, 18, 43), "Die Todesminen", 5),
+    Run("Tamo Eichengrund", At(20, 18, 51), "Die Todesminen", 4),
+    Run("Kael Wintermoor", At(20, 19, 5), "Die Todesminen", 3),
+  }
+  Saved(lyra, saved)
+  w.start()
+  local groups = GroupLines(lyra)
+  check(#groups == 1 and Count(Lines(lyra), OfKind("run")) == 0, "one guild group line and no run line in the Chronik ("
+    .. #groups .. " group, " .. Count(Lines(lyra), OfKind("run")) .. " run)")
+  check(groups[1] and groups[1]:find("Ole Fichtental, Hanne Moosgrund und Tamo Eichengrund  ·  |cffffd100Die Todesminen|r geschafft", 1, true)
+    and not groups[1]:find("Boss", 1, true), "the three who finished within twenty minutes, by the new group line, without a boss count: "
+    .. tostring(groups[1]))
+  check(not Holds(groups, "Uldaman") and not Holds(groups, "Mira Sturmfeder") and not Holds(groups, "Kael Wintermoor"),
+    "Bodo's lone Uldaman, Mira's run that morning and Kael's 25 minutes later are no line")
+  check(Count(PaperEntries(lyra), OfKind("group")) == 1 and Count(PaperEntries(lyra), OfKind("run")) == 0 and Story(lyra).k == "group",
+    "the Rabenblatt tells it as one guild group story (" .. tostring(Story(lyra).head) .. ")")
+  local feed = FeedTexts(lyra)
+  check(#feed == 1 and feed[1] == lyra.H:Format(Lines(lyra)[1]), "the home feed has the one line")
+  check(lyra.H:NewSinceLastLook() == 1 and lyra.H:OverviewStatus():find("^1 neu · 1 Einträge · "),
+    "it counts as one new entry: " .. lyra.H:OverviewStatus())
+  check(#lyra.H:Log() == #saved, "the saved log still holds the six run entries")
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
+section("Old dungeon runs: live from 0.10.0 they fold into one line without chat; next to a new member's group line they add nothing")
+do
+  local w = World()
+  local lyra = w.join("Lyra Distelbach")
+  Members(w)
+  w.start()
+  lyra.H:Settings().chat = true
+  local at, printed = lyra.env.time() - 3600, #lyra.printed
+  local function Run(who, t, inst) return Old("run", who, t, { inst = inst, boss = "Mekgineer Thermaplugg", n = 5, nf = 5 }) end
+  for i, who in ipairs({ "Ole Fichtental", "Hanne Moosgrund", "Tamo Eichengrund" }) do
+    FromOlder(lyra, Run(who, at + i * 120, "Gnomeregan"))
+  end
+  w.settle(5)
+  local groups = GroupLines(lyra)
+  check(#groups == 1 and groups[1]:find("Ole Fichtental, Hanne Moosgrund und Tamo Eichengrund  ·  |cffffd100Gnomeregan|r geschafft", 1, true),
+    "three run messages from older versions read as one guild group line: " .. tostring(groups[1]))
+  check(#lyra.printed == printed and lyra.H:NewSinceLastLook() == 1, "no per-person chat line, and one new entry")
+  local t = lyra.env.time() - 1200
+  lyra.H:Add({ k = "group", t = t, who = "Rika Steinbeck", cls = "WARRIOR", lvl = 45, id = ("Rika Steinbeck#%d#7"):format(t),
+    inst = "Uldaman", with = { "Bodo Kesselring", "Mira Sturmfeder" }, grp = true }, "wire")
+  for i, who in ipairs({ "Bodo Kesselring", "Mira Sturmfeder" }) do
+    FromOlder(lyra, Run(who, t + 600 + i * 60, "Uldaman"))
+  end
+  w.settle(5)
+  groups = GroupLines(lyra)
+  check(#groups == 2 and Holds(groups, "Rika Steinbeck, Bodo Kesselring und Mira Sturmfeder  ·  |cffffd100Uldaman|r"),
+    "Rika's group line already names Bodo and Mira: their old run messages add no second Uldaman line (" .. #groups .. " lines)")
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
 local function ChronicleRow(c, needle)
   c.RQ:ShowModulePage("Highlights")
   local page = c.env.RavenquillExpeditionOverview.optView.pages.Highlights
