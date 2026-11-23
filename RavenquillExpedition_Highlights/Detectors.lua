@@ -267,7 +267,7 @@ do
 end
 
 local function FirstAtLevel(level)
-  if not next(GS.roster) or H:FirstKnown("v" .. level) then return false end
+  if not GS:RosterComplete() or H:FirstKnown("v" .. level) then return false end
   for key, member in GS:EachMember() do
     if not GS:IsMe(key) and (member.level or 0) >= level then return false end
   end

@@ -132,6 +132,7 @@ Dev.GAME_GLOBALS = {
   "LOCALIZED_CLASS_NAMES_MALE", "LOOT_ITEM", "LOOT_ITEM_MULTIPLE", "LOOT_ITEM_SELF", "LOOT_ITEM_SELF_MULTIPLE",
   "LOOT_ITEM_CREATED_SELF", "LOOT_ITEM_CREATED_SELF_MULTIPLE", "IsMounted", "GetUnitSpeed",
   "GetBattlefieldWinner",
+  "GetPVPRankInfo", "PlaySound", "UnitPVPRank",
   "LibStub", "LoadAddOn", "MAINHANDSLOT", "MenuUtil", "MinimalSliderWithSteppersMixin", "Minimap", "NECKSLOT",
   "NUM_BAG_SLOTS", "NUM_BANKBAGSLOTS", "NUM_TOTAL_EQUIPPED_BAG_SLOTS", "NineSliceUtil", "NotifyInspect",
   "OpenWorldMap", "PanelTemplates_DeselectTab", "PanelTemplates_SelectTab", "PanelTemplates_TabResize", "ReloadUI", "CreateVector2D", "UnitPosition", "GetFactionInfoByID",
@@ -526,7 +527,7 @@ Dev:Register("highlights.smoke", function(t)
 end, 30)
 
 local MILESTONE_APIS = { "IsMounted", "GetUnitSpeed", "UnitOnTaxi", "GetBattlefieldWinner", "UnitFactionGroup",
-  "GetProfessions", "GetProfessionInfo" }
+  "GetProfessions", "GetProfessionInfo", "UnitPVPRank", "GetPVPRankInfo", "PlaySound" }
 local MILESTONE_STRINGS = { "LOOT_ITEM_CREATED_SELF", "FACTION_STANDING_CHANGED", "FACTION_STANDING_LABEL7",
   "FACTION_STANDING_LABEL8", "DUEL_WINNER_KNOCKOUT", "DUEL_WINNER_RETREAT", "SKILL_RANK_UP" }
 
