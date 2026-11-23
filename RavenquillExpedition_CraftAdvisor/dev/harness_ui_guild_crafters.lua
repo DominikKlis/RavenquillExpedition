@@ -191,7 +191,7 @@ UIx.upgradesOnly:SetChecked(true)
 UIx.upgradesOnly._scripts.OnClick(UIx.upgradesOnly)
 check(listKinds(UIx.recipeList) == "#Chest:1,3762" and UIx.recipeEmpty._text == "", "only upgrades for me: Hillman's vest")
 crafterRow("Cora Vale")._scripts.OnClick(crafterRow("Cora Vale"))
-check(listKinds(UIx.recipeList) == "" and UIx.recipeEmpty._text:find("Cora Vale shares no recipe the advisor has data for", 1, true),
+check(listKinds(UIx.recipeList) == "" and UIx.recipeEmpty._text:find("Cora Vale shares no recipe the workshop has data for", 1, true),
   "Cora shares only a recipe without data: " .. UIx.recipeEmpty._text)
 UIx.crafterList.pools.all[1]._scripts.OnClick(UIx.crafterList.pools.all[1])
 check(UIx.upgradesOnly._checked and listKinds(UIx.recipeList) == "#Chest:1" and UIx.recipeEmpty._text == "",

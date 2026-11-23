@@ -273,7 +273,7 @@ do
     RQc:ShowHome()
     local list = env.RavenquillExpeditionOverview.home.list
     for _, item in ipairs(list and list.items or {}) do
-      if rawget(item, "_shown") and item.title:GetText() == "Guild Craft Advisor" then return item end
+      if rawget(item, "_shown") and item.title:GetText() == "Guild Workshop" then return item end
     end
   end
   local function Line() local item = CraftRow(); return item and item.line:GetText() end
@@ -323,7 +323,7 @@ tipLines = {}
 local mmEnter = b and rawget(b, "_scripts") and rawget(b, "_scripts").OnEnter
 local okTip = mmEnter and pcall(mmEnter, b)
 local tipText = table.concat(tipLines, " | ")
-check(okTip and tipText:find("Guild Craft Advisor: " .. (GCA:OverviewStatus() or client.coreNs.LauncherL.NO_STATUS), 1, true) and tipText:find("Right-click", 1, true),
+check(okTip and tipText:find("Guild Workshop: " .. (GCA:OverviewStatus() or client.coreNs.LauncherL.NO_STATUS), 1, true) and tipText:find("Right-click", 1, true),
   "launcher tooltip: the Craft Advisor's status line, right-click opens our window: " .. tipText)
 local minimapOpt
 for _, o in ipairs(GCA.options) do if tostring(o.label):lower():find("minimap", 1, true) then minimapOpt = o end end

@@ -35,12 +35,13 @@ do
   pm[5]:click()
   GCA.UI:Refresh()
   check(GCA:SelectedProfession() == "Blacksmithing" and GCA:IsBrowse(), "picked Blacksmithing: browse")
-  check((pb.label._text or ""):find("(browse)", 1, true) and f.PortraitContainer.portrait._tex == "Interface\\Icons\\Trade_BlackSmithing",
-    "button says browse, portrait follows: " .. tostring(f.PortraitContainer.portrait._tex))
+  check((pb.label._text or ""):find("(browse)", 1, true), "button says browse")
   menuOf(pb.drop)[2]:click(); GCA.UI:Refresh()
-  check(GCA:SelectedProfession() == "Enchanting" and not GCA:IsBrowse(), "picked Enchanting (yours)")
+  check(GCA:SelectedProfession() == "Enchanting" and not GCA:IsBrowse() and f.PortraitContainer.portrait._tex == "Interface\\Icons\\Trade_BlackSmithing",
+    "picked Enchanting (yours); the portrait stays the workshop's anvil: " .. tostring(f.PortraitContainer.portrait._tex))
   menuOf(pb.drop)[1]:click(); GCA.UI:Refresh()
-  check(GCA:SelectedProfession() == "Leatherworking" and f.PortraitContainer.portrait._tex == "Interface\\Icons\\Trade_LeatherWorking", "back to Leatherworking")
+  check(GCA:SelectedProfession() == "Leatherworking" and f.PortraitContainer.portrait._tex == "Interface\\Icons\\Trade_BlackSmithing",
+    "back to Leatherworking, the anvil kept (the rank bar names the profession)")
   env.GetProfessions = function() return 2 end
   GCA.UI:Refresh()
   local firstLabel, firstHeader = pb.label._text or "", GCA.UI.sugHeader._text or ""

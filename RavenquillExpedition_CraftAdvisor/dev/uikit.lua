@@ -283,8 +283,8 @@ local function windowChecks(label)
   check(f and f._shown, "window opens")
   check(f._w == 980 and f._h == 640 and f._points[1][1] == "CENTER", "nothing saved -> default size 980x640, centred")
   if H.templateMode == "ok" then
-    check(f._title == "Guild Craft Advisor", "title set via SetTitle")
-    check(f.PortraitContainer.portrait._tex == "Interface\\Icons\\Trade_LeatherWorking", "portrait set")
+    check(f._title == "Guild Workshop", "title 'Guild Workshop' set via SetTitle")
+    check(f.PortraitContainer.portrait._tex == "Interface\\Icons\\Trade_BlackSmithing", "anvil portrait")
     local art = f.gcaArt
     check(art and art.overview and art.overview._atlas == "Profession-Background-Overview", "overview atlas drawn")
     check(art and art.pageArt and art.pageArt._atlas == "Profession-Background-Template2" and art.header == nil

@@ -401,14 +401,6 @@ local function UpdateProfessionButton(self, prof, browse)
   if self.profPopup and self.profPopup:IsShown() then self.profPopup:Fill() end
 end
 
-local function UpdatePortrait(self, f, prof)
-  local pinfo = GCA.PROF_BY_KEY[prof]
-  if f.templated and f.SetPortraitToAsset and pinfo and self.portraitFor ~= prof then
-    P.SafeCall(f.SetPortraitToAsset, f, pinfo.icon)
-    self.portraitFor = prof
-  end
-end
-
 local function FindLastMember(members, key)
   local found
   for _, e in ipairs(members) do if e.key == key then found = e end end
@@ -548,7 +540,6 @@ function UI:Refresh()
   local prof = GCA:SelectedProfession()
   local browse = GCA:IsBrowse(prof)
   UpdateProfessionButton(self, prof, browse)
-  UpdatePortrait(self, f, prof)
   local members = GCA:GetMemberList()
   local current = SelectCurrentMember(self, members)
   self.current = current

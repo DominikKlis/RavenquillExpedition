@@ -200,7 +200,7 @@ do
   env.C_Map.CanSetUserWaypointOnMap = function() return true end
   env.TomTom = { AddWaypoint = function(self, m, x, y, opts) tt[#tt + 1] = { self = self, m = m, x = x, y = y, title = opts and opts.title, from = opts and opts.from } return "uid" end }
   local vn = info.list[1].npc
-  check(Src.SetWaypoint(vn) == true and tt[1] and tt[1].self == env.TomTom and tt[1].from == "Craft Advisor" and tt[1].m == 1417 and tt[1].x == 0.45 and tt[1].y == 0.6
+  check(Src.SetWaypoint(vn) == true and tt[1] and tt[1].self == env.TomTom and tt[1].from == "Guild Workshop" and tt[1].m == 1417 and tt[1].x == 0.45 and tt[1].y == 0.6
     and tt[1].title == "Androd Fadran" and native.p == nil and said[#said] == "Waypoint set: Androd Fadran, Arathi Highlands 45, 60.",
     "waypoint: TomTom:AddWaypoint(1417, 0.45, 0.6, { title }) when TomTom is installed: " .. tostring(said[#said]))
   env.TomTom = { AddWaypoint = function() error("TomTom changed") end }

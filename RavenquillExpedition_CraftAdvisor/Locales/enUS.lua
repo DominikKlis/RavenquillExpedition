@@ -34,7 +34,7 @@ function ns.G(name, key)
 end
 
 ns.Locales.enUS = {
-  ADDON_TITLE = "Guild Craft Advisor",
+  ADDON_TITLE = "Guild Workshop",
   LEVEL = "Level",
   FRIENDS_LIST_ONLINE = "Online",
   FRIENDS_LIST_OFFLINE = "Offline",
@@ -384,7 +384,7 @@ ns.Locales.enUS = {
   SRC_MENU_WAYPOINT = "Show on map: %s (%s)",
   SRC_WAYPOINT_SET = "Waypoint set: %s, %s.",
   SRC_WAYPOINT_FAIL = "Couldn't set a waypoint: %s is at %s.",
-  WAYPOINT_FROM = "Craft Advisor",
+  WAYPOINT_FROM = "Guild Workshop",
   MONEY_GOLD = "%sg",
   MONEY_SILVER = "%ss",
   MONEY_COPPER = "%sc",
@@ -445,9 +445,9 @@ ns.Locales.enUS = {
   CRAFTERS_MEMBER_SUB = "%s  ·  %s  ·  recipes shared %s",
   CRAFTERS_CAT_UPGRADE_1 = "1 upgrade for you",
   CRAFTERS_CAT_UPGRADES = "%d upgrades for you",
-  CRAFTERS_EMPTY = "No guildmate has shared their recipes yet.\n\nGuildmates who run the Craft Advisor share their professions and recipes with the guild. The list fills as they come online.",
-  CRAFTERS_NO_RECIPES = "%s shares no recipe the advisor has data for (it covers gear and enchants from Leatherworking, Blacksmithing, Tailoring, Engineering and Enchanting).",
-  CRAFTERS_NO_RECIPES_ALL = "Your guildmates share no recipe the advisor has data for yet (it covers gear and enchants from Leatherworking, Blacksmithing, Tailoring, Engineering and Enchanting).",
+  CRAFTERS_EMPTY = "No guildmate has shared their recipes yet.\n\nGuildmates who run the Guild Workshop share their professions and recipes with the guild. The list fills as they come online.",
+  CRAFTERS_NO_RECIPES = "%s shares no recipe the workshop has data for (it covers gear and enchants from Leatherworking, Blacksmithing, Tailoring, Engineering and Enchanting).",
+  CRAFTERS_NO_RECIPES_ALL = "Your guildmates share no recipe the workshop has data for yet (it covers gear and enchants from Leatherworking, Blacksmithing, Tailoring, Engineering and Enchanting).",
   CRAFTERS_NO_MATCH = "No recipe matches \"%s\".",
   CRAFTERS_NO_UPGRADES = "None of these crafts would be an upgrade for you.",
   CRAFTERS_TIP_GAIN = "Upgrade for you: %s (%s)",

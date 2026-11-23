@@ -457,7 +457,7 @@ local function NewWindow(name, title)
   if ok and f and type(f.SetTitle) == "function" then
     f.templated = true
     SafeCall(f.SetTitle, f, title)
-    if f.SetPortraitToAsset then SafeCall(f.SetPortraitToAsset, f, "Interface\\Icons\\Trade_LeatherWorking") end
+    if f.SetPortraitToAsset then SafeCall(f.SetPortraitToAsset, f, GCA.icon) end
     PaintArt(f)
     return f
   end

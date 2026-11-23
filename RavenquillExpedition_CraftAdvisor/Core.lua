@@ -83,7 +83,7 @@ local LOGIN_MIGRATIONS = {
 }
 
 local GCA = RQ:NewModule("Craft", {
-  addon = ADDON, api = 2, slash = "craft", title = L.ADDON_TITLE, icon = "Interface\\Icons\\Trade_LeatherWorking",
+  addon = ADDON, api = 2, slash = "craft", title = L.ADDON_TITLE, icon = "Interface\\Icons\\Trade_BlackSmithing",
   sv = "RavenquillExpeditionCraftDB", dbVersion = 4, defaults = DEFAULTS, migrations = MIGRATIONS,
   loginMigrations = LOGIN_MIGRATIONS,
   launcherRightClick = true,

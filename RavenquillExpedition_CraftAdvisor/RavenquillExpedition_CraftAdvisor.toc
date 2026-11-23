@@ -1,5 +1,6 @@
 ## Interface: 16001
-## Title: Ravenquill Expedition: Craft Advisor
+## Title: Ravenquill Expedition: Guild Workshop
+## Title-deDE: Ravenquill Expedition: Gildenwerkstatt
 ## Notes: Shows your guildmates' gear (from inspects and guild sync) and which of your crafts (Leatherworking, Blacksmithing, Tailoring, Engineering, Enchanting) and enchants would be upgrades for them.
 ## Notes-deDE: Zeigt die Ausrüstung deiner Gildenmitglieder (aus Betrachten und Gilden-Sync) und welche deiner Herstellungen und Verzauberungen für sie eine Verbesserung wären.
 ## Author: domin
@@ -7,7 +8,7 @@
 ## Dependencies: RavenquillExpedition
 ## OptionalDeps: Auctionator
 ## SavedVariables: RavenquillExpeditionCraftDB
-## IconTexture: Interface\Icons\Trade_LeatherWorking
+## IconTexture: Interface\Icons\Trade_BlackSmithing
 ## AddonCompartmentFunc: RavenquillExpedition_CraftAdvisor_OnCompartmentClick
 
 Locales\enUS.lua
