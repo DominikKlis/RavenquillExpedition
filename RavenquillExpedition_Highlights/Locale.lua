@@ -106,6 +106,10 @@ local L = {
   GROUP = "made it through %s",
   RULE_GROUP = "Guild group",
   HOW_GROUP = "a dungeon run with guildmates: one line for the whole group with every name. One member of the group reports it for everyone.",
+  WITH_GUILD = "%s and %d from the guild",
+  CLEAR = "cleared %s",
+  RULE_CLEAR = "Raids",
+  HOW_CLEAR = "a full clear, when the raid's last boss falls: one line for the group, without a boss count. One member of the group reports it for everyone.",
 }
 
 local deDE = {
@@ -212,6 +216,10 @@ local deDE = {
   GROUP = "%s geschafft",
   RULE_GROUP = "Gildengruppe",
   HOW_GROUP = "jeder Dungeon-Lauf mit Gildenmitgliedern: eine Zeile für die ganze Gruppe mit allen Namen. Einer aus der Gruppe meldet ihn für alle.",
+  WITH_GUILD = "%s und %d aus der Gilde",
+  CLEAR = "%s gecleart",
+  RULE_CLEAR = "Schlachtzüge",
+  HOW_CLEAR = "der komplette Clear, wenn der Endboss fällt: eine Zeile für die Gruppe, ohne Bosszahl. Einer aus der Gruppe meldet ihn für alle.",
 }
 
 ns.Locales = { enUS = L, deDE = deDE }

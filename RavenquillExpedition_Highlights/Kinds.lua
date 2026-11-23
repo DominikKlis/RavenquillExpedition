@@ -9,6 +9,14 @@ H.QUEST_TAGS = { elite = "TAG_ELITE", group = "TAG_GROUP", dungeon = "TAG_DUNGEO
 local function Gold(text) return "|cffffd100" .. text .. "|r" end
 local function NonEmpty(s, fallback) return (s and s ~= "") and s or fallback end
 
+local function SameKill(self, a, b) return a.enc == b.enc and math.abs(a.t - b.t) <= self.BOSS_SAME end
+
+local function WithGuild(self, e)
+  local who = self.ClassColorName(e.who, e.cls)
+  if (e.n or 1) > 1 then return L.WITH_GUILD:format(who, e.n - 1) end
+  return who
+end
+
 local function SharePeople(a, b)
   local seen = {}
   for _, key in ipairs(H.People(a)) do seen[key] = true end
@@ -39,7 +47,7 @@ H.KINDS = {
   },
   boss = {
     code = "b", chat = true, icon = "INV_Misc_Bone_HumanSkull_01", hidden = function(e) return e.raid end,
-    same = function(self, a, b) return a.enc == b.enc and math.abs(a.t - b.t) <= self.BOSS_SAME end,
+    same = SameKill,
     format = function(_, e)
       local boss, inst = Gold(NonEmpty(e.boss, L.A_BOSS)), NonEmpty(e.inst, L.AN_INSTANCE)
       if e.grp and (e.n or 1) > 1 then return L.BOSS_GROUP:format(boss, inst, e.n - 1) end
@@ -105,6 +113,10 @@ H.KINDS = {
     same = function(self, a, b) return a.inst == b.inst and math.abs(a.t - b.t) <= self.RUN_SAME and SharePeople(a, b) end,
     subject = function(self, e) return self:PeopleText(e) end,
     format = function(_, e) return L.GROUP:format(Gold(NonEmpty(e.inst, L.AN_INSTANCE))) end,
+  },
+  clear = {
+    code = "c", chat = true, icon = "INV_Misc_Bone_Skull_02", same = SameKill, subject = WithGuild,
+    format = function(_, e) return L.CLEAR:format(Gold(NonEmpty(e.inst, L.AN_INSTANCE))) end,
   },
 }
 
@@ -197,6 +209,7 @@ end
 local Q = H.QualityName
 H.RULES = {
   { k = "loot", title = "RULE_LOOT", text = "HOW_LOOT", args = { Q(H.LOOT_QUALITY) } },
+  { k = "clear", title = "RULE_CLEAR", text = "HOW_CLEAR" },
   { k = "boss", title = "RULE_WORLD_BOSS", text = "HOW_WORLD_BOSS" },
   { k = "group", title = "RULE_GROUP", text = "HOW_GROUP" },
   { k = "level", title = "RULE_LEVEL", text = "HOW_LEVEL", args = { H.LEVEL_STEP } },

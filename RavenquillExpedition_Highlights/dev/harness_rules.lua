@@ -219,6 +219,38 @@ do
     "an old peer's dungeon run still has its line")
 end
 
+section("Raid clear: when the last boss falls, one line for the raid, without a boss count, sent once")
+do
+  local w = World()
+  local rika, lyra, ole = w.join("Rika Steinbeck"), w.join("Lyra Distelbach"), w.join("Ole Fichtental")
+  local raid = { rika, lyra }
+  for i = 1, 8 do
+    local name = "Gast Nummer" .. string.char(64 + i)
+    w.bus:member(name, "WARRIOR", 60)
+    raid[#raid + 1] = name
+  end
+  w.start()
+  w.group(raid, true)
+  w.go(raid, MC)
+  w.kill(raid, 671, "Majordomo Executus")
+  w.settle(900)
+  w.kill(raid, 672, "Ragnaros")
+  w.go(raid, TOWN)
+  w.settle(600)
+  check(Sent(w, "c") == 1 and Sent(w, "b") == 2, "one clear message for the raid, next to the two kill records")
+  local lines = {}
+  for _, c in ipairs({ rika, lyra, ole }) do lines[#lines + 1] = Count(Lines(c), OfKind("clear")) end
+  check(table.concat(lines, ",") == "1,1,1", "each chronicle has one clear line (" .. table.concat(lines, ",") .. ")")
+  local e
+  for _, x in ipairs(ole.H:Log()) do if x.k == "clear" then e = x end end
+  local text = e and ole.H:Format(e) or ""
+  check(text:find("Lyra Distelbach und 9 aus der Gilde  ·  |cffffd100Geschmolzener Kern|r gecleart", 1, true)
+    and not text:find("Boss", 1, true), "the line: the reporter and nine from the guild, Molten Core cleared: " .. text)
+  check(ole.H:NewSinceLastLook() == 1 and rika.H:NewSinceLastLook() == 0, "new to Ole, who was not there; not to Rika")
+  check(Story(ole).k == "clear", "the paper leads with the clear (" .. tostring(Story(ole).head) .. ")")
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
 section("Quests: an attunement step still reaches raid readiness without a line; an old guildmate's quest still reads")
 do
   local w = World()

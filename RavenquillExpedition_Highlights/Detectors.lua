@@ -141,6 +141,7 @@ local function OnBankOpened()
 end
 
 local recentKill = {}
+H.RAID_FINALE = { [672] = true, [1084] = true, [617] = true, [793] = true, [723] = true, [717] = true, [1114] = true }
 
 local OnKill
 do
@@ -163,9 +164,11 @@ do
 
   local function ReportRaidKill(fields, first)
     local guildies = GS:GroupGuildies()
-    local rank = GS:ElectionRank(guildies)
+    local share = { group = true, rank = (GS:ElectionRank(guildies)) }
     fields.raid, fields.grp, fields.n, fields.first = true, true, #guildies + 1, first or nil
-    H:Add(Own("boss", fields), "self", { group = true, rank = rank })
+    H:Add(Own("boss", fields), "self", share)
+    if not H.RAID_FINALE[fields.enc or 0] then return end
+    H:Add(Own("clear", { enc = fields.enc, inst = fields.inst, n = fields.n, grp = true }), "self", share)
   end
 
   local function ReportKill(fields, first, dungeon)

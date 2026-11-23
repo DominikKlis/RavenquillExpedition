@@ -1159,8 +1159,7 @@ do
   local kills = {}
   for i = 1, 8 do
     c.fire("ENCOUNTER_END", 610 + i, "Boss " .. i, 9, 40, 1)
-    local log = c.H:Log()
-    kills[i] = log[#log]
+    for _, e in ipairs((c.H:Log())) do if e.k == "boss" and e.enc == 610 + i then kills[i] = e end end
     advance(300)
   end
   G.items[324] = { name = "Lila Klinge", q = 4, il = 70 }
@@ -1171,8 +1170,10 @@ do
     c.fire("CHAT_MSG_ADDON", "RQE1", ("H;1;b;%d;9;Bud Stone;60;9;%d;0;1;%s;Pechschwingenhort;2"):format(k.t + 5, k.enc, k.boss),
       "GUILD", "Bud Stone")
   end
+  c.fire("CHAT_MSG_ADDON", "RQE1", ("H;1;c;%d;10;Bud Stone;60;9;617;2;Pechschwingenhort"):format(kills[7].t + 5), "GUILD", "Bud Stone")
   for _ = 1, 30 do advance(10); EchoTo(c) end
-  check(Kinds(c, "boss") == 8 and sendsOf(";Me Smith;60;4;61") == 0, "setup: Bud reported all 8 kills, I sent none of them")
+  check(Kinds(c, "boss") == 8 and Kinds(c, "clear") == 1 and sendsOf(";Me Smith;60;4;61") == 0,
+    "setup: Bud reported all 8 kills and the clear, I sent none of them")
   check(sendsOf(";Me Smith;60;4;324;") == 1, "my own epic after 8 kills that Bud reported goes to the guild")
   check(#c.H.cdb.shareLog == 1, ("only what I sent counts against the hourly cap (%d)"):format(#c.H.cdb.shareLog))
   G.level = level
