@@ -24,9 +24,9 @@ local function Heard(c, entries)
 end
 
 local BUSY_DAY = {
-  E("boss", "Rika Steinbeck", At(20, 0, 23), { inst = "Dalaran", boss = "Atrexis der Grabritter", enc = 1, first = true }),
-  E("boss", "Rika Steinbeck", At(20, 0, 40), { inst = "Dalaran", boss = "Mortis", enc = 2, first = true }),
-  E("boss", "Rika Steinbeck", At(20, 1, 16), { inst = "Dalaran", boss = "Schemen des Erzmagiers", enc = 3, first = true }),
+  E("boss", "Rika Steinbeck", At(20, 0, 23), { inst = "Dämmerwald", boss = "Emeriss", enc = 3111, first = true }),
+  E("boss", "Rika Steinbeck", At(20, 0, 40), { inst = "Dämmerwald", boss = "Lethon", enc = 3112, first = true }),
+  E("boss", "Rika Steinbeck", At(20, 1, 16), { inst = "Dämmerwald", boss = "Taerar", enc = 3113, first = true }),
   E("level", "Hanne Moosgrund", At(20, 2, 49), { lvl = 40 }),
   E("level", "Ole Fichtental", At(20, 1, 5), { lvl = 10 }),
   E("skill", "Ole Fichtental", At(20, 3, 11), { skill = "Alchemy", rank = 300 }),
@@ -392,8 +392,8 @@ end
 Kit.section("Lead columns: a long lead story balances over both columns, whole sentences only")
 do
   local long = LayoutClient("Mira Sturmfeder")
-  for i, boss in ipairs({ "Schlingwurzler", "Noxxion", "Celebras der Verfluchte", "Erdrutsch", "Prinzessin Theradras", "Faulschnapper" }) do
-    Heard(long, { E("boss", "Bodo Kesselring", At(20, 18, 20) + i * 400, { inst = "Maraudon", boss = boss, first = true, lvl = 52 }) })
+  for i, boss in ipairs({ "Emeriss", "Lethon", "Taerar", "Ysondre" }) do
+    Heard(long, { E("boss", "Bodo Kesselring", At(20, 18, 20) + i * 400, { inst = "Dämmerwald", boss = boss, enc = 3110 + i, first = true, lvl = 60 }) })
   end
   local _, lpaper = OpenSized(long, 640, 640)
   local cols = lpaper.lead.columns

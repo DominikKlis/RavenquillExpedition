@@ -426,10 +426,10 @@ H:Settings().logOnlyHighlights = false
 n = count()
 local t0 = T()
 local mark = #printed
-recv("Cara Moss", ("1;b;%d;7;Cara Moss;31;7;1150;1;0;Mutanus;Höhlen des Wehklagens"):format(t0))
-check(count() == n + 1 and last().who == "Cara Moss" and last().first and last().cls == "MAGE", "guildie's boss kill received")
-check(printedSince(mark):find("erster Kill", 1, true) ~= nil, "received boss kill printed in chat")
-recv("Cara Moss", ("1;b;%d;7;Cara Moss;31;7;1150;1;0;Mutanus;Höhlen des Wehklagens"):format(t0))
+recv("Cara Moss", ("1;b;%d;7;Cara Moss;31;7;3027;1;0;Azuregos;Azshara"):format(t0))
+check(count() == n + 1 and last().who == "Cara Moss" and last().first and last().cls == "MAGE", "guildie's world boss kill received")
+check(printedSince(mark):find("erster Kill", 1, true) ~= nil, "received world boss kill printed in chat")
+recv("Cara Moss", ("1;b;%d;7;Cara Moss;31;7;3027;1;0;Azuregos;Azshara"):format(t0))
 check(count() == n + 1, "duplicate ignored")
 recv("Cara Moss", ("1;v;%d;8;Bud Stone;60;9"):format(t0))
 check(count() == n + 1, "highlight about someone else rejected (only loot may be witnessed)")
@@ -700,13 +700,13 @@ do
   local chatAll = s.chatAll
   s.chatAll = false
   local shown = {}
-  for _, e in ipairs({ { k = "gear", q = 3 }, { k = "gear", q = 4 }, { k = "loot", q = 3 }, { k = "boss", first = true }, { k = "quest" },
+  for _, e in ipairs({ { k = "gear", q = 3 }, { k = "gear", q = 4 }, { k = "loot", q = 3 }, { k = "boss", first = true, boss = "Azuregos" }, { k = "quest" },
     { k = "level" }, { k = "other" } }) do
     shown[#shown + 1] = e.k .. (e.q or "") .. "=" .. tostring(H:ShouldPrint(e))
   end
   s.chatAll = chatAll
   check(table.concat(shown, " ") == "gear3=false gear4=false loot3=true boss=true quest=false level=true other=false",
-    "chat by default: loot, first boss kills and levels, no gear and no quests (" .. table.concat(shown, " ") .. ")")
+    "chat by default: loot, first world boss kills and levels, no gear and no quests (" .. table.concat(shown, " ") .. ")")
 end
 
 do

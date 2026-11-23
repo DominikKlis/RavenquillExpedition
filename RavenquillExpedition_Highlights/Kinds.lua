@@ -10,6 +10,12 @@ local function Gold(text) return "|cffffd100" .. text .. "|r" end
 local function Always() return true end
 local function NonEmpty(s, fallback) return (s and s ~= "") and s or fallback end
 
+H.WORLD_BOSSES = {
+  [3026] = true, [3027] = true, [3111] = true, [3112] = true, [3113] = true, [3114] = true,
+  ["Lord Kazzak"] = true, Azuregos = true, Emeriss = true, Lethon = true, Taerar = true, Ysondre = true,
+}
+local function WorldBoss(e) return H.WORLD_BOSSES[e.enc] or H.WORLD_BOSSES[e.boss] end
+
 local function SameKill(self, a, b) return a.enc == b.enc and math.abs(a.t - b.t) <= self.BOSS_SAME end
 local function KillFact(e) return e.enc and ("e" .. e.enc) or nil end
 local function FirstFact(e) if e.what == "level" then return "v" .. tostring(e.lvl) end return KillFact(e) end
@@ -49,7 +55,7 @@ H.KINDS = {
     end,
   },
   boss = {
-    code = "b", chat = true, icon = "INV_Misc_Bone_HumanSkull_01", hidden = function(e) return e.raid or not e.first end,
+    code = "b", chat = true, icon = "INV_Misc_Bone_HumanSkull_01", hidden = function(e) return e.raid or not (e.first and WorldBoss(e)) end,
     same = SameKill, fact = KillFact,
     format = function(_, e)
       local boss, inst = Gold(NonEmpty(e.boss, L.A_BOSS)), NonEmpty(e.inst, L.AN_INSTANCE)
