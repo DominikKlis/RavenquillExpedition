@@ -362,6 +362,10 @@ local OLD_RULES = {
   { "a battleground win", "pvp", "Bodo Kesselring", { pk = "win", name = "Warsong Gulch" } },
   { "an epic by mail, trade or auction", "loot", "Rika Steinbeck", { item = 5002, q = 4, src = "bag" } },
   { "a dungeon boss kill", "boss", "Ole Fichtental", { enc = 4, boss = "Hochinquisitor Weißsträhne", inst = "Scharlachrotes Kloster" } },
+  { "a dungeon boss's first kill from before 0.10.0", "boss", "Hanne Moosgrund",
+    { enc = 596, boss = "Theka der Märtyrer", inst = "Zul'Farrak", first = true } },
+  { "a dungeon boss's first kill in English from before 0.10.0", "boss", "Tamo Eichengrund",
+    { enc = 427, boss = "Tinkerer Gizlock", inst = "Maraudon", first = true } },
 }
 
 local NEW_RULES = {
@@ -373,6 +377,8 @@ local NEW_RULES = {
   { "a PvP rank", "pvp", "Bodo Kesselring", { pk = "rank", pr = 3, name = "Unteroffizier" } },
   { "a level step", "level", "Ole Fichtental", { lvl = 40 } },
   { "a world boss's first kill", "boss", "Kael Wintermoor", { enc = 1100, boss = "Azuregos", inst = "Azshara", first = true } },
+  { "a world boss's first kill by its encounter", "boss", "Bodo Kesselring",
+    { enc = 3026, boss = "Lord Kazzak", inst = "Verwüstete Lande", first = true } },
 }
 
 local function Entries(cases, at)
