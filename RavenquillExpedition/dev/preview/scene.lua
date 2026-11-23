@@ -216,6 +216,13 @@ function Data.Highlights(NK)
     E("clear", "Rika Steinbeck", At(20, 1, 40), { enc = 672, inst = "Geschmolzener Kern", n = 10, grp = true }),
     E("first", "Rika Steinbeck", At(20, 21, 20), { what = "boss", enc = 1084, boss = "Onyxia", inst = "Onyxias Hort", n = 12,
       grp = true }),
+    E("loot", "Kael Wintermoor", At(20, 12, 40), { item = 5003, q = 4, src = "bag" }),
+    E("run", "Bodo Kesselring", At(20, 14, 30), { inst = "Uldaman", boss = "Archaedas", n = 7, nf = 7, first = true }),
+    E("rep", "Mira Sturmfeder", At(20, 15, 10), { st = 7, fac = "Sturmwind" }),
+    E("run", "Ole Fichtental", At(20, 16, 5), { inst = "Scharlachrotes Kloster", boss = "Hochinquisitor Weißsträhne", n = 4, nf = 4 }),
+    E("run", "Hanne Moosgrund", At(20, 16, 9), { inst = "Scharlachrotes Kloster", boss = "Hochinquisitor Weißsträhne", n = 4, nf = 2 }),
+    E("run", "Tamo Eichengrund", At(20, 16, 14), { inst = "Scharlachrotes Kloster", boss = "Hochinquisitor Weißsträhne", n = 3, nf = 3 }),
+    E("pvp", "Hanne Moosgrund", At(20, 18, 20), { pk = "win", name = "Warsong Gulch" }),
   }) do list[#list + 1] = e end
   return list
 end
