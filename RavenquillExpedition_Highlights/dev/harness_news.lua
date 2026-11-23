@@ -50,11 +50,11 @@ local BIG_DAY = {
 Kit.section("Stories: one per run, raid night, item, quest list and level")
 do
   local groups = News.Groups(BIG_DAY, Ctx())
-  check(Kinds(groups) == "raid,epic,run,level,level,mount,gear,quest",
-    "ranked raid > epic > run > level 50 > level 40 > mount > gear > quest (" .. Kinds(groups) .. ")")
+  check(Kinds(groups) == "raid,epic,level,run,level,mount,gear,quest",
+    "ranked raid > epic > level 50 > first run > level 40 > mount > gear > quest (" .. Kinds(groups) .. ")")
   check(#groups[1].entries == 3, "three raid kills of one instance on one day are one raid story")
   check(#groups[2].entries == 2, "loot and gear of the same item are one story")
-  check(groups[4].first.lvl == 50 and #groups[5].entries == 2, "two guildies reaching level 40 share a story")
+  check(groups[3].first.lvl == 50 and #groups[5].entries == 2, "two guildies reaching level 40 share a story")
   check(#groups[8].entries == 2, "two notable quests of one person on one day are one story")
   local raid = News.Vars(groups[1], Ctx(), DE)
   check(raid.n == "drei" and raid.min == "45" and raid.start == "21:20" and raid.time == "22:05" and raid.lastboss == "Gehennas"
@@ -95,6 +95,52 @@ do
     "a day with an epic and Alex at 60 leads with Alex (" .. issue.lead.head .. ")")
 end
 
+Kit.section("Ranking: a first run is personal progress, after a guild group and level 50, before level 40; an old first-time line follows")
+do
+  local day = {
+    E("level", "Mira Sturmfeder", At(20, 9), { lvl = 40 }),
+    E("visit", "Hanne Moosgrund", At(20, 10), { inst = "Zul'Farrak", boss = "Gahz'rilla", n = 8 }),
+    E("run", "Tamo Eichengrund", At(20, 11), { inst = "Maraudon", boss = "Prinzessin Theradras", n = 8, nf = 8, first = true }),
+    E("group", "Ole Fichtental", At(20, 12), { inst = "Uldaman", with = { "Bodo Kesselring" }, grp = true }),
+    E("level", "Rika Steinbeck", At(20, 13), { lvl = 50 }),
+  }
+  local groups = News.Groups(day, Ctx())
+  check(Kinds(groups) == "group,level,run,level,visit",
+    "guild group > level 50 > first run > level 40 > old first-time line (" .. Kinds(groups) .. ")")
+end
+
+local function StoryText(g, L)
+  local s = News.Story(g, L, Ctx(), nil, true)
+  return table.concat({ s.kicker or "", s.head, s.dek or "", table.concat(s.body, " "), s.caption or "",
+    News.Brief(g, L, Ctx()).text }, " | ")
+end
+
+Kit.section("Erster Abschluss in the paper: a first run says so, an old first-time line never claims a finished run, a group names who was new")
+do
+  local FINISHED = { deDE = { "geschafft", "beendet", "draußen", "zurück", "Lauf" }, enUS = { "made it", "finish", "back", "run" } }
+  local NEW = { deDE = "zum ersten Mal", enUS = "for the first time" }
+  local briefs, claims, named = {}, nil, {}
+  for _, L in ipairs({ DE, EN }) do
+    local run = News.Groups({ E("run", "Tamo Eichengrund", At(20, 11), { inst = "Maraudon", boss = "Prinzessin Theradras", n = 8, nf = 8,
+      first = true }) }, Ctx())[1]
+    briefs[#briefs + 1] = News.Brief(run, L, Ctx()).text
+    for i = 1, 30 do
+      local visit = News.Groups({ E("visit", "Hanne Moosgrund", At(20, 10) + i, { inst = "Zul'Farrak", boss = "Gahz'rilla", n = 8 }) },
+        Ctx())[1]
+      local text = StoryText(visit, L)
+      for _, word in ipairs(FINISHED[L.LOCALE]) do if text:find(word, 1, true) and not claims then claims = word .. ": " .. text end end
+    end
+    local group = News.Groups({ E("group", "Ole Fichtental", At(20, 12), { inst = "Uldaman", with = { "Hanne Moosgrund" }, grp = true,
+      firsts = { "Hanne Moosgrund" } }) }, Ctx())[1]
+    named[#named + 1] = News.Brief(group, L, Ctx()).text
+  end
+  check(briefs[1]:find(NEW.deDE, 1, true) and briefs[2]:find(NEW.enUS, 1, true),
+    "the brief line of a first run says it was the first time (" .. table.concat(briefs, " / ") .. ")")
+  check(claims == nil, "a line built from old boss kills never says the run was finished (" .. tostring(claims) .. ")")
+  check(named[1]:find("Hanne Moosgrund " .. NEW.deDE, 1, true) and named[2]:find("first time for Hanne Moosgrund", 1, true),
+    "a guild group's brief line names who was new (" .. table.concat(named, " / ") .. ")")
+end
+
 local function Flatten(issue)
   local parts = {}
   local function Story(s)
@@ -129,9 +175,10 @@ local OUTING = "inst boss lastboss n min start grp first before middle prev time
 local ITEM = "item thing thingnom il oldil gain glow where crafted received looted worn soon weartime"
 local LEVEL = "lvl left half home lead leadtime lastname lasttime"
 local KNOWN = {
-  raid = OUTING, boss = OUTING, run = "inst lastboss n nf first lo hi", epic = ITEM, gear = ITEM, levelmax = LEVEL, level = LEVEL,
+  raid = OUTING, boss = OUTING, run = "inst lastboss n nf first lo hi", visit = "inst lastboss n lo hi", epic = ITEM, gear = ITEM,
+  levelmax = LEVEL, level = LEVEL,
   mount = "mount epic plain", quest = "quest quests rest n lastquest legend", rep = "fac standing exalted", skill = "skill rank top",
-  pvp = "bg prank", duel = "foe", group = "inst", clear = "inst grp", ready = "raid", first = "lvl boss inst grp",
+  pvp = "bg prank", duel = "foe", group = "inst firsts", clear = "inst grp", ready = "raid", first = "lvl boss inst grp",
 }
 local REQUIRED_SLOTS = { "kicker", "head", "dek", "body", "caption", "brief" }
 
@@ -254,7 +301,7 @@ do
 end
 
 local MINIMAL = {
-  raid = { "boss", { raid = true } }, boss = { "boss", {} }, run = { "run", { n = 1, nf = 1 } },
+  raid = { "boss", { raid = true } }, boss = { "boss", {} }, run = { "run", { n = 1, nf = 1 } }, visit = { "visit", { n = 1 } },
   epic = { "loot", { item = 9999, q = 4 } }, gear = { "gear", { item = 9998, q = 3 } }, levelmax = { "level", { lvl = 60 } },
   level = { "level", { lvl = 59 } }, mount = { "mount", {} }, quest = { "quest", { qid = 7, tag = "special" } },
   rep = { "rep", { st = 6 } }, skill = { "skill", { rank = 150 } }, pvp = { "pvp", { pk = "win" } },

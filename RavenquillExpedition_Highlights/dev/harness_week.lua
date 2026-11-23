@@ -72,6 +72,11 @@ do
     E("clear", "Alex Morgenrot", At(21, 22), { enc = 1084, inst = "Onyxias Hort", n = 40, grp = true, lvl = 60 }) }, DE, Ctx())
   check(Counts(clear) == "11 Bosse besiegt",
     "a raid clear counts every boss of its raid, once even if two report it: Molten Core 10 + Onyxia 1 (" .. Counts(clear) .. ")")
+  local visits = News.Week({ E("visit", "Hanne Moosgrund", At(18, 21), { inst = "Zul'Farrak", boss = "Gahz'rilla", n = 8 }),
+    E("visit", "Tamo Eichengrund", At(18, 21), { inst = "Zul'Farrak", boss = "Gahz'rilla", n = 8 }),
+    E("visit", "Faro Wegemann", At(19, 20), { inst = "Maraudon", boss = "Tüftler Gizlock", n = 2 }) }, DE, Ctx())
+  check(Counts(visits) == "10 Bosse besiegt",
+    "old first-time lines count their bosses, once for two guildmates in the same outing: 8 + 2 (" .. Counts(visits) .. ")")
   local en = News.Week(WEEK, EN, Ctx())
   check(Counts(en) == "5 levels gained | 15 bosses defeated | 1 epic find", "English: " .. Counts(en))
 end
