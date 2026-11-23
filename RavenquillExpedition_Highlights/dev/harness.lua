@@ -991,16 +991,16 @@ local function ForeverPvpRank(cenv, rank)
   cenv.UnitPVPRank, cenv.GetPVPRankInfo = nil, nil
   cenv.Enum.PvPRanks = { RankNone = 0, Rank_1 = 5 }
   cenv.UnitSex = function() return 2 end
+  cenv.UnitFactionGroup = function() return "Alliance" end
   cenv.GetText = function(key) return TITLES[key] end
-  cenv.C_MajorFactions = { GetMajorFactionProgressionInfo = function(id)
-    if id == PVP_RANK_FACTION then return { renownLevel = rank(), renownReputationEarned = 0, renownLevelThreshold = 500 } end
+  cenv.C_MajorFactions = { GetMajorFactionProgressionInfo = function(factionID)
+    if factionID == PVP_RANK_FACTION then return { renownLevel = rank(), renownReputationEarned = 0, renownLevelThreshold = 500 } end
   end }
 end
 
 do
   local index = 0
   ForeverPvpRank(env, function() return index end)
-  env.UnitFactionGroup = function() return "Alliance" end
   env.GetBattlefieldWinner = function() return 1 end
   local before = count()
   G.instName = "Kriegshymnenschlucht"
@@ -1308,7 +1308,8 @@ do
   local later = Reload(saved); advance(5)
   ForeverPvpRank(later.env, function() return index end)
   later.fire("MAJOR_FACTION_RENOWN_LEVEL_CHANGED", PVP_RANK_FACTION, 4, 3)
-  local e = later.H:Log()[#later.H:Log()]
+  local e = {}
+  for _, x in ipairs(later.H:Log()) do if x.k == "pvp" then e = x end end
   check(Kinds(later, "pvp") == 1 and later.H.cdb.pvpRank == 4 and e.pr == 4 and e.name == "Unteroffizier",
     "rank 4 after a relog is a highlight, with its title (" .. tostring(e.name) .. ")")
   LogOut(later)

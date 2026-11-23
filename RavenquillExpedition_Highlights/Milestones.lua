@@ -10,7 +10,7 @@ H.MOUNT_TIER_LEVEL = { 40, 60 }
 H.REP_MILESTONE = 8
 H.SKILL_TOP = 300
 H.DUEL_EVERY = 86400
-H.PVP_FIRST_RANK_INDEX = 5
+H.PVP_RANK_FACTION = 2800
 
 local function Store(key)
   local t = H.cdb[key]
@@ -50,13 +50,21 @@ local function CurrentStandings()
   return out
 end
 
+local function PvpRankTitle(rank)
+  local first = Enum and Enum.PvPRanks and Plain(Enum.PvPRanks.Rank_1, "number")
+  if not first then return end
+  local side = Plain(SafeCall(UnitFactionGroup, "player"), "string") == "Alliance" and 1 or 0
+  local key = ("PVP_RANK_%d_%d"):format(first + rank - 1, side)
+  return Plain(SafeCall(GetText, key, Plain(SafeCall(UnitSex, "player"), "number")), "string")
+end
+
 local function CurrentPvpRank()
-  if not (UnitPVPRank and GetPVPRankInfo) then return end
-  local index = Plain(SafeCall(UnitPVPRank, "player"), "number")
-  if not index then return end
-  if index < H.PVP_FIRST_RANK_INDEX then return 0 end
-  local name, number = SafeCall(GetPVPRankInfo, index, "player")
-  return Plain(number, "number") or index - H.PVP_FIRST_RANK_INDEX + 1, Plain(name, "string")
+  local info = C_MajorFactions and SafeCall(C_MajorFactions.GetMajorFactionProgressionInfo, H.PVP_RANK_FACTION)
+  if type(info) ~= "table" or IsSecret(info) then return end
+  local rank = Plain(info.renownLevel, "number")
+  if not rank then return end
+  if rank <= 0 then return 0 end
+  return rank, PvpRankTitle(rank)
 end
 
 local function CheckPvpRank()
@@ -193,6 +201,7 @@ local HANDLERS = {
   CHAT_MSG_COMBAT_FACTION_CHANGE = OnSystem,
   CHAT_MSG_SKILL = OnSkill,
   PLAYER_PVP_RANK_CHANGED = CheckPvpRank,
+  MAJOR_FACTION_RENOWN_LEVEL_CHANGED = CheckPvpRank,
 }
 local NOISY = { UNIT_AURA = true, CHAT_MSG_SYSTEM = true }
 
