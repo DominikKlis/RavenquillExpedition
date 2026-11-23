@@ -193,4 +193,29 @@ function Data.Craft(GCA, env)
   if GCA.InvalidateScores then GCA:InvalidateScores() end
 end
 
+local baseHighlights = Data.Highlights
+function Data.Highlights(NK)
+  local list, At = baseHighlights(NK), NK.At
+  local function E(k, who, t, fields)
+    local e = NK.E(k, who, t, fields)
+    e.cls = ClassOf(who) or e.cls
+    return e
+  end
+  for _, e in ipairs({
+    E("group", "Ole Fichtental", At(19, 19, 2), { inst = "Die Todesminen", with = { "Hanne Moosgrund", "Tamo Eichengrund" }, grp = true }),
+    E("level", "Ole Fichtental", At(19, 19, 20), { lvl = 40 }),
+    E("mount", "Bodo Kesselring", At(19, 20, 12), { lvl = 40 }),
+    E("pvp", "Hanne Moosgrund", At(19, 20, 31), { pk = "rank", pr = 1, name = "Kundschafter" }),
+    E("duel", "Bodo Kesselring", At(19, 20, 45), { foe = "Ole Fichtental" }),
+    E("ready", "Mira Sturmfeder", At(19, 21, 0), { raid = "mc" }),
+    E("loot", "Rika Steinbeck", At(19, 21, 33), { item = 5001, q = 4 }),
+    E("first", "Alex Morgenrot", At(19, 22, 14), { what = "level", lvl = 60, cls = "WARRIOR" }),
+    E("rep", "Mira Sturmfeder", At(19, 22, 40), { st = 8, fac = "Argentumdämmerung" }),
+    E("boss", "Alex Morgenrot", At(19, 23, 5), { enc = 1100, boss = "Azuregos", inst = "Azshara", first = true, cls = "WARRIOR" }),
+    E("skill", "Bodo Kesselring", At(19, 23, 20), { skill = "Blacksmithing", rank = 300 }),
+    E("clear", "Rika Steinbeck", At(20, 1, 40), { enc = 672, inst = "Geschmolzener Kern", n = 10, grp = true }),
+  }) do list[#list + 1] = e end
+  return list
+end
+
 return Data
