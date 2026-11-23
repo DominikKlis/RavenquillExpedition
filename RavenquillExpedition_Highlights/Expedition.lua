@@ -6,7 +6,6 @@ local SafeCall, Plain = GS.SafeCall, GS.Plain
 
 H.RAID_ENCOUNTERS = { zg = { 784, 793 }, mc = { 663, 672 }, ony = { 1084, 1084 }, bwl = { 610, 617 },
   aq20 = { 718, 723 }, aq40 = { 709, 717 }, naxx = { 1107, 1121 } }
-local READY_ICON = "Interface\\Icons\\INV_Misc_Key_14"
 
 local function ThisWeek(self)
   local week, out = GS.Week(GS:Now()), {}
@@ -41,8 +40,7 @@ end
 
 function H:ShowRaid(raid)
   self:Settings().raidFocus = raid
-  GS:ShowModulePage(self.name)
-  if self.raidPage then self:ShowPageView(self.raidPage, "raid") end
+  GS:ShowModulePage(H.READINESS)
 end
 
 local function Column(model, raid)
@@ -67,7 +65,7 @@ local function ReadinessRow(self)
   local i = Column(model, goal.raid)
   local line = i and ReadinessLine(model, goal.raid, i)
   if not line then return nil end
-  return { icon = READY_ICON, title = L.VIEW_RAID, line = line, action = L.NOW_VIEW,
+  return { icon = H.RAID_ICON, title = L.VIEW_RAID, line = line, action = L.NOW_VIEW,
     open = function() self:ShowRaid(goal.raid) end }
 end
 

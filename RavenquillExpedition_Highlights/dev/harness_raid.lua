@@ -313,11 +313,22 @@ end
 
 local PAGE_W, PAGE_H = 632, 480
 
+local KEY = "Interface\\Icons\\INV_Misc_Key_14"
+
 local function Page(c)
-  c.RQ:ShowModulePage("Highlights")
-  local page = c.env.RavenquillExpeditionOverview.optView.pages.Highlights
+  c.RQ:ShowModulePage("Readiness")
+  local page = c.env.RavenquillExpeditionOverview.optView.pages.Readiness
   Layout.Pin(page, 600, 300, PAGE_W, PAGE_H)
   return page
+end
+
+local function Tabs(c)
+  local out, byPage = {}, {}
+  for _, t in ipairs(c.env.RavenquillExpeditionOverview.tabs) do
+    if t._shown then out[#out + 1] = t.title end
+    byPage[t.page or ""] = t
+  end
+  return table.concat(out, ", "), byPage
 end
 
 local function Click(b) b._scripts.OnClick(b) end
@@ -363,11 +374,11 @@ local function PlaceRows(view)
 end
 
 local function OnScreen(c, page)
-  local list, out = Layout.Rect(page.raid.list), {}
+  local list, out = Layout.Rect(page.list), {}
   for _, fs in ipairs(c.regions) do
-    if fs._type == "FontString" and (fs._text or "") ~= "" and Under(fs, page.raid) then
+    if fs._type == "FontString" and (fs._text or "") ~= "" and Under(fs, page) then
       local r = Layout.Rect(fs)
-      local scrolledAway = r and Under(fs, page.raid.list) and r.top <= list.bottom + 0.5
+      local scrolledAway = r and Under(fs, page.list) and r.top <= list.bottom + 0.5
       if not scrolledAway then out[#out + 1] = fs end
     end
   end
@@ -394,21 +405,34 @@ local function Below(upper, lower)
   return a and b and a.bottom >= b.top - 0.5
 end
 
-Kit.section("View: the Highlights page switches between Chronik and Raidbereitschaft, the header buttons stay")
+Kit.section("View: Raidbereitschaft is its own /rq tab with a key; the Chronik page has no text tabs")
 do
   local _, lyra = ViewWorld("deDE")
-  local page = Page(lyra)
-  local opt = lyra.env.RavenquillExpeditionOverview.optView
-  check(Plain(page.links[1].label._text) == "Chronik" and Plain(page.links[2].label._text) == "Raidbereitschaft"
-    and not page.raid._shown and page.links[1].underline._shown and not page.links[2].underline._shown,
-    "the page opens on the Chronik, both views offered")
-  Click(page.links[2])
-  check(page.raid._shown and not page.msg._shown and not page.onlyHL._shown and page.links[2].underline._shown
-    and not page.links[1].underline._shown, "Raidbereitschaft swaps the log for the table")
+  local fm = lyra.frameMethods
+  fm.SetTitle = function(f, title) f._title = title end
+  fm.SetPortraitToAsset = function(f, icon) f._portrait = icon end
+  lyra.RQ:ToggleOverview()
+  local ov = lyra.env.RavenquillExpeditionOverview
+  local opt = ov.optView
+  local titles, tabs = Tabs(lyra)
+  check(titles == "Übersicht, Raidbereitschaft, Gilden-Highlights", "the tabs: overview, readiness, then the Chronik (" .. titles .. ")")
+  local tab = tabs.Readiness
+  check(tab and tab.icon._file == KEY, "the readiness tab shows the key")
+  if tab then Click(tab) end
+  local page = opt.pages.Readiness
+  check(page and page._shown and page.list ~= nil and ov._title == "Raidbereitschaft" and ov._portrait == KEY,
+    "clicking it shows the readiness table under its own title and key portrait")
+  check(not opt.gear._shown and not opt.openWindow._shown and opt.status._text == "",
+    "its header has neither 'Zeitung öffnen' nor 'Einstellungen'")
+  Click(tabs.Highlights)
+  local log = opt.pages.Highlights
+  Layout.Pin(log, 600, 300, PAGE_W, PAGE_H)
+  check(log._shown and not page._shown and log.links == nil and log.raid == nil and Under(log.msg, log)
+    and Under(log.onlyHL, log) and ov._title == "Gilden-Highlights",
+    "the Chronik tab shows the log straight away, nothing hides it, no text tabs above it")
+  check(Layout.Rect(log).top - Layout.Rect(log.msg).top <= 2, "the log starts at the top of the page, where the text tabs were")
   check(opt.openWindow._shown and opt.openWindow:GetText() == "Zeitung öffnen" and opt.gear:GetText() == "Einstellungen",
-    "the header keeps 'Zeitung öffnen' and 'Einstellungen'")
-  Click(page.links[1])
-  check(page.msg._shown and page.onlyHL._shown and not page.raid._shown, "Chronik brings the log back")
+    "the Chronik header keeps 'Zeitung öffnen' and 'Einstellungen'")
   check(#lyra.errors == 0, "no Lua errors (" .. tostring(lyra.errors[1]) .. ")")
 end
 
@@ -423,9 +447,7 @@ local TABLE_DE = {
 Kit.section("View: the table and the summary read as the guild's readiness, and every text fits (deDE)")
 do
   local _, lyra = ViewWorld("deDE")
-  local page = Page(lyra)
-  Click(page.links[2])
-  local view = page.raid
+  local view = Page(lyra)
   PlaceRows(view)
   local rows = TableRows(view)
   for i = 1, math.max(#rows, #TABLE_DE) do check(rows[i] == TABLE_DE[i], ("row %d: %s"):format(i, tostring(rows[i]))) end
@@ -439,7 +461,7 @@ do
     .. "Bodo Kesselring fehlt noch: Kernfragment aus den Schwarzfelstiefen.", "each missing member with the next step: " .. missing)
   check(view.bar.done._shown and not view.bar.almost._shown and math.abs(view.bar.done._w - 360 * 2 / 5) < 0.01,
     "the bar fills two fifths green, nothing amber")
-  local misfits, seen = Misfits(lyra, page)
+  local misfits, seen = Misfits(lyra, view)
   check(#misfits == 0 and seen >= 39, ("all %d texts lie inside the page, none cut or overlapping (%s)"):format(seen, table.concat(misfits, " / ")))
   check(Below(view.missing, view.tickLabel), "the missing lines end above the tick row")
   check(#lyra.errors == 0, "no Lua errors (" .. tostring(lyra.errors[1]) .. ")")
@@ -454,19 +476,18 @@ do
     lyra.RQ:NotePeer(name)
   end
   lyra.fire("GUILD_ROSTER_UPDATE")
-  local page = Page(lyra)
-  Click(page.links[2])
-  local view = page.raid
+  local view = Page(lyra)
   PlaceRows(view)
-  check(Plain(page.links[1].label._text) == "Chronicle" and Plain(page.links[2].label._text) == "Raid readiness"
-    and Heads(view) == "Molten Core* | Onyxia | Blackwing", "links and columns in English (" .. Heads(view) .. ")")
+  local titles = Tabs(lyra)
+  check(titles == "Overview, Raid readiness, Guild Highlights" and Heads(view) == "Molten Core* | Onyxia | Blackwing",
+    "tabs and columns in English (" .. titles .. "; " .. Heads(view) .. ")")
   check(view.head._text == "Ready for the guild raid: Molten Core" and view.bar.text._text == "2 attuned · 0 almost",
     "summary: " .. tostring(view.head._text) .. " / " .. tostring(view.bar.text._text))
   local missing = Plain(view.missing._text)
   check(missing:find("^Rika") == nil and missing:find("still needs a Core Fragment from Blackrock Depths.", 1, true)
     and missing:find("\n… and 6 more.$"), "three missing lines, the rest counted: " .. missing)
   check(#view.list.data == 11 and view.list.viewH == 8 * 20, "eleven rows scroll in a list eight rows high")
-  local misfits, seen = Misfits(lyra, page)
+  local misfits, seen = Misfits(lyra, view)
   check(#misfits == 0 and seen >= 54, ("all %d texts lie inside the page, none cut or overlapping (%s)"):format(seen, table.concat(misfits, " / ")))
   check(Below(view.missing, view.tickLabel), "the missing lines end above the tick row")
 end
@@ -474,9 +495,7 @@ end
 Kit.section("View: a raid header sums up that raid, and the choice is kept")
 do
   local _, lyra = ViewWorld("deDE")
-  local page = Page(lyra)
-  Click(page.links[2])
-  local view = page.raid
+  local view = Page(lyra)
   Click(view.heads[2])
   check(Heads(view) == "Gesch. Kern | Onyxia* | Pechschwingen" and view.head._text == "Bereit für den Gildenraid: Onyxias Hort"
     and view.bar.text._text == "2 eingestimmt · 1 fast", "Onyxia: " .. tostring(view.head._text) .. " / " .. tostring(view.bar.text._text))
@@ -484,17 +503,15 @@ do
     "the almost-attuned Rika comes first: " .. Plain(view.missing._text))
   check(view.bar.done._shown and view.bar.almost._shown and math.abs(view.bar.almost._w - 360 / 5) < 0.01,
     "one fifth of the bar is amber for her")
-  Click(page.links[1])
-  Click(page.links[2])
+  lyra.RQ:ShowModulePage("Highlights")
+  Page(lyra)
   check(view.head._text == "Bereit für den Gildenraid: Onyxias Hort", "back on the view, Onyxia is still summed up")
 end
 
 Kit.section("View: ticking a box sends the tick once and leaves it checked and locked")
 do
   local w, lyra = ViewWorld("deDE")
-  local page = Page(lyra)
-  Click(page.links[2])
-  local view = page.raid
+  local view = Page(lyra)
   local box = view.ticks[3]
   check(box._shown and view.tickLabel._text == "Schon vorher eingestimmt:" and box.text._text == "Pechschwingenhort"
     and not box._checked and box:IsEnabled(), "a level 60 sees an open box per raid")
@@ -507,8 +524,7 @@ do
   check(w.sent("^H;1;a;%d+;%d+;Lyra Distelbach;60;7;bwl$", "Lyra Distelbach") == 1, "one guild message went out for it")
   local low = select(2, ViewWorld("deDE", 50))
   local lowPage = Page(low)
-  Click(lowPage.links[2])
-  check(not lowPage.raid.ticks[1]._shown and not lowPage.raid.tickLabel._shown and Plain(lowPage.raid.note._text):find("^Einstimmungen zählen ab Installation"),
+  check(not lowPage.ticks[1]._shown and not lowPage.tickLabel._shown and Plain(lowPage.note._text):find("^Einstimmungen zählen ab Installation"),
     "below level 55 there is nothing to tick, only the note")
 end
 
@@ -516,14 +532,15 @@ Kit.section("View: Raidbereitschaft on screen leaves 'new since your last look' 
 do
   local _, lyra = ViewWorld("deDE")
   local page = Page(lyra)
-  Click(page.links[2])
   page:Hide()
+  local before = lyra.H:NewSinceLastLook()
   local t = lyra.env.time()
   lyra.H:Add({ k = "level", t = t, who = "Bodo Kesselring", lvl = 60, cls = "PALADIN", id = "Bodo Kesselring#" .. t .. "#77" }, "wire")
   Page(lyra)
   lyra.sched:advance(1)
-  check(lyra.H:NewSinceLastLook() == 1, "the table on screen keeps the new entry new")
-  Click(page.links[1])
+  check(before > 0 and lyra.H:NewSinceLastLook() == before + 1,
+    "the table on screen keeps every new entry new (" .. before .. " before, " .. lyra.H:NewSinceLastLook() .. " now)")
+  lyra.RQ:ShowModulePage("Highlights")
   check(lyra.H:NewSinceLastLook() == 0, "the Chronik clears it")
 end
 
@@ -531,11 +548,10 @@ Kit.section("View: a guildmate reaching level 55 shows up when the roster update
 do
   local w, lyra = ViewWorld("deDE")
   local page = Page(lyra)
-  Click(page.links[2])
   for _, r in ipairs(w.bus.roster) do if r.name == "Kael Wintermoor" then r.level = 55 end end
   lyra.fire("GUILD_ROSTER_UPDATE")
-  PlaceRows(page.raid)
-  local rows = TableRows(page.raid)
+  PlaceRows(page)
+  local rows = TableRows(page)
   check(#rows == 6 and rows[4] == "Kael Wintermoor | 55 | ✔ | – | –", "Kael is listed with his Molten Core attunement (" .. tostring(rows[4]) .. ")")
 end
 

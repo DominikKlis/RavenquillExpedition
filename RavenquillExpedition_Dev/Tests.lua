@@ -853,7 +853,7 @@ end
 
 Shots.STEPS = {
   { "ov-home", Shots.Overview(nil) }, { "hl-log", Shots.Overview("Highlights") },
-  { "hl-set", Shots.Overview("Highlights", true) }, { "map-list", Shots.Overview("Map") },
+  { "hl-raid", Shots.Overview("Readiness") }, { "hl-set", Shots.Overview("Highlights", true) }, { "map-list", Shots.Overview("Map") },
   { "map-set", Shots.Overview("Map", true) }, { "craft-page", Shots.Overview("Craft") },
   { "craft-set", Shots.Overview("Craft", true) }, { "hl-paper", Shots.Paper },
   { "ca-member", Shots.Advisor("make", "member", "sheet") }, { "ca-member-list", Shots.Advisor("make", "member", "list") },

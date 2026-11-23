@@ -3,12 +3,13 @@ local GS = RavenquillExpedition
 local H, L = ns.H, ns.L
 local SafeCall, Plain = GS.SafeCall, GS.Plain
 
-local V = { top = 28, rowH = 20, rows = 8, listW = 606, nameX = 8, nameW = 172, levelX = 182, levelW = 44, raidX = 232,
+local V = { rowH = 20, rows = 8, listW = 606, nameX = 8, nameW = 172, levelX = 182, levelW = 44, raidX = 232,
   raidW = 124, bar = { 360, 18 }, missing = 3 }
 local READY = "Interface\\RaidFrame\\ReadyCheck-Ready"
 local CHECK = "|T" .. READY .. ":16:16|t"
-local GOLD, DIM, WHITE = { 1, 0.82, 0 }, { 0.75, 0.75, 0.75 }, { 1, 1, 1 }
+local GOLD = { 1, 0.82, 0 }
 local FILL = { done = { 0.18, 0.5, 0.2 }, almost = { 0.55, 0.42, 0.08 } }
+H.READINESS, H.RAID_ICON = "Readiness", "Interface\\Icons\\INV_Misc_Key_14"
 
 local function Text(parent, font)
   local fs = parent:CreateFontString(nil, "OVERLAY", font)
@@ -34,12 +35,6 @@ local function Tip(frame, text)
   frame:SetScript("OnLeave", function() GameTooltip:Hide() end)
 end
 
-local function Paint(link)
-  local c = (link.active and GOLD) or (link.hover and WHITE) or DIM
-  link.label:SetTextColor(c[1], c[2], c[3])
-  link.underline:SetShown(link.active and true or false)
-end
-
 local function Underline(owner, fs)
   local line = owner:CreateTexture(nil, "ARTWORK")
   line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
@@ -47,36 +42,6 @@ local function Underline(owner, fs)
   line:SetPoint("TOPLEFT", fs, "BOTTOMLEFT", 0, -3)
   line:SetPoint("TOPRIGHT", fs, "BOTTOMRIGHT", 0, -3)
   return line
-end
-
-local function Link(page, text, mode)
-  local b = CreateFrame("Button", nil, page)
-  local fs = Text(b, "GameFontNormal")
-  fs:SetPoint("LEFT")
-  fs:SetText(text)
-  b:SetSize(math.ceil(Plain(fs:GetStringWidth(), "number") or 0) + 4, 20)
-  b.label, b.underline, b.mode = fs, Underline(b, fs), mode
-  b:SetScript("OnEnter", function() b.hover = true; Paint(b) end)
-  b:SetScript("OnLeave", function() b.hover = false; Paint(b) end)
-  b:SetScript("OnClick", function() GS:Call(H.ShowPageView, H, page, mode) end)
-  return b
-end
-
-local function ShowLog(page, on)
-  for _, part in ipairs({ page.msg, page.onlyHL, page.onlyHLText, page.empty, page.footer }) do part:SetShown(on) end
-end
-
-function H:ShowPageView(page, mode)
-  page.mode = mode
-  page.raid:SetShown(mode == "raid")
-  ShowLog(page, mode ~= "raid")
-  for _, link in ipairs(page.links) do
-    link.active = link.mode == mode
-    Paint(link)
-  end
-  if mode ~= "raid" then return self:OpenLog(page) end
-  GS:RequestRoster()
-  self:Refresh()
 end
 
 local function CellText(st)
@@ -218,22 +183,19 @@ local function BuildTicks(view)
 end
 
 function H:BuildRaidView(page)
-  page.links = { Link(page, L.VIEW_LOG, "log"), Link(page, L.VIEW_RAID, "raid") }
-  page.links[1]:SetPoint("TOPLEFT", 6, -2)
-  page.links[2]:SetPoint("LEFT", page.links[1], "RIGHT", 18, 0)
-  for _, link in ipairs(page.links) do
-    link.active = link.mode == "log"
-    Paint(link)
-  end
-  local view = CreateFrame("Frame", nil, page)
-  view:SetPoint("TOPLEFT", 0, -V.top)
-  view:SetPoint("BOTTOMRIGHT")
-  view:Hide()
-  BuildTable(view)
-  BuildSummary(view)
-  BuildTicks(view)
-  page.raid, self.raidPage = view, page
+  BuildTable(page)
+  BuildSummary(page)
+  BuildTicks(page)
+  page.readiness, self.raidPage = true, page
+  page:SetScript("OnShow", function()
+    GS:RequestRoster()
+    GS:Call(H.Refresh, H)
+  end)
+  self:AddView(page)
 end
+
+H.pages = { { id = H.READINESS, title = L.VIEW_RAID, icon = H.RAID_ICON,
+  build = function(page) H:BuildRaidView(page) end, refresh = function() H:Refresh() end } }
 
 local function RenderHeads(view, model, focus)
   for i, b in ipairs(view.heads) do
@@ -292,8 +254,8 @@ local function RenderTicks(view, model)
   end
 end
 
-function H:RenderRaid(page)
-  local view, model = page.raid, self:ReadinessModel()
+function H:RenderRaid(view)
+  local model = self:ReadinessModel()
   local summary = H.RaidSummary(model, self:Settings().raidFocus)
   RenderHeads(view, model, summary.raid)
   view.list:SetData(Rows(model))
@@ -317,5 +279,5 @@ end
 
 H:RegisterEvent("GUILD_ROSTER_UPDATE", function(self)
   local page = self.raidPage
-  if self.db and page and page:IsVisible() and page.mode == "raid" then self:RenderRaid(page) end
+  if self.db and page and page:IsVisible() then self:RenderRaid(page) end
 end)

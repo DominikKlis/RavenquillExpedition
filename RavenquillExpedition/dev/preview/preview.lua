@@ -211,6 +211,7 @@ local SCREENS = {
     Settle()
     return GCA.UI.inspect
   end },
+  { id = "hl-raid", title = "Raidbereitschaft", show = Overview("Readiness") },
 }
 
 local shots = {}

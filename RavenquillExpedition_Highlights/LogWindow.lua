@@ -6,7 +6,7 @@ local T = GS.NewLocale(ns.NewsLocales)
 
 local win, refreshArmed
 local views = {}
-local WINDOW_NAV, PAGE_LOG = { 34, 14, reserve = 57, rule = 41, size = 13 }, { 4, -28, -4, 30 }
+local WINDOW_NAV, PAGE_LOG = { 34, 14, reserve = 57, rule = 41, size = 13 }, { 4, -2, -4, 30 }
 local SHADOW_RINGS, SHADOW_ALPHA = 10, 0.4
 local INK_DARK, INK_FADED = { 0.04, 0.03, 0.02 }, { 0.663, 0.58, 0.455 }
 local GRAIN_ALPHA = 0.5
@@ -313,6 +313,8 @@ local function OpenPaper(view)
   H:Refresh()
 end
 
+function H:AddView(view) views[#views + 1] = view end
+
 local function CreateWindow()
   local f = CreateFrame("Frame", "RavenquillExpeditionHighlightsFrame", UIParent)
   Chrome(f)
@@ -320,7 +322,7 @@ local function CreateWindow()
   CloseMark(f)
   f.fit = FitSheet
   f:SetScript("OnShow", function() GS:Call(OpenPaper, f) end)
-  views[#views + 1] = f
+  H:AddView(f)
   f:Hide()
   return f
 end
@@ -329,9 +331,8 @@ function H:BuildPage(parent)
   MessageArea(parent, PAGE_LOG)
   EmptyLog(parent)
   Footer(parent)
-  self:BuildRaidView(parent)
   parent:SetScript("OnShow", function() GS:Call(H.OpenLog, H, parent) end)
-  views[#views + 1] = parent
+  self:AddView(parent)
 end
 
 function H:RefreshPage() self:Refresh() end
@@ -427,7 +428,7 @@ end
 
 local function RenderView(self, view, list, hidden)
   if view.paper then self:RenderPaper(view) return true end
-  if view.mode == "raid" then self:RenderRaid(view) return false end
+  if view.readiness then self:RenderRaid(view) return false end
   RenderLog(self, view, list, hidden)
   return true
 end

@@ -120,9 +120,15 @@ do
     "a Molten Core goal: the row tells Lyra the step she still needs: " .. tostring(row and row.line))
   check(Row(hanne, "Raidbereitschaft") == nil, "Hanne, below raid level, gets no readiness row")
   if row then row.open() end
-  local page = lyra.env.RavenquillExpeditionOverview.optView.pages.Highlights
-  check(lyra.RQ.optionsModule == "Highlights" and page and page.mode == "raid" and lyra.H:Settings().raidFocus == "mc",
-    "'Ansehen' opens the Raidbereitschaft view on Molten Core")
+  local opt = lyra.env.RavenquillExpeditionOverview.optView
+  local page = opt.pages.Readiness
+  local function Head() return page and page.head:GetText() end
+  check(select(2, lyra.RQ:OverviewShown()) == "Readiness" and page and page:IsShown() and opt.pages.Highlights == nil
+    and lyra.H:Settings().raidFocus == "mc" and Head() == "Bereit für den Gildenraid: Geschmolzener Kern",
+    "the row opens the Raidbereitschaft tab on Molten Core, not the Chronik: " .. tostring(Head()))
+  lyra.H:ShowRaid("ony")
+  check(page and page:IsShown() and Head() == "Bereit für den Gildenraid: Onyxias Hort",
+    "ShowRaid on the open tab sums up the raid it names: " .. tostring(Head()))
   lyra.H:DeclareAttuned("mc")
   ole.H:DeclareAttuned("mc")
   w.sched:advance(60)
