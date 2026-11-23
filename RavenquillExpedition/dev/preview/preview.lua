@@ -214,6 +214,46 @@ local SCREENS = {
   { id = "hl-raid", title = "Raidbereitschaft", show = Overview("Readiness") },
 }
 
+local function GatherOnly()
+  env.GetProfessions = function() return 1 end
+  env.GetProfessionInfo = function() return "Kräuterkunde", 136246, 120, 150, nil, nil, 182 end
+  GCA:RefreshKnown()
+end
+
+local function OpenWithoutProfession()
+  GatherOnly()
+  Hide(env.RavenquillExpeditionOverview)
+  Hide(GCA.UI.frame)
+  GCA:Open()
+  Settle()
+  return GCA.UI.frame
+end
+
+local function MakeWithoutProfession(scope)
+  return function()
+    GCA.UI:SetView("make", scope)
+    Settle()
+    return GCA.UI.frame
+  end
+end
+
+local function ProfessionMenu()
+  local drop = GCA.UI.profButton.drop
+  return drop._gen, drop
+end
+
+for _, def in ipairs({
+  { id = "ca-noprof-open", title = "Werkstatt ohne Herstellungsberuf: geöffnet", show = OpenWithoutProfession },
+  { id = "ca-noprof-member", title = "Werkstatt ohne Herstellungsberuf: Herstellen, Nach Mitglied",
+    show = MakeWithoutProfession("member") },
+  { id = "ca-noprof-all", title = "Werkstatt ohne Herstellungsberuf: Herstellen, Für alle", show = MakeWithoutProfession("all") },
+  { id = "ca-noprof-menu", title = "Werkstatt ohne Herstellungsberuf: Berufsmenü", menu = ProfessionMenu },
+  { id = "craft-page-noprof", title = "Gildenwerkstatt in /rq ohne Herstellungsberuf", show = function()
+    Hide(GCA.UI.frame)
+    return Overview("Craft")()
+  end },
+}) do SCREENS[#SCREENS + 1] = def end
+
 local shots = {}
 
 local function Capture1(def)
