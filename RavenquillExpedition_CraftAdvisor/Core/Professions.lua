@@ -81,18 +81,23 @@ function GCA:OwnProfessions()
   return self.ownProfs, self.profsTrusted
 end
 
+function GCA:HasCraftingProfession()
+  local own, trusted = self:ReadProfessions()
+  return next(own) ~= nil or not trusted
+end
+
 function GCA:IsBrowse(prof)
   prof = prof or self:SelectedProfession()
   local own, trusted = self:OwnProfessions()
-  return trusted and not own[prof] or false
+  return prof ~= nil and trusted and not own[prof] or false
 end
 
 function GCA:SelectedProfession()
   local sel = self.db and self.db.profSel and self.charKey and self.db.profSel[self.charKey]
   if sel and self.PROF_BY_KEY[sel] then return sel end
-  local own = self:OwnProfessions()
+  local own, trusted = self:OwnProfessions()
   for _, p in ipairs(self.PROFESSIONS) do if own[p.key] then return p.key end end
-  return self.DEFAULT_PROFESSION
+  return not trusted and self.DEFAULT_PROFESSION or nil
 end
 
 function GCA:SelectProfession(prof)

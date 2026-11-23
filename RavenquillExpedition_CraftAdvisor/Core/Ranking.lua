@@ -121,6 +121,7 @@ end
 
 local UNSCORED = { ["no-spec"] = "no-spec", ["no-level"] = "no-level", ["no-weights"] = "no-weights", ["no-class"] = "no-weights" }
 function GCA:EmptyReason(e, count, prof, browse)
+  if not prof then return "no-prof" end
   if not e.member then return "no-gear" end
   if UNSCORED[e.state] then return UNSCORED[e.state] end
   if count > 0 then return nil end

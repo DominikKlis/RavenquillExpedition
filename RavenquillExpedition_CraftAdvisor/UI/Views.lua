@@ -2,9 +2,12 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 
-local function MakeCount() return #GCA:CraftNeeds() end
+local function MakeCount()
+  if GCA:HasCraftingProfession() then return #GCA:CraftNeeds() end
+end
 
 local function MakeTip()
+  if not GCA:HasCraftingProfession() then return { string.format(L.ENTRY_MAKE_NOPROF, L.VIEW_COMMISSION) } end
   local matched, who = GCA:CraftNeeds()
   local lines = { #matched == 0 and L.ENTRY_NEEDS_NONE or UI.NeedsCountText(GCA:SelectedProfession(), #matched, who) }
   local top = GCA.DefaultMember(GCA:GetMemberList())
@@ -25,7 +28,7 @@ UI.VIEWS = {
   { id = "commission", label = "VIEW_COMMISSION", icon = "Interface\\Icons\\INV_Scroll_03", count = CommissionCount, tooltip = CommissionTip,
     refresh = "RefreshCrafters", layout = "LayoutCrafters", build = "BuildCrafterView" },
 }
-UI.DEFAULT_VIEW, UI.DEFAULT_SCOPE = "make", "member"
+UI.DEFAULT_VIEW, UI.DEFAULT_SCOPE, UI.NO_PROFESSION_VIEW = "make", "member", "commission"
 UI.OLD_VIEWS = { member = { "make", "member" }, needs = { "make", "all" }, crafters = { "commission" } }
 
 local function Find(list, id)
@@ -133,7 +136,8 @@ function UI:ApplyView()
 end
 
 function UI:ResetView()
-  self.view, self.scope = UI.DEFAULT_VIEW, UI.DEFAULT_SCOPE
+  self.view = GCA:HasCraftingProfession() and UI.DEFAULT_VIEW or UI.NO_PROFESSION_VIEW
+  self.scope = UI.DEFAULT_SCOPE
 end
 
 function UI:SetView(view, scope)

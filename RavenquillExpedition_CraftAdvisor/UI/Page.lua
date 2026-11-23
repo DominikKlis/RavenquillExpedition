@@ -51,5 +51,8 @@ end
 
 function GCA:RefreshPage()
   if not (self.page and self.db) then return end
-  for _, row in ipairs(self.page.rows) do row.count:SetText(tostring(row.view.count())) end
+  for _, row in ipairs(self.page.rows) do
+    local n = row.view.count()
+    row.count:SetText(n and tostring(n) or "")
+  end
 end

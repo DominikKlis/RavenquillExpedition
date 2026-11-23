@@ -187,7 +187,7 @@ local function ProfItems()
   end
   for _, k in ipairs(mine) do radio(k) end
   if #others > 0 then
-    items[#items + 1] = { kind = "divider" }
+    if #mine > 0 then items[#items + 1] = { kind = "divider" } end
     items[#items + 1] = { kind = "title", label = L.PROF_BROWSE_HEADER }
     for _, k in ipairs(others) do radio(k) end
   end

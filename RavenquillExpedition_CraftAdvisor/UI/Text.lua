@@ -163,6 +163,10 @@ local function Backdrop(f, bgAlpha)
   f:SetBackdropBorderColor(0.45, 0.4, 0.3, 1)
 end
 
+local function Trim(s)
+  return (tostring(s or ""):match("^%s*(.-)%s*$")) or ""
+end
+
 local function SourceText(m, isSelf)
   if not m then return "" end
   if isSelf then return L.SRC_OWN end
@@ -222,3 +226,4 @@ P.SpecHowWords = SpecHowWords
 P.AssumedTag = AssumedTag
 P.StatLabel = StatLabel
 P.TagLine = TagLine
+P.Trim = Trim

@@ -13,7 +13,7 @@ local ProfName = P.ProfName
 local NewInset, RaiseInsetBorder = P.NewInset, P.RaiseInsetBorder
 local CreateScrollList = RavenquillExpedition.CreateScrollList
 local Num = P.Num
-local CreateSearchBox = P.CreateSearchBox
+local CreateSearchBox, Trim = P.CreateSearchBox, P.Trim
 local ViewKey = P.ViewKey
 
 local function ExpandGroupOf(self, key)
@@ -71,10 +71,6 @@ function UI:LayoutFilterBar()
   self.searchBox:SetWidth(listW - SEARCH_CHROME)
 end
 
-local function Trim(s)
-  return s:match("^%s*(.-)%s*$") or ""
-end
-
 local function FindNeedSelection(all)
   local sel
   for _, e in ipairs(all) do if e.group.key == UI.needSel then sel = e end end
@@ -100,6 +96,7 @@ end
 
 local function NeedsEmptyText(prof, crafts, q, offN, settings)
   if crafts > 0 then return "" end
+  if not prof then return L.EMPTY_NOPROF end
   if q ~= "" then return string.format(L.NEEDS_NO_MATCH, q) end
   if GCA:KnownCount(prof) == 0 and not GCA:IsBrowse(prof) then
     return string.format(L.EMPTY_NOKNOWN, ProfName(prof), ProfName(prof))
@@ -391,7 +388,9 @@ end
 
 local function UpdateProfessionButton(self, prof, browse)
   local rank, maxRank = GCA:GetSkill(prof)
-  if browse then
+  if not prof then
+    self.profButton:SetSkill(L.PROF_PICK)
+  elseif browse then
     self.profButton:SetSkill(ProfName(prof) .. " " .. C.browse .. L.PROF_BROWSE_TAG .. "|r")
   elseif rank then
     self.profButton:SetSkill(string.format(L.PROF_SKILL_BAR, ProfName(prof), rank, maxRank or 300), rank, maxRank or 300, prof)
@@ -481,6 +480,7 @@ local EMPTY_TEXT = {
   ["no-level"] = function() return L.EMPTY_NOLEVEL end,
   ["no-weights"] = function() return L.EMPTY_NOWEIGHTS end,
   loading = function() return L.EMPTY_LOADING end,
+  ["no-prof"] = function() return L.EMPTY_NOPROF end,
   browse = function(prof) return string.format(L.EMPTY_BROWSE, ProfName(prof)) end,
   ["no-known"] = function(prof) return string.format(L.EMPTY_NOKNOWN, ProfName(prof), ProfName(prof)) end,
   none = function(prof) return prof == "Enchanting" and L.EMPTY_ENCHANT or L.EMPTY_NONE end,

@@ -128,7 +128,9 @@ function GCA:Invalidate()
 end
 
 function GCA:PreloadItems()
-  for _, cand in ipairs(self:GetCandidates()) do self:GetInfo(cand.itemID) end
+  local prof = self:SelectedProfession()
+  if not prof then return end
+  for _, cand in ipairs(self:GetCandidates(prof)) do self:GetInfo(cand.itemID) end
 end
 
 function GCA:Settings() return self.db and self.db.settings end

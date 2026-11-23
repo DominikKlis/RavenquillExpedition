@@ -2,7 +2,7 @@ local ADDON, ns = ...
 local GCA, L = ns.GCA, ns.L
 local UI = GCA.UI
 local P = UI.P
-local Label, SetTip, ProfName, Ago, Hex, ClassColor = P.Label, P.SetTip, P.ProfName, P.Ago, P.Hex, P.ClassColor
+local Label, SetTip, ProfName, Ago, Hex, ClassColor, Trim = P.Label, P.SetTip, P.ProfName, P.Ago, P.Hex, P.ClassColor, P.Trim
 local LEFT_W, RIGHT_X, RightW = P.LEFT_W, P.RIGHT_X, P.RightW
 local PANEL_TOP, PANEL_BOTTOM, DETAIL_HEAD, MEMBER_LIST_TOP = P.PANEL_TOP, P.PANEL_BOTTOM, P.DETAIL_HEAD, P.MEMBER_LIST_TOP
 local CreateScrollList = RavenquillExpedition.CreateScrollList
@@ -133,10 +133,6 @@ function UI:LayoutCrafters(w, h)
   self.recipeArea:SetSize(iw, ih)
   self.recipeList:Resize(iw - 34, ih - 10, true)
   self.recipeEmpty:SetWidth(iw - 60)
-end
-
-local function Trim(s)
-  return (tostring(s or ""):match("^%s*(.-)%s*$")) or ""
 end
 
 local function FindCrafter(roster, key)

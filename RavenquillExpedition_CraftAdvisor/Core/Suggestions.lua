@@ -435,7 +435,7 @@ local function MemberEntry(self, key, list)
     class = roster.class or record.class, level = ValidLevel(roster.level or record.level),
   }
   e.spec, e.specHow, e.specAssumed = self:MemberSpec(key, e.class, record.items)
-  if m then AttachSuggestions(self, e, list) end
+  if m and list.prof then AttachSuggestions(self, e, list) end
   return e
 end
 
