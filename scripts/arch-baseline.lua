@@ -12,7 +12,7 @@ return {
     global_writes = 0,
     goal_module_lines = 37,
     health_clean_pct = 97.5,
-    health_debt = 140.6,
+    health_debt = 140.1,
     luacheck_warnings = 0,
     main_slots = 61,
     max_file_lines = 609,
