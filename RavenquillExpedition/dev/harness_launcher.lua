@@ -152,6 +152,13 @@ local rightLine
 for _, line in ipairs(tip.lines) do if tostring(line):find("^Right%-click") then rightLine = line end end
 check(rightLine == "Right-click: open Quiet", "the right-click line names the module that claims it: " .. tostring(rightLine))
 quiet.launcherRightClick, quiet.Open = nil, nil
+function quiet:OverviewStatus() return "" end
+btn._scripts.OnEnter(btn)
+local quietLine
+for _, line in ipairs(tip.lines) do if tostring(line):find("^Quiet") then quietLine = line end end
+check(quietLine == "Quiet", "a module whose status is empty on purpose is listed by name alone, no dangling colon: "
+  .. tostring(quietLine))
+quiet.OverviewStatus = nil
 craft.launcherRightClick = true
 RQ.ToggleOverview = realToggle
 

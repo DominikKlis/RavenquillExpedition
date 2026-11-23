@@ -323,8 +323,10 @@ tipLines = {}
 local mmEnter = b and rawget(b, "_scripts") and rawget(b, "_scripts").OnEnter
 local okTip = mmEnter and pcall(mmEnter, b)
 local tipText = table.concat(tipLines, " | ")
-check(okTip and tipText:find("Guild Workshop: " .. (GCA:OverviewStatus() or client.coreNs.LauncherL.NO_STATUS), 1, true) and tipText:find("Right-click", 1, true),
-  "launcher tooltip: the Craft Advisor's status line, right-click opens our window: " .. tipText)
+local workshopLine
+for _, line in ipairs(tipLines) do if tostring(line):find("^Guild Workshop") then workshopLine = line end end
+check(okTip and GCA:OverviewStatus() == "" and workshopLine == "Guild Workshop" and tipText:find("Right-click", 1, true),
+  "launcher tooltip: the workshop by name (its status is empty, so no dangling colon), right-click opens our window: " .. tipText)
 local minimapOpt
 for _, o in ipairs(GCA.options) do if tostring(o.label):lower():find("minimap", 1, true) then minimapOpt = o end end
 RQ:SetLauncherShown(false)

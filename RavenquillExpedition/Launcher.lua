@@ -156,14 +156,18 @@ local function RightClickModule()
   end
 end
 
+local function StatusLine(m, name)
+  local status = m.OverviewStatus and Plain(GS:Call(m.OverviewStatus, m), "string")
+  local label = m.title or name
+  if status == "" then return label end
+  return label .. ": " .. (status or L.NO_STATUS)
+end
+
 local function LauncherTooltip(tip)
   tip:AddLine(GS.OverviewL.TITLE)
   for _, name in ipairs(GS.moduleOrder) do
     local m = GS.modules[name]
-    if m.loaded then
-      local status = m.OverviewStatus and Plain(GS:Call(m.OverviewStatus, m), "string")
-      tip:AddLine((m.title or name) .. ": " .. (status or L.NO_STATUS), 1, 1, 1)
-    end
+    if m.loaded then tip:AddLine(StatusLine(m, name), 1, 1, 1) end
   end
   tip:AddLine(" ")
   tip:AddLine(L.LEFT, 0.8, 0.8, 0.8)

@@ -66,7 +66,9 @@ function ns.Tip(frame, title, lines)
   frame:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:SetText(type(title) == "function" and title() or title, GOLD[1], GOLD[2], GOLD[3])
-    for _, line in ipairs(lines and lines() or {}) do GameTooltip:AddLine(line, 1, 1, 1, true) end
+    for _, line in ipairs(lines and lines() or {}) do
+      if line ~= "" then GameTooltip:AddLine(line, 1, 1, 1, true) end
+    end
     GameTooltip:Show()
   end)
   frame:SetScript("OnLeave", function() GameTooltip:Hide() end)

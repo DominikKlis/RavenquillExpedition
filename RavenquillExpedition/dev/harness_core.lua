@@ -496,6 +496,21 @@ do
   full.RQ:ShowHome()
   full.RQ:ShowModulePage("Readiness")
   check(page:IsShown() and #built == 1, "showing it again by id reuses the built page")
+  local craft = full.RQ:GetModule("Craft")
+  local status = ""
+  function craft:OverviewStatus() return status end
+  full.RQ:RefreshOverview()
+  local function Hover(id)
+    for _, t in ipairs(ov.tabs) do if t.page == id then rawget(t, "_scripts").OnEnter(t) end end
+    return table.concat(full.env.GameTooltip.lines, " | ")
+  end
+  local hovered = Hover("Craft")
+  check(hovered == "" and #full.env.GameTooltip.lines == 0,
+    "a module whose status is empty on purpose: its tab's tooltip has the title only, no empty second line")
+  status = "4 erfasst"
+  full.RQ:RefreshOverview()
+  check(Hover("Craft") == "4 erfasst", "a status with text still shows under the title: " .. Hover("Craft"))
+  craft.OverviewStatus = nil
   check(#full.errors + #lean.errors == 0, "no Lua errors (" .. tostring(full.errors[1] or lean.errors[1]) .. ")")
 end
 Kit.finish()
