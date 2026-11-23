@@ -16,7 +16,7 @@ end
 
 GS.OverviewL = GS.NewLocale({
   enUS = {
-    TITLE = "Ravenquill Expedition",
+    TITLE = "Ravenquill Expedition", CRAFT_TITLE = "Guild Workshop",
     OPEN = "Open", OPEN_WINDOW = "Open %s", BACK = "« Back", OVERVIEW = "Overview", SETTINGS = "Settings", COMMAND = "Chat command: %s",
     ENABLE_HINT = "Disabled – enable it in the AddOns list at character select.",
     MISSING = "Not installed.", DISABLED = "Disabled", NOT_INSTALLED = "Not installed",
@@ -51,6 +51,7 @@ GS.OverviewL = GS.NewLocale({
     RAID_aq20 = "Ruins of Ahn'Qiraj", RAID_aq40 = "Temple of Ahn'Qiraj", RAID_naxx = "Naxxramas",
   },
   deDE = {
+    CRAFT_TITLE = "Gildenwerkstatt",
     OPEN = "Öffnen", OPEN_WINDOW = "%s öffnen", BACK = "« Zurück", OVERVIEW = "Übersicht", SETTINGS = "Einstellungen", COMMAND = "Chatbefehl: %s",
     ENABLE_HINT = "Deaktiviert – in der AddOn-Liste bei der Charakterauswahl einschalten.",
     MISSING = "Nicht installiert.", DISABLED = "Deaktiviert", NOT_INSTALLED = "Nicht installiert",

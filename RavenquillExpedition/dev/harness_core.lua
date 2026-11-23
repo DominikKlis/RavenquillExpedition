@@ -437,4 +437,64 @@ do
   for k in pairs(geometry) do methods[k] = nil end
   env.GetCursorPosition = nil
 end
+
+section("Overview: the side tabs follow one fixed page order, whichever modules are loaded")
+do
+  local KEY = "Interface\\Icons\\INV_Misc_Key_14"
+  local function Suite(name, modules)
+    local c = Kit.Client(sched, bus, name, { guild = "Die Gilde", realm = "Forever", locale = "deDE", epoch = 1800000000 })
+    c.fire("ADDON_LOADED", "RavenquillExpedition")
+    c.frameMethods.SetTitle = function(f, title) f._title = title end
+    c.frameMethods.SetPortraitToAsset = function(f, icon) f._portrait = icon end
+    c.frameMethods.SetTexture = function(s, v) s._texture = v end
+    local built, refreshed = {}, { n = 0 }
+    for _, spec in ipairs(modules) do
+      local added = c.RQ:NewModule(spec[1], { addon = spec[1] .. "Addon", title = spec[2], icon = spec[3] })
+      function added:BuildPage() end
+      added.pages = spec.pages and spec.pages(built, refreshed)
+    end
+    c.RQ:ToggleOverview()
+    return c, built, refreshed
+  end
+  local function Tabs(c)
+    local out = {}
+    for _, t in ipairs(c.env.RavenquillExpeditionOverview.tabs) do
+      if rawget(t, "_shown") then out[#out + 1] = t.title .. (rawget(t.selected, "_shown") and "*" or "") end
+    end
+    return table.concat(out, ", ")
+  end
+  local function Readiness(built, refreshed)
+    return { { id = "Readiness", title = "Raidbereitschaft", icon = KEY,
+      build = function(page) built[#built + 1] = page end, refresh = function() refreshed.n = refreshed.n + 1 end } }
+  end
+  local full, built, refreshed = Suite("Ida Voll", {
+    { "Zettel", "Zettelkasten" }, { "Craft", "Gildenwerkstatt" }, { "Map", "Gildenkarte" },
+    { "Highlights", "Gilden-Highlights", "Interface\\Icons\\INV_Misc_Note_01", pages = Readiness },
+  })
+  check(Tabs(full) == "Übersicht*, Raidbereitschaft, Gilden-Highlights, Gildenkarte, Gildenwerkstatt, Zettelkasten",
+    "registered in any order, the tabs read overview, readiness, chronicle, map, workshop, then unknown modules: " .. Tabs(full))
+  local lean = Suite("Udo Mager", { { "Zettel", "Zettelkasten" }, { "Map", "Gildenkarte" } })
+  check(Tabs(lean) == "Übersicht*, Gildenkarte, Zettelkasten",
+    "without Highlights and Craft the same order closes up: " .. Tabs(lean))
+  local ov = full.env.RavenquillExpeditionOverview
+  local tab
+  for _, t in ipairs(ov.tabs) do if t.page == "Readiness" then tab = t end end
+  check(tab and tab.icon._texture == KEY, "the readiness tab shows the key")
+  if tab then rawget(tab, "_scripts").OnClick(tab) end
+  local page = ov.optView.pages.Readiness
+  check(select(2, full.RQ:OverviewShown()) == "Readiness" and #built == 1 and built[1] == page and page:IsShown()
+    and refreshed.n >= 1 and not ov.optView.pages.Highlights,
+    "clicking it builds and shows the readiness page by its id and refreshes it; the chronicle page stays unbuilt")
+  check(ov._title == "Raidbereitschaft" and ov._portrait == KEY and Tabs(full):find("Raidbereitschaft*", 1, true)
+    and not rawget(ov.optView.gear, "_shown") and not rawget(ov.optView.openWindow, "_shown")
+    and ov.optView.status:GetText() == "",
+    "the window takes the page's own title and key portrait; its header has no status, settings or open button")
+  full.RQ:ShowModulePage("Highlights")
+  check(select(2, full.RQ:OverviewShown()) == "Highlights" and not page:IsShown() and ov._title == "Gilden-Highlights",
+    "the module's own page keeps the module's id and title")
+  full.RQ:ShowHome()
+  full.RQ:ShowModulePage("Readiness")
+  check(page:IsShown() and #built == 1, "showing it again by id reuses the built page")
+  check(#full.errors + #lean.errors == 0, "no Lua errors (" .. tostring(full.errors[1] or lean.errors[1]) .. ")")
+end
 Kit.finish()

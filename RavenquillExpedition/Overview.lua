@@ -6,9 +6,10 @@ local L = GS.OverviewL
 local KNOWN_ADDONS = {
   { module = "Highlights", addon = "RavenquillExpedition_Highlights", slash = "hl", icon = "Interface\\Icons\\INV_Misc_Note_01" },
   { module = "Map", addon = "RavenquillExpedition_Map", slash = "map", icon = "Interface\\Icons\\INV_Misc_Map_01" },
-  { module = "Craft", addon = "RavenquillExpedition_CraftAdvisor", slash = "craft", title = "Guild Craft Advisor",
-    icon = "Interface\\Icons\\Trade_LeatherWorking" },
+  { module = "Craft", addon = "RavenquillExpedition_CraftAdvisor", slash = "craft", title = L.CRAFT_TITLE,
+    icon = "Interface\\Icons\\Trade_BlackSmithing" },
 }
+local TAB_ORDER = { "home", "Readiness", "Highlights", "Map", "Craft" }
 
 local function AddonState(name)
   local api = C_AddOns or {}
@@ -174,32 +175,58 @@ local function CreateWindow()
   return f
 end
 
-local function TabItems(rows)
-  local items = { { page = "home", title = L.OVERVIEW, icon = SUITE_ICON, status = GS:OverviewPeersLine() } }
-  for _, d in ipairs(rows) do
-    if d.options or d.page then items[#items + 1] = { page = d.name, title = d.title, icon = d.icon, status = d.status } end
-  end
-  return items
+local function ExtraPage(row, p)
+  if not (type(p) == "table" and type(p.id) == "string" and type(p.build) == "function") then return nil end
+  return { id = p.id, module = row.name, title = p.title or row.title, icon = p.icon or row.icon, build = p.build,
+    refresh = p.refresh, extra = true }
 end
 
-local function RenderTabs(f, rows, current)
-  local items = TabItems(rows)
+local function PagesOf(row)
+  local out = {}
+  if row.options or row.page then
+    out[1] = { id = row.name, module = row.name, title = row.title, icon = row.icon, status = row.status }
+  end
+  local mod = row.name and GS.modules[row.name]
+  for _, p in ipairs(mod and type(mod.pages) == "table" and mod.pages or {}) do out[#out + 1] = ExtraPage(row, p) end
+  return out
+end
+
+local function Rank(id, i)
+  for r, known in ipairs(TAB_ORDER) do if known == id then return r end end
+  return #TAB_ORDER + i
+end
+
+local function Ordered(pages)
+  for i, p in ipairs(pages) do p.rank = Rank(p.id, i) end
+  table.sort(pages, function(a, b) return a.rank < b.rank end)
+  return pages
+end
+
+function GS:OverviewPages(rows)
+  local pages = { { id = "home", title = L.OVERVIEW, icon = SUITE_ICON, status = self:OverviewPeersLine() } }
+  for _, row in ipairs(rows or self:OverviewRows()) do
+    for _, p in ipairs(PagesOf(row)) do pages[#pages + 1] = p end
+  end
+  return Ordered(pages)
+end
+
+local function PageById(pages, id)
+  for _, p in ipairs(pages) do if p.id == id then return p end end
+end
+
+local function RenderTabs(f, pages, current)
   for i, tab in ipairs(f.tabs) do
-    local it = items[i]
+    local it = pages[i]
+    tab:SetShown(it ~= nil)
     if it then
-      tab.page, tab.title, tab.status = it.page, it.title, it.status
+      tab.page, tab.title, tab.status = it.id, it.title, it.status
       tab.icon:SetTexture(it.icon)
-      tab.selected:SetShown(it.page == current)
-      tab.isSelected = it.page == current
-      tab:Show()
-      if it.page == current then
-        ns.SetWindowTitle(f, it.page == "home" and L.TITLE or it.title)
-        ns.SetPortrait(f, it.icon)
-      end
-    else
-      tab:Hide()
+      tab.selected:SetShown(it.id == current)
     end
   end
+  local page = PageById(pages, current) or pages[1]
+  ns.SetWindowTitle(f, page.id == "home" and L.TITLE or page.title)
+  ns.SetPortrait(f, page.icon)
 end
 
 local function RowFor(rows, name)
@@ -275,15 +302,20 @@ local function RenderEntries(page, mod)
   ns.RenderEntries(page.entries, ns.Entries(GS:Call(mod.OverviewEntries, mod), ModuleIcon(mod)))
 end
 
-local function ModulePage(opt, name, mod)
-  local page = opt.pages[name]
-  if not page then
-    page = CreateFrame("Frame", nil, opt.body)
-    page:SetAllPoints()
-    GS:Call(type(mod.BuildPage) == "function" and mod.BuildPage or BuildOpenPage, mod, page)
-    opt.pages[name] = page
+local function BuildPageBody(page, mod, frame)
+  if page.extra then return GS:Call(page.build, frame) end
+  GS:Call(type(mod.BuildPage) == "function" and mod.BuildPage or BuildOpenPage, mod, frame)
+end
+
+local function PageFrame(opt, page, mod)
+  local frame = opt.pages[page.id]
+  if not frame then
+    frame = CreateFrame("Frame", nil, opt.body)
+    frame:SetAllPoints()
+    BuildPageBody(page, mod, frame)
+    opt.pages[page.id] = frame
   end
-  return page
+  return frame
 end
 
 local function HideModuleBodies(opt)
@@ -298,66 +330,76 @@ local function ShowSettings(opt, name, mod)
   p:Show()
 end
 
-local function ShowModuleView(name, settings)
+local function WantsSettings(page, mod, settings)
+  if page.extra or not ns.ModuleOptions(mod) then return false end
+  return settings or not HasModulePage(mod)
+end
+
+local function ShowPageView(id, settings)
   if not win then win = CreateWindow() end
-  local mod = GS.modules[name]
+  local page = PageById(GS:OverviewPages(), id)
+  local mod = page and GS.modules[page.module]
   if not mod then return GS:ShowHome() end
-  settings = settings or not HasModulePage(mod)
+  settings = WantsSettings(page, mod, settings)
   if not win:IsShown() then win:Show() end
   win.home:Hide()
   local opt = win.optView
   HideModuleBodies(opt)
-  if settings and ns.ModuleOptions(mod) then
-    ShowSettings(opt, name, mod)
+  if settings then
+    ShowSettings(opt, mod.name, mod)
   else
-    settings = false
     opt.scroll:Hide()
-    ModulePage(opt, name, mod):Show()
+    PageFrame(opt, page, mod):Show()
   end
   opt:Show()
-  GS.optionsModule, GS.moduleSettings = name, settings
+  GS.overviewPage, GS.optionsModule, GS.moduleSettings = page.id, mod.name, settings
   GS:RefreshOverview()
 end
 
-function GS:ShowModuleOptions(name) ShowModuleView(name, true) end
-function GS:ShowModulePage(name) ShowModuleView(name, false) end
+function GS:ShowModuleOptions(name) ShowPageView(name, true) end
+function GS:ShowModulePage(id) ShowPageView(id, false) end
 
 function GS:ShowHome()
   if not win then win = CreateWindow() end
   win.optView:Hide()
   win.home.mode = nil
   win.home:Show()
-  self.optionsModule = nil
+  self.overviewPage, self.optionsModule = nil, nil
   if win:IsShown() then self:RefreshOverview() end
+end
+
+local NO_HEADER = { status = "" }
+
+local function RefreshPageView(rows, page)
+  local opt, mod = win.optView, GS.modules[page.module]
+  local d = page.extra and NO_HEADER or RowFor(rows, page.module)
+  if d then RenderModuleHeader(opt, d, GS.moduleSettings) end
+  if GS.moduleSettings then
+    local p = opt.panels[page.module]
+    if p then p.refreshAll() end
+  elseif page.extra then
+    GS:Call(page.refresh)
+  else
+    RenderEntries(opt.pages[page.id], mod)
+    if mod.RefreshPage then GS:Call(mod.RefreshPage, mod) end
+  end
 end
 
 function GS:RefreshOverview()
   if not (win and win:IsShown()) then return end
   local rows = self:OverviewRows()
-  RenderTabs(win, rows, self.optionsModule or "home")
-  if self.optionsModule then return self:RefreshModuleView(rows) end
+  local pages = self:OverviewPages(rows)
+  local page = self.overviewPage and PageById(pages, self.overviewPage)
+  RenderTabs(win, pages, page and page.id or "home")
+  if page then return RefreshPageView(rows, page) end
   ns.RenderHome(win.home, rows)
-end
-
-function GS:RefreshModuleView(rows)
-  local name, opt = self.optionsModule, win.optView
-  local d = RowFor(rows, name)
-  if d then RenderModuleHeader(opt, d, self.moduleSettings) end
-  local mod = self.modules[name]
-  if self.moduleSettings then
-    local p = opt.panels[name]
-    if p then p.refreshAll() end
-  elseif mod then
-    RenderEntries(opt.pages[name], mod)
-    if mod.RefreshPage then self:Call(mod.RefreshPage, mod) end
-  end
 end
 
 local refreshTickPending = false
 local function Tick()
   refreshTickPending = false
   if not (win and win:IsShown()) then return end
-  if not GS.optionsModule then GS:Call(GS.RefreshOverview, GS) end
+  if not GS.overviewPage then GS:Call(GS.RefreshOverview, GS) end
   refreshTickPending = true
   C_Timer.After(3, Tick)
 end
@@ -369,13 +411,13 @@ end
 
 function GS:ToggleOverview()
   if not win then win = CreateWindow() end
-  if win:IsShown() and not self.optionsModule then win:Hide() return end
+  if win:IsShown() and not self.overviewPage then win:Hide() return end
   self:ShowHome()
   if not win:IsShown() then win:Show(); StartTick() end
 end
 
 function GS:OverviewShown()
-  return (win and win:IsShown()) and true or false, self.optionsModule
+  return (win and win:IsShown()) and true or false, self.overviewPage
 end
 
 function GS:OpenModule(name)

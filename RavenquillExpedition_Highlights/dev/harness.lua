@@ -591,7 +591,8 @@ local rows = GS:OverviewRows()
 check(rows[1].title == H.title and rows[1].state == "loaded" and rows[1].open and rows[1].options
   and rows[1].status:find("Einträge", 1, true), "Highlights row: loaded, status, Open, Options")
 check(rows[2].state == "missing" and rows[2].slash == "/rq map", "Map row: not installed")
-check(rows[3].state == "disabled" and rows[3].slash == "/rq craft" and rows[3].title == "Guild Craft Advisor", "Craft row: disabled")
+check(rows[3].state == "disabled" and rows[3].slash == "/rq craft" and rows[3].title == "Gildenwerkstatt",
+  "Craft row: disabled, under the workshop name")
 check(#rows == 3, "three known rows, no duplicates")
 GS:ShowHome()
 local missingRow = ov.home.list.items[2]
