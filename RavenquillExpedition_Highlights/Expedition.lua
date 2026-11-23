@@ -77,7 +77,7 @@ end
 
 function H:OverviewFeed(max)
   if not self.db then return end
-  local events, rows = self:Log(), {}
+  local events, rows = self:ShownLog(), {}
   for i = #events, math.max(1, #events - max + 1), -1 do
     local e = events[i]
     rows[#rows + 1] = { t = e.t, text = self:Format(e), highlight = (self.KINDS[e.k] or {}).gold == true }

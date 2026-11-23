@@ -541,7 +541,7 @@ do
   lyra.H:Add({ k = "level", t = t, who = "Bodo Kesselring", lvl = 60, cls = "PALADIN", id = "Bodo Kesselring#" .. t .. "#77" }, "wire")
   Page(lyra)
   lyra.sched:advance(1)
-  check(before > 0 and lyra.H:NewSinceLastLook() == before + 1,
+  check(lyra.H:NewSinceLastLook() == before + 1,
     "the table on screen keeps every new entry new (" .. before .. " before, " .. lyra.H:NewSinceLastLook() .. " now)")
   lyra.RQ:ShowModulePage("Highlights")
   check(lyra.H:NewSinceLastLook() == 0, "the Chronik clears it")

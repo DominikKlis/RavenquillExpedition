@@ -387,6 +387,31 @@ do
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
+section("Home: 'Neu in der Chronik' lists what the chronicle lists, a first in the guild highlighted and leading the paper card")
+do
+  local w = World()
+  local lyra = w.join("Lyra Distelbach")
+  w.bus:member("Rika Steinbeck", "WARRIOR", 60)
+  w.start()
+  local t = lyra.env.time() - 600
+  local function Heard(k, seq, fields)
+    local e = { k = k, t = t + seq, who = "Rika Steinbeck", lvl = 60, cls = "WARRIOR", id = ("Rika Steinbeck#%d#%d"):format(t + seq, seq) }
+    for key, v in pairs(fields) do e[key] = v end
+    return lyra.H:Add(e, "wire")
+  end
+  Heard("level", 1, { lvl = 58 })
+  Heard("boss", 2, { enc = 663, boss = "Lucifron", inst = MC.name, raid = true, grp = true, n = 10 })
+  Heard("first", 3, { what = "boss", enc = 663, boss = "Lucifron", inst = MC.name, grp = true, n = 10 })
+  Heard("quest", 4, { qid = 7848, title = "Einstimmung auf den Kern", tag = "special" })
+  local feed = lyra.H:OverviewFeed(5)
+  local rows = feed and feed.rows or {}
+  check(#rows == 2 and rows[1].highlight and rows[1].text:find("Erster Kill der Gilde", 1, true) and not rows[2].highlight
+    and rows[2].text:find("Stufe 58", 1, true), "the feed has the first (highlighted) and the level, not the kill record or the step ("
+    .. #rows .. " rows)")
+  local lead = lyra.H:PaperLead()
+  check(lead and lead.k == "first", "the Rabenblatt card's lead is the first in the guild: " .. tostring(lead and lead.head))
+end
+
 local LEVEL_UP, RAID_WARNING, DUEL = 888, 8959, 3175
 
 section("Sounds: a guildmate reaching 60, the first in the guild and a duel win each play once, live over guild sync")
