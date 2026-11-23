@@ -161,7 +161,7 @@ end
 local function Finds(w, _, ctx)
   local out = {}
   for _, g in ipairs(w.groups) do
-    local had = g.kind == "epic" and (out[g.first.who] or { n = 0 })
+    local had = g.kind == "epic" and not w.told[g.id] and (out[g.first.who] or { n = 0 })
     if had then out[g.first.who] = { n = had.n + 1, vars = { item = had.n == 0 and EpicName(g, ctx) or nil } } end
   end
   return out
@@ -202,8 +202,8 @@ local function Honors(w, T, ctx)
   return honors
 end
 
-function News.Week(entries, T, ctx)
-  local w = { entries = entries, groups = News.Groups(entries, ctx), spans = Spans(entries) }
+function News.Week(entries, T, ctx, told)
+  local w = { entries = entries, groups = News.Groups(entries, ctx), spans = Spans(entries), told = told or {} }
   local counts = {}
   for _, c in ipairs(News.WEEK_COUNTS) do
     local n = c.count(w)
@@ -252,6 +252,12 @@ local function OnPaper(ctx, day)
   return out
 end
 
+local function Told(groups, last)
+  local out = {}
+  for i = 1, math.min(#groups, last) do out[groups[i].id] = true end
+  return out
+end
+
 function News.Issue(day, T, ctx, week)
   if week then ctx = OnPaper(ctx, day.day) end
   local own, desk, told = News.Groups(day.entries, ctx), News.Desk(T), {}
@@ -261,6 +267,7 @@ function News.Issue(day, T, ctx, week)
   issue.second = groups[2] and News.Story(groups[2], T, ctx, desk)
   for i = 3, math.min(#groups, 2 + News.EXTRA_MAX) do issue.extra[#issue.extra + 1], told[groups[i]] = News.Story(groups[i], T, ctx, desk), true end
   InBrief(issue, Without(own, groups[1], groups[2]), told, T, ctx, desk)
+  issue.told = Told(groups, 2 + News.EXTRA_MAX)
   return issue
 end
 
@@ -274,8 +281,8 @@ local function WeekOf(days, i)
   return week, sunday.no
 end
 
-local function Review(week, no, T, ctx)
-  local review = News.Week(AllEntries(week), T, ctx)
+local function Review(week, no, T, ctx, told)
+  local review = News.Week(AllEntries(week), T, ctx, told)
   if review then review.no = no end
   return review
 end
@@ -285,6 +292,6 @@ function News.Edition(days, i, T, ctx)
   local week, no = WeekOf(days, i)
   local review = week and Review(week, no, T, ctx)
   local issue = News.Issue(days[i], T, ctx, review and week)
-  issue.week = review
+  issue.week = review and Review(week, no, T, ctx, issue.told)
   return issue
 end

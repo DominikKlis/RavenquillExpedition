@@ -282,8 +282,9 @@ do
     .. #c.H:Log() .. ", " .. #c.H:ShownLog() .. ")")
   local side = Read(SideTexts(c, paper))
   check(side == "Die Woche in Zahlen / 2 / Stufen gewonnen / 1 / epischer Fund / AUFSTIEG DER WOCHE / Ole Fichtental"
-    .. " / von Stufe 40 auf 42 / GLÜCKSPILZ DER WOCHE / Rika Steinbeck / |cff7b2cbf[Klinge der Morgenröte]|r",
-    "the hidden quest, raid kill records and leatherworking step count for nothing (" .. side .. ")")
+    .. " / von Stufe 40 auf 42",
+    "the hidden quest, raid kill records and leatherworking step count for nothing; Rika's epic is already a story, so no find of the week ("
+    .. side .. ")")
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
@@ -378,6 +379,30 @@ do
     "%d+:%d%d", function(day) return "%d+:%d%d on " .. day end) or Saying(ep.issue, { "today", "of the day" })
   check(enBad == nil, "English: every earlier story names its weekday, none says today (" .. tostring(enBad) .. ")")
   check(#en.errors == 0, "no Lua errors (" .. tostring(en.errors[1]) .. ")")
+end
+
+Kit.section("Sunday edition: an epic told as a story is not honored again as the find of the week")
+do
+  local c, _, paper = Paper({
+    E("level", "Ole Fichtental", At(17, 20), { lvl = 50 }),
+    E("level", "Glamdir Honigkrug", At(18, 20), { lvl = 55 }),
+    E("level", "Glamdir Honigkrug", At(20, 21), { lvl = 60 }),
+    E("level", "Ole Fichtental", At(21, 20), { lvl = 53 }),
+    E("loot", "Tarodil Fenvarien", At(21, 21, 54), { item = 5001, q = 4, lvl = 45 }),
+    E("mount", "Hanne Moosgrund", At(22, 12), { lvl = 40 }),
+  })
+  local issue = paper.issue
+  local told = {}
+  for _, s in ipairs({ issue.lead or false, issue.second or false }) do if s then told[#told + 1] = s.head or "" end end
+  for _, s in ipairs(issue.extra or {}) do told[#told + 1] = s.head or "" end
+  local honors = {}
+  for _, h in ipairs(issue.week and issue.week.honors or {}) do honors[#honors + 1] = h.key .. ":" .. h.who end
+  local list = table.concat(honors, ", ")
+  check(table.concat(told, " | "):find("Tarodil", 1, true) and not list:find("Tarodil", 1, true),
+    "Tarodil's epic is a story, so no 'Glückspilz' repeats it (" .. list .. ")")
+  check(list:find("climber:Glamdir Honigkrug", 1, true),
+    "the climber honor still goes to Glamdir: 55 to 60 over the week says more than his story (" .. list .. ")")
+  check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
 Kit.section("Sunday edition: two guildmates at 60 on Friday lead without 'heute', Friday's own issue still says it")
