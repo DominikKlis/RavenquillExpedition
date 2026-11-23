@@ -247,6 +247,7 @@ check(H.db.diag.secretLoot == 1, "secret loot line counted, no error")
 advance(60); echoAll(); advance(60); echoAll()
 
 G.inInstance, G.itype, G.instName = true, "party", "Die Todesminen"
+G.group = { party1 = { "Bud", "Stone" } }
 fire("PLAYER_ENTERING_WORLD")
 local sentBefore = #G.sent
 n = count()
@@ -255,8 +256,8 @@ fire("BOSS_KILL", 1144, "Edwin VanCleef")
 fire("ENCOUNTER_END", 1144, "Edwin VanCleef", 1, 5, 1)
 advance(120)
 fire("BOSS_KILL", 1143, "Rhahk'Zor")
-check(count() == n, "first dungeon kills wait for the end of the run")
-check(H.cdb.run and H.cdb.run.kills == 2 and H.cdb.run.news == 2, "the run counts each boss once")
+check(count() == n, "a dungeon run waits for its end")
+check(H.cdb.run and H.cdb.run.with["Bud Stone"], "the run remembers the guildmate in the group")
 G.inInstance, G.itype, G.instName = false, "none", "Westfall"
 fire("PLAYER_ENTERING_WORLD"); advance(120)
 G.inInstance, G.itype, G.instName = true, "party", "Die Todesminen"
@@ -269,10 +270,10 @@ G.group = { raid1 = { "Me", "Smith" }, raid2 = { "Cara", "Moss" }, raid3 = { "Bu
 local runMark = #printed
 fire("PLAYER_ENTERING_WORLD")
 local run = last()
-check(count() == n + 1 and run.k == "run" and run.first and run.n == 2 and run.nf == 2 and run.inst == "Die Todesminen"
-  and run.boss == "Rhahk'Zor" and H.cdb.run == nil, "entering another instance ends the run: one highlight for the dungeon")
-check(printedSince(runMark):find("Die Todesminen|r zum ersten Mal geschafft: 2 Bosse, zuletzt Rhahk'Zor", 1, true) ~= nil,
-  "a first run is printed in chat with the boss count and the last boss")
+check(count() == n + 1 and run.k == "group" and run.inst == "Die Todesminen" and #run.with == 1 and run.with[1] == "Bud Stone"
+  and H.cdb.run == nil, "entering another instance ends the run: one guild group line for the dungeon")
+check(printedSince(runMark):find("|cfffff569Me Smith|r und |cffff7d0aBud Stone|r  ·  |cffffd100Die Todesminen|r geschafft", 1, true)
+  ~= nil and not printedSince(runMark):find("Boss", 1, true), "its chat line names everyone in class colours, without a boss count")
 local raidMark = #printed
 fire("ENCOUNTER_END", 663, "Lucifron", 9, 40, 1)
 local luci = last()
@@ -288,43 +289,35 @@ fire("PLAYER_ENTERING_WORLD")
 advance(20)
 recv("Cara Moss", ("1;b;%d;9;Cara Moss;31;7;663;0;1;Lucifron;Geschmolzener Kern;3"):format(luci.t + 30))
 advance(200)
-check(sentKind("b") == 1 and sentKind("d") == 1, "after a 4 h raid: the dungeon run and Magmadar sent, Lucifron left to Cara")
+check(sentKind("b") == 1 and sentKind("o") == 1 and sentKind("d") == 0,
+  "after a 4 h raid: the guild group and Magmadar sent, Lucifron left to Cara, no old run message")
 local _, idx = H:Log()
 check(idx[luci.id] == nil and H.cdb.outbox[luci.id] == nil and idx[mag.id] ~= nil, "my Lucifron replaced by Cara's report, Magmadar kept")
 echoAll(); advance(5)
-G.level = 60
-G.inInstance, G.itype, G.instName, G.instID = true, "party", "Stratholme", 329
+G.inInstance, G.itype, G.instName = true, "party", "Stratholme"
+G.group = { party1 = { "Rando", "Pug" } }
 fire("PLAYER_ENTERING_WORLD")
 n = count()
 fire("BOSS_KILL", 456, "Baron Rivendare")
-G.inInstance, G.itype, G.instName, G.instID = false, "none", "Westfall", nil
+G.inInstance, G.itype, G.instName, G.group = false, "none", "Westfall", {}
 fire("PLAYER_ENTERING_WORLD"); advance(H.RUN_GRACE + 5)
-check(count() == n + 1 and last().k == "run" and last().inst == "Stratholme" and last().first and H.cdb.run == nil,
-  "a first run through an endgame dungeon at max level is a highlight")
-G.inInstance, G.itype, G.instName, G.instID = true, "party", "Das Scharlachrote Kloster", 189
-fire("PLAYER_ENTERING_WORLD")
-fire("BOSS_KILL", 344, "Hochinquisitor Weißsträhne")
-G.level = 30
-G.inInstance, G.itype, G.instName, G.instID = false, "none", "Westfall", nil
-fire("PLAYER_ENTERING_WORLD"); advance(H.RUN_GRACE + 5)
-check(count() == n + 1 and H.cdb.run == nil, "a levelling dungeon first cleared at max level is not logged")
-n = count()
+check(count() == n and H.cdb.run == nil, "a run without guildmates is no line")
 G.inInstance, G.itype, G.instName = true, "party", "Die Todesminen"
+G.group = { party1 = { "Dora", "Dunn" } }
 fire("PLAYER_ENTERING_WORLD")
 fire("BOSS_KILL", 1144, "Edwin VanCleef")
 fire("BOSS_KILL", 1145, "Mr. Smite")
-G.inInstance, G.itype, G.instName = false, "none", "Westfall"
+G.inInstance, G.itype, G.instName, G.group = false, "none", "Westfall", {}
 fire("PLAYER_ENTERING_WORLD"); advance(H.RUN_GRACE - 10)
 check(count() == n, "the run stays open for a while after leaving")
 advance(20)
 run = last()
-check(count() == n + 1 and run.k == "run" and not run.first and run.nf == 1 and run.n == 2, "a later run with one new boss")
-check(H:Format(run):find("Die Todesminen|r geschafft: 2 Bosse, davon 1 zum ersten Mal", 1, true), "a repeat run says how many bosses were new")
-check(H:Format({ k = "run", who = "Me Smith", first = true, n = 1, inst = "Die Todesminen" }):find("geschafft: ein Boss", 1, true)
-  and not H:Format(run):find("1 Bosse", 1, true), "one boss reads 'ein Boss', never '1 Bosse'")
+check(count() == n + 1 and run.k == "group" and run.with[1] == "Dora Dunn", "a later run with a guildmate is its own line")
+check(H:Format({ k = "run", who = "Me Smith", first = true, n = 1, inst = "Die Todesminen" }):find("geschafft: ein Boss", 1, true),
+  "an old run entry still reads as before")
 local runBack = H.Decode("Me Smith", H.Encode(run))
-check(runBack and runBack.k == "run" and runBack.n == 2 and runBack.nf == 1 and runBack.boss == "Mr. Smite"
-  and runBack.inst == "Die Todesminen" and not runBack.first, "run round trip")
+check(runBack and runBack.k == "group" and runBack.inst == "Die Todesminen" and #runBack.with == 1 and runBack.with[1] == "Dora Dunn"
+  and runBack.grp and runBack.id == run.id, "guild group round trip")
 echoAll(); advance(200); echoAll(); advance(5)
 
 G.quests = {

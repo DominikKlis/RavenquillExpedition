@@ -157,6 +157,68 @@ do
     .. Count(lyra.H:Log(), OfKind("boss")) .. ")")
 end
 
+local DEADMINES = { name = "Die Todesminen", itype = "party", id = 36 }
+
+local function Story(c)
+  local days = c.H:Issues()
+  local News = c.ns[HL].News
+  local issue = days[#days] and News.Issue(days[#days], c.RQ.NewLocale(c.ns[HL].NewsLocales), c.H:NewsContext())
+  return issue and issue.lead or {}
+end
+
+section("Guild group: one line for a dungeon run with guildmates, every name, sent once by one of them")
+do
+  local w = World()
+  local lyra = w.join("Lyra Distelbach", { rank = OFFICER })
+  local ole, hanne, tamo = w.join("Ole Fichtental"), w.join("Hanne Moosgrund"), w.join("Tamo Eichengrund")
+  w.start()
+  lyra.RQ:SetGoal({ kind = "runs", target = 5 })
+  hanne.H:Settings().chat = true
+  local party = { ole, hanne, tamo }
+  w.group(party)
+  w.go(party, DEADMINES)
+  w.kill(party, 1144, "Edwin VanCleef")
+  w.go({ ole }, TOWN)
+  w.settle(ole.H.RUN_GRACE + 200)
+  check(Sent(w, "o") == 1 and Count(hanne.H:Log(), OfKind("group")) == 1,
+    "Ole leaves first: his line for the group reaches Hanne while she is still inside")
+  w.go({ hanne, tamo }, TOWN)
+  w.settle(ole.H.RUN_GRACE + 600)
+  check(Sent(w, "o") == 1, "Hanne and Tamo leave later and send nothing: one message for the run (" .. Sent(w, "o") .. ")")
+  local lines = {}
+  for _, c in ipairs({ lyra, ole, hanne, tamo }) do lines[#lines + 1] = Count(Lines(c), OfKind("group")) end
+  check(table.concat(lines, ",") == "1,1,1,1", "every chronicle has exactly one line for it (" .. table.concat(lines, ",") .. ")")
+  local e = lyra.H:Log()[#lyra.H:Log()]
+  local text = lyra.H:Format(e)
+  check(text:find("Ole Fichtental", 1, true) and text:find("Hanne Moosgrund", 1, true) and text:find("Tamo Eichengrund", 1, true)
+    and text:find("Die Todesminen|r geschafft", 1, true) and not text:find("Boss", 1, true),
+    "the line names all three and the dungeon, without a boss count: " .. text)
+  check(lyra.H:NewSinceLastLook() == 1 and hanne.H:NewSinceLastLook() == 0 and tamo.H:NewSinceLastLook() == 0,
+    "it is new to Lyra, who was not there, and not to the ones who were")
+  check(select(1, lyra.H:GoalProgress(lyra.RQ:Goal())) == 1, "the weekly runs goal counts the run once")
+  local lead = Story(lyra)
+  check(lead.k == "group" and ((lead.head or ""):find("Die Todesminen", 1, true) or (lead.head or ""):find("Ole Fichtental", 1, true)),
+    "the paper tells it as a guild group story: " .. tostring(lead.head))
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
+section("Guild group: a run without guildmates is no line, and an old guildmate's run entry still reads")
+do
+  local w = World()
+  local ole, lyra = w.join("Ole Fichtental"), w.join("Lyra Distelbach")
+  w.start()
+  w.go({ ole }, DEADMINES)
+  w.kill({ ole }, 1144, "Edwin VanCleef")
+  w.go({ ole }, TOWN)
+  w.settle(ole.H.RUN_GRACE + 300)
+  check(Sent(w, "o") == 0 and Count(ole.H:Log(), OfKind("group")) == 0, "a solo run is no line and no message")
+  local old = { k = "run", t = NOW - 60, who = "Ole Fichtental", id = "Ole Fichtental#" .. (NOW - 60) .. "#9", inst = "Uldaman",
+    boss = "Archaedas", n = 7, nf = 7, first = true, lvl = 44 }
+  lyra.H:Add(old, "wire")
+  check(Count(Lines(lyra), OfKind("run")) == 1 and lyra.H:Format(old):find("Uldaman", 1, true),
+    "an old peer's dungeon run still has its line")
+end
+
 section("Quests: an attunement step still reaches raid readiness without a line; an old guildmate's quest still reads")
 do
   local w = World()

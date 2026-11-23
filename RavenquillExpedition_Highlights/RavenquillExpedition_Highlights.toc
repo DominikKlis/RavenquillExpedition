@@ -19,6 +19,8 @@ Milestones.lua
 Runs.lua
 NewsLocale_enUS.lua
 NewsLocale_deDE.lua
+NewsGuild_enUS.lua
+NewsGuild_deDE.lua
 News.lua
 Week.lua
 LogWindow.lua

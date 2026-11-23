@@ -62,8 +62,6 @@ local L = {
   RULE_LOOT = "Loot",
   HOW_LOOT = "items of %s quality or better that you loot, craft or get as a quest reward. Not what reaches your bags by mail, trade or the auction house. Marked (seen by X) when a guildie without Ravenquill loots one in your group and X reports it.",
   RULE_WORLD_BOSS = "World bosses", HOW_WORLD_BOSS = "bosses outside dungeons and raids, the first kill only.",
-  RULE_RUN = "Dungeon runs",
-  HOW_RUN = "a run with at least one boss you never killed before. At max level only bosses in Blackrock Spire, Blackrock Depths, Scholomance, Stratholme and Dire Maul count as new.",
   RULE_LEVEL = "Levels", HOW_LEVEL = "every %d levels, and the max level.",
   RULE_MOUNT = "Mounts", HOW_MOUNT = "your first mount and your first epic mount.",
   RULE_REP = "Reputation", HOW_REP = "reaching exalted with a faction.",
@@ -104,6 +102,10 @@ local L = {
   HOME_FEED = "New in the Chronicle",
 
   LOOT_QUEST = "%s  (quest reward)",
+  AND = " and ", COMMA = ", ",
+  GROUP = "made it through %s",
+  RULE_GROUP = "Guild group",
+  HOW_GROUP = "a dungeon run with guildmates: one line for the whole group with every name. One member of the group reports it for everyone.",
 }
 
 local deDE = {
@@ -166,8 +168,6 @@ local deDE = {
   RULE_LOOT = "Beute",
   HOW_LOOT = "Gegenstände ab Qualität %s, die du erbeutest, herstellst oder als Questbelohnung bekommst. Nicht, was per Post, Handel oder Auktionshaus in deine Taschen kommt. Mit (gesehen von X), wenn ein Gildenmitglied ohne Ravenquill einen in deiner Gruppe erbeutet und X das meldet.",
   RULE_WORLD_BOSS = "Weltbosse", HOW_WORLD_BOSS = "Bosse außerhalb von Dungeons und Schlachtzügen, nur der erste Kill.",
-  RULE_RUN = "Dungeon-Läufe",
-  HOW_RUN = "ein Lauf mit mindestens einem Boss, den du noch nie besiegt hast. Auf Höchststufe zählen nur Bosse in der Schwarzfelsspitze, den Schwarzfelstiefen, Scholomance, Stratholme und Düsterbruch als neu.",
   RULE_LEVEL = "Stufen", HOW_LEVEL = "alle %d Stufen und die Höchststufe.",
   RULE_MOUNT = "Reittiere", HOW_MOUNT = "dein erstes Reittier und dein erstes episches Reittier.",
   RULE_REP = "Ruf", HOW_REP = "Ehrfürchtig bei einer Fraktion.",
@@ -208,6 +208,10 @@ local deDE = {
   HOME_FEED = "Neu in der Chronik",
 
   LOOT_QUEST = "%s  (Questbelohnung)",
+  AND = " und ", COMMA = ", ",
+  GROUP = "%s geschafft",
+  RULE_GROUP = "Gildengruppe",
+  HOW_GROUP = "jeder Dungeon-Lauf mit Gildenmitgliedern: eine Zeile für die ganze Gruppe mit allen Namen. Einer aus der Gruppe meldet ihn für alle.",
 }
 
 ns.Locales = { enUS = L, deDE = deDE }

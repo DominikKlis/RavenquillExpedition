@@ -9,6 +9,13 @@ H.QUEST_TAGS = { elite = "TAG_ELITE", group = "TAG_GROUP", dungeon = "TAG_DUNGEO
 local function Gold(text) return "|cffffd100" .. text .. "|r" end
 local function NonEmpty(s, fallback) return (s and s ~= "") and s or fallback end
 
+local function SharePeople(a, b)
+  local seen = {}
+  for _, key in ipairs(H.People(a)) do seen[key] = true end
+  for _, key in ipairs(H.People(b)) do if seen[key] then return true end end
+  return false
+end
+
 H.KINDS = {
   gear = {
     code = "g", legacy = true, chat = true, chatMinQuality = 4, icon = "INV_Chest_Chain_05",
@@ -40,7 +47,7 @@ H.KINDS = {
     end,
   },
   run = {
-    code = "d", chat = true, icon = "INV_Misc_Key_03",
+    code = "d", legacy = true, chat = true, icon = "INV_Misc_Key_03",
     format = function(_, e)
       local inst, bosses = Gold(NonEmpty(e.inst, L.AN_INSTANCE)), (e.n or 1) == 1 and L.ONE_BOSS or L.N_BOSSES:format(e.n)
       if e.first then return L.RUN_FIRST:format(inst, bosses) .. (NonEmpty(e.boss) and L.RUN_LAST:format(e.boss) or "") end
@@ -93,14 +100,33 @@ H.KINDS = {
     code = "a", chat = false, paper = false, icon = "INV_Misc_Key_14",
     format = function(_, e) return L.ATTUNE:format(Gold(L["RAID_" .. tostring(e.raid)])) end,
   },
+  group = {
+    code = "o", chat = true, icon = "INV_Misc_Key_03",
+    same = function(self, a, b) return a.inst == b.inst and math.abs(a.t - b.t) <= self.RUN_SAME and SharePeople(a, b) end,
+    subject = function(self, e) return self:PeopleText(e) end,
+    format = function(_, e) return L.GROUP:format(Gold(NonEmpty(e.inst, L.AN_INSTANCE))) end,
+  },
 }
 
 local function Icon(name) return name and ("|TInterface\\Icons\\%s:14:14|t "):format(name) or "" end
 
+local function MemberName(self, key, cls)
+  local member = GS:RosterEntry(key)
+  return self.ClassColorName(key, cls or (member and member.class))
+end
+
+function H:PeopleText(e)
+  local names = { MemberName(self, e.who, e.cls) }
+  for _, key in ipairs(e.with or {}) do names[#names + 1] = MemberName(self, key) end
+  if #names < 2 then return names[1] end
+  return table.concat(names, L.COMMA, 1, #names - 1) .. L.AND .. names[#names]
+end
+
 function H:Format(e)
   local kind = self.KINDS[e.k]
   local text = kind and kind.format(self, e) or tostring(e.k)
-  text = Icon(kind and kind.icon) .. self.ClassColorName(e.who, e.cls) .. "  ·  " .. text
+  local subject = kind and kind.subject and kind.subject(self, e) or self.ClassColorName(e.who, e.cls)
+  text = Icon(kind and kind.icon) .. subject .. "  ·  " .. text
   if e.by and e.by ~= e.who then text = text .. " |cff888888(" .. L.WITNESSED:format(e.by) .. ")|r" end
   if e.test then text = "|cff888888[" .. L.TEST .. "]|r " .. text end
   return text
@@ -172,7 +198,7 @@ local Q = H.QualityName
 H.RULES = {
   { k = "loot", title = "RULE_LOOT", text = "HOW_LOOT", args = { Q(H.LOOT_QUALITY) } },
   { k = "boss", title = "RULE_WORLD_BOSS", text = "HOW_WORLD_BOSS" },
-  { k = "run", title = "RULE_RUN", text = "HOW_RUN" },
+  { k = "group", title = "RULE_GROUP", text = "HOW_GROUP" },
   { k = "level", title = "RULE_LEVEL", text = "HOW_LEVEL", args = { H.LEVEL_STEP } },
   { k = "mount", title = "RULE_MOUNT", text = "HOW_MOUNT" },
   { k = "rep", title = "RULE_REP", text = "HOW_REP" },

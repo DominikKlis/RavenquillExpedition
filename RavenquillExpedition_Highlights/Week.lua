@@ -49,10 +49,13 @@ end
 
 function News.LevelsGained(entries) return Gained(Spans(entries)) end
 
+local TOGETHER = { run = true, group = true }
+local function Together(g) return TOGETHER[g.kind] and #g.people >= 2 end
+
 function News.RunsTogether(entries, ctx)
   local n = 0
   for _, g in ipairs(News.Groups(entries, ctx)) do
-    if g.kind == "run" and #g.people >= 2 then n = n + 1 end
+    if Together(g) then n = n + 1 end
   end
   return n
 end
@@ -83,7 +86,7 @@ end
 local function SharedRuns(w)
   local out = {}
   for _, g in ipairs(w.groups) do
-    if g.kind == "run" and #g.people >= 2 then
+    if Together(g) then
       for _, who in ipairs(g.people) do out[who] = { n = (out[who] and out[who].n or 0) + 1 } end
     end
   end

@@ -6,10 +6,10 @@ local SafeCall, IsSecret, Plain = GS.SafeCall, GS.IsSecret, GS.Plain
 local function MyLevel() return Plain(SafeCall(UnitLevel, "player"), "number") end
 local function MaxLevel() return Plain(SafeCall(GetMaxPlayerLevel), "number") end
 
-local function Own(k, fields)
+local function Own(k, fields, at)
   local who = GS:PlayerKey()
   if not who then return end
-  local t = GS:Now()
+  local t = at or GS:Now()
   local _, cls = SafeCall(UnitClass, "player")
   local e = { k = k, t = t, who = who, cls = Plain(cls, "string"), lvl = MyLevel(), id = H:NextID(who, t) }
   for key, v in pairs(fields) do e[key] = v end
@@ -155,19 +155,11 @@ do
   local function KilledWithinMinute(key, now) return key and recentKill[key] and now - recentKill[key] < 60 end
 
   local function KillPlace()
-    local inst, itype, _, _, _, _, _, instID = SafeCall(GetInstanceInfo)
+    local inst, itype = SafeCall(GetInstanceInfo)
     inst, itype = Plain(inst, "string"), Plain(itype, "string")
     if not inst or itype == "none" then inst = Plain(SafeCall(GetRealZoneText), "string") or inst end
-    return inst, itype, Plain(instID, "number")
+    return inst, itype
   end
-
-  local function StillLevelling()
-    local lvl, max = MyLevel(), MaxLevel()
-    return not (lvl and max and lvl >= max)
-  end
-
-  local ENDGAME_DUNGEONS = { [229] = true, [230] = true, [289] = true, [329] = true, [429] = true }
-  local function CountsAsNew(first, instID) return first and (StillLevelling() or ENDGAME_DUNGEONS[instID or 0]) end
 
   local function ReportRaidKill(fields, first)
     local guildies = GS:GroupGuildies()
@@ -176,8 +168,8 @@ do
     H:Add(Own("boss", fields), "self", { group = true, rank = rank })
   end
 
-  local function ReportKill(fields, first, dungeon, instID)
-    if dungeon then H:NoteDungeonKill(fields.inst, fields.boss, CountsAsNew(first, instID)) end
+  local function ReportKill(fields, first, dungeon)
+    if dungeon then H:NoteDungeonKill(fields.inst) end
     if first and not dungeon then
       fields.first = true
       H:Add(Own("boss", fields), "self")
@@ -196,12 +188,12 @@ do
     if KilledWithinMinute(encKey, now) or KilledWithinMinute(nameKey, now) then return end
     if encKey then recentKill[encKey] = now end
     if nameKey then recentKill[nameKey] = now end
-    local inst, itype, instID = KillPlace()
+    local inst, itype = KillPlace()
     local first = not H.cdb.kills[key]
     H.cdb.kills[key] = GS:Now()
     local fields = { enc = encID, boss = name, inst = inst }
     if itype == "raid" then return ReportRaidKill(fields, first) end
-    ReportKill(fields, first, itype == "party", instID)
+    ReportKill(fields, first, itype == "party")
   end
 end
 
@@ -330,23 +322,30 @@ do
       id = H.WitnessID(who, f.id, t) }, "witness", { group = true, rank = (GS:ElectionRank(others)) })
   end
 
-  OnLoot = function(text, playerName)
-    text = Plain(text, "string")
-    if not text then return NoteSecretLoot() end
+  local function MatchLoot(text, playerName)
     local pats = LootPatterns()
     local link, who, count, src = MatchOwnLoot(text, pats)
     if not link then link, who = MatchOthersLoot(text, pats, playerName) end
-    if not (link and who) then return end
-    link = link:match("(|c.-|r)") or link
-    local f = ItemFacts(link)
-    local me = GS:PlayerKey()
+    if link and who then return link:match("(|c.-|r)") or link, who, count, src end
+  end
+
+  local function OwnLoot(f, link, count, src)
     if not Notable(f) then
-      if who == me and f and f.id then H:Activity(Act("loot", { item = f.id, link = link, q = f.q, n = count })) end
+      if f and f.id then H:Activity(Act("loot", { item = f.id, link = link, q = f.q, n = count })) end
       return
     end
-    if who ~= me then return WitnessLoot(who, me, f, link) end
     H.cdb.ownedEpics[f.id] = true
     H:Add(Own("loot", { item = f.id, link = link, q = f.q, src = src }), "self")
+  end
+
+  OnLoot = function(text, playerName)
+    text = Plain(text, "string")
+    if not text then return NoteSecretLoot() end
+    local link, who, count, src = MatchLoot(text, playerName)
+    if not link then return end
+    local f, me = ItemFacts(link), GS:PlayerKey()
+    if who == me then return OwnLoot(f, link, count, src) end
+    if Notable(f) then WitnessLoot(who, me, f, link) end
   end
 end
 

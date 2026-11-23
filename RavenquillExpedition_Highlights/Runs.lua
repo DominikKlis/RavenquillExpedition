@@ -10,24 +10,34 @@ local function CurrentInstance()
   return Plain(inst, "string"), Plain(itype, "string")
 end
 
+local function Guildmates(set)
+  local all, out, used = {}, {}, 0
+  for key in pairs(set or {}) do all[#all + 1] = key end
+  table.sort(all)
+  for _, key in ipairs(all) do
+    used = used + #key + 1
+    if used <= H.GROUP_NAMES_MAX then out[#out + 1] = key end
+  end
+  return out
+end
+
 local function FinishRun(self)
   local run = self.cdb.run
   self.cdb.run = nil
-  if not run or (run.news or 0) == 0 then return end
-  self.cdb.dungeons = self.cdb.dungeons or {}
-  local firstRun = run.news == run.kills and not self.cdb.dungeons[run.inst]
-  self.cdb.dungeons[run.inst] = true
-  local e = ns.Own("run", { inst = run.inst, boss = run.boss, n = run.kills, nf = run.news, first = firstRun or nil })
-  if e then self:Add(e, "self") end
+  local with = run and Guildmates(run.with)
+  if not (with and with[1]) then return end
+  local e = ns.Own("group", { inst = run.inst, with = with, grp = true }, run.at)
+  if e then self:Add(e, "self", { group = true, rank = (GS:ElectionRank(with)) }) end
 end
 
-function H:NoteDungeonKill(inst, boss, new)
+function H:NoteDungeonKill(inst)
   if not inst then return end
   local run = self.cdb.run
   if run and run.inst ~= inst then FinishRun(self) end
-  run = self.cdb.run or { inst = inst, kills = 0, news = 0 }
-  run.kills, run.boss, run.left = run.kills + 1, boss, nil
-  if new then run.news = run.news + 1 end
+  run = self.cdb.run or { inst = inst }
+  run.with = type(run.with) == "table" and run.with or {}
+  for _, key in ipairs(GS:GroupGuildies()) do run.with[key] = true end
+  run.at, run.left = GS:Now(), nil
   self.cdb.run = run
 end
 

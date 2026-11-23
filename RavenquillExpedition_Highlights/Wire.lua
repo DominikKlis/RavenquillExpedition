@@ -37,6 +37,7 @@ local KIND_FIELDS = {
   p = Fields({ { "pk", "enum", { "rank", "win" } }, { "pr", "int", 0, 30, opt = true }, { "name", "text", 48 } }),
   u = Fields({ { "foe", "key" } }),
   a = Fields({ { "raid", "enum", H.RAID_KEYS } }),
+  o = Fields({ { "inst", "text", 48 }, { "with", "text", H.GROUP_NAMES_MAX } }),
 }
 for code, fields in pairs(KIND_FIELDS) do
   ch:Define(code, { from = "guild", fields = fields })
@@ -45,6 +46,15 @@ end
 ch:Define("r", { from = "guild", fields = { { "since", "int", 0, 4102444800 }, { "before", "int", 0, 4102444800, opt = true } } })
 
 local function Num(v) return (type(v) == "number" and v == v) and math.floor(v) or nil end
+
+local function SplitNames(s, who)
+  local out = {}
+  for key in (s or ""):gmatch("[^,]+") do
+    key = key:match("^%s*(.-)%s*$")
+    if key ~= "" and key ~= who then out[#out + 1] = key end
+  end
+  return out
+end
 
 local function Flag(v) return v and true or false end
 local function WireQuestTag(tag) return QUEST_TAGS[tag or ""] and tag or "hard" end
@@ -65,6 +75,7 @@ local MessageFields = {
   pvp = function(m, e) m.pk, m.pr, m.name = e.pk, Num(e.pr), e.name or "" end,
   duel = function(m, e) m.foe = e.foe end,
   attune = function(m, e) m.raid = e.raid end,
+  group = function(m, e) m.inst, m.with = e.inst or "", table.concat(e.with or {}, ",") end,
 }
 
 local function WireSeq(e)
@@ -114,6 +125,7 @@ local EntryFields = {
   pvp = function(e, m) e.pk, e.pr, e.name = m.pk, m.pr, Str(m.name) end,
   duel = function(e, m) e.foe = m.foe end,
   attune = function(e, m) e.raid = m.raid end,
+  group = function(e, m) e.inst, e.with, e.grp = Str(m.inst), SplitNames(m.with, m.who), true end,
 }
 
 local function OwnEntryId(m)

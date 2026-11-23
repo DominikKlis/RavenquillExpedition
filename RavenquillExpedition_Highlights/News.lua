@@ -4,14 +4,14 @@ local News = {}
 ns.News = News
 
 News.RANK = { raid = 100, epic = 90, run = 80, boss = 75, levelmax = 70, mount = 56, gear = 52, level = 46, quest = 40,
-  rep = 38, skill = 34, pvp = 32, duel = 24 }
+  rep = 38, skill = 34, pvp = 32, duel = 24, group = 80 }
 News.LEVEL_RANK = { [50] = 66, [40] = 64 }
 News.BRIEF_MAX, News.QUEST_LIST_MAX, News.SAME_OUTING, News.EXTRA_MAX, News.HOME_STRETCH = 8, 3, 300, 2, 10
 News.PAPER_HEX = { [2] = "1f6b12", [3] = "0b5cad", [4] = "7b2cbf", [5] = "b35900" }
 News.SUBJECT, News.PERSONAL = { name = true, names = true }, { clvl = true, lo = true, hi = true }
 News.KEY = { raid = "n boss lastboss night", boss = "n boss lastboss night", run = "n nf first lastboss night", epic = "il item night",
   gear = "il item gain night", quest = "n rest night", rep = "standing night", skill = "rank night", level = "left night",
-  levelmax = "people night", mount = "night", pvp = "night", duel = "night" }
+  levelmax = "people night", mount = "night", pvp = "night", duel = "night", group = "inst night" }
 News.FACT_OF = { thingnom = "thing", quests = "quest rest", lastquest = "quest", before = "boss middle prev",
   middle = "middle prev", timeline = "boss start middle prev", lead = "order time", leadtime = "order time",
   lastname = "order time", lasttime = "order time", soon = "worn", weartime = "worn", clvl = "levels", lo = "levels",
@@ -213,9 +213,14 @@ local function Earlier(a, b)
   return tostring(a.id) < tostring(b.id)
 end
 
+local function AddPerson(people, who)
+  if not people[who] then people[who] = true; people[#people + 1] = who end
+end
+
 local function AddPeople(people, g)
   for _, e in ipairs(g.entries) do
-    if not people[e.who] then people[e.who] = true; people[#people + 1] = e.who end
+    AddPerson(people, e.who)
+    for _, who in ipairs(e.with or {}) do AddPerson(people, who) end
   end
   return people
 end
@@ -501,7 +506,7 @@ end
 local VARS = {
   raid = Kills, boss = Kills, run = Run, epic = Item, gear = Item, levelmax = Level, level = Level, quest = Quest,
   mount = Mount, rep = Rep, skill = Skill, pvp = Pvp,
-  duel = function(v, g) v.foe = g.first.foe end,
+  duel = function(v, g) v.foe = g.first.foe end, group = function(v, g) v.inst = g.first.inst end,
 }
 
 function News.Vars(g, ctx, T)
