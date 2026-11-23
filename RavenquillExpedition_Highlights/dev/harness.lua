@@ -560,7 +560,7 @@ local all = panel.controls[iAll]
 all:SetChecked(true); rawget(all, "_scripts").OnClick(all)
 check(H:Settings().chatAll and all:IsEnabled(), "chat all")
 rawget(panel.controls[opt(L.OPT_TEST)], "_scripts").OnClick()
-check(lastPrinted():find("11 Testeinträge", 1, true), "test button adds 11 test entries")
+check(lastPrinted():find("12 Testeinträge", 1, true), "test button adds 12 test entries, one of each kind with a line")
 H:Open()
 local hlFrame = env.RavenquillExpeditionHighlightsFrame
 check(H.openLabel == "Zeitung" and hlFrame:IsShown() and hlFrame.paper:IsShown() and hlFrame.msg == nil
@@ -575,7 +575,7 @@ for _, o in ipairs(H.options) do
 end
 check(noClutter, "the options hold no log-window duplicates and no diagnostics")
 rawget(panel.controls[opt(L.OPT_CLEARTEST)], "_scripts").OnClick()
-check(lastPrinted():find("11 Testeinträge entfernt", 1, true), "test entries removed")
+check(lastPrinted():find("12 Testeinträge entfernt", 1, true), "test entries removed")
 GS:ShowCopyBox("Diagnose", GS:DiagLines())
 local box = env.RavenquillExpeditionCopyBox
 check(box and box:IsShown() and box.text:find("== " .. H.title, 1, true) and box.text:find("events seen", 1, true)
@@ -1080,6 +1080,8 @@ local function Character(saved)
   end
   local c = Kit.Client(sched, nil, "Me Smith", opts)
   c.H = c.ns.RavenquillExpedition_Highlights.H
+  c.sounds = {}
+  c.env.PlaySound = function(kit) c.sounds[#c.sounds + 1] = kit end
   characters[#characters + 1] = c
   return c
 end
@@ -1216,8 +1218,15 @@ do
   check(empty and not shown:find("/rq hl >", 1, true) and empty.tests:GetText() == "Testeinträge hinzufügen",
     "instead of a path into the settings the empty log offers a 'Testeinträge hinzufügen' button")
   if empty then rawget(empty.tests, "_scripts").OnClick(empty.tests) end
-  check(#fresh.H:Log() == 11 and empty and not empty:IsShown() and lines[#lines]:find("Stufe 60 – Höchststufe!", 1, true),
-    "one click adds the 11 test entries and the log lists them in place of the hint")
+  check(#fresh.H:Log() == 12 and empty and not empty:IsShown() and lines[#lines]:find("Stufe 60 – Höchststufe!", 1, true),
+    "one click adds the 12 test entries and the log lists them in place of the hint")
+  local shownKinds, missing = {}, {}
+  for _, e in ipairs(fresh.H:Log()) do shownKinds[e.k] = fresh.H:Shown(e) or nil end
+  for k, kind in pairs(fresh.H.KINDS) do
+    if not kind.legacy and k ~= "attune" and not shownKinds[k] then missing[#missing + 1] = k end
+  end
+  check(#missing == 0 and #fresh.sounds == 0, "the test entries show every kind with a line, without a sound ("
+    .. table.concat(missing, ", ") .. ")")
   check(#fresh.errors == 0, "no Lua errors (" .. tostring(fresh.errors[1]) .. ")")
   LogOut(fresh)
 end

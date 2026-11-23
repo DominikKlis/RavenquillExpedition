@@ -189,7 +189,7 @@ do
     "after a reload Rika's progress is still there")
 end
 
-Kit.section("Readiness ignores test entries once they are removed")
+Kit.section("Readiness ignores test entries")
 do
   local w = NewWorld()
   local lyra = w.join("Lyra Distelbach", { class = "MAGE" })
@@ -197,10 +197,12 @@ do
   local function Mine()
     for _, row in ipairs(lyra.H:ReadinessModel().rows) do if row.who == "Lyra Distelbach" then return Cells(row) end end
   end
+  local before = Mine()
   lyra.H:AddTests()
-  check(Mine():find("mc=done", 1, true), "the test entries attune me to Molten Core while they are there (" .. Mine() .. ")")
+  check(Mine() == before and before:find("mc=none", 1, true), "the test entries, a raid ready line among them, attune nobody ("
+    .. Mine() .. ")")
   lyra.H:ClearTests()
-  check(Mine():find("mc=none", 1, true), "removing them takes it back (" .. Mine() .. ")")
+  check(Mine() == before, "removing them changes nothing either (" .. Mine() .. ")")
 end
 
 local function RowOf(c, who)

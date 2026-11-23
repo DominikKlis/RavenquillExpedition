@@ -69,11 +69,11 @@ local L = {
   RULE_PVP = "PvP", HOW_PVP = "every new PvP rank.",
   RULE_DUEL = "Duels", HOW_DUEL = "a duel won against a guildie, once per guildie a day.",
   HOW_ACTIVITY = "Smaller steps (other loot, boss kills and levels) stay in your own log as activity and are never shared. \"%s\" in the log window hides them.",
-  OPT_TEST_H = "Testing", OPT_TEST = "Add test entries", OPT_TEST_TIP = "One of each kind, only in your log, never sent.",
+  OPT_TEST_H = "Testing", OPT_TEST = "Add test entries", OPT_TEST_TIP = "One of each kind, only in your log, never sent, no sound.",
   OPT_CLEARTEST = "Remove test entries", OPEN_LABEL = "Newspaper",
   OV_WAITING = "%d waiting to be sent",
-  TEST_DEADMINES = "The Deadmines", TEST_MOLTEN_CORE = "Molten Core", TEST_QUEST = "Attunement to the Core",
-  TEST_FACTION = "Argent Dawn", TEST_SKILL = "Blacksmithing", TEST_BATTLEGROUND = "Warsong Gulch",
+  TEST_DEADMINES = "The Deadmines", TEST_MOLTEN_CORE = "Molten Core",
+  TEST_FACTION = "Argent Dawn", TEST_SKILL = "Blacksmithing",
   CAUGHT_UP = "Caught up on %d highlights from while you were away.",
   ATTUNE = "already attuned to %s (added by hand)",
   RULE_ATTUNE = "Raid readiness",
@@ -120,6 +120,7 @@ local L = {
   OPT_SOUND_LEVEL = "Sound when someone reaches level %d",
   OPT_SOUND_DUEL = "Sound for a duel won in the guild",
   OPT_SOUND_TIP = "Plays when the news arrives live over guild sync: not when catching up after login, not in combat and not in an instance. Several at once play one sound. A 'first in the guild' plays the raid warning.",
+  TEST_AZSHARA = "Azshara", TEST_PVP_RANK = "Sergeant",
 }
 
 local deDE = {
@@ -189,11 +190,11 @@ local deDE = {
   RULE_PVP = "PvP", HOW_PVP = "jeder neue PvP-Rang.",
   RULE_DUEL = "Duelle", HOW_DUEL = "ein gewonnenes Duell gegen ein Gildenmitglied, einmal pro Gildenmitglied und Tag.",
   HOW_ACTIVITY = "Kleinere Schritte (andere Beute, Bosskills und Stufen) bleiben als Aktivität in deinem Protokoll und werden nie geteilt. „%s“ im Protokollfenster blendet sie aus.",
-  OPT_TEST_H = "Testen", OPT_TEST = "Testeinträge hinzufügen", OPT_TEST_TIP = "Je einer pro Art, nur in deinem Protokoll, wird nie gesendet.",
+  OPT_TEST_H = "Testen", OPT_TEST = "Testeinträge hinzufügen", OPT_TEST_TIP = "Je einer pro Art, nur in deinem Protokoll, wird nie gesendet, ohne Sound.",
   OPT_CLEARTEST = "Testeinträge entfernen", OPEN_LABEL = "Zeitung",
   OV_WAITING = "%d warten aufs Senden",
-  TEST_DEADMINES = "Die Todesminen", TEST_MOLTEN_CORE = "Geschmolzener Kern", TEST_QUEST = "Einstimmung auf den Kern",
-  TEST_FACTION = "Argentumdämmerung", TEST_SKILL = "Schmiedekunst", TEST_BATTLEGROUND = "Kriegshymnenschlucht",
+  TEST_DEADMINES = "Die Todesminen", TEST_MOLTEN_CORE = "Geschmolzener Kern",
+  TEST_FACTION = "Argentumdämmerung", TEST_SKILL = "Schmiedekunst",
   CAUGHT_UP = "%d Highlights nachgeholt, die du verpasst hast.",
   ATTUNE = "schon eingestimmt: %s (selbst nachgetragen)",
   RULE_ATTUNE = "Raidbereitschaft",
@@ -240,6 +241,7 @@ local deDE = {
   OPT_SOUND_LEVEL = "Sound, wenn jemand Stufe %d erreicht",
   OPT_SOUND_DUEL = "Sound bei einem Duellsieg in der Gilde",
   OPT_SOUND_TIP = "Spielt, wenn die Meldung live über den Gilden-Sync kommt: nicht beim Nachladen nach dem Einloggen, nicht im Kampf und nicht in Instanzen. Mehrere auf einmal ergeben einen Sound. Für „Erster in der Gilde“ ertönt die Raidwarnung.",
+  TEST_AZSHARA = "Azshara", TEST_PVP_RANK = "Landsknecht",
 }
 
 ns.Locales = { enUS = L, deDE = deDE }

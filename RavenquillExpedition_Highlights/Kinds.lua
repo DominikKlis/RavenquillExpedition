@@ -220,15 +220,16 @@ function H:AddTests()
     return e
   end
   local list = {
-    E("gear", { item = 6084, il = 30, oil = 18, q = 3, slot = 15 }),
     E("loot", { item = 869, q = 4 }),
-    E("run", { inst = L.TEST_DEADMINES, boss = "Edwin VanCleef", n = 6, nf = 6, first = true }),
-    E("boss", { enc = 663, boss = "Lucifron", inst = L.TEST_MOLTEN_CORE, grp = true, n = 12, raid = true }),
-    E("quest", { qid = 7848, title = L.TEST_QUEST, tag = "special", ql = 60 }),
+    E("group", { inst = L.TEST_DEADMINES, with = { "Bud Stone" }, grp = true }),
+    E("clear", { enc = 672, inst = L.TEST_MOLTEN_CORE, n = 12, grp = true }),
+    E("boss", { enc = 1100, boss = "Azuregos", inst = L.TEST_AZSHARA, first = true }),
+    E("first", { what = "level", lvl = 60 }),
+    E("ready", { raid = "mc" }),
     E("mount", { epic = true }),
     E("rep", { st = 8, fac = L.TEST_FACTION }),
     E("skill", { skill = L.TEST_SKILL, rank = 300 }),
-    E("pvp", { pk = "win", name = L.TEST_BATTLEGROUND }),
+    E("pvp", { pk = "rank", pr = 3, name = L.TEST_PVP_RANK }),
     E("duel", { foe = "Bud Stone" }),
     E("level", { lvl = 60 }),
   }

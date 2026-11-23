@@ -489,7 +489,7 @@ do
   local real = Series("Dave Rook", EPOCH - 7200, 20)
   local bert = w.join("Bert Hill")
   Hold(bert, real)
-  check(bert.H:AddTests() == 11, "setup: Bert has 11 test entries newer than the real ones")
+  check(bert.H:AddTests() == 12, "setup: Bert has 12 test entries newer than the real ones")
   w.sched:advance(60)
   local anna = w.join("Anna Stone")
   w.sched:advance(600)
