@@ -8,7 +8,7 @@ H.EPIC_MOUNT_SPEED = 13
 H.MOUNT_MIN_SPEED = 7.5
 H.MOUNT_TIER_LEVEL = { 40, 60 }
 H.REP_MILESTONE = 8
-H.SKILL_FROM, H.SKILL_STEP = 150, 75
+H.SKILL_TOP = 300
 H.DUEL_EVERY = 86400
 
 local function Store(key)
@@ -160,7 +160,7 @@ local function OnSkill(text)
   text = Plain(text, "string")
   local name, rank = Match(text or "", "SKILL_RANK_UP")
   rank = tonumber(rank)
-  if not rank or rank < H.SKILL_FROM or rank % H.SKILL_STEP ~= 0 or not IsProfession(name) then return end
+  if rank ~= H.SKILL_TOP or not IsProfession(name) then return end
   local skills = Store("skills")
   if (skills[name] or 0) >= rank then return end
   skills[name] = rank

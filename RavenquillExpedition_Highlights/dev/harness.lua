@@ -963,14 +963,16 @@ do
   env.GetProfessions = function() return 1, nil, nil, 4, 5, 6 end
   env.GetProfessionInfo = function(i) return professions[i], "", 150, 300 end
   local before = count()
-  fire("CHAT_MSG_SKILL", "Eure Fertigkeit in Schmiedekunst hat sich auf 149 erhöht.")
-  check(count() == before, "a skill-up that is no milestone is not logged")
-  fire("CHAT_MSG_SKILL", "Eure Fertigkeit in Schmiedekunst hat sich auf 150 erhöht.")
-  check(count() == before + 1 and newest().k == "skill" and newest().skill == "Schmiedekunst" and newest().rank == 150,
-    "a profession at 150 is a highlight")
-  fire("CHAT_MSG_SKILL", "Eure Fertigkeit in Schwerter hat sich auf 150 erhöht.")
+  for _, rank in ipairs({ 149, 150, 225, 299 }) do
+    fire("CHAT_MSG_SKILL", ("Eure Fertigkeit in Schmiedekunst hat sich auf %d erhöht."):format(rank))
+  end
+  check(count() == before, "150 and 225 are no milestones any more, nor is any other step below 300")
+  fire("CHAT_MSG_SKILL", "Eure Fertigkeit in Schmiedekunst hat sich auf 300 erhöht.")
+  check(count() == before + 1 and newest().k == "skill" and newest().skill == "Schmiedekunst" and newest().rank == 300,
+    "a profession at 300 is a highlight")
+  fire("CHAT_MSG_SKILL", "Eure Fertigkeit in Schwerter hat sich auf 300 erhöht.")
   check(count() == before + 1, "weapon skills are no professions")
-  fire("CHAT_MSG_SKILL", "Eure Fertigkeit in Kochkunst hat sich auf 225 erhöht.")
+  fire("CHAT_MSG_SKILL", "Eure Fertigkeit in Kochkunst hat sich auf 300 erhöht.")
   check(count() == before + 2 and newest().skill == "Kochkunst", "secondary skills count too")
 end
 
