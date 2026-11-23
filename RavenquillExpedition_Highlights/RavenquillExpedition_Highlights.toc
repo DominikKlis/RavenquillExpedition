@@ -10,6 +10,7 @@
 
 Locale.lua
 Highlights.lua
+Kinds.lua
 Attunements.lua
 Wire.lua
 Catchup.lua
