@@ -48,7 +48,7 @@ local function Num(v) return (type(v) == "number" and v == v) and math.floor(v) 
 
 local function Flag(v) return v and true or false end
 local function WireQuestTag(tag) return QUEST_TAGS[tag or ""] and tag or "hard" end
-local LOOT_SRC_CODE, LOOT_SRC = { bag = "bag", craft = "cr" }, { bag = "bag", cr = "craft" }
+local LOOT_SRC_CODE, LOOT_SRC = { bag = "bag", craft = "cr", quest = "qr" }, { bag = "bag", cr = "craft", qr = "quest" }
 
 local MessageFields = {
   gear = function(m, e) m.item, m.il, m.q, m.oil, m.slot = Num(e.item), Num(e.il), Num(e.q), Num(e.oil), Num(e.slot) end,

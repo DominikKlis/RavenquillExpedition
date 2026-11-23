@@ -427,7 +427,7 @@ local function ItemLevels(v, gear, facts, T)
   if v.il and v.oldil and v.il - v.oldil >= 2 then v.gain = Count(v.il - v.oldil, T) end
 end
 
-local LOOT_FLAG = { craft = "crafted", bag = "received" }
+local LOOT_FLAG = { craft = "crafted", bag = "received", quest = "received" }
 
 local function Worn(v, loot, gear, ctx)
   local after = gear.t - loot.t

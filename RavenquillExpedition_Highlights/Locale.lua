@@ -60,7 +60,7 @@ local L = {
   OPT_CHAT_ALL = "Also professions", OPT_ECHO = "Also my own highlights",
   OPT_RULES_H = "What counts",
   RULE_LOOT = "Loot",
-  HOW_LOOT = "items of %s quality or better that you loot or craft. Marked (received) when one reaches your bags another way: mail, trade, auction house or quest reward. Marked (seen by X) when a guildie without Ravenquill loots one in your group and X reports it.",
+  HOW_LOOT = "items of %s quality or better that you loot, craft or get as a quest reward. Not what reaches your bags by mail, trade or the auction house. Marked (seen by X) when a guildie without Ravenquill loots one in your group and X reports it.",
   RULE_WORLD_BOSS = "World bosses", HOW_WORLD_BOSS = "bosses outside dungeons and raids, the first kill only.",
   RULE_RUN = "Dungeon runs",
   HOW_RUN = "a run with at least one boss you never killed before. At max level only bosses in Blackrock Spire, Blackrock Depths, Scholomance, Stratholme and Dire Maul count as new.",
@@ -102,6 +102,8 @@ local L = {
   STEP_SEAL = "the Seal of Ascension (key to Upper Blackrock Spire)",
   STEP_ORB = "Blackhand's Command (the orb behind General Drakkisath)",
   HOME_FEED = "New in the Chronicle",
+
+  LOOT_QUEST = "%s  (quest reward)",
 }
 
 local deDE = {
@@ -162,7 +164,7 @@ local deDE = {
   OPT_CHAT_ALL = "Auch Berufe", OPT_ECHO = "Auch meine eigenen Highlights",
   OPT_RULES_H = "Was zählt",
   RULE_LOOT = "Beute",
-  HOW_LOOT = "Gegenstände ab Qualität %s, die du erbeutest oder herstellst. Mit (erhalten), wenn einer auf anderem Weg in deine Taschen kommt: Post, Handel, Auktionshaus oder Questbelohnung. Mit (gesehen von X), wenn ein Gildenmitglied ohne Ravenquill einen in deiner Gruppe erbeutet und X das meldet.",
+  HOW_LOOT = "Gegenstände ab Qualität %s, die du erbeutest, herstellst oder als Questbelohnung bekommst. Nicht, was per Post, Handel oder Auktionshaus in deine Taschen kommt. Mit (gesehen von X), wenn ein Gildenmitglied ohne Ravenquill einen in deiner Gruppe erbeutet und X das meldet.",
   RULE_WORLD_BOSS = "Weltbosse", HOW_WORLD_BOSS = "Bosse außerhalb von Dungeons und Schlachtzügen, nur der erste Kill.",
   RULE_RUN = "Dungeon-Läufe",
   HOW_RUN = "ein Lauf mit mindestens einem Boss, den du noch nie besiegt hast. Auf Höchststufe zählen nur Bosse in der Schwarzfelsspitze, den Schwarzfelstiefen, Scholomance, Stratholme und Düsterbruch als neu.",
@@ -204,6 +206,8 @@ local deDE = {
   STEP_SEAL = "Siegel des Aufstiegs (Schlüssel zur Oberen Schwarzfelsspitze)",
   STEP_ORB = "Schwarzfausts Befehl (die Kugel hinter General Drakkisath)",
   HOME_FEED = "Neu in der Chronik",
+
+  LOOT_QUEST = "%s  (Questbelohnung)",
 }
 
 ns.Locales = { enUS = L, deDE = deDE }

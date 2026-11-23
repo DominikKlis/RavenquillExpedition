@@ -25,7 +25,8 @@ H.KINDS = {
     code = "l", chat = true, icon = "INV_Misc_Bag_08",
     format = function(self, e)
       local count = (e.n or 1) > 1 and ("x" .. e.n) or ""
-      local text = (e.src == "bag" and L.LOOT_GOT) or (e.src == "craft" and L.LOOT_CRAFTED) or L.LOOT
+      local text = (e.src == "bag" and L.LOOT_GOT) or (e.src == "craft" and L.LOOT_CRAFTED) or (e.src == "quest" and L.LOOT_QUEST)
+        or L.LOOT
       return text:format(self:ItemText(e) .. count)
     end,
   },

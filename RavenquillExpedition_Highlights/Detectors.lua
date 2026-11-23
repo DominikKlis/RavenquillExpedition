@@ -117,13 +117,21 @@ local function OnEquipmentChanged(slot)
   if ownedSeeded and IS_GEAR[slot] then MarkOwned(WornItem(slot)) end
 end
 
-local bankOpen = false
+H.QUEST_REWARD_WINDOW = 10
+local bankOpen, questRewardUntil = false, -math.huge
+
+local function NewEpicInBags(link, q, id, reward)
+  if reward then return H:Add(Own("loot", { item = id, link = link, q = q, src = "quest" }), "self") end
+  H:Activity(Act("loot", { item = id, link = link, q = q, src = "bag" }))
+end
+
 local function ScanBagsForEpics()
   if not ownedSeeded then return end
+  local reward = GetTime() <= questRewardUntil
   EachItem(BagList(), function(link, q, id)
     if not id or H.cdb.ownedEpics[id] then return end
     MarkOwned(id)
-    if not bankOpen and (q or 0) >= H.LOOT_QUALITY then H:Add(Own("loot", { item = id, link = link, q = q, src = "bag" }), "self") end
+    if not bankOpen and (q or 0) >= H.LOOT_QUALITY then NewEpicInBags(link, q, id, reward) end
   end)
 end
 
@@ -239,6 +247,7 @@ do
   end
 
   OnQuestTurnedIn = function(qid)
+    questRewardUntil = GetTime() + H.QUEST_REWARD_WINDOW
     qid = Plain(qid, "number")
     if not (qid and H.ATTUNEMENT_QUESTS[qid]) or H.cdb.quests[qid] then return end
     H.cdb.quests[qid] = true

@@ -214,9 +214,22 @@ check(GS.Comm.foreign == 1 and math.abs(GS.Comm.tokens - (CC.BURST - 1)) < 0.01,
 
 local n = count()
 G.bags[0][3] = 304; fire("BAG_UPDATE_DELAYED"); advance(2)
-check(count() == n + 1 and last().k == "loot" and last().src == "bag" and last().item == 304, "new epic in the bags logged")
+local mailed = H.cdb.activity[#H.cdb.activity]
+check(count() == n and mailed and mailed.k == "loot" and mailed.item == 304 and mailed.src == "bag",
+  "an epic that arrives by mail, trade or auction is only an activity, not a highlight")
+G.items[311] = { name = "Lila Belohnung", q = 4, il = 45 }
+fire("QUEST_TURNED_IN", 5000, 100, 10)
+G.bags[0][7] = 311; fire("BAG_UPDATE_DELAYED"); advance(2)
+check(count() == n + 1 and last().k == "loot" and last().src == "quest" and last().item == 311
+  and H:Format(last()):find("(Questbelohnung)", 1, true), "an epic quest reward is a loot highlight, marked as quest reward")
+local reward = H.Decode("Me Smith", H.Encode(last()))
+check(reward and reward.src == "quest", "the quest reward source survives the wire")
 fire("BAG_UPDATE_DELAYED"); advance(2)
 check(count() == n + 1, "the same epic is not logged twice")
+G.items[312] = { name = "Lila Spätpost", q = 4, il = 45 }
+advance(H.QUEST_REWARD_WINDOW)
+G.bags[0][8] = 312; fire("BAG_UPDATE_DELAYED"); advance(2)
+check(count() == n + 1, "an epic that arrives later than the quest window is mail again, no highlight")
 fire("CHAT_MSG_LOOT", "Ihr erhaltet Beute: " .. link(305) .. ".", "Me Smith")
 G.bags[0][4] = 305; fire("BAG_UPDATE_DELAYED"); advance(2)
 check(count() == n + 2 and last().src == nil, "loot line + bag update = one entry")
