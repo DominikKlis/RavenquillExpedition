@@ -1,5 +1,7 @@
 local DEV = (arg[0]:gsub("[^/\\]*$", ""))
 local Kit = dofile(DEV .. "../../RavenquillExpedition/dev/testkit.lua")
+local Layout = dofile(DEV .. "layout.lua")
+local SMF = dofile(DEV .. "smf.lua")
 local check, section = Kit.check, Kit.section
 local HL = "RavenquillExpedition_Highlights"
 
@@ -47,6 +49,11 @@ local function World()
         cl.frameMethods.AddMessage = function(s, m, r, g, b) s._lines = s._lines or {}; s._lines[#s._lines + 1] = { m, r, g, b } end
         cl.frameMethods.Clear = function(s) s._lines = {} end
         Stubs(cl, env)
+        if opts.screen then
+          Layout.Install(cl)
+          Layout.Pin(env.UIParent, 0, 0, 1920, 1080)
+          SMF.Install(cl)
+        end
       end })
     c.H = c.ns[HL].H
     if opts.rank then bus:setRank(name, opts.rank) end
@@ -345,6 +352,101 @@ do
   w.bus:member("Bodo Kesselring", "PALADIN", 60)
   lyra.H:Add(late, "wire")
   check(Count(lyra.H:Log(), OfKind("first")) == 1, "a later claim to be first at 60 is not stored")
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
+local function Under(root, r)
+  while r do
+    if r == root then return true end
+    r = r._parent
+  end
+  return false
+end
+
+local function GoldBoxes(c, root)
+  local out = {}
+  for _, r in ipairs(c.regions) do
+    local color = r._type == "Texture" and r._shown and Under(root, r) and r._color
+    local rect = color and color[1] == 1 and color[2] == 0.82 and color[3] == 0 and Layout.Rect(r)
+    if rect and rect.width > 2 and rect.height > 2 then out[#out + 1] = rect end
+  end
+  return out
+end
+
+local function Around(box, line)
+  return box.left <= line.left and box.right >= line.right and box.top >= line.top and box.bottom <= line.bottom
+    and box.top - line.top <= 2 and line.bottom - box.bottom <= 2
+end
+
+local function Boxed(c, page)
+  local msg = page.msg
+  SMF.Tick(msg)
+  local boxes, rows = GoldBoxes(c, page), {}
+  for i, line in ipairs(msg.visibleLines) do
+    local rect = line._shown and line._text and Layout.Rect(line)
+    for _, box in ipairs(rect and boxes or {}) do
+      if Around(box, rect) then rows[#rows + 1] = (line._text:find("Erster in der Gilde", 1, true) and "gold" or "plain") .. "@" .. i end
+    end
+  end
+  return table.concat(rows, ","), #boxes
+end
+
+local function GoldLineAt(page)
+  for i, line in ipairs(page.msg.visibleLines) do
+    if line._shown and line._text and line._text:find("Erster in der Gilde", 1, true) then return i end
+  end
+  return nil
+end
+
+section("Erster in der Gilde: the chronicle draws a gold box behind the row, which follows it while scrolling, resizing and filtering")
+do
+  local w = World()
+  local alex, lyra = w.join("Alex Morgenrot", { level = 59 }), w.join("Lyra Distelbach", { level = 40, screen = true })
+  w.bus:member("Bodo Kesselring", "PALADIN", 40)
+  w.start()
+  alex.fire("PLAYER_LEVEL_UP", 60)
+  w.settle(120)
+  for i = 1, 6 do
+    local t = lyra.env.time() - 60 + i
+    lyra.H:Add({ k = "level", t = t, who = "Bodo Kesselring", lvl = 40 + i, id = ("Bodo Kesselring#%d#%d"):format(t, i) }, "wire")
+  end
+  lyra.H:Activity({ k = "duel", foe = "Bodo Kesselring" })
+  lyra.H:Activity({ k = "duel", foe = "Bodo Kesselring" })
+  lyra.RQ:ShowModulePage("Highlights")
+  local page = lyra.env.RavenquillExpeditionOverview.optView.pages.Highlights
+  local msg = page.msg
+  Layout.Pin(page, 0, 0, 632, 400)
+  local rows, n = Boxed(lyra, page)
+  check(GoldLineAt(page) == 9 and rows == "gold@9" and n == 1, "the first in the guild has a gold box around its line, the eight newer lines none ("
+    .. rows .. ", " .. n .. " boxes, gold line " .. tostring(GoldLineAt(page)) .. ")")
+  local wheel = msg:GetScript("OnMouseWheel")
+  lyra.env.IsShiftKeyDown = function() return false end
+  wheel(msg, 1)
+  rows, n = Boxed(lyra, page)
+  check(GoldLineAt(page) == 6 and rows == "gold@6" and n == 1, "the wheel scrolls up three lines: the box moves down with its line ("
+    .. rows .. ", gold line " .. tostring(GoldLineAt(page)) .. ")")
+  wheel(msg, 1); wheel(msg, 1)
+  rows, n = Boxed(lyra, page)
+  check(GoldLineAt(page) == nil and rows == "" and n == 0, "scrolled past it, the line is off the screen and so is its box (" .. n .. " boxes)")
+  lyra.env.IsShiftKeyDown = function() return true end
+  wheel(msg, -1)
+  lyra.env.IsShiftKeyDown = function() return false end
+  rows, n = Boxed(lyra, page)
+  check(rows == "gold@9" and n == 1, "shift and the wheel jump back to the bottom: the box is back on its line (" .. rows .. ")")
+  local t = lyra.env.time()
+  lyra.H:Add({ k = "level", t = t, who = "Bodo Kesselring", lvl = 50, id = ("Bodo Kesselring#%d#9"):format(t) }, "wire")
+  w.settle(1)
+  rows, n = Boxed(lyra, page)
+  check(rows == "gold@10" and n == 1, "a new entry pushes the line up one: the box goes with it (" .. rows .. ")")
+  local before = #msg.visibleLines
+  Layout.Pin(page, 0, 0, 632, 250)
+  rows, n = Boxed(lyra, page)
+  check(#msg.visibleLines < before and rows == "gold@10" and n == 1, "a smaller window lays out new lines: the box finds its line again ("
+    .. rows .. ", " .. #msg.visibleLines .. " lines)")
+  page.onlyHL:SetChecked(true)
+  page.onlyHL:GetScript("OnClick")(page.onlyHL)
+  rows, n = Boxed(lyra, page)
+  check(rows == "gold@8" and n == 1, "'Nur Highlights' drops the two duels below it: the box moves down with its line (" .. rows .. ")")
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
