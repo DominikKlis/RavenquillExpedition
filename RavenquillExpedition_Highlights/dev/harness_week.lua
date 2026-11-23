@@ -317,6 +317,72 @@ do
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
+local function StoryTexts(story)
+  local out = { story.kicker or "", story.head or "", story.dek or "", story.caption or "" }
+  for _, p in ipairs(story.body or {}) do out[#out + 1] = p end
+  return out
+end
+
+local function Stories(issue)
+  local out = { issue.lead, issue.second }
+  for _, s in ipairs(issue.extra) do out[#out + 1] = s end
+  return out
+end
+
+local function Misdated(issue, weekdayOf, clock, on)
+  for _, s in ipairs(Stories(issue)) do
+    local phrase = weekdayOf[s.id] and on .. " " .. weekdayOf[s.id]
+    for _, text in ipairs(StoryTexts(s)) do
+      local at, named = text:find(clock), select(2, text:gsub(clock .. " " .. on .. " ", ""))
+      local right = not at or (phrase and named == 1 and text:find(clock .. " " .. phrase) == at) or (not phrase and named == 0)
+      if not right then return text end
+    end
+  end
+end
+
+local function Saying(issue, words)
+  for _, s in ipairs(Stories(issue)) do
+    for _, text in ipairs(StoryTexts(s)) do
+      for _, word in ipairs(words) do if text:lower():find(word:lower(), 1, true) then return text end end
+    end
+  end
+end
+
+Kit.section("Sunday edition: a story from earlier in the week names its day once at its first time, and never says today")
+do
+  local _, _, paper = Paper(BIG_FRIDAY)
+  local issue = paper.issue
+  check(issue.lead.dek == "Um 21:20 Uhr am Freitag war es so weit.", "Friday's first at 60: " .. tostring(issue.lead.dek))
+  local weekdayOf = { [ALEX_FIRST.id] = "Freitag", [BIG_FRIDAY[1].id] = "Montag", [BIG_FRIDAY[2].id] = "Donnerstag" }
+  local bad = Misdated(issue, weekdayOf, "%d+:%d%d Uhr", "am")
+  check(bad == nil, "every earlier story names its weekday once, at its first time; Sunday's own stories name none (" .. tostring(bad) .. ")")
+  local stale = Saying(issue, { "heute", "des Tages" })
+  check(stale == nil, "no earlier story says 'heute' or 'des Tages' (" .. tostring(stale) .. ")")
+  local en, _, ep = Paper(BIG_FRIDAY, "enUS")
+  check(ep.issue.lead.dek == "At 21:20 on Friday it was done.", "English: " .. tostring(ep.issue.lead.dek))
+  local enBad = Misdated(ep.issue, { [ALEX_FIRST.id] = "Friday", [BIG_FRIDAY[1].id] = "Monday", [BIG_FRIDAY[2].id] = "Thursday" },
+    "%d+:%d%d", "on") or Saying(ep.issue, { "today", "of the day" })
+  check(enBad == nil, "English: every earlier story names its weekday, none says today (" .. tostring(enBad) .. ")")
+  check(#en.errors == 0, "no Lua errors (" .. tostring(en.errors[1]) .. ")")
+end
+
+Kit.section("Sunday edition: two guildmates at 60 on Friday lead without 'heute', Friday's own issue still says it")
+do
+  local c, f, paper = Paper({
+    E("loot", "Rika Steinbeck", At(19, 20), { item = 5001, q = 4, lvl = 45 }),
+    E("level", "Alex Morgenrot", At(20, 20, 10), { lvl = 60 }),
+    E("level", "Bodo Kesselring", At(20, 21, 0), { lvl = 60 }),
+    E("mount", "Hanne Moosgrund", At(22, 12), { lvl = 40 }),
+  })
+  check(paper.issue.lead.kind == "levelmax" and Saying(paper.issue, { "heute" }) == nil,
+    "the Sunday lead is Friday's level 60 and says no 'heute' (" .. tostring(Saying(paper.issue, { "heute" })) .. ")")
+  f.prev:GetScript("OnClick")(f.prev)
+  check(f.issueLabel:GetText() == "Ausgabe vom 20. November"
+    and paper.issue.lead.dek == "Gleich zwei aus der Gilde erreichten heute die Höchststufe.",
+    "Friday's own issue keeps its words (" .. tostring(paper.issue.lead.dek) .. ")")
+  check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
+end
+
 local function Offenders(c, paper, texts)
   local pr, out = R(paper), {}
   for _, fs in ipairs(texts or Layout.Texts(c, paper)) do
