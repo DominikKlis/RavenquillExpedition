@@ -51,7 +51,7 @@ K.ready = {
 }
 
 K.first = {
-  kicker = { "A first for the guild", "Never before", "{?lvl}Ahead of everyone" },
+  kicker = { "A first for the guild", "Never before", "{?lvl}Ahead of everyone", "{?boss}New ground" },
   head = { "{?lvl}A first for the guild: {name} reaches level {lvl}", "{?lvl}Ahead of everyone: {name} at level {lvl}",
     "{?boss}A first for the guild: {boss} defeated", "{?boss}{boss} falls for the first time",
     "{?boss}{inst}: {boss} falls for the first time", "{!lvl}{!boss}A first for the guild" },

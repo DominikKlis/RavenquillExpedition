@@ -54,7 +54,7 @@ K.ready = {
 }
 
 K.first = {
-  kicker = { "Gildenpremiere", "Zum ersten Mal", "{?lvl}Vor allen anderen" },
+  kicker = { "Gildenpremiere", "Zum ersten Mal", "{?lvl}Vor allen anderen", "{?boss}Neuland" },
   head = { "{?lvl}Gildenpremiere: {name} erreicht Stufe {lvl}", "{?lvl}Vor allen anderen: {name} auf Stufe {lvl}",
     "{?boss}Gildenpremiere: {boss} besiegt", "{?boss}{boss} fällt zum ersten Mal", "{?boss}{inst}: {boss} fällt zum ersten Mal",
     "{!lvl}{!boss}Eine Premiere für die Gilde" },
