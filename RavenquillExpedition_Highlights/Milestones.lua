@@ -10,6 +10,7 @@ H.MOUNT_TIER_LEVEL = { 40, 60 }
 H.REP_MILESTONE = 8
 H.SKILL_TOP = 300
 H.DUEL_EVERY = 86400
+H.PVP_FIRST_RANK_INDEX = 5
 
 local function Store(key)
   local t = H.cdb[key]
@@ -49,6 +50,24 @@ local function CurrentStandings()
   return out
 end
 
+local function CurrentPvpRank()
+  if not (UnitPVPRank and GetPVPRankInfo) then return end
+  local index = Plain(SafeCall(UnitPVPRank, "player"), "number")
+  if not index then return end
+  if index < H.PVP_FIRST_RANK_INDEX then return 0 end
+  local name, number = SafeCall(GetPVPRankInfo, index, "player")
+  return Plain(number, "number") or index - H.PVP_FIRST_RANK_INDEX + 1, Plain(name, "string")
+end
+
+local function CheckPvpRank()
+  local number, name = CurrentPvpRank()
+  if not number then return end
+  local had = H.cdb.pvpRank
+  if had ~= nil and number <= had then return end
+  H.cdb.pvpRank = number
+  if had ~= nil then Report("pvp", { pk = "rank", pr = number, name = name }, true) end
+end
+
 local mountRecordMadeNow = false
 
 function H:SeedMilestones()
@@ -57,6 +76,7 @@ function H:SeedMilestones()
     mountRecordMadeNow = true
   end
   if type(self.cdb.reps) ~= "table" then self.cdb.reps = CurrentStandings() end
+  CheckPvpRank()
 end
 
 function H:EndMountSeeding()
@@ -167,29 +187,14 @@ local function OnSkill(text)
   Report("skill", { skill = name, rank = rank }, true)
 end
 
-local bgReported = false
-local FACTION_WINNER = { Horde = 0, Alliance = 1 }
-local function OnBattlefieldScore()
-  local winner = Plain(SafeCall(GetBattlefieldWinner), "number")
-  if not winner then bgReported = false return end
-  if bgReported then return end
-  bgReported = true
-  if winner ~= FACTION_WINNER[Plain(SafeCall(UnitFactionGroup, "player"), "string") or ""] then return end
-  local bg = Plain(SafeCall(GetInstanceInfo), "string") or "?"
-  local wins = Store("bgWins")
-  local first = not wins[bg]
-  wins[bg] = (wins[bg] or 0) + 1
-  Report("pvp", { pk = "win", name = bg }, first)
-end
-
 local HANDLERS = {
   UNIT_AURA = OnAura,
   CHAT_MSG_SYSTEM = OnSystem,
   CHAT_MSG_COMBAT_FACTION_CHANGE = OnSystem,
   CHAT_MSG_SKILL = OnSkill,
-  UPDATE_BATTLEFIELD_SCORE = OnBattlefieldScore,
+  PLAYER_PVP_RANK_CHANGED = CheckPvpRank,
 }
-local NOISY = { UNIT_AURA = true, CHAT_MSG_SYSTEM = true, UPDATE_BATTLEFIELD_SCORE = true }
+local NOISY = { UNIT_AURA = true, CHAT_MSG_SYSTEM = true }
 
 for event, handle in pairs(HANDLERS) do
   H:RegisterEvent(event, function(_, ...)

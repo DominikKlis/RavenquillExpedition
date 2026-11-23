@@ -977,20 +977,27 @@ do
 end
 
 do
-  local winner = nil
+  local index = 0
+  local RANKS = { [5] = "Gefreiter", [6] = "Fußknecht", [7] = "Landsknecht" }
+  env.UnitPVPRank = function() return index end
+  env.GetPVPRankInfo = function(i) return RANKS[i], i - 4 end
   env.UnitFactionGroup = function() return "Alliance" end
-  env.GetBattlefieldWinner = function() return winner end
-  local before = count() - 1
+  env.GetBattlefieldWinner = function() return 1 end
+  local before = count()
   G.instName = "Kriegshymnenschlucht"
-  fire("UPDATE_BATTLEFIELD_SCORE")
-  winner = 1
   fire("UPDATE_BATTLEFIELD_SCORE"); fire("UPDATE_BATTLEFIELD_SCORE")
-  check(count() == before + 2 and newest().pk == "win" and newest().name == "Kriegshymnenschlucht",
-    "the first win in a battleground is a highlight, reported once")
-  winner = nil; fire("UPDATE_BATTLEFIELD_SCORE"); winner = 1; fire("UPDATE_BATTLEFIELD_SCORE")
-  winner = nil; fire("UPDATE_BATTLEFIELD_SCORE"); winner = 0; fire("UPDATE_BATTLEFIELD_SCORE")
-  check(count() == before + 2 and H.cdb.bgWins["Kriegshymnenschlucht"] == 2, "later wins and losses are no highlights")
   G.instName = "Westfall"
+  check(count() == before, "a battleground win is no highlight any more")
+  fire("PLAYER_PVP_RANK_CHANGED")
+  check(count() == before and H.cdb.pvpRank == 0, "without a rank there is nothing to report")
+  index = 5; fire("PLAYER_PVP_RANK_CHANGED"); fire("PLAYER_PVP_RANK_CHANGED")
+  check(count() == before + 1 and newest().pk == "rank" and newest().pr == 1 and newest().name == "Gefreiter",
+    "the first PvP rank is a highlight, reported once")
+  check(H:Format(newest()):find("PvP-Rang 1 (Gefreiter)", 1, true), "its line names the rank number and title")
+  index = 7; fire("PLAYER_PVP_RANK_CHANGED")
+  check(count() == before + 2 and newest().pr == 3, "a higher rank is a highlight")
+  index = 6; fire("PLAYER_PVP_RANK_CHANGED"); index = 7; fire("PLAYER_PVP_RANK_CHANGED")
+  check(count() == before + 2, "losing a rank and gaining it back is not news")
 end
 
 do
@@ -1254,6 +1261,24 @@ do
   check(Kinds(c, "rep") == seen + 1, "honored before the install: exalted is a highlight")
   LogOut(c)
   G.factions = {}
+end
+
+Kit.section("A PvP rank the character had at install is not news; the next one is")
+do
+  local index = 7
+  local c = Character()
+  c.env.UnitPVPRank = function() return index end
+  c.env.GetPVPRankInfo = function(i) return "Rang " .. (i - 4), i - 4 end
+  c.login(); advance(5)
+  check(Kinds(c, "pvp") == 0 and c.H.cdb.pvpRank == 3, "rank 3 at install: no highlight, the record starts there")
+  local saved = LogOut(c)
+  index = 8
+  local later = Reload(saved); advance(5)
+  later.env.UnitPVPRank = function() return index end
+  later.env.GetPVPRankInfo = function(i) return "Rang " .. (i - 4), i - 4 end
+  later.fire("PLAYER_PVP_RANK_CHANGED")
+  check(Kinds(later, "pvp") == 1 and later.H.cdb.pvpRank == 4, "rank 4 after a relog is a highlight")
+  LogOut(later)
 end
 
 Kit.section("New since you last looked: guildies' entries count, your own never do")
