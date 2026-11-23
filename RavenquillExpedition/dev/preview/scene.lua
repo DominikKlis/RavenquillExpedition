@@ -214,6 +214,8 @@ function Data.Highlights(NK)
     E("boss", "Alex Morgenrot", At(19, 23, 5), { enc = 1100, boss = "Azuregos", inst = "Azshara", first = true, cls = "WARRIOR" }),
     E("skill", "Bodo Kesselring", At(19, 23, 20), { skill = "Blacksmithing", rank = 300 }),
     E("clear", "Rika Steinbeck", At(20, 1, 40), { enc = 672, inst = "Geschmolzener Kern", n = 10, grp = true }),
+    E("first", "Rika Steinbeck", At(20, 21, 20), { what = "boss", enc = 1084, boss = "Onyxia", inst = "Onyxias Hort", n = 12,
+      grp = true }),
   }) do list[#list + 1] = e end
   return list
 end

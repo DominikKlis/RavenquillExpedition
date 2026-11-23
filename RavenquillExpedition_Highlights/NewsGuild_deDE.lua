@@ -63,6 +63,8 @@ K.first = {
   body = { "{?lvl}Um {time} Uhr meldete das Gildenbuch Stufe {lvl}. Noch nie war jemand aus der Gilde so weit gekommen.",
     "{?boss}Um {time} Uhr fiel {boss}. Ein Sieg, den es in der Gilde vorher nicht gab.",
     "Um {time} Uhr war es so weit. Ein Tag, den sich die Gilde merken wird.",
+    "{?boss}Einen solchen Sieg gab es in der Gilde vorher nicht. Wer dabei war, wird noch lange davon erzählen.",
+    "{?lvl}Noch nie war jemand aus der Gilde so weit gekommen. Ab jetzt zählt nur noch die Ausrüstung.",
     "{?night}Die Premiere kam {night}. Für Geschichte gibt es offenbar keine Sperrstunde." },
   detail = { "Um {time} Uhr war es so weit.", "{grp} aus der Gilde standen im Aufgebot.", "Schauplatz war {inst}." },
   more = { "Die Redaktion gratuliert und verneigt sich.", "{!sure}Die anderen dürften bald folgen.",

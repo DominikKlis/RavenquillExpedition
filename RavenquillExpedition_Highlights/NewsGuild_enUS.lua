@@ -60,6 +60,8 @@ K.first = {
   body = { "{?lvl}At {time} the guild book noted level {lvl}. Nobody from the guild had ever come this far.",
     "{?boss}{boss} fell at {time}. A victory the guild had never had before.",
     "At {time} it was done. A day the guild will remember.",
+    "{?boss}The guild had never won such a fight before. Whoever was there will tell the story for a long time.",
+    "{?lvl}Nobody from the guild had ever come this far. From now on, only the gear counts.",
     "{?night}The first came {night}. History, it seems, keeps no closing time." },
   detail = { "At {time} it was done.", "{grp} from the guild were on the roster.", "The scene: {inst}." },
   more = { "The editors congratulate and take a bow.", "{!sure}The others will probably follow soon.",
