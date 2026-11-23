@@ -320,7 +320,7 @@ function UI.ToggleSetting(key)
   return on
 end
 
-UI.FILTER_W, UI.FILTER_H = 110, 18
+UI.FILTER_W, UI.FILTER_H = 112, 18
 local function SettingOn(key)
   local s = GCA.db and GCA.db.settings or {}
   return s[key] and true or false

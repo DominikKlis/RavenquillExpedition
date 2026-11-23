@@ -224,9 +224,9 @@ do
   section("Window: K6 Filter dropdowns (L5 toggles), whisper editor (U2), help (U6)")
   local fb, mf = UIx.filterButton, UIx.memberFilter
   check(UIx.optionsButton == nil and UIx.optionsPopup == nil and fb.native and mf.native and fb._template == "WowStyle1DropdownTemplate"
-    and mf._template == "WowStyle1DropdownTemplate" and fb._w == 110 and fb._h == 18 and UIx.filterPopup == nil
+    and mf._template == "WowStyle1DropdownTemplate" and fb._w == 112 and fb._h == 18 and UIx.filterPopup == nil
     and fb._override == "By member" and mf._override == "By member",
-    "no Options button/popup; two native dropdowns (needs bar + member list), 110x18, naming the scope 'By member'")
+    "no Options button/popup; two native dropdowns (needs bar + member list), 112x18, naming the scope 'By member'")
   check(mf._points[1][1] == "TOPRIGHT" and mf._points[1][2] == UIx.memberInset and mf._points[1][4] == -8 and mf._points[1][5] == -9,
     "member list Filter at TOPRIGHT -8,-9 of its panel (the recipe list's own spot)")
   check(UIx.survival._parent == f.content and not UIx.survival._shown and UIx.helpButton == nil,
