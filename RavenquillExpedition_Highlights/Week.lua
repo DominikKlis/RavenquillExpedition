@@ -5,6 +5,22 @@ News.HONOR_MAX, News.DAY = 3, 86400
 
 function News.DayOf(t) return date("%Y-%m-%d", t) end
 
+function News.Days(entries, dayOf)
+  local byDay, days = {}, {}
+  for _, e in ipairs(entries) do
+    local day = dayOf(e.t)
+    local rec = byDay[day]
+    if not rec then
+      rec = { day = day, entries = {} }
+      byDay[day], days[#days + 1] = rec, rec
+    end
+    rec.entries[#rec.entries + 1] = e
+  end
+  table.sort(days, function(a, b) return a.day < b.day end)
+  for i, rec in ipairs(days) do rec.no = i end
+  return days
+end
+
 function News.Sunday(t)
   local d = date("*t", t)
   if d.wday ~= 1 then return nil end
@@ -159,6 +175,49 @@ local function AllEntries(days)
     for _, e in ipairs(rec.entries) do out[#out + 1] = e end
   end
   return out
+end
+
+local function Without(groups, a, b)
+  local out = {}
+  for _, g in ipairs(groups) do if g ~= a and g ~= b then out[#out + 1] = g end end
+  return out
+end
+
+local function InBrief(issue, groups, told, T, ctx, desk)
+  local shown = {}
+  for _, g in ipairs(groups) do
+    if #shown < News.BRIEF_MAX then shown[#shown + 1] = g else issue.more = issue.more + 1 end
+  end
+  table.sort(shown, function(a, b) return News.Earlier(a.first, b.first) end)
+  for i, g in ipairs(shown) do issue.brief[i] = News.Brief(g, T, ctx, not told[g] and desk or nil, not told[shown[i - 1]] and shown[i - 1] or nil) end
+end
+
+local function Ranked(week, day, own, ctx)
+  local all = {}
+  for _, d in ipairs(week) do
+    for _, g in ipairs(d == day and own or News.Groups(d.entries, ctx)) do all[#all + 1] = g end
+  end
+  table.sort(all, News.Ahead)
+  return all
+end
+
+local function OnPaper(ctx, day)
+  local out = {}
+  for k, v in pairs(ctx) do out[k] = v end
+  out.day = day
+  return out
+end
+
+function News.Issue(day, T, ctx, week)
+  if week then ctx = OnPaper(ctx, day.day) end
+  local own, desk, told = News.Groups(day.entries, ctx), News.Desk(T), {}
+  local groups = week and Ranked(week, day, own, ctx) or own
+  local issue = { day = day.day, no = day.no, t = day.entries[1] and day.entries[1].t, brief = {}, more = 0, extra = {} }
+  issue.lead = groups[1] and News.Story(groups[1], T, ctx, desk, true)
+  issue.second = groups[2] and News.Story(groups[2], T, ctx, desk)
+  for i = 3, math.min(#groups, 2 + News.EXTRA_MAX) do issue.extra[#issue.extra + 1], told[groups[i]] = News.Story(groups[i], T, ctx, desk), true end
+  InBrief(issue, Without(own, groups[1], groups[2]), told, T, ctx, desk)
+  return issue
 end
 
 local function WeekOf(days, i)
