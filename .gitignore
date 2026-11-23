@@ -20,3 +20,5 @@ CLAUDE.md
 !/CLAUDE.md
 
 /RavenquillExpedition/dev/release/
+
+__pycache__/
