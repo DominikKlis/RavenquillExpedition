@@ -948,12 +948,14 @@ do
   fire("CHAT_MSG_SYSTEM", "Ihr seid jetzt Wohlwollend bei Argentumdämmerung.")
   check(count() == before, "honored is no reputation highlight")
   fire("CHAT_MSG_COMBAT_FACTION_CHANGE", "Ihr seid jetzt Respektvoll bei Argentumdämmerung.")
+  check(count() == before, "revered is no reputation highlight any more")
+  fire("CHAT_MSG_SYSTEM", "Ihr seid jetzt Ehrfürchtig bei Argentumdämmerung.")
   local rep = newest()
-  check(count() == before + 1 and rep.k == "rep" and rep.st == 7 and rep.fac == "Argentumdämmerung", "revered is a highlight")
-  check(H:Format(rep):find("Respektvoll bei", 1, true), "the reputation line names the standing and the faction")
+  check(count() == before + 1 and rep.k == "rep" and rep.st == 8 and rep.fac == "Argentumdämmerung", "exalted is a highlight")
+  check(H:Format(rep):find("Ehrfürchtig bei", 1, true), "the reputation line names the standing and the faction")
   fire("CHAT_MSG_SYSTEM", "Ihr seid jetzt Respektvoll bei Argentumdämmerung.")
   fire("CHAT_MSG_SYSTEM", "Ihr seid jetzt Ehrfürchtig bei Argentumdämmerung.")
-  check(count() == before + 2 and newest().st == 8, "the same standing counts once, exalted counts again")
+  check(count() == before + 1, "exalted counts once per faction, also after dropping and coming back")
 end
 
 do
@@ -1245,7 +1247,9 @@ do
   check(Kinds(c, "rep") == seen, "exalted before the install: dropping to revered and coming back is not news")
   seen = Kinds(c, "rep")
   c.fire("CHAT_MSG_COMBAT_FACTION_CHANGE", "Ihr seid jetzt Respektvoll bei Darnassus.")
-  check(Kinds(c, "rep") == seen + 1, "honored before the install: revered is a highlight")
+  check(Kinds(c, "rep") == seen, "honored before the install: revered is no highlight")
+  c.fire("CHAT_MSG_COMBAT_FACTION_CHANGE", "Ihr seid jetzt Ehrfürchtig bei Darnassus.")
+  check(Kinds(c, "rep") == seen + 1, "honored before the install: exalted is a highlight")
   LogOut(c)
   G.factions = {}
 end

@@ -7,7 +7,7 @@ local Own, Act, MyLevel, Diag = ns.Own, ns.Act, ns.MyLevel, ns.Diag
 H.EPIC_MOUNT_SPEED = 13
 H.MOUNT_MIN_SPEED = 7.5
 H.MOUNT_TIER_LEVEL = { 40, 60 }
-H.REP_MILESTONE = 7
+H.REP_MILESTONE = 8
 H.SKILL_FROM, H.SKILL_STEP = 150, 75
 H.DUEL_EVERY = 86400
 
