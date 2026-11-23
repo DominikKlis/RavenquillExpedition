@@ -3,6 +3,7 @@ if HERE == "" then HERE = "./" end
 local REPO = HERE .. "../../../"
 local Kit = dofile(REPO .. "RavenquillExpedition/dev/testkit.lua")
 local Layout = dofile(REPO .. "RavenquillExpedition_Highlights/dev/layout.lua")
+local SMF = dofile(REPO .. "RavenquillExpedition_Highlights/dev/smf.lua")
 local Json = dofile(HERE .. "json.lua")
 
 local SCREEN_W, SCREEN_H = 1920, 1080
@@ -261,6 +262,7 @@ local function Install(c, env)
   env.UIParent._shown = true
   local base = c.newFrame
   c.newFrame = function(otype, name, parent, template) return Templated(c, base, otype, name, parent, template) end
+  SMF.Install(c)
   local fm = c.frameMethods
   local createFS = fm.CreateFontString
   fm.CreateFontString = function(s, name, layer, fontObj)
@@ -299,9 +301,7 @@ local function Install(c, env)
   fm.GetEffectiveScale = function() return 1 end
   fm.GetScale = function() return 1 end
   fm.SetScale = function(s, v) s._scale = v end
-  fm.AddMessage = function(s, m, r, g, b) s._lines = s._lines or {}; s._lines[#s._lines + 1] = { tostring(m), r, g, b } end
-  fm.Clear = function(s) s._lines = {} end
-  fm.GetNumMessages = function(s) return #(s._lines or {}) end
+  fm.SetClipsChildren = function(s, v) s._clips = v and true or nil end
   fm.SetDesaturated = function(s, v) s._desat = v end
   local setFont = fm.SetFont
   fm.SetFont = function(s, ...) s._fontExplicit = true; return setFont(s, ...) end
@@ -392,6 +392,7 @@ function Capture.AnchorX(s)
 end
 
 function Capture.Snapshot(c, root, id, title, notes)
+  SMF.TickAll(c)
   local kids = Children(c)
   local nodes, rootRect = {}, Solve.Rect(root)
   assert(rootRect, "root has no rect: " .. id)
@@ -405,7 +406,7 @@ function Capture.Snapshot(c, root, id, title, notes)
       text = Plain(f._text), font = f._fontObj, fontSize = Solve.FontSize(f), fontFile = f._fontFile and tostring(f._fontFile), justify = f._justify, ink = Color(f._ink),
       color = Color(f._color), atlas = f._atlas, file = Plain(f._file), tint = Color(f._tint), alpha = f._alpha,
       tc = f._tc, backdrop = f._backdrop and true or nil, bdColor = Color(f._bdColor), bdBorder = Color(f._bdBorder),
-      checked = f._checked, normal = f._normal, checkedTex = f._checkedTex, tile = f._tile, mask = f._mask, disabled = f._disabled, lines = f._lines, title = f._title,
+      checked = f._checked, normal = f._normal, checkedTex = f._checkedTex, tile = f._tile, mask = f._mask, disabled = f._disabled, clips = f._clips, title = f._title,
       click = f._scripts and (f._scripts.OnClick or f._scripts.OnMouseUp or f._scripts.OnMouseDown) and true or nil,
       enter = f._scripts and f._scripts.OnEnter and true or nil, maxLines = f._maxLines, boundW = Capture.BoundW(f), anchorX = Capture.AnchorX(f),
     }

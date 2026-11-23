@@ -602,26 +602,6 @@ class Renderer:
             self.fill([b[2] - 6 * SCALE, b[1], b[2] - 2 * SCALE, b[3]], (255, 255, 255, int(30 * a)), radius=2)
         elif n.get("type") in ("Button", "CheckButton") and n.get("text") and not role and not self.has_label(n):
             self.text(dict(n, justify=n.get("justify") or "CENTER"), b, a)
-        if n.get("lines"):
-            self.messages(n, b, a)
-
-    def messages(self, n, b, a):
-        size = n.get("fontSize") or 12
-        fnt = font(UI_FONT, size)
-        lh = size * 1.1 * SCALE
-        rows = []
-        for entry in n["lines"]:
-            text, ink = (entry[0], entry[1:4]) if isinstance(entry, list) else (entry, None)
-            node = {"text": text, "fontSize": size, "font": n.get("font") or "GameFontHighlightSmall", "justify": "LEFT",
-                    "justifyV": "TOP", "ink": ink if ink and ink[0] is not None else None}
-            count = max(1, len(wrap_runs(runs(text, (0, 0, 0, 0)), fnt, b[2] - b[0])))
-            rows.append((node, count))
-        total = sum(c for _, c in rows) * lh
-        y = b[1] if total <= b[3] - b[1] else b[3] - total
-        for node, count in rows:
-            if y >= b[1] - 1:
-                self.text(node, [b[0], y, b[2], y + count * lh], a)
-            y += count * lh
 
     def fallback_sidetabs(self, regions):
         for r in regions:
@@ -647,6 +627,8 @@ class Renderer:
                 self.boxes.append({"id": n["id"], "x": n["x"], "y": n["y"], "w": n["w"], "h": n["h"], "text": n.get("text")})
         if b:
             self.widget(n, b, a) if n.get("type") not in ("Texture", "FontString") else None
+        clips = b if b and n.get("clips") else None
+        unclipped = self.img.copy() if clips else None
         border_after = None
         for r in regions:
             rb = self.box(r)
@@ -670,9 +652,14 @@ class Renderer:
         for f in frames:
             self.draw(f)
         if before is not None:
-            mask = Image.new("L", self.img.size, 255)
-            ImageDraw.Draw(mask).rectangle([int(clip[0]), int(clip[1]), int(clip[2]), int(clip[3])], fill=0)
-            self.img.paste(before, (0, 0), mask)
+            self.keep_inside(before, clip)
+        if unclipped is not None:
+            self.keep_inside(unclipped, clips)
+
+    def keep_inside(self, before, b):
+        mask = Image.new("L", self.img.size, 255)
+        ImageDraw.Draw(mask).rectangle([int(b[0]), int(b[1]), int(b[2]), int(b[3])], fill=0)
+        self.img.paste(before, (0, 0), mask)
 
     def render(self, out):
         for root in self.kids.get(None, []):
