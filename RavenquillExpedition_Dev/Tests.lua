@@ -124,7 +124,7 @@ Dev.GAME_GLOBALS = {
   "GetItemStats", "GetLocale", "GetMaxPlayerLevel", "GetMoneyString", "GetNormalizedRealmName",
   "GetNumGroupMembers", "GetNumGuildMembers", "GetNumQuestLogEntries", "GetNumSubgroupMembers",
   "GetNumTradeSkills", "GetProfessionInfo", "GetProfessions", "GetQuestLogTitle", "GetQuestTagInfo",
-  "GetRealZoneText", "GetRealmName", "GetServerTime", "GetSpellInfo", "GetTime", "debugprofilestop", "GetTradeSkillItemLink",
+  "GetRealZoneText", "GetPhysicalScreenSize", "GetScreenHeight", "Screenshot", "GetRealmName", "GetServerTime", "GetSpellInfo", "GetTime", "debugprofilestop", "GetTradeSkillItemLink",
   "GetTradeSkillLine", "GetTradeSkillRecipeLink", "GuildRoster", "HANDSSLOT", "HBD_PINS_WORLDMAP_SHOW_WORLD",
   "HEADSLOT", "HandleModifiedItemClick", "ITEM_CLASSES_ALLOWED", "ITEM_QUALITY_COLORS", "ITEM_REQ_SKILL",
   "InCombatLockdown", "InspectFrame", "InspectUnit", "InviteUnit", "IsAddOnLoaded", "IsControlKeyDown", "IsInGuild", "IsInInstance", "IsInRaid",
@@ -798,3 +798,97 @@ Dev:Register("talents.probe", function(t)
   t:ok(true, "talent API probe ran (read the notes)")
   t:done()
 end, 10, { manual = true })
+
+local Shots = {}
+
+function Shots.HideAll()
+  if RQ:OverviewShown() then RQ:ToggleOverview() end
+  if RQ:OverviewShown() then RQ:ToggleOverview() end
+  for _, name in ipairs({ "RavenquillExpeditionHighlightsFrame", "RavenquillExpeditionCraftFrame", "RavenquillExpeditionCraftWhisperEditor" }) do
+    local f = rawget(_G, name)
+    if f and f:IsShown() then f:Hide() end
+  end
+  local craft = RQ:GetModule("Craft")
+  local inspect = craft and craft.UI and craft.UI.inspect
+  if inspect and inspect:IsShown() then inspect:Hide() end
+end
+
+function Shots.Overview(page, options)
+  return function()
+    if not RQ:OverviewShown() then RQ:ToggleOverview() end
+    if page == nil then RQ:ShowHome() elseif options then RQ:ShowModuleOptions(page) else RQ:ShowModulePage(page) end
+    return rawget(_G, "RavenquillExpeditionOverview")
+  end
+end
+
+function Shots.Paper()
+  local H = RQ:GetModule("Highlights")
+  H:ShowWindow()
+  return rawget(_G, "RavenquillExpeditionHighlightsFrame")
+end
+
+function Shots.Advisor(view, mode)
+  return function()
+    local craft = RQ:GetModule("Craft")
+    local f = rawget(_G, "RavenquillExpeditionCraftFrame")
+    if not (f and f:IsShown()) then craft:Open() end
+    craft.UI:SetView(view)
+    if mode then craft.UI:SetMemberMode(mode) end
+    return rawget(_G, "RavenquillExpeditionCraftFrame")
+  end
+end
+
+function Shots.Whisper()
+  local craft = RQ:GetModule("Craft")
+  craft.UI:OpenWhisperEditor()
+  return rawget(_G, "RavenquillExpeditionCraftWhisperEditor")
+end
+
+function Shots.Inspect()
+  local craft = RQ:GetModule("Craft")
+  local current = craft.UI.current
+  if not (current and craft:ShowInspect(current.key, "gear")) then return nil end
+  return craft.UI.inspect
+end
+
+Shots.STEPS = {
+  { "ov-home", Shots.Overview(nil) }, { "hl-log", Shots.Overview("Highlights") },
+  { "hl-set", Shots.Overview("Highlights", true) }, { "map-list", Shots.Overview("Map") },
+  { "map-set", Shots.Overview("Map", true) }, { "craft-page", Shots.Overview("Craft") },
+  { "craft-set", Shots.Overview("Craft", true) }, { "hl-paper", Shots.Paper },
+  { "ca-member", Shots.Advisor("member", "sheet") }, { "ca-member-list", Shots.Advisor("member", "list") },
+  { "ca-needs", Shots.Advisor("needs") }, { "ca-crafters", Shots.Advisor("crafters") },
+  { "ca-whisper", Shots.Whisper }, { "insp", Shots.Inspect },
+}
+
+function Shots.Rect(f)
+  local physW, physH = GetPhysicalScreenSize()
+  local world = GetScreenHeight() * UIParent:GetEffectiveScale()
+  return ("%.1f %.1f %.1f %.1f %.4f %d %d %.2f"):format(f:GetLeft() or 0, f:GetTop() or 0, f:GetWidth(), f:GetHeight(),
+    f:GetEffectiveScale(), physW or 0, physH or 0, world)
+end
+
+function Shots.Take(t, step)
+  local ok, root = pcall(step[2])
+  if not (ok and root and root:IsShown()) then t:note("shot " .. step[1] .. " skipped: " .. tostring(ok and "no window" or root)) return end
+  t:after(1, function()
+    local rect = Shots.Rect(root)
+    local okShot, err = pcall(Screenshot)
+    t:note(("shot %s %d %s%s"):format(step[1], time(), rect, okShot and "" or (" failed: " .. tostring(err))))
+  end)
+end
+
+Dev:Register("shots", function(t)
+  Shots.HideAll()
+  if InCombatLockdown() then t:ok(false, "not in combat") t:done() return end
+  local i = 0
+  local function Next()
+    i = i + 1
+    local step = Shots.STEPS[i]
+    if not step then Shots.HideAll() t:ok(true, "screenshots taken") t:done() return end
+    if step[1] == "hl-paper" or step[1] == "ca-member" then Shots.HideAll() end
+    Shots.Take(t, step)
+    t:after(2.5, Next)
+  end
+  t:after(1, Next)
+end, 90, { manual = true })

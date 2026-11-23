@@ -26,7 +26,7 @@ read_globals = {
   "GetItemStats", "GetLocale", "GetMaxPlayerLevel", "GetMoneyString", "GetNormalizedRealmName",
   "GetNumGroupMembers", "GetNumGuildMembers", "GetNumQuestLogEntries", "GetNumSubgroupMembers",
   "GetNumTradeSkills", "GetProfessionInfo", "GetProfessions", "GetQuestLogTitle", "GetQuestTagInfo",
-  "GetRealZoneText", "GetRealmName", "GetServerTime", "GetSpellInfo", "GetTime", "debugprofilestop", "GetTradeSkillItemLink",
+  "GetRealZoneText", "GetPhysicalScreenSize", "GetScreenHeight", "Screenshot", "GetRealmName", "GetServerTime", "GetSpellInfo", "GetTime", "debugprofilestop", "GetTradeSkillItemLink",
   "GetTradeSkillLine", "GetTradeSkillRecipeLink", "GuildRoster", "HANDSSLOT", "HBD_PINS_WORLDMAP_SHOW_WORLD",
   "HEADSLOT", "HandleModifiedItemClick", "ITEM_CLASSES_ALLOWED", "ITEM_QUALITY_COLORS", "ITEM_REQ_SKILL",
   "InCombatLockdown", "InspectFrame", "InspectUnit", "InviteUnit", "IsAddOnLoaded", "IsControlKeyDown", "IsInGuild", "IsInInstance", "IsInRaid",
