@@ -479,11 +479,3 @@ function H:NewSinceLastLook()
   return n, newest
 end
 
-function H:OverviewHeadline()
-  if not self.db then return end
-  local n, newest = self:NewSinceLastLook()
-  if n > 0 then return { line = L.OV_HEAD_NEW:format(n, newest.who), open = function() self:ShowWindow() end } end
-  local events = self:ShownLog()
-  local last = events[#events]
-  return { line = last and L.OV_HEAD_QUIET:format(last.who) or L.OV_HEAD_EMPTY }
-end

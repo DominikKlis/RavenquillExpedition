@@ -71,7 +71,6 @@ local function BuildBook(home, body)
   home.goal:SetPoint("TOPLEFT", SIZE.pad, -SIZE.gap)
   home.goal:SetPoint("RIGHT", book, "RIGHT", -SIZE.pad - 4, 0)
   home.now = Section(book, ns.NowCards(book, NOW_CARD))
-  home.list = Section(book, ns.EntryRows(book))
   home.online = Section(book, ns.RosterRows(book))
   home.feeds = {}
 end
@@ -97,19 +96,6 @@ local function RenderHeader(home)
   home.retry:SetShown(GS:OverviewSyncState() == "slow")
   home.peers:SetText(GS:OverviewPeersLine())
   home.version:SetText(GS:OverviewVersionLine())
-end
-
-local function HomeEntry(d)
-  local line, open = ns.Headline(d.name and GS.modules[d.name])
-  if not open and (d.page or d.options) then open = function() GS:ShowModulePage(d.name) end end
-  return { icon = d.icon, title = d.title, line = line or d.status, open = open or d.open, dim = d.state ~= "loaded",
-    tip = { d.status, L.COMMAND:format(d.slash) } }
-end
-
-local function HomeEntries(rows)
-  local out = {}
-  for i, d in ipairs(rows) do out[i] = HomeEntry(d) end
-  return out
 end
 
 local function NowOf(d)
@@ -156,9 +142,8 @@ end
 local function MoreOnline(n) return { name = L.ONLINE_MORE:format(n), more = true } end
 
 local function NowSection(home, rows)
-  local list, entries = home.now, NowEntries(rows, NOW_MAX)
-  if not entries[1] then list, entries = home.list, HomeEntries(rows) end
-  return { title = L.NOW_TITLE, list = list, rows = entries, min = #entries }
+  local entries = NowEntries(rows, NOW_MAX)
+  return { title = L.NOW_TITLE, list = home.now, rows = entries, min = #entries }
 end
 
 local function Sections(home, rows)
@@ -169,7 +154,7 @@ local function Sections(home, rows)
 end
 
 local function ClearLists(home)
-  local lists = { home.now, home.list, home.online }
+  local lists = { home.now, home.online }
   for _, list in pairs(home.feeds) do lists[#lists + 1] = list end
   for _, list in ipairs(lists) do
     ns.RenderEntries(list, {})

@@ -599,11 +599,6 @@ check(rows[2].state == "missing" and rows[2].slash == "/rq map", "Map row: not i
 check(rows[3].state == "disabled" and rows[3].slash == "/rq craft" and rows[3].title == "Gildenwerkstatt",
   "Craft row: disabled, under the workshop name")
 check(#rows == 3, "three known rows, no duplicates")
-GS:ShowHome()
-local missingRow = ov.home.list.items[2]
-check(rawget(missingRow, "_shown") and missingRow.title:GetText() == "Map" and missingRow.line:GetText() == GS.OverviewL.MISSING
-  and missingRow:GetAlpha() < 1 and not rawget(missingRow.more, "_shown") and ov.home.list.items[1]:GetAlpha() == 1,
-  "a module that is not installed stays in the overview's list, greyed, with the reason and nothing to open")
 GS:ShowModulePage("Highlights")
 local hlPage = ov.optView.pages.Highlights
 check(GS.optionsModule == "Highlights" and not GS.moduleSettings and hlPage and hlPage:IsShown() and not ov.optView.scroll:IsShown()
@@ -774,26 +769,13 @@ do
   rawget(tabs[1], "_scripts").OnClick(tabs[1])
   check(GS.optionsModule == nil and ov.home:IsShown() and ov._title == "Ravenquill Expedition",
     "the overview tab goes back to the overview")
-  local homeRows, listed, hlRow = GS:OverviewRows(), 0, nil
-  for _, row in ipairs(ov.home.list.items) do
-    if rawget(row, "_shown") then
-      listed = listed + 1
-      if row.title:GetText() == H.title then hlRow = row end
-    end
-  end
-  check(listed == #homeRows and hlRow and hlRow.line:GetText() == "Nichts Neues · zuletzt Dora Dunn",
-    "the overview lists every module; the Highlights row, just read in the Chronik, names Dora's sword as the latest entry ("
-    .. listed .. ", " .. tostring(hlRow and hlRow.line:GetText()) .. ")")
   H:ShowWindow()
   env.RavenquillExpeditionHighlightsFrame:Hide()
   rawget(tabs[1], "_scripts").OnClick(tabs[1])
   local cards = 0
   for _, card in ipairs(ov.home.now.items) do if rawget(card, "_shown") then cards = cards + 1 end end
-  check(ov.home.recent == nil and ov.home.teaser == nil and cards == 0 and rawget(ov.home.list, "_shown"),
-    "with the paper read there is no Rabenblatt card and no teaser line; the module rows stay the list")
-  rawget(hlRow, "_scripts").OnClick(hlRow)
-  check(GS.optionsModule == "Highlights" and not GS.moduleSettings and LogPage(env):IsShown(),
-    "clicking the Highlights line opens its chronicle in /rq")
+  check(ov.home.recent == nil and ov.home.teaser == nil and cards == 0 and ov.home.list == nil,
+    "with the paper read there is no Rabenblatt card, no teaser line and no list of addons in its place")
   rawget(tabs[1], "_scripts").OnClick(tabs[1])
   local syncLine = GS:OverviewSyncLine():gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
   check(ov.home.peers:GetText() == GS:OverviewPeersLine() and ov.home.peersBar == nil

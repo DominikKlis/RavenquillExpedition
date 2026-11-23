@@ -568,7 +568,6 @@ local function GroupLayout(s)
 end
 do
   local s = ListScene()
-  local function HomeLine() return s.c.M.OverviewHeadline and s.c.M:OverviewHeadline().line end
   local layout, mismatch = GroupLayout(s)
   check(layout == "[On the map (1)], Frieda Frisch, [No position (5)], Gustav Weg (grey), Stefan Spaet (grey), "
     .. "Lea Leise (grey), Paula Peer (grey), Peter Plain (grey)" and mismatch == "",
@@ -576,52 +575,15 @@ do
     .. layout .. " " .. mismatch)
   check(s.c.M:OverviewStatus() == "On the map: 1 · sharing on",
     "map list: the /rq status line counts the same guildmates as the 'On the map' group: " .. s.c.M:OverviewStatus())
-  check(HomeLine() == "1 on the map · Frieda Frisch in Map1429",
-    "English /rq home row: the same count and the first of the group: " .. tostring(HomeLine()))
   s.advance(200)
   layout, mismatch = GroupLayout(s)
   check(layout:find("^%[No position %(6%)%], ") and not layout:find("On the map", 1, true) and mismatch == ""
     and s.c.M:OverviewStatus():find("^On the map: 0 "),
     "map list: with no fresh dot left the empty group has no header and the status line says 0: " .. layout)
-  check(HomeLine() == "Nobody on the map", "English /rq home row with no dot: " .. tostring(HomeLine()))
   local de = ListScene("deDE")
   check(GroupLayout(de):find("[Auf der Karte (1)]", 1, true) and GroupLayout(de):find("[Ohne Position (5)]", 1, true),
     "map list: German group headers: " .. GroupLayout(de))
   check(#s.c.errors == 0 and #de.c.errors == 0, "map list groups: no Lua errors (" .. tostring(s.c.errors[1]) .. ")")
-end
-do
-  local sched, bus = Kit.Setup()
-  bus:member("Ole Fichtental", "MAGE", 40, true, "Tanaris")
-  bus:member("Bodo Kesselring", "WARRIOR", 50, true, "Duskwood")
-  local a = MapKit.Client(sched, bus, "Anna Alpha", { locale = "deDE", kitFrames = true, setup = ReleasedBuild })
-  a.login()
-  sched:advance(5)
-  local function Hear(name, mapID)
-    a.fire("CHAT_MSG_ADDON", "RQEMap1", a.M:EncodePosition(mapID, 0.4, 0.4, 40, "MAGE", a.RQ:Now(), "", 2), "GUILD", name .. "-Realm")
-  end
-  local function MapRow()
-    a.RQ:ShowHome()
-    local list = a.env.RavenquillExpeditionOverview.home.list
-    for _, row in ipairs(list and list.items or {}) do
-      if rawget(row, "_shown") and row.title:GetText() == a.M.title then return row end
-    end
-  end
-  local function Line() local row = MapRow(); return row and row.line:GetText() end
-  a.RQ:ToggleOverview()
-  check(Line() == "Niemand auf der Karte", "/rq home: with no dot on the map the Map row says nobody is there: " .. tostring(Line()))
-  Hear("Ole Fichtental", 1429)
-  check(Line() == "1 auf der Karte · Ole Fichtental in Map1429", "/rq home: one dot: the row names who and where: " .. tostring(Line()))
-  Hear("Bodo Kesselring", 1411)
-  check(Line() == "2 auf der Karte · Bodo Kesselring in Map1411",
-    "/rq home: two dots: the row counts them and names the first of the map list: " .. tostring(Line()))
-  sched:advance(200)
-  Hear("Ole Fichtental", 1429)
-  check(Line() == "1 auf der Karte · Ole Fichtental in Map1429", "/rq home: Bodo's dot faded, Ole's is fresh: " .. tostring(Line()))
-  local row = MapRow()
-  if row then rawget(row, "_scripts").OnClick(row) end
-  check(a.RQ.optionsModule == "Map" and not a.RQ.moduleSettings and a.M.page ~= nil and a.M.page:IsShown(),
-    "/rq home: clicking the Map row opens the map list page")
-  check(#a.errors == 0, "/rq home Map row: no Lua errors (" .. tostring(a.errors[1]) .. ")")
 end
 do
   local s = ListScene()

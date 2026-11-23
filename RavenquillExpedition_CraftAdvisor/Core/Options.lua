@@ -137,13 +137,6 @@ function GCA:CraftNeeds()
   return self:MatchNeeds(self:GuildNeeds(self:GetMemberList()), "", self.db.settings.needsOffline)
 end
 
-function GCA:OverviewHeadline()
-  if not self.db then return end
-  local _, who = self:CraftNeeds()
-  local line = who == 0 and L.ENTRY_NEEDS_NONE or who == 1 and L.OV_NEEDS_1 or string.format(L.OV_NEEDS, who)
-  return { line = line, open = function() self:OpenView("make", "all") end }
-end
-
 function GCA:OverviewStatus() return "" end
 
 GCA:SetOptions(GCA:BuildOptions())

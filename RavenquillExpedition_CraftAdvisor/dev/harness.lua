@@ -267,32 +267,6 @@ do
     "with the window open, a click on the Get crafted row switches it to that tab")
   env.RavenquillExpeditionOverview:Hide()
 end
-do
-  local RQc, UIx = client.RQ, GCA.UI
-  local function CraftRow()
-    RQc:ShowHome()
-    local list = env.RavenquillExpeditionOverview.home.list
-    for _, item in ipairs(list and list.items or {}) do
-      if rawget(item, "_shown") and item.title:GetText() == "Guild Workshop" then return item end
-    end
-  end
-  local function Line() local item = CraftRow(); return item and item.line:GetText() end
-  UIx.frame:Hide()
-  RQc:ToggleOverview()
-  check(Line() == "1 guildmate could use your crafts", "/rq home: the Craft row counts the guildmates your crafts would upgrade: " .. tostring(Line()))
-  local craftRow = CraftRow()
-  if craftRow then rawget(craftRow, "_scripts").OnClick(craftRow) end
-  check(UIx.frame:IsShown() and UIx:Pane().id == "all" and rawget(UIx.needsView, "_shown")
-    and tostring(UIx.needsCount:GetText()):find("for 1 member", 1, true) ~= nil,
-    "clicking it opens the window on Craft for everyone, whose count names the same member: " .. tostring(UIx.needsCount:GetText()))
-  local buddy = GCA.db.members["Buddy Stone"]
-  GCA.db.members["Buddy Stone"] = nil
-  check(Line() == "Nobody needs anything you can craft right now", "Buddy's gear gone: the row says so on the next refresh: " .. tostring(Line()))
-  GCA.db.members["Buddy Stone"] = buddy
-  check(Line() == "1 guildmate could use your crafts", "and counts him again once his gear is back: " .. tostring(Line()))
-  UIx.frame:Hide()
-  env.RavenquillExpeditionOverview:Hide()
-end
 local mark = #printed
 GCA:KnownDebug()
 check(printedSince(mark):find("Leatherworking item recipes: 501 in data, IsSpellKnown 3", 1, true), "/gca known debug: 501 LW recipes, 3 known")

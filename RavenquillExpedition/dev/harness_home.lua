@@ -38,7 +38,7 @@ local function Home(c)
   return c.env.RavenquillExpeditionOverview.home
 end
 local function Lists(home)
-  local out = { home.now, home.list, home.online }
+  local out = { home.now, home.online }
   for _, list in pairs(home.feeds) do out[#out + 1] = list end
   return out
 end
@@ -62,7 +62,6 @@ local function Cards(home)
     return table.concat(parts, " / ")
   end)
 end
-local function Rows(home) return Items(home.list, function(row) return row.title:GetText() .. ": " .. row.line:GetText() end) end
 local function Online(home)
   return Items(home.online, function(row) return Plain(row.name:GetText()) .. " " .. row.level:GetText() .. " " .. row.zone:GetText() end)
 end
@@ -72,7 +71,6 @@ local function Modules(c)
   local m = {}
   m.board = c.RQ:NewModule("Board", { addon = "BoardAddon", title = "Anschlagbrett" })
   function m.board:BuildPage() end
-  function m.board:OverviewHeadline() return { line = "Nichts Neues am Brett" } end
   m.coach = c.RQ:NewModule("Coach", { addon = "CoachAddon", title = "Postkutsche" })
   function m.coach:OverviewStatus() return "2 Linien" end
   return m
@@ -93,10 +91,9 @@ do
   end
   local home = Home(hanne)
   local feed = home.feeds.Board
-  check(not Shown(home.goal) and Headings(home) == "Jetzt in der Gilde | Neu am Brett | Gerade online",
-    "no goal box; the sections read 'Jetzt in der Gilde', the module's feed, then 'Gerade online': " .. Headings(home))
-  check(Rows(home):find("Anschlagbrett: Nichts Neues am Brett | Postkutsche: 2 Linien$") and not Shown(home.now),
-    "with no module offering something to do, 'Jetzt in der Gilde' lists the modules: " .. Rows(home))
+  check(not Shown(home.goal) and Headings(home) == "Neu am Brett | Gerade online",
+    "no goal box and nothing to do now: the sections read the module's feed, then 'Gerade online', with no list of addons: "
+    .. Headings(home))
   check(asked == 5 and Feed(feed) == "11:50 » Ole · Aushang 1 | 11:40 » Ole · Aushang 2 | 11:30 » Ole · Aushang 3 | "
     .. "11:20 » Ole · Aushang 4 | 16.11. » Ole · Aushang 5",
     "the feed asks for five lines and shows them as time » text, today's by the clock, older ones by the date; a line without a time is left out: "
@@ -126,7 +123,7 @@ do
     and home.goal.none:GetText() == "Für diese Woche gibt es noch kein Ziel." and Shown(home.goal.set)
     and home.goal.set:GetText() == "Ziel festlegen" and not Shown(home.goal.change) and not Shown(home.goal.bar),
     "an officer sees the goal box with 'Ziel festlegen'")
-  check(headings == "Jetzt in der Gilde | Gerade online" and Layout.Rect(home.goal.title).top - Layout.Rect(first).top >= 56,
+  check(headings == "Gerade online" and Layout.Rect(home.goal.title).top - Layout.Rect(first).top >= 56,
     "the sections follow below the goal box: " .. headings)
 end
 
@@ -200,7 +197,7 @@ do
   end
   local home = Home(hanne)
   check(Cards(home) == "Postkutsche / fährt in 5 min | Anschlagbrett / 2 Aushänge für dich"
-    and Shown(home.now) and not Shown(home.list),
+    and Shown(home.now),
     "each module's rows are cards, title over line; what ends soonest comes first; rows with nothing to open are left out: "
     .. Cards(home))
   local card = home.now.items[2]
@@ -240,8 +237,8 @@ do
   function hanneMods.board:OverviewNow() return {} end
   hanneMods.coach.OverviewNow = nil
   home = Home(hanne)
-  check(not Shown(home.now) and Shown(home.list) and Rows(home):find("Anschlagbrett: Nichts Neues am Brett | Postkutsche: 2 Linien$"),
-    "when no module has anything to do, the module rows come back as the list: " .. Rows(home))
+  check(not Shown(home.now) and Headings(home) == "Neu am Brett | Gerade online",
+    "when no module has anything to do, 'Jetzt in der Gilde' is skipped, no addon list takes its place: " .. Headings(home))
 end
 
 section("Home: a crowded guild still gets its online list, ending in how many more there are")
@@ -253,16 +250,16 @@ do
   for _, row in ipairs(home.online.items) do if Shown(row) then names[#names + 1] = row.name:GetText() end end
   local more = names[#names]
   check(Shown(home.goal) and #names >= 2 and more == ("… und %d weitere"):format(23 - #names + 1) and names[1] == "Gast 01",
-    "with a goal, five module rows and the feed above, the online list still shows the first names and then '… und N weitere': "
+    "with a goal and the feed above, the online list still shows the first names and then '… und N weitere': "
     .. table.concat(names, ", "))
-  check(Headings(home) == "Jetzt in der Gilde | Neu am Brett | Gerade online", "all three sections stay: " .. Headings(home))
+  check(Headings(home) == "Neu am Brett | Gerade online", "both sections stay: " .. Headings(home))
 end
 
 section("Home: a feed with no lines is left out")
 do
   function hanneMods.board:OverviewFeed() return { title = "Neu am Brett", rows = {} } end
   local home = Home(hanne)
-  check(Headings(home) == "Jetzt in der Gilde | Gerade online", "a feed with no lines has no heading: " .. Headings(home))
+  check(Headings(home) == "Gerade online", "a feed with no lines has no heading: " .. Headings(home))
 end
 
 check(#ole.errors + #hanne.errors == 0, "no Lua errors (" .. tostring(ole.errors[1] or hanne.errors[1]) .. ")")

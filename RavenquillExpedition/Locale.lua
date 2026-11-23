@@ -17,7 +17,7 @@ end
 GS.OverviewL = GS.NewLocale({
   enUS = {
     TITLE = "Ravenquill Expedition", CRAFT_TITLE = "Guild Workshop",
-    OPEN = "Open", OPEN_WINDOW = "Open %s", BACK = "« Back", OVERVIEW = "Overview", SETTINGS = "Settings", COMMAND = "Chat command: %s",
+    OPEN = "Open", OPEN_WINDOW = "Open %s", BACK = "« Back", OVERVIEW = "Overview", SETTINGS = "Settings",
     ENABLE_HINT = "Disabled – enable it in the AddOns list at character select.",
     MISSING = "Not installed.", DISABLED = "Disabled", NOT_INSTALLED = "Not installed",
     SYNC = "Guild sync: %s", SYNC_OK = "|cff33ff33ok|r", SYNC_PAUSED = "|cffff8800paused (instance)|r",
@@ -52,7 +52,7 @@ GS.OverviewL = GS.NewLocale({
   },
   deDE = {
     CRAFT_TITLE = "Gildenwerkstatt",
-    OPEN = "Öffnen", OPEN_WINDOW = "%s öffnen", BACK = "« Zurück", OVERVIEW = "Übersicht", SETTINGS = "Einstellungen", COMMAND = "Chatbefehl: %s",
+    OPEN = "Öffnen", OPEN_WINDOW = "%s öffnen", BACK = "« Zurück", OVERVIEW = "Übersicht", SETTINGS = "Einstellungen",
     ENABLE_HINT = "Deaktiviert – in der AddOn-Liste bei der Charakterauswahl einschalten.",
     MISSING = "Nicht installiert.", DISABLED = "Deaktiviert", NOT_INSTALLED = "Nicht installiert",
     SYNC = "Gilden-Sync: %s", SYNC_OK = "|cff33ff33ok|r", SYNC_PAUSED = "|cffff8800pausiert (Instanz)|r",

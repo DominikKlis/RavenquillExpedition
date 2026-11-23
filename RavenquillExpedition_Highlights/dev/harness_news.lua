@@ -447,24 +447,9 @@ do
   check(#c.errors == 0 and #en.errors == 0, "no Lua errors (" .. tostring(c.errors[1] or en.errors[1]) .. ")")
 end
 
-Kit.section("Overview home: the Highlights row says what is new, opens the paper for news and the chronicle otherwise")
+Kit.section("Overview home: news shows the Rabenblatt card, no addon row stands in for it")
 do
-  local function HomeRow(c)
-    c.RQ:ShowHome()
-    local list = c.env.RavenquillExpeditionOverview.home.list
-    for _, row in ipairs(list and list.items or {}) do
-      if rawget(row, "_shown") and row.title:GetText() == c.H.title then return row end
-    end
-  end
-  local function Line(c) local row = HomeRow(c); return row and row.line:GetText() end
-  local function OpenRow(c) local row = HomeRow(c); if row then Click(row) end end
   local function PaperShown(c) return Frame(c) ~= nil and Frame(c):IsShown() end
-  local function ChronicleShown(c) return c.RQ.optionsModule == "Highlights" and not c.RQ.moduleSettings end
-  local empty = Client("Lyra Distelbach")
-  empty.RQ:ToggleOverview()
-  check(Line(empty) == "Noch keine Einträge", "an empty log: the row says there is nothing yet: " .. tostring(Line(empty)))
-  OpenRow(empty)
-  check(ChronicleShown(empty) and not PaperShown(empty), "and opens the chronicle, where test entries can be added")
   local function PaperCard(c)
     c.RQ:ShowHome()
     for _, card in ipairs(c.env.RavenquillExpeditionOverview.home.now.items) do
@@ -475,24 +460,15 @@ do
   c.RQ:ToggleOverview()
   Heard(c, E("level", "Bodo Kesselring", At(20, 10), { lvl = 30 }))
   Heard(c, E("loot", "Rika Steinbeck", At(20, 20), { item = 5001, q = 4 }))
-  local head = c.H:OverviewHeadline()
-  check(head.line == "2 neue seit deinem letzten Blick · zuletzt Rika Steinbeck",
-    "two entries heard since the last look: the headline counts them and names the newest: " .. tostring(head.line))
   local card = PaperCard(c)
-  check(card ~= nil and Line(c) == nil and card.open == nil and (card.title:GetText() or "") ~= "",
-    "with news the home shows the Rabenblatt card, without a 'Lesen' button, in 'Jetzt in der Gilde' instead of the module rows")
+  check(card ~= nil and card.open == nil and (card.title:GetText() or "") ~= "",
+    "with news the home shows the Rabenblatt card, without a 'Lesen' button, in 'Jetzt in der Gilde'")
   if card then Click(card) end
-  check(PaperShown(c) and not ChronicleShown(c), "and a click anywhere on the card opens the Rabenblatt")
+  check(PaperShown(c), "and a click anywhere on the card opens the Rabenblatt")
   if Frame(c) then Frame(c):Hide() end
-  check(PaperCard(c) == nil and Line(c) == "Nichts Neues · zuletzt Rika Steinbeck",
-    "once read, the card is gone and the module row says nothing is new: " .. tostring(Line(c)))
-  OpenRow(c)
-  check(ChronicleShown(c) and not PaperShown(c), "and opens the chronicle in /rq instead of the paper")
-  local en = Client("Mira Sturmfeder", "enUS")
-  Heard(en, E("mount", "Tamo Eichengrund", At(20, 11), { lvl = 40 }))
-  check(en.H:OverviewHeadline().line == "1 new since you last looked · latest: Tamo Eichengrund",
-    "English: " .. tostring(en.H:OverviewHeadline().line))
-  check(#empty.errors + #c.errors + #en.errors == 0, "no Lua errors (" .. tostring(c.errors[1] or empty.errors[1] or en.errors[1]) .. ")")
+  check(PaperCard(c) == nil and c.env.RavenquillExpeditionOverview.home.list == nil,
+    "once read, the card is gone and no Highlights row takes its place")
+  check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
 Kit.section("Window: empty log, masthead and parchment fallbacks")

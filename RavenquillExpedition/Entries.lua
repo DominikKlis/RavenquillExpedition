@@ -4,7 +4,7 @@ local L = GS.OverviewL
 local Plain = GS.Plain
 
 local CARD = { height = 60, gap = 12, icon = 40, inset = 12, button = 100 }
-local ROW = { height = 22, icon = 18, title = 170, gap = 8, more = "›", dim = 0.55 }
+local ROW = { more = "›" }
 local CARD_BACKDROP = { bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
   tile = true, tileSize = 16, edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } }
 
@@ -26,12 +26,6 @@ function ns.Entries(raw, icon)
     end
   end
   return out
-end
-
-function ns.Headline(mod)
-  local h = mod and GS:Call(mod.OverviewHeadline, mod)
-  local line = type(h) == "table" and Plain(h.line, "string")
-  if line and line ~= "" then return line, Opener(h.open) end
 end
 
 local function Backdrop(card)
@@ -118,45 +112,6 @@ function NowCard.Fill(card, e)
   if e.kicker then card.title:SetPoint("TOPLEFT", card.icon, "RIGHT", card.inset, -1)
   else card.title:SetPoint("BOTTOMLEFT", card.icon, "RIGHT", card.inset, 1) end
   card.title:SetPoint("RIGHT", card.more, "LEFT", -card.inset, 0)
-end
-
-local Row = {}
-
-function Row.Step() return ROW.height end
-
-function Row.New(list, i)
-  local row = CreateFrame("Button", nil, list)
-  row:SetHeight(ROW.height)
-  row:SetPoint("TOPLEFT", 0, -(i - 1) * Row.Step())
-  row:SetPoint("RIGHT", list, "RIGHT", 0, 0)
-  row.hover = row:CreateTexture(nil, "HIGHLIGHT")
-  row.hover:SetAllPoints()
-  row.hover:SetColorTexture(ns.GOLD[1], ns.GOLD[2], ns.GOLD[3], 0.12)
-  row.icon = ns.Icon(row, ROW.icon)
-  row.icon:SetPoint("LEFT", 2, 0)
-  row.title = ns.Text(row, "GameFontNormal")
-  row.title:SetPoint("LEFT", row.icon, "RIGHT", ROW.gap, 0)
-  row.title:SetWidth(ROW.title)
-  row.more = ns.Text(row, "GameFontNormalLarge", "RIGHT")
-  row.more:SetPoint("RIGHT", -4, 0)
-  row.more:SetText(ROW.more)
-  row.line = ns.Text(row, "GameFontHighlight")
-  row.line:SetPoint("LEFT", row.title, "RIGHT", ROW.gap, 0)
-  row.line:SetPoint("RIGHT", row.more, "LEFT", -ROW.gap, 0)
-  row:SetScript("OnClick", function(self) GS:Call(self.entry and self.entry.open) end)
-  ns.Tip(row, function() return row.entry and row.entry.title or "" end, function() return row.entry and row.entry.tip or {} end)
-  return row
-end
-
-function Row.Fill(row, e)
-  local live = e.open ~= nil
-  row.icon:SetTexture(e.icon)
-  row.icon:SetDesaturated(e.dim and true or false)
-  row.title:SetText(e.title)
-  row.line:SetText(e.line)
-  row.more:SetShown(live)
-  row.hover:SetShown(live)
-  row:SetAlpha(e.dim and ROW.dim or 1)
 end
 
 local FEED = { height = 18, glow = 0.2, edge = 0.75, time = "|cff888888%s|r |cffffd100»|r %s" }
@@ -270,7 +225,6 @@ end
 
 function ns.EntryCards(parent, size) return EntryList(parent, Card, size or CARD) end
 function ns.NowCards(parent, size) return EntryList(parent, NowCard, size) end
-function ns.EntryRows(parent) return EntryList(parent, Row) end
 function ns.FeedRows(parent) return EntryList(parent, Feed) end
 function ns.RosterRows(parent) return EntryList(parent, Roster) end
 

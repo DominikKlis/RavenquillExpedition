@@ -253,14 +253,6 @@ function M:OverviewStatus()
   return line
 end
 
-function M:OverviewHeadline()
-  local onMap = self:GuildmatesOnMap()
-  local first = onMap[1]
-  if not first then return { line = L.OV_HEAD_NONE } end
-  local zone = M.ZoneText(first)
-  return { line = L.OV_HEAD:format(#onMap, zone and L.OV_HEAD_WHERE:format(first.name, zone) or first.name) }
-end
-
 local function F(v)
   if v == nil then return "nil" end
   if IsSecret(v) then return "<secret>" end
