@@ -384,6 +384,22 @@ do
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
+Kit.section("Home: on a Sunday the Rabenblatt card shows the lead the Sunday edition opens with")
+do
+  local c = LayoutClient()
+  for _, e in ipairs(BIG_FRIDAY) do c.H:Add(e, "wire") end
+  local card
+  for _, row in ipairs(c.H:OverviewNow() or {}) do if (row.kicker or ""):find("^Rabenblatt") then card = row end end
+  if card then card.open() end
+  local paper = c.env.RavenquillExpeditionHighlightsFrame.paper
+  check(card and paper.issue.lead.id == ALEX_FIRST.id and card.title == paper.lead.head:GetText(),
+    "the card and the paper both lead with Friday's first at 60 (" .. tostring(card and card.title) .. " / "
+    .. paper.lead.head:GetText() .. ")")
+  check(card and card.kicker == "Rabenblatt · " .. paper.issue.lead.kicker and card.icon == c.H.StoryImage(paper.issue.lead),
+    "with the lead's section and picture (" .. tostring(card and card.kicker) .. ")")
+  check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
+end
+
 local function Offenders(c, paper, texts)
   local pr, out = R(paper), {}
   for _, fs in ipairs(texts or Layout.Texts(c, paper)) do
