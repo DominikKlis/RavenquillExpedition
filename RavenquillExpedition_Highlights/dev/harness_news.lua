@@ -77,6 +77,24 @@ do
     "briefs carry the time and the facts (" .. tostring(run and run.text) .. ")")
 end
 
+Kit.section("Ranking: a first in the guild, then a clear, then the highest level, ahead of an epic, a guild group and a boss")
+do
+  local day = {
+    E("boss", "Alex Morgenrot", At(20, 9), { enc = 1100, boss = "Azuregos", inst = "Azshara", first = true }),
+    E("group", "Ole Fichtental", At(20, 11), { inst = "Uldaman", with = { "Hanne Moosgrund" }, grp = true }),
+    E("loot", "Rika Steinbeck", At(20, 13), { item = 5001, q = 4 }),
+    E("level", "Alex Morgenrot", At(20, 15), { lvl = 60 }),
+    E("clear", "Tamo Eichengrund", At(20, 17), { enc = 672, inst = "Geschmolzener Kern", n = 12, grp = true }),
+    E("first", "Bodo Kesselring", At(20, 19), { what = "level", lvl = 60 }),
+  }
+  local groups = News.Groups(day, Ctx())
+  check(Kinds(groups) == "first,clear,levelmax,epic,group,boss",
+    "first > clear > level 60 > epic > guild group > boss (" .. Kinds(groups) .. ")")
+  local issue = News.Issue({ day = "2026-11-20", no = 3, entries = { day[3], day[4] } }, DE, Ctx())
+  check(issue.lead.kind == "levelmax" and issue.second.kind == "epic",
+    "a day with an epic and Alex at 60 leads with Alex (" .. issue.lead.head .. ")")
+end
+
 local function Flatten(issue)
   local parts = {}
   local function Story(s)
