@@ -3,18 +3,22 @@ local K = ns.NewsLocales.enUS.KINDS
 ns.NewsLocales.enUS.RAIDS = { mc = "Molten Core", ony = "Onyxia's Lair", bwl = "Blackwing Lair" }
 
 K.group = {
-  kicker = { "Guild group", "Out together", "{?night}Night shift" },
+  kicker = { "Guild group", "Out together", "{?night}Night shift", "{?allnew}New ground together" },
   head = { "{inst}: {names} out together", "{names} make it through {inst}", "Guild group in {inst}",
-    "{?midnight}Midnight in {inst}", "{!inst}{names} head out together" },
-  dek = { "{people} from the guild headed out together.", "At {time} the group was back outside.", "The scene: {inst}." },
+    "{?midnight}Midnight in {inst}", "{!inst}{names} head out together", "{?allnew}{names} make it through {inst} for the first time",
+    "{inst}: a first for {firsts}" },
+  dek = { "{people} from the guild headed out together.", "At {time} the group was back outside.", "The scene: {inst}.",
+    "It was the first time there for {firsts}.", "{?allnew}It was the first time there for everyone." },
   body = { "At {time} the group reported the run done. Those who set out together come back together.",
     "{people} from the guild shared the work. The guild book is silent on how the loot was split.",
     "{?night}{!sure}Everyone was back {night}. Sleep will probably come later." },
-  detail = { "At {time} the group was back outside.", "The scene: {inst}.", "Along for the run: {names}." },
+  detail = { "At {time} the group was back outside.", "The scene: {inst}.", "Along for the run: {names}.",
+    "New to it: {firsts}." },
   more = { "The editors congratulate.", "Repair bills, as always, are a private matter.",
     "{!sure}The next guild group will probably not be long in coming." },
   caption = { "{inst}", "Guild group" },
-  brief = { "{inst}: {names} out together.", "{names} make it through {inst}.", "Guild group: {names}." },
+  brief = { "{?allnew}{names} make it through {inst} for the first time.", "{names} make it through {inst}, the first time for {firsts}.",
+    "{inst}: {names} out together.", "{names} make it through {inst}.", "Guild group: {names}." },
   again = { "{gap}, also a guild group in {inst}.", "{gap}, also a guild group." },
 }
 

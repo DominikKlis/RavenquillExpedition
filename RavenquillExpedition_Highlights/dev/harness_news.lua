@@ -128,7 +128,9 @@ do
       local visit = News.Groups({ E("visit", "Hanne Moosgrund", At(20, 10) + i, { inst = "Zul'Farrak", boss = "Gahz'rilla", n = 8 }) },
         Ctx())[1]
       local text = StoryText(visit, L)
-      for _, word in ipairs(FINISHED[L.LOCALE]) do if text:find(word, 1, true) and not claims then claims = word .. ": " .. text end end
+      for _, word in ipairs(FINISHED[L.LOCALE]) do
+        if text:find("%f[%w]" .. word .. "%f[%W]") and not claims then claims = word .. ": " .. text end
+      end
     end
     local group = News.Groups({ E("group", "Ole Fichtental", At(20, 12), { inst = "Uldaman", with = { "Hanne Moosgrund" }, grp = true,
       firsts = { "Hanne Moosgrund" } }) }, Ctx())[1]
@@ -178,7 +180,7 @@ local KNOWN = {
   raid = OUTING, boss = OUTING, run = "inst lastboss n nf first lo hi", visit = "inst lastboss n lo hi", epic = ITEM, gear = ITEM,
   levelmax = LEVEL, level = LEVEL,
   mount = "mount epic plain", quest = "quest quests rest n lastquest legend", rep = "fac standing exalted", skill = "skill rank top",
-  pvp = "bg prank", duel = "foe", group = "inst firsts", clear = "inst grp", ready = "raid", first = "lvl boss inst grp",
+  pvp = "bg prank", duel = "foe", group = "inst firsts allnew", clear = "inst grp", ready = "raid", first = "lvl boss inst grp",
 }
 local REQUIRED_SLOTS = { "kicker", "head", "dek", "body", "caption", "brief" }
 

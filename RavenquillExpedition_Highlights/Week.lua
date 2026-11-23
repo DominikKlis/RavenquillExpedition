@@ -69,7 +69,7 @@ local function OneKill() return 1 end
 local KILL_WORTH = { raid = OneKill, boss = OneKill, clear = RaidSize }
 
 local function Kills(g, last)
-  if g.kind == "run" then return g.first.n or 1 end
+  if g.kind == "run" or g.kind == "visit" then return g.first.n or 1 end
   local worth = KILL_WORTH[g.kind]
   if not worth then return 0 end
   local n = 0
