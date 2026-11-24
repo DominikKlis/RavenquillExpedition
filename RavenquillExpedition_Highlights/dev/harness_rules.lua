@@ -766,6 +766,28 @@ do
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
+section("Runs of separate groups through one dungeon are separate lines, also minutes apart and in two languages")
+do
+  local w = World()
+  local lyra = w.join("Lyra Distelbach")
+  Members(w)
+  local function Kill(who, t, inst, enc, boss) return Old("boss", who, t, { enc = enc, boss = boss, inst = inst, first = true }) end
+  Saved(lyra, {
+    Old("run", "Ole Fichtental", At(20, 9, 8), { inst = "Höhlen des Wehklagens", boss = "Mutanus der Verschlinger", n = 8, nf = 8,
+      first = true }),
+    Old("run", "Kael Wintermoor", At(20, 9, 16), { inst = "Wailing Caverns", boss = "Mutanus the Devourer", n = 8, nf = 8, first = true }),
+    Old("run", "Hanne Moosgrund", At(20, 11, 0), { inst = "Gnomeregan", boss = "Mekgineer Thermaplugg", n = 5, nf = 5, first = true }),
+    Old("run", "Tamo Eichengrund", At(20, 11, 3), { inst = "Gnomeregan", boss = "Mekgineer Thermaplugg", n = 5, nf = 5, first = true }),
+    Kill("Bodo Kesselring", At(20, 14, 0), "Zul'Farrak", 597, "Hexendoktor Zum'rah"),
+    Kill("Mira Sturmfeder", At(20, 14, 1) - 30, "Zul'Farrak", 598, "Nekrum der Ausweider"),
+  })
+  w.start()
+  local lines = DungeonLines(lyra)
+  check(#lines == 6, "six lines for six separate runs: " .. table.concat(lines, " / "))
+  check(not Holds(lines, " und "), "no line names two people who were not in one group: " .. table.concat(lines, " / "))
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
 section("Mixed languages: a guild group with a German and an English client is reported once and is one line")
 do
   local w = World()
