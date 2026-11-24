@@ -267,10 +267,10 @@ do
   for _, e in ipairs(Kills("Gerd Rübsam", "Die Versunkene Stadt", bosses, 21, 42, { first = true })) do kills[#kills + 1] = e end
   for _, e in ipairs(Kills("Moira Stonebrook", "The Drowned City", english, 21, 42, { first = true })) do kills[#kills + 1] = e end
   local groups = News.Groups(kills, Ctx())
-  local head = groups[1] and News.Story(groups[1], DE, Ctx()).head or ""
-  local all = head:find("Hilde Krugbauer", 1, true) and head:find("Gerd Rübsam", 1, true) and head:find("Moira Stonebrook", 1, true)
-  check(#groups == 1 and all and head:find(", ", 1, true) and head:find(" und ", 1, true),
-    "three boss reports of one run, two languages, are one story naming all three (" .. #groups .. ": " .. head .. ")")
+  local names = groups[1] and News.Vars(groups[1], Ctx(), DE).names or ""
+  local all = names:find("Hilde Krugbauer", 1, true) and names:find("Gerd Rübsam", 1, true) and names:find("Moira Stonebrook", 1, true)
+  check(#groups == 1 and all and names:find(", ", 1, true) and names:find(" und ", 1, true),
+    "three boss reports of one run, two languages, are one story naming all three (" .. #groups .. ": " .. names .. ")")
   local apart = {
     E("run", "Tamo Eichengrund", At(19, 20, 10), { inst = "Gnomeregan", boss = "Mekgineer Thermaplugg", n = 4, nf = 4 }),
     E("run", "Mira Sturmfeder", At(19, 20, 11), { inst = "Uldaman", boss = "Archaedas", n = 4, nf = 4 }),
