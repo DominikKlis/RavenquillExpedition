@@ -275,4 +275,20 @@ function Data.Highlights(NK)
   return list
 end
 
+local withFirstRuns = Data.Highlights
+function Data.Highlights(NK)
+  local list, At = withFirstRuns(NK), NK.At
+  local function E(k, who, t, fields)
+    local e = NK.E(k, who, t, fields)
+    e.cls = ClassOf(who) or e.cls
+    return e
+  end
+  for _, e in ipairs({
+    E("run", "Mira Sturmfeder", At(20, 20, 57), { inst = "Höhlen des Wehklagens", boss = "Mutanus der Verschlinger", n = 8, nf = 8,
+      first = true }),
+    E("run", "Rika Steinbeck", At(20, 21, 5), { inst = "Wailing Caverns", boss = "Mutanus the Devourer", n = 8, nf = 8, first = true }),
+  }) do list[#list + 1] = e end
+  return list
+end
+
 return Data
