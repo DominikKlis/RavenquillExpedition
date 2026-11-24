@@ -10,6 +10,7 @@
 
 Locale.lua
 Highlights.lua
+Dungeons.lua
 Kinds.lua
 Lines.lua
 Attunements.lua

@@ -100,7 +100,7 @@ local function Yields(self, line, lines)
   local to = self.KINDS[line.k].yieldsTo
   if not to then return false end
   for _, o in ipairs(lines) do
-    if to[o.k] and o.inst == line.inst and H.Involves(o, line.who) then return true end
+    if to[o.k] and H.SameDungeon(o.inst, line.inst) and H.Involves(o, line.who) then return true end
   end
   return false
 end

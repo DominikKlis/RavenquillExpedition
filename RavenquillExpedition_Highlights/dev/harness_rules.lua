@@ -703,6 +703,16 @@ do
     "Bodo's English first kill in Krol'dok Stronghold yields to the German group line that names him there")
   check(Holds(lines, "Mira Sturmfeder und Ilsa Brunnhold  ·  |cffffd100Todesminen|r geschafft, für Ilsa Brunnhold zum ersten Mal"),
     "Ilsa's English first run through the Deadmines, reported when her run ended, is in Mira's German group line")
+  local named, twice = {}, {}
+  for _, names in ipairs(lyra.H.DUNGEONS) do
+    if #names ~= 2 or names[1] == names[2] then twice[#twice + 1] = table.concat(names, "/") end
+    for _, name in ipairs(names) do
+      if named[name] then twice[#twice + 1] = name end
+      named[name] = true
+    end
+  end
+  check(#lyra.H.DUNGEONS > 0 and #twice == 0,
+    "the dungeon table pairs an English and a different German name, each name for one dungeon only (" .. table.concat(twice, ", ") .. ")")
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 

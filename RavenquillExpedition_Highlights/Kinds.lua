@@ -40,10 +40,10 @@ local function DungeonFirst(e) return e.first and not e.raid and not WorldBoss(e
 
 local function SameRun(self, f, e)
   for _, m in ipairs(f) do if m.who == e.who then return false end end
-  return f[1].inst == e.inst and math.abs(f[1].t - e.t) <= self.RUN_FOLD
+  return H.SameDungeon(f[1].inst, e.inst) and math.abs(f[1].t - e.t) <= self.RUN_FOLD
 end
 
-local function SameVisit(_, f, e) return f[1].who == e.who and f[1].inst == e.inst end
+local function SameVisit(_, f, e) return f[1].who == e.who and H.SameDungeon(f[1].inst, e.inst) end
 
 local function GroupFill(line, f)
   line.grp, line.with, line.firsts = true, {}, H.Firsts(f)
@@ -55,7 +55,7 @@ local function VisitFill(line, f) line.n, line.boss = #f, f[#f].boss end
 local function SameGroupRun(self, g, r)
   if not H.Involves(g, r.who) then return false end
   local after = r.t - g.t
-  return math.abs(after) <= self.KILL_SLACK or (g.inst == r.inst and after >= 0 and after <= self.RUN_SAME)
+  return math.abs(after) <= self.KILL_SLACK or (H.SameDungeon(g.inst, r.inst) and after >= 0 and after <= self.RUN_SAME)
 end
 
 local function AllNew(e)
@@ -153,7 +153,9 @@ H.KINDS = {
   },
   group = {
     code = "o", chat = true, icon = "INV_Misc_Key_03",
-    same = function(self, a, b) return a.inst == b.inst and math.abs(a.t - b.t) <= self.RUN_SAME and SharePeople(a, b) end,
+    same = function(self, a, b)
+      return H.SameDungeon(a.inst, b.inst) and math.abs(a.t - b.t) <= self.RUN_SAME and SharePeople(a, b)
+    end,
     holds = SameGroupRun,
     subject = function(self, e) return self:PeopleText(e) end,
     format = function(self, e)
