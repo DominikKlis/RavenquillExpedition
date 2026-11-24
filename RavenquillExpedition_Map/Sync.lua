@@ -100,12 +100,12 @@ local function OwnState(mapID, x, y, now)
 end
 
 local function WalkedSince(last, pos)
-  if pos.taxi or pos.stationary then return false end
+  if pos.stationary then return false end
   return math.max(math.abs(pos.x - last.x), math.abs(pos.y - last.y)) >= C.MOVE_MIN
 end
 
 local function HeartbeatAfter(pos)
-  if pos.stationary or pos.taxi then return C.HEARTBEAT end
+  if pos.stationary then return C.HEARTBEAT end
   return C.FADE_MIN * C.BEAT_OF_FADE
 end
 
@@ -115,7 +115,7 @@ local function SendReason(pos, now, interval)
     if now >= FirstSendAt() then return "first" end
     return nil
   end
-  if pos.mapID ~= last.mapID and not pos.taxi then return "zone" end
+  if pos.mapID ~= last.mapID then return "zone" end
   if pos.flags ~= last.flags then return "flags" end
   if WalkedSince(last, pos) then return "moved" end
   if now - last.t >= math.max(HeartbeatAfter(pos), interval) then return "heartbeat" end

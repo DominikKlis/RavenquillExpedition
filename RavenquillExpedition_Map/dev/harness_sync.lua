@@ -125,12 +125,16 @@ do
   local takeoff = LastMsg(bus, "Anna Alpha", "P")
   check(takeoff and takeoff.t > t0 and takeoff.msg:match(";t;"), "taxi take-off sent with flag t")
   local t1 = sched.t
-  sched:advance(200)
-  check(MapSends(bus, "Anna Alpha", t1, sched.t) == 0, "nothing sent while on the taxi (heartbeat > 200 s)")
+  local flight = sched:at(sched.t + 2, function() A.pos = { A.pos[1], A.pos[2] + 0.004, A.pos[3] } end, 2)
+  sched:advance(60)
+  flight:Cancel()
+  local inFlight = MapSends(bus, "Anna Alpha", t1, sched.t)
+  check(inFlight >= 60 / (MC.INTERVAL_MIN + MC.TICK) - 1, ("a flying A keeps updating its position (%d in 60 s)"):format(inFlight))
   check(B.M.members["Anna Alpha"].flags.t, "B sees A on a taxi")
+  check(math.abs(B.M.members["Anna Alpha"].x - A.pos[2]) < 0.02, "B's pin follows A along the flight path")
   A.taxi = false
   local t2 = sched.t
-  sched:advance(6)
+  sched:advance(MC.INTERVAL_MIN + MC.TICK)
   check(MapSends(bus, "Anna Alpha", t2, sched.t) == 1, "landing sent")
 
   A.combat = true
@@ -150,6 +154,7 @@ do
   check(A.M.sync.received == recv, "nothing read in an instance")
   check(not A.RQ:CommState().slow, "an instance trip doesn't count as lost echoes (no slow mode)")
   A.instance = false
+  A.pos = { A.pos[1], A.pos[2] + 0.01, A.pos[3] }
   A.fire("PLAYER_ENTERING_WORLD")
   sched:advance(4)
   check(MapSends(bus, "Anna Alpha", sched.t - 4, sched.t) == 1, "sends again after the instance")
@@ -394,10 +399,9 @@ do
   sched:advance(200)
   A.taxi = true
   sched:advance(40)
-  local t0 = sched.t
   A.pos = { 1436, 0.5, 0.5 }
-  sched:advance(120)
-  check(MapSends(bus, "Anna Alpha", t0, sched.t) == 0, "no zone message while on a taxi")
+  sched:advance(10)
+  check(B.M.members["Anna Alpha"].mapID == 1436, "flying into a new zone moves the pin there before landing")
   A.taxi = false
   sched:advance(4)
   check(B.M.members["Anna Alpha"].mapID == 1436, "landing message has the new zone")
