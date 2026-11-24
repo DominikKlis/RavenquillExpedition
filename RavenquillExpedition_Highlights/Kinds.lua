@@ -250,8 +250,22 @@ function H:ShouldPrint(e)
   return not kind.chatMinQuality or (e.q or 0) >= kind.chatMinQuality
 end
 
+H.CHAT_HOLD = 240
+local toldLines = {}
+
+local function TellLine(self, e)
+  local line = self:LineOf(e)
+  if not line or toldLines[line.id] then return end
+  toldLines[line.id] = true
+  self:Print(self:Format(line))
+end
+
 function H:Announce(e)
   if not self:ShouldPrint(e) then return end
+  if self:Folding(e) then
+    C_Timer.After(self.CHAT_HOLD, function() GS:Call(TellLine, self, e) end)
+    return
+  end
   if e.item and not Plain(e.link, "string") and not self:ItemCached(e.item) then
     self.RequestItemData(e.item)
     C_Timer.After(2, function() GS:Call(function() self:Print(self:Format(e)) end) end)

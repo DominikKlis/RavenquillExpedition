@@ -58,13 +58,13 @@ local function Join(self, folds, rule, e)
   folds[#folds + 1] = { rule = rule, e }
 end
 
-local function Gather(self, events, at, held)
+local function Gather(self, events, at, held, by)
   local folds = {}
   for _, e in ipairs(events) do
     local rule = FoldRule(self, e)
     local holder = rule and Holder(self, rule, e, events)
     if holder then
-      at[e], held[holder] = false, H.Firsts({ e }, held[holder])
+      at[e], held[holder], by[e] = false, H.Firsts({ e }, held[holder]), holder
     elseif rule then
       Join(self, folds, rule, e)
     end
@@ -83,10 +83,10 @@ local function FoldLine(f)
   return line
 end
 
-local function Place(f, at)
+local function Place(f, at, by)
   if #f < f.rule.min then return end
   at[f[1]] = FoldLine(f)
-  for i = 2, #f do at[f[i]] = false end
+  for i = 2, #f do at[f[i]], by[f[i]] = false, f[1] end
 end
 
 local function Held(e, firsts)
@@ -105,16 +105,27 @@ local function Yields(self, line, lines)
   return false
 end
 
-function H:ShownLog()
-  local events, at, held = self:Log(), {}, {}
-  for _, f in ipairs(Gather(self, events, at, held)) do Place(f, at) end
-  local lines = {}
+local function Lines(self)
+  local events, at, held, by = self:Log(), {}, {}, {}
+  for _, f in ipairs(Gather(self, events, at, held, by)) do Place(f, at, by) end
+  local lines, anchors = {}, {}
   for _, e in ipairs(events) do
     local line = at[e]
     if line == nil then line = self:Shown(e) and Held(e, held[e]) end
-    if line then lines[#lines + 1] = line end
+    if line then lines[#lines + 1], anchors[#anchors + 1] = line, e end
   end
-  local out = {}
-  for _, line in ipairs(lines) do if not Yields(self, line, lines) then out[#out + 1] = line end end
-  return out
+  local out, of = {}, {}
+  for i, line in ipairs(lines) do
+    if not Yields(self, line, lines) then out[#out + 1], of[anchors[i]] = line, line end
+  end
+  return out, of, by
 end
+
+function H:ShownLog() return (Lines(self)) end
+
+function H:LineOf(e)
+  local _, of, by = Lines(self)
+  return of[by[e] or e]
+end
+
+function H:Folding(e) return FoldRule(self, e) ~= nil or self.KINDS[e.k].holds ~= nil end

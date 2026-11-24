@@ -279,8 +279,12 @@ check(count() == n + 2 and run.k == "group" and run.inst == "Die Todesminen" and
 check(firstRun and firstRun.first and firstRun.inst == "Die Todesminen" and firstRun.n == 2 and firstRun.nf == 2
   and firstRun.boss == "Rhahk'Zor" and firstRun.t == run.t and not H.cdb.outbox[firstRun.id].grp,
   "it was Me's first run there: a first-run entry too, two new bosses, last Rhahk'Zor, the run's time, sent as Me's own")
-check(printedSince(runMark):find("|cfffff569Me Smith|r und |cffff7d0aBud Stone|r  ·  |cffffd100Die Todesminen|r geschafft", 1, true)
-  ~= nil and not printedSince(runMark):find("Boss", 1, true), "its chat line names everyone in class colours, without a boss count")
+check(printedSince(runMark) == "", "chat waits for guildmates' reports of the run before it tells it")
+advance(H.CHAT_HOLD)
+local runChat = printedSince(runMark)
+check(runChat:find("|cfffff569Me Smith|r und |cffff7d0aBud Stone|r  ·  |cffffd100Die Todesminen|r geschafft, für ", 1, true) ~= nil
+  and not runChat:find("\n", 1, true) and not runChat:find("Boss", 1, true),
+  "then one chat line, the Chronik's: everyone in class colours, who was new, without a boss count: " .. runChat)
 local raidMark = #printed
 fire("ENCOUNTER_END", 663, "Lucifron", 9, 40, 1)
 local luci = lastOf("boss")
