@@ -602,7 +602,7 @@ do
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
-section("Old dungeon first kills: one line per person and dungeon, saying how many bosses; it yields to a run or group line there")
+section("Old dungeon first kills: one line per person and dungeon, with guildmates at the same kill; it yields to a run or group line there")
 do
   local w = World()
   local lyra = w.join("Lyra Distelbach")
@@ -626,21 +626,71 @@ do
   local lines = DungeonLines(lyra)
   local visits = {}
   for _, text in ipairs(lines) do if text:find("zum ersten Mal besiegt", 1, true) then visits[#visits + 1] = text end end
-  check(#visits == 3, "three first-time lines from nine old boss kills: " .. table.concat(visits, " / "))
-  check(Holds(visits, "Hanne Moosgrund  ·  |cffffd100Zul'Farrak|r: 3 Bosse zum ersten Mal besiegt")
-    and Holds(visits, "Tamo Eichengrund  ·  |cffffd100Zul'Farrak|r: ein Boss zum ersten Mal besiegt")
+  check(#visits == 2, "two first-time lines from nine old boss kills: " .. table.concat(visits, " / "))
+  check(Holds(visits, "Hanne Moosgrund und Tamo Eichengrund  ·  |cffffd100Zul'Farrak|r: Bosse zum ersten Mal besiegt")
     and Holds(visits, "Hanne Moosgrund  ·  |cffffd100Maraudon|r: ein Boss zum ersten Mal besiegt"),
-    "Hanne's three Zul'Farrak kills over two days are one line, Tamo's English one is his own, Hanne's Maraudon another")
+    "Hanne's three Zul'Farrak kills over two days and Tamo's English one at her first are one line, without a count, as theirs "
+    .. "differ; Hanne's Maraudon is another")
   check(not Holds(visits, "Ole Fichtental") and Holds(lines, "Ole Fichtental  ·  |cffffd100Maraudon|r zum ersten Mal geschafft"),
     "Ole's first run through Maraudon replaces his Maraudon kills: it says more")
   check(not Holds(visits, "Bodo Kesselring") and Holds(lines, "Rika Steinbeck und Bodo Kesselring  ·  |cffffd100Uldaman|r geschafft"),
     "Bodo's Uldaman kill yields to the guild group line that names him there")
   check(Count(Lines(lyra), OfKind("boss")) == 1, "the world boss Azuregos keeps its own line")
-  check(Count(PaperEntries(lyra), OfKind("visit")) == 3 and Holds(FeedTexts(lyra), visits[1]),
+  check(Count(PaperEntries(lyra), OfKind("visit")) == 2 and Holds(FeedTexts(lyra), visits[1]),
     "the Rabenblatt and the home feed get the same lines")
-  check(lyra.H:NewSinceLastLook() == 6, "six new lines: three first-time, Ole's run, the group and Azuregos ("
+  check(lyra.H:NewSinceLastLook() == 5, "five new lines: two first-time, Ole's run, the group and Azuregos ("
     .. lyra.H:NewSinceLastLook() .. ")")
   check(#lyra.H:Log() == #saved, "the saved log is untouched")
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
+section("Old dungeon first kills: guildmates at the same kill are one line naming all of them, in either language")
+do
+  local w = World()
+  local lyra, nora = w.join("Lyra Distelbach"), w.join("Nora Feldmark", { locale = "enUS" })
+  Members(w)
+  local function Kill(who, t, inst, enc, boss) return Old("boss", who, t, { enc = enc, boss = boss, inst = inst, first = true }) end
+  local function Kills() return {
+    Kill("Hanne Moosgrund", At(20, 19, 10), "Zul'Farrak", 596, "Theka der Märtyrer"),
+    Kill("Tamo Eichengrund", At(20, 19, 11), "Zul'Farrak", 596, "Theka the Martyr"),
+    Kill("Ole Fichtental", At(20, 19, 11), "Zul'Farrak", 596, "Theka der Märtyrer"),
+    Kill("Hanne Moosgrund", At(20, 19, 34), "Zul'Farrak", 600, "Häuptling Ukorz Sandskalp"),
+    Kill("Tamo Eichengrund", At(20, 19, 34), "Zul'Farrak", 600, "Chief Ukorz Sandscalp"),
+    Kill("Ole Fichtental", At(20, 19, 34), "Zul'Farrak", 600, "Häuptling Ukorz Sandskalp"),
+    Kill("Rika Steinbeck", At(20, 19, 50), "Zul'Farrak", 596, "Theka der Märtyrer"),
+    Kill("Bodo Kesselring", At(20, 21, 42), "Die Versunkene Stadt", 3476, "Captain Dreadrise"),
+    Kill("Kael Wintermoor", At(20, 21, 42), "The Drowned City", 3476, "Captain Dreadrise"),
+    Kill("Kael Wintermoor", At(20, 21, 51), "The Drowned City", 3478, "Deathless Guardians"),
+    Kill("Mira Sturmfeder", At(20, 9, 0), "Maraudon", 422, "Noxxion"),
+    Kill("Ilsa Brunnhold", At(20, 9, 0), "Maraudon", 422, "Noxxion"),
+    Old("group", "Ilsa Brunnhold", At(20, 9, 50), { inst = "Maraudon", with = { "Mira Sturmfeder" }, grp = true }),
+    Kill("Mira Sturmfeder", At(20, 11, 0), "Uldaman", 2748, "Archaedas"),
+    Kill("Kael Wintermoor", At(20, 11, 0), "Uldaman", 2748, "Archaedas"),
+    Old("run", "Mira Sturmfeder", At(20, 11, 5), { inst = "Uldaman", boss = "Archaedas", n = 7, nf = 7, first = true }),
+  } end
+  Saved(lyra, Kills())
+  Saved(nora, Kills())
+  w.start()
+  local visits = {}
+  for _, text in ipairs(DungeonLines(lyra)) do if text:find("zum ersten Mal besiegt", 1, true) then visits[#visits + 1] = text end end
+  check(#visits == 4, "four first-time lines: " .. table.concat(visits, " / "))
+  check(Holds(visits, "Hanne Moosgrund, Tamo Eichengrund und Ole Fichtental  ·  |cffffd100Zul'Farrak|r: 2 Bosse zum ersten Mal besiegt"),
+    "Hanne, Tamo and Ole fell Theka within a minute: one line names all three, two bosses each")
+  check(Holds(visits, "Rika Steinbeck  ·  |cffffd100Zul'Farrak|r: ein Boss zum ersten Mal besiegt"),
+    "Rika's Theka a quarter of an hour after their last kill is another group, her own line")
+  check(Holds(visits, "Bodo Kesselring und Kael Wintermoor  ·  |cffffd100Die Versunkene Stadt|r: Bosse zum ersten Mal besiegt"),
+    "Bodo's German and Kael's English kill of Captain Dreadrise are one line; Kael fell one more, so no count")
+  check(not Holds(visits, "Maraudon"), "Mira's and Ilsa's Maraudon kills yield to the group line that names them both")
+  check(Holds(visits, "Mira Sturmfeder und Kael Wintermoor  ·  |cffffd100Uldaman|r: ein Boss zum ersten Mal besiegt"),
+    "Mira's first run through Uldaman does not tell Kael's kill: their line stays")
+  local story
+  for _, e in ipairs(PaperEntries(lyra)) do if e.k == "visit" and e.with and #e.with == 2 then story = e end end
+  check(story and story.who == "Hanne Moosgrund" and story.with[1] == "Tamo Eichengrund" and story.with[2] == "Ole Fichtental",
+    "the Rabenblatt gets the same line with all three names")
+  local english = DungeonLines(nora)
+  check(Holds(english, "Hanne Moosgrund, Tamo Eichengrund and Ole Fichtental  ·  first time in |cffffd100Zul'Farrak|r: 2 bosses")
+    and Holds(english, "Bodo Kesselring and Kael Wintermoor  ·  first boss kills in |cffffd100Die Versunkene Stadt|r"),
+    "in English too: " .. table.concat(english, " / "))
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
