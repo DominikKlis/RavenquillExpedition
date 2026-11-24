@@ -320,26 +320,32 @@ local function FlowLead(paper, x, top, width, limit)
   return math.max(photoEnd, y + bodyH)
 end
 
+local function ShowStory(st, shown)
+  for _, region in ipairs({ st.kicker, st.head, st.body }) do region:SetShown(shown) end
+end
+
 local function FlowStory(paper, st, x, top, width, bottom)
   local y = Place(paper, st.kicker, x, top, width) + U(paper, SIZE.storyHeadTop)
   y = Place(paper, st.head, x, y, width) + U(paper, SIZE.storyHeadGap)
   Anchor(paper, st.body, x, y, width)
   Fit(Setter(st.body), st.paragraphs, bottom - y)
-  return y + Height(st.body)
+  local fits = st.body:GetText() ~= ""
+  ShowStory(st, fits)
+  return fits and y + Height(st.body) or nil
 end
 
 local function FlowPair(paper, x, top, width, bottom)
   local sec, third, gap = paper.second, paper.third, U(paper, SIZE.gap)
   Anchor(paper, paper.pairRule, x, top, width)
   local y, colW = top + 2 + U(paper, SIZE.lowerPad), (width - gap) / 2
-  local thirdEnd, shown = y, third.id ~= nil
-  if shown then
-    thirdEnd = FlowStory(paper, third, x + colW + gap, y, colW, bottom)
-    shown = third.body:GetText() ~= ""
+  local thirdEnd = third.id and FlowStory(paper, third, x + colW + gap, y, colW, bottom)
+  local secEnd = thirdEnd and FlowStory(paper, sec, x, y, colW, bottom)
+  if not secEnd then
+    ShowStory(third, false)
+    thirdEnd, secEnd = nil, FlowStory(paper, sec, x, y, width, bottom)
   end
-  for _, region in ipairs({ third.kicker, third.head, third.body }) do region:SetShown(shown) end
-  local secEnd = FlowStory(paper, sec, x, y, shown and colW or width, bottom)
-  return math.max(secEnd, shown and thirdEnd or y), shown and { [third.id] = true } or {}
+  paper.pairRule:SetShown(secEnd ~= nil)
+  return secEnd and math.max(secEnd, thirdEnd or y), thirdEnd and { [third.id] = true } or {}
 end
 
 local FlowBrief
@@ -350,13 +356,13 @@ do
     return list[1] and "" or T.NO_BRIEF
   end
 
-  local function KeptItems(paper, list, ends, bottom)
+  local function KeptItems(paper, list, ends, bottom, lost)
     local n = math.min(#list, News.BRIEF_MAX)
     for k = n, 1, -1 do
-      paper.brief.more:SetText(MoreText(paper.issue, list, #list - k))
+      paper.brief.more:SetText(MoreText(paper.issue, list, #list - k + lost))
       if ends[k] + Height(paper.brief.more) <= bottom then return k end
     end
-    paper.brief.more:SetText(MoreText(paper.issue, list, #list))
+    paper.brief.more:SetText(MoreText(paper.issue, list, #list + lost))
     return 0
   end
 
@@ -377,11 +383,11 @@ do
     return y + 1 + U(paper, SIZE.itemPad)
   end
 
-  FlowBrief = function(paper, x, top, width, bottom, placed)
+  FlowBrief = function(paper, x, top, width, bottom, placed, lost)
     local brief, list = paper.brief, BriefList(paper.issue, placed)
     local ends = { [0] = Place(paper, brief.title, x, top, width) + U(paper, SIZE.titleGap) }
     for i, item in ipairs(brief.items) do ends[i] = FlowItem(paper, item, list[i], x, ends[i - 1], width) end
-    local kept = KeptItems(paper, list, ends, bottom)
+    local kept = KeptItems(paper, list, ends, bottom, lost)
     for i, item in ipairs(brief.items) do
       local shown = i <= kept and item.text:GetText() ~= ""
       for _, region in pairs(item) do region:SetShown(shown) end
@@ -390,20 +396,26 @@ do
   end
 end
 
+local function FlowMain(paper, x, top, width, bottom)
+  local secondMin = U(paper, SIZE.secondMin)
+  local leadEnd = FlowLead(paper, x, top, width, bottom - secondMin)
+  local pairEnd, placed = FlowPair(paper, x, leadEnd + U(paper, SIZE.lowerGap), width, bottom)
+  if pairEnd then return math.max(pairEnd, leadEnd + secondMin), placed, 0 end
+  return FlowLead(paper, x, top, width, bottom), placed, paper.second.id and 1 or 0
+end
+
 local function FlowGrid(paper, top, w, bottom)
   local side, gap, sideW = SIZE.side, U(paper, SIZE.gap), U(paper, SIZE.sideW)
-  local mainW, secondMin = w - 2 * side - sideW - gap, U(paper, SIZE.secondMin)
-  local leadEnd = FlowLead(paper, side, top, mainW, bottom - secondMin)
-  local pairEnd, placed = FlowPair(paper, side, leadEnd + U(paper, SIZE.lowerGap), mainW, bottom)
+  local mainW = w - 2 * side - sideW - gap
+  local mainEnd, placed, lost = FlowMain(paper, side, top, mainW, bottom)
   local sideX = side + mainW + gap
   Anchor(paper, paper.sideRule, sideX, top)
   paper.sideRule:SetHeight(math.max(1, bottom - top))
   local FlowSide = paper.week.shown and H.FlowWeekColumn or FlowBrief
   local briefEnd, kept = FlowSide(paper, sideX + 2 + U(paper, SIZE.sidePad), top, sideW - 2 - U(paper, SIZE.sidePad), bottom,
-    placed)
-  local used = math.max(pairEnd, briefEnd, leadEnd + secondMin)
-  return used, table.concat({ kept, tostring(next(placed)), paper.lead.shown or "", paper.second.body:GetText() or "",
-    paper.third.body:GetText() or "", paper.lead.photo.caption:GetText() or "" }, "|")
+    placed, lost)
+  return math.max(mainEnd, briefEnd), table.concat({ kept, tostring(next(placed)), paper.lead.shown or "",
+    paper.second.body:GetText() or "", paper.third.body:GetText() or "", paper.lead.photo.caption:GetText() or "" }, "|")
 end
 
 local function PaperSize(paper)

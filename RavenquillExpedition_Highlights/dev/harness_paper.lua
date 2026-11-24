@@ -227,8 +227,8 @@ do
     .. "everything on the page (" .. (off[1] or tostring(cut)) .. ")")
   local dropped = #paper.issue.brief - ShownBrief(paper) - ThirdShown(paper)
   local more = paper.brief.more:GetText() or ""
-  check(dropped > 0 and more:lower():find(c.ns[NK.HL].News.Count(paper.issue.more + dropped, c.ns[NK.HL].NewsLocales.deDE), 1, true),
-    "brief items that do not fit are dropped whole and counted in the line about the chronicle (" .. more .. ")")
+  check(dropped > 0 and MoreSays(c, more, Untold(paper)),
+    "brief items and stories that do not fit are dropped whole and counted in the line about the chronicle (" .. more .. ")")
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
 end
 
@@ -678,7 +678,9 @@ do
     check(templates[b] == false and b:IsShown() and b.label._text == "Testeinträge hinzufügen" and Same(b.label._ink, c.H.INK)
       and b.label._fontSize >= 15 * SPEC.small and InkEdges(c, b) == 8,
       "a plain button, no red template: ink words framed by a double ink rule" .. tag)
-    check(UnderWords(lead, br) and br.right <= R(paper.sideRule).left and br.bottom >= R(paper.pairRule).top, "it sits under the lead's last words, inside the main column, above the next story" .. tag)
+    local floor = paper.pairRule:IsShown() and R(paper.pairRule).top or R(f.footerRule).top
+    check(UnderWords(lead, br) and br.right <= R(paper.sideRule).left and br.bottom >= floor,
+      "it sits under the lead's last words, inside the main column, above the next story or the footer" .. tag)
     local covered = Covered(c, paper, b)
     check(Layout.Inside(br, R(b.label)) and not Layout.Truncated(b.label) and covered == "none",
       "its words fit inside the box and no other text runs into it (" .. covered .. ")" .. tag)
