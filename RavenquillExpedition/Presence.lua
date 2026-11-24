@@ -9,6 +9,8 @@ local answer = "idle"
 local channel = ns.ModuleProto.NewChannel({ name = "core" }, { tag = "V" })
 channel:Define("v", { fields = { { "ver", "text", 24 } } })
 channel:Define("p", { fields = {} })
+channel:Define("q", { fields = {} })
+channel:Define("r", { fields = { { "ver", "text", 24 } } })
 
 local SendReply
 local function ReplyAfter(delay)
@@ -29,6 +31,33 @@ channel:On("v", function(sender, msg)
   if answer == "idle" then ReplyAfter(math.random() * C.REPLY_JITTER) end
   GS:Call(ns.GoalHello)
 end)
+
+local askedAt, versionAnswerAt, versionAnswerDue
+
+local function SendVersionAnswer()
+  versionAnswerDue = false
+  channel:Send("r", { ver = GS.version }, { onResult = function(status)
+    if status == "dropped" then versionAnswerAt = nil end
+  end })
+end
+
+channel:On("q", function()
+  if not GS.IsRelease(GS.version) or versionAnswerDue then return end
+  local now = GetTime()
+  if versionAnswerAt and now - versionAnswerAt < C.VERSION_ASK_EVERY then return end
+  versionAnswerAt, versionAnswerDue = now, true
+  C_Timer.After(math.random() * C.REPLY_JITTER, function() GS:Call(SendVersionAnswer) end)
+end)
+
+channel:On("r", function(sender, msg) GS:NotePeerVersion(sender, msg.ver) end)
+
+function GS:RequestVersions()
+  local now = GetTime()
+  if askedAt and now - askedAt < C.VERSION_ASK_EVERY then return false end
+  askedAt = now
+  channel:Send("q", {})
+  return true
+end
 
 local function Announce()
   channel:Send("v", { ver = GS.version }, { onResult = function(status)

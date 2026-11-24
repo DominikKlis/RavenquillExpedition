@@ -201,4 +201,53 @@ check(ten.perSender == 1 and forty.perSender == 1,
   ("each guildmate sends one message for it, far under its own cap (%d per 60 s) and the intake cap (%d per sender per minute)")
     :format(cap, C.INTAKE_PER_MIN))
 
+section("Version request: the dev tools ask once, release builds answer with their version")
+do
+  local function IsAsk(e) return e.prefix == "RQE1" and e.msg == "V;1;q" end
+  local function IsAnswer(e) return e.prefix == "RQE1" and e.msg:find("^V;1;r;") ~= nil end
+  local function Since(b, who, t0, pred) return #b:sentBy(who, function(e) return e.t >= t0 and pred(e) end) end
+  local s, b = Kit.Setup()
+  local rnd = Kit.Random(5)
+  local vera = Kit.Client(s, b, "Vera Dev", { random = rnd })
+  local eli = Kit.Client(s, b, "Eli Stone", { random = rnd, setup = Released("0.11.0-beta") })
+  local fin = Kit.Client(s, b, "Fin Moor", { random = rnd, setup = Released("0.11.1-beta") })
+  local gus = Kit.Client(s, b, "Gus Dev", { random = rnd })
+  vera.login(); eli.login(); fin.login(); gus.login()
+  s:advance(1800)
+  local stored = vera.RQ:PeerVersions()
+  for key in pairs(stored) do stored[key] = nil end
+  local t0 = s.t
+  check(vera.RQ:RequestVersions() == true, "the dev tools send a version request")
+  local answered = AdvanceUntil(s, C.REPLY_JITTER + 10, function()
+    local v = vera.RQ:PeerVersions()
+    return v["Eli Stone"] ~= nil and v["Fin Moor"] ~= nil
+  end)
+  s:advance(5)
+  local v = vera.RQ:PeerVersions()
+  check(answered and v["Eli Stone"] == "0.11.0-beta" and v["Fin Moor"] == "0.11.1-beta",
+    ("both release builds report their version within %d s: %s, %s"):format(C.REPLY_JITTER, tostring(v["Eli Stone"]), tostring(v["Fin Moor"])))
+  check(Since(b, "Vera Dev", t0, IsAsk) == 1, "the request is one message V;1;q")
+  check(Since(b, "Eli Stone", t0, IsAnswer) == 1 and Since(b, "Fin Moor", t0, IsAnswer) == 1,
+    "each release build answers once")
+  check(Since(b, "Gus Dev", t0, IsAnswer) == 0, "a dev build has no release version and stays silent")
+  check(eli.RQ:PeerVersions()["Fin Moor"] == "0.11.1-beta", "everyone else learns the answers too")
+  local storm = 0
+  for _, who in ipairs({ "Eli Stone", "Fin Moor", "Gus Dev", "Vera Dev" }) do
+    storm = storm + Since(b, who, t0, function(e) return IsHello(e) or IsReply(e) end)
+  end
+  check(storm == 0, "a request starts no announcements or presence answers (" .. storm .. ")")
+  local t1 = s.t
+  check(vera.RQ:RequestVersions() == false and Since(b, "Vera Dev", t1, IsAsk) == 0,
+    ("a second request within %d s is refused"):format(C.VERSION_ASK_EVERY))
+  gus.RQ:RequestVersions()
+  s:advance(C.REPLY_JITTER + 10)
+  check(Since(b, "Gus Dev", t1, IsAsk) == 1 and Since(b, "Eli Stone", t1, IsAnswer) == 0,
+    ("another guildmate's request within %d s gets no second answer"):format(C.VERSION_ASK_EVERY))
+  s:advance(C.VERSION_ASK_EVERY)
+  local t2 = s.t
+  check(vera.RQ:RequestVersions() == true, "after the pause the dev tools may ask again")
+  s:advance(C.REPLY_JITTER + 10)
+  check(Since(b, "Eli Stone", t2, IsAnswer) == 1, "and get a fresh answer")
+end
+
 Kit.finish()
