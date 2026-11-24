@@ -40,13 +40,13 @@ local function DungeonFirst(e) return e.first and not e.raid and not WorldBoss(e
 
 local function SameRun(self, f, e)
   for _, m in ipairs(f) do if m.who == e.who then return false end end
-  return H.SameDungeon(f[1].inst, e.inst) and math.abs(f[1].t - e.t) <= self.RUN_FOLD
+  return H.SameDungeon(f[1].inst, e.inst) and f[1].n == e.n and math.abs(f[1].t - e.t) <= self.RUN_FOLD
 end
 
 local function SameVisit(self, f, e)
   if not H.SameDungeon(f[1].inst, e.inst) then return false end
   for _, m in ipairs(f) do
-    if m.who == e.who or math.abs(m.t - e.t) <= self.KILL_SLACK then return true end
+    if m.who == e.who or (m.enc == e.enc and math.abs(m.t - e.t) <= self.KILL_SLACK) then return true end
   end
   return false
 end

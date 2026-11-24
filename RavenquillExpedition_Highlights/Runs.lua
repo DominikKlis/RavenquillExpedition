@@ -4,7 +4,7 @@ local H = ns.H
 local SafeCall, Plain = GS.SafeCall, GS.Plain
 
 H.RUN_GRACE = 600
-H.RUN_FOLD = 2 * H.RUN_GRACE
+H.RUN_FOLD = 300
 H.KILL_SLACK = 60
 H.RUN_COUNT_MAX = 99
 

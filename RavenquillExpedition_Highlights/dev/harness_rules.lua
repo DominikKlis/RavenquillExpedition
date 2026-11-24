@@ -565,7 +565,7 @@ local function GroupLines(c)
   return out
 end
 
-section("Old dungeon runs: a saved first run is a line; guildmates within twenty minutes are one Gildengruppe line naming who was new")
+section("Old dungeon runs: a saved first run is a line; guildmates with the same kills within five minutes are one Gildengruppe line naming who was new")
 do
   local w = World()
   local lyra = w.join("Lyra Distelbach")
@@ -577,8 +577,8 @@ do
     Run("Mira Sturmfeder", At(20, 10, 5), "Die Todesminen", 5, true),
     Run("Bodo Kesselring", At(20, 15, 10), "Uldaman", 7),
     Run("Ole Fichtental", At(20, 18, 40), "Die Todesminen", 5, true),
-    Run("Hanne Moosgrund", At(20, 18, 43), "Die Todesminen", 5),
-    Run("Tamo Eichengrund", At(20, 18, 51), "Die Todesminen", 4, true),
+    Run("Hanne Moosgrund", At(20, 18, 42), "Die Todesminen", 5),
+    Run("Tamo Eichengrund", At(20, 18, 44), "Die Todesminen", 5, true),
     Run("Kael Wintermoor", At(20, 19, 5), "Die Todesminen", 3),
   }
   Saved(lyra, saved)
@@ -589,7 +589,7 @@ do
     "Mira's first run that morning, with strangers, is her own line: " .. tostring(lines[1]))
   check(lines[2] and lines[2]:find("Ole Fichtental, Hanne Moosgrund und Tamo Eichengrund  ·  |cffffd100Die Todesminen|r geschafft, "
     .. "für Ole Fichtental und Tamo Eichengrund zum ersten Mal", 1, true) and not lines[2]:find("Boss", 1, true),
-    "the three who finished within twenty minutes are one group line that names the two who were new, without a boss count: "
+    "the three who finished within five minutes are one group line that names the two who were new, without a boss count: "
     .. tostring(lines[2]))
   check(not Holds(lines, "Uldaman") and not Holds(lines, "Kael Wintermoor"), "Bodo's repeat Uldaman and Kael's repeat run are no line")
   check(Count(PaperEntries(lyra), OfKind("group")) == 1 and Count(PaperEntries(lyra), OfKind("run")) == 1 and Story(lyra).k == "group",
@@ -733,7 +733,7 @@ do
   Saved(lyra, {
     Old("run", "Ole Fichtental", At(20, 9, 8), { inst = "Höhlen des Wehklagens", boss = "Mutanus der Verschlinger", n = 8, nf = 8,
       first = true }),
-    Old("run", "Kael Wintermoor", At(20, 9, 16), { inst = "Wailing Caverns", boss = "Mutanus the Devourer", n = 8, nf = 8, first = true }),
+    Old("run", "Kael Wintermoor", At(20, 9, 8) + 30, { inst = "Wailing Caverns", boss = "Mutanus the Devourer", n = 8, nf = 8, first = true }),
     Old("run", "Hanne Moosgrund", At(20, 12, 16), { inst = "Gefängnis von Alcaz", boss = "Blazeroar", n = 10, nf = 2 }),
     Old("run", "Tamo Eichengrund", At(20, 12, 17), { inst = "Alcaz Prison", boss = "Blazeroar", n = 10, nf = 3 }),
     Kill("Bodo Kesselring", At(20, 14, 0), "Krol'dok Stronghold", 3450, "Slavecrusher Grox"),
@@ -745,7 +745,7 @@ do
   local lines = DungeonLines(lyra)
   check(#lines == 4, "four lines for four dungeons: " .. table.concat(lines, " / "))
   check(Holds(lines, "Ole Fichtental und Kael Wintermoor  ·  |cffffd100Höhlen des Wehklagens|r zum ersten Mal geschafft"),
-    "Ole's German and Kael's English first runs through the Wailing Caverns eight minutes apart are one group line")
+    "Ole's German and Kael's English first runs through the Wailing Caverns half a minute apart are one group line")
   check(Holds(lines, "Hanne Moosgrund und Tamo Eichengrund  ·  |cffffd100Gefängnis von Alcaz|r geschafft"),
     "two old repeat runs through Alcaz Prison, one in each language, are a guild group line")
   check(Holds(lines, "Rika Steinbeck und Bodo Kesselring  ·  |cffffd100Feste Krol'dok|r geschafft")
@@ -777,7 +777,7 @@ do
       first = true }),
     Old("run", "Kael Wintermoor", At(20, 9, 16), { inst = "Wailing Caverns", boss = "Mutanus the Devourer", n = 8, nf = 8, first = true }),
     Old("run", "Hanne Moosgrund", At(20, 11, 0), { inst = "Gnomeregan", boss = "Mekgineer Thermaplugg", n = 5, nf = 5, first = true }),
-    Old("run", "Tamo Eichengrund", At(20, 11, 3), { inst = "Gnomeregan", boss = "Mekgineer Thermaplugg", n = 5, nf = 5, first = true }),
+    Old("run", "Tamo Eichengrund", At(20, 11, 8), { inst = "Gnomeregan", boss = "Mekgineer Thermaplugg", n = 5, nf = 5, first = true }),
     Kill("Bodo Kesselring", At(20, 14, 0), "Zul'Farrak", 597, "Hexendoktor Zum'rah"),
     Kill("Mira Sturmfeder", At(20, 14, 1) - 30, "Zul'Farrak", 598, "Nekrum der Ausweider"),
   })
