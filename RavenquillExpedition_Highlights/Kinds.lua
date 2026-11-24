@@ -43,14 +43,36 @@ local function SameRun(self, f, e)
   return H.SameDungeon(f[1].inst, e.inst) and math.abs(f[1].t - e.t) <= self.RUN_FOLD
 end
 
-local function SameVisit(_, f, e) return f[1].who == e.who and H.SameDungeon(f[1].inst, e.inst) end
+local function SameVisit(self, f, e)
+  if not H.SameDungeon(f[1].inst, e.inst) then return false end
+  for _, m in ipairs(f) do
+    if m.who == e.who or math.abs(m.t - e.t) <= self.KILL_SLACK then return true end
+  end
+  return false
+end
 
 local function GroupFill(line, f)
   line.grp, line.with, line.firsts = true, {}, H.Firsts(f)
   for i = 2, #f do line.with[i - 1] = f[i].who end
 end
 
-local function VisitFill(line, f) line.n, line.boss = #f, f[#f].boss end
+local function KillsBy(f)
+  local kills, people = {}, {}
+  for _, e in ipairs(f) do
+    if not kills[e.who] then people[#people + 1] = e.who end
+    kills[e.who] = (kills[e.who] or 0) + 1
+  end
+  return kills, people
+end
+
+local function VisitFill(line, f)
+  local kills, people = KillsBy(f)
+  line.n, line.boss, line.with = kills[people[1]], f[#f].boss, {}
+  for i = 2, #people do
+    line.with[i - 1] = people[i]
+    if kills[people[i]] ~= kills[people[1]] then line.n = nil end
+  end
+end
 
 local function SameGroupRun(self, g, r)
   if not H.Involves(g, r.who) then return false end
@@ -103,7 +125,12 @@ H.KINDS = {
   },
   visit = {
     legacy = true, chat = false, icon = DUNGEON_ICON, yieldsTo = { run = true, group = true },
-    format = function(_, e) return L.VISIT:format(Gold(NonEmpty(e.inst, L.AN_INSTANCE)), Bosses(e.n)) end,
+    subject = function(self, e) return self:PeopleText(e) end,
+    format = function(_, e)
+      local inst = Gold(NonEmpty(e.inst, L.AN_INSTANCE))
+      if not e.n then return L.VISIT_SOME:format(inst) end
+      return L.VISIT:format(inst, Bosses(e.n))
+    end,
   },
   quest = {
     code = "q", legacy = true, chat = false, icon = "INV_Misc_Note_01", hidden = Always,

@@ -96,13 +96,20 @@ local function Held(e, firsts)
   return line
 end
 
+local function Told(to, line, lines, who)
+  for _, o in ipairs(lines) do
+    if to[o.k] and H.SameDungeon(o.inst, line.inst) and H.Involves(o, who) then return true end
+  end
+  return false
+end
+
 local function Yields(self, line, lines)
   local to = self.KINDS[line.k].yieldsTo
   if not to then return false end
-  for _, o in ipairs(lines) do
-    if to[o.k] and H.SameDungeon(o.inst, line.inst) and H.Involves(o, line.who) then return true end
+  for _, who in ipairs(H.People(line)) do
+    if not Told(to, line, lines, who) then return false end
   end
-  return false
+  return true
 end
 
 local function Lines(self)
