@@ -153,6 +153,19 @@ end
 
 local function ThirdShown(paper) return paper.third.head:IsShown() and paper.third.body:IsShown() and 1 or 0 end
 
+local function Untold(paper)
+  local issue = paper.issue
+  local second = issue.second and not paper.second.head:IsShown() and 1 or 0
+  return issue.more + #issue.brief - ShownBrief(paper) - ThirdShown(paper) + second
+end
+
+local function MoreSays(c, more, n)
+  local T = c.ns[NK.HL].NewsLocales.deDE
+  if n == 0 then return more == "" or more == T.NO_BRIEF end
+  if n == 1 then return more:lower():find("eine weitere meldung", 1, true) ~= nil end
+  return more:lower():find(c.ns[NK.HL].News.Count(n, T) .. " weitere meldungen", 1, true) ~= nil
+end
+
 local function OpenSized(c, w, h)
   c.H.WINDOW_W, c.H.WINDOW_H = w, h
   c.H:ShowWindow()
@@ -217,6 +230,85 @@ do
   check(dropped > 0 and more:lower():find(c.ns[NK.HL].News.Count(paper.issue.more + dropped, c.ns[NK.HL].NewsLocales.deDE), 1, true),
     "brief items that do not fit are dropped whole and counted in the line about the chronicle (" .. more .. ")")
   check(#c.errors == 0, "no Lua errors (" .. tostring(c.errors[1]) .. ")")
+end
+
+local STORY_KINDS = {
+  { "boss", "boss", { enc = 1100, boss = "Azuregos", inst = "Azshara", first = true } },
+  { "clear", "clear", { enc = 672, inst = "Geschmolzener Kern", n = 12, grp = true } },
+  { "duel", "duel", { foe = "Bodo Kesselring" } },
+  { "epic", "loot", { item = 5001, q = 4 } },
+  { "first", "first", { what = "boss", enc = 3111, boss = "Emeriss", inst = "Dämmerwald" } },
+  { "group", "group", { inst = "Die Todesminen", with = { "Bodo Kesselring", "Ole Fichtental" }, grp = true } },
+  { "level", "level", { lvl = 40 } },
+  { "levelmax", "level", { lvl = 60 } },
+  { "mount", "mount", { epic = true } },
+  { "pvp", "pvp", { pk = "rank", pr = 3, name = "Feldwebel" } },
+  { "ready", "ready", { raid = "mc" } },
+  { "rep", "rep", { st = 8, fac = "Argentumdämmerung" } },
+  { "run", "run", { inst = "Maraudon", boss = "Noxxion", n = 8, nf = 8, first = true } },
+  { "skill", "skill", { skill = "Alchemy", rank = 300 } },
+  { "visit", "visit", { inst = "Uldaman", n = 3 } },
+}
+local STORY_SPEC = { lead = { "first", { what = "level", lvl = 60 } } }
+for _, row in ipairs(STORY_KINDS) do STORY_SPEC[row[1]] = { row[2], row[3] } end
+local STORY_PEOPLE = { "Hanne Moosgrund", "Tamo Eichengrund", "Mira Sturmfeder", "Rika Steinbeck" }
+local SHORT_SHEETS = { { 640, 395 }, { 640, 470 }, { 900, 480 } }
+
+local function StoryDay(lineUp)
+  local c = LayoutClient("Lyra Distelbach")
+  for i, kind in ipairs(lineUp) do
+    local spec = STORY_SPEC[kind]
+    c.H:Add(E(spec[1], STORY_PEOPLE[i], At(20, 9 + i), spec[2]), "wire")
+  end
+  return c
+end
+
+local function Bare(story) return story.head:IsShown() and (story.body:GetText() or "") == "" end
+
+local function ReviewSheet(c, paper, tag, out)
+  local off = Offenders(c, paper)
+  if off[1] then out.off[#out.off + 1] = tag .. ": " .. off[1] end
+  for _, story in ipairs({ paper.second, paper.third }) do
+    if Bare(story) then out.bare[#out.bare + 1] = tag .. ": " .. story.head:GetText() end
+  end
+  local more, n = paper.brief.more:GetText() or "", Untold(paper)
+  if not MoreSays(c, more, n) then out.uncounted[#out.uncounted + 1] = ("%s: %d left out, the line says '%s'"):format(tag, n, more) end
+end
+
+local function ReviewLineUp(kind, slot, lineUp, out)
+  local c = StoryDay(lineUp)
+  for _, size in ipairs(SHORT_SHEETS) do
+    local f, paper = OpenSized(c, size[1], size[2])
+    local story = slot == 2 and paper.issue.second or paper.issue.extra[1]
+    if story and story.kind == kind then
+      out.seen[kind .. slot] = true
+      ReviewSheet(c, paper, ("%s as story %d at %dx%d"):format(kind, slot, size[1], size[2]), out)
+    end
+    f:Hide()
+  end
+  if c.errors[1] then out.errors[#out.errors + 1] = tostring(c.errors[1]) end
+end
+
+Kit.section("Paper: on a short page every kind of story beside or under the lead keeps its headline with at least one sentence, "
+  .. "or leaves the page whole and is counted in the line about the chronicle")
+do
+  local out = { off = {}, bare = {}, uncounted = {}, seen = {}, errors = {} }
+  for _, row in ipairs(STORY_KINDS) do
+    local kind = row[1]
+    ReviewLineUp(kind, 2, { "lead", kind, "duel" }, out)
+    ReviewLineUp(kind, 3, { "lead", kind == "clear" and "levelmax" or "clear", kind, "duel" }, out)
+  end
+  local missing = {}
+  for _, row in ipairs(STORY_KINDS) do
+    if not (out.seen[row[1] .. 2] or out.seen[row[1] .. 3]) then missing[#missing + 1] = row[1] end
+  end
+  check(#missing == 0 and out.seen.ready2 and out.seen.ready3, "every kind of story lands second or third, a raid ready story "
+    .. "both (" .. (missing[1] or "all seen") .. ")")
+  check(#out.off == 0, "every text stays on the page (" .. #out.off .. " sheets: " .. (out.off[1] or "none") .. ")")
+  check(#out.bare == 0, "no story keeps a headline without a sentence under it (" .. #out.bare .. " sheets: "
+    .. (out.bare[1] or "none") .. ")")
+  check(#out.uncounted == 0, "a story left out is counted in the line about the chronicle (" .. (out.uncounted[1] or "none") .. ")")
+  check(#out.errors == 0, "no Lua errors (" .. tostring(out.errors[1]) .. ")")
 end
 
 local function Click(b) b:GetScript("OnClick")(b) end
