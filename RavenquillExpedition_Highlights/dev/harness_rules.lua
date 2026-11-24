@@ -298,6 +298,55 @@ do
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
+local function ChatAbout(c, mark, needle)
+  local out = {}
+  for i = mark + 1, #c.printed do
+    local text = c.printed[i].text
+    if text:find(needle, 1, true) then out[#out + 1] = text end
+  end
+  return out
+end
+
+local function ChatMarks(w)
+  local marks = {}
+  for _, c in ipairs(w.list) do marks[c] = #c.printed end
+  return marks
+end
+
+section("Chat: a guild group run that is a first for one member is one chat line, the Chronik's, for everyone")
+do
+  local w = World()
+  local lyra = w.join("Lyra Distelbach")
+  local ole, hanne = w.join("Ole Fichtental"), w.join("Hanne Moosgrund")
+  w.start()
+  for _, c in ipairs(w.list) do c.H:Settings().chat = true end
+  Through(w, { ole }, DEADMINES, DEADMINES_BOSSES)
+  local marks = ChatMarks(w)
+  Through(w, { ole, hanne }, DEADMINES, DEADMINES_BOSSES)
+  for _, c in ipairs({ lyra, ole, hanne }) do
+    local said, lines = ChatAbout(c, marks[c], "Die Todesminen"), DungeonLines(c)
+    check(#said == 1 and said[1]:find(lines[#lines], 1, true) ~= nil,
+      c.name .. ": one chat line, the one the Chronik shows (" .. #said .. "): " .. table.concat(said, " / "))
+  end
+  marks = ChatMarks(w)
+  local tamo = { name = "Tamo Eichengrund" }
+  w.bus:member(tamo.name, "HUNTER", 60)
+  local party = { ole, hanne, tamo.name }
+  w.group(party)
+  w.go(party, { name = "Uldaman", itype = "party", id = 70 })
+  w.kill(party, 2748, "Archaedas")
+  w.go({ ole }, TOWN)
+  w.settle(900)
+  w.go({ hanne }, TOWN)
+  w.settle(1200)
+  for _, c in ipairs({ lyra, ole, hanne }) do
+    local said = ChatAbout(c, marks[c], "Uldaman")
+    check(#said == 1, c.name .. ": Hanne leaves ten minutes after Ole and her first run arrives after the group's report: "
+      .. "still one chat line (" .. #said .. "): " .. table.concat(said, " / "))
+  end
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
 section("Raid clear: when the last boss falls, one line for the raid, without a boss count, sent once")
 do
   local w = World()
