@@ -674,6 +674,59 @@ do
   check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
 end
 
+section("Mixed languages: old runs, group lines and first kills of one dungeon from German and English clients are told together")
+do
+  local w = World()
+  local lyra = w.join("Lyra Distelbach")
+  Members(w)
+  local function Kill(who, t, inst, enc, boss) return Old("boss", who, t, { enc = enc, boss = boss, inst = inst, first = true }) end
+  Saved(lyra, {
+    Old("run", "Ole Fichtental", At(20, 9, 8), { inst = "Höhlen des Wehklagens", boss = "Mutanus der Verschlinger", n = 8, nf = 8,
+      first = true }),
+    Old("run", "Kael Wintermoor", At(20, 9, 16), { inst = "Wailing Caverns", boss = "Mutanus the Devourer", n = 8, nf = 8, first = true }),
+    Old("run", "Hanne Moosgrund", At(20, 12, 16), { inst = "Gefängnis von Alcaz", boss = "Blazeroar", n = 10, nf = 2 }),
+    Old("run", "Tamo Eichengrund", At(20, 12, 17), { inst = "Alcaz Prison", boss = "Blazeroar", n = 10, nf = 3 }),
+    Kill("Bodo Kesselring", At(20, 14, 0), "Krol'dok Stronghold", 3450, "Slavecrusher Grox"),
+    Old("group", "Rika Steinbeck", At(20, 15, 0), { inst = "Feste Krol'dok", with = { "Bodo Kesselring" }, grp = true }),
+    Old("group", "Mira Sturmfeder", At(20, 17, 0), { inst = "Todesminen", with = { "Ilsa Brunnhold" }, grp = true }),
+    Old("run", "Ilsa Brunnhold", At(20, 17, 20), { inst = "Deadmines", boss = "Edwin VanCleef", n = 7, nf = 7, first = true }),
+  })
+  w.start()
+  local lines = DungeonLines(lyra)
+  check(#lines == 4, "four lines for four dungeons: " .. table.concat(lines, " / "))
+  check(Holds(lines, "Ole Fichtental und Kael Wintermoor  ·  |cffffd100Höhlen des Wehklagens|r zum ersten Mal geschafft"),
+    "Ole's German and Kael's English first runs through the Wailing Caverns eight minutes apart are one group line")
+  check(Holds(lines, "Hanne Moosgrund und Tamo Eichengrund  ·  |cffffd100Gefängnis von Alcaz|r geschafft"),
+    "two old repeat runs through Alcaz Prison, one in each language, are a guild group line")
+  check(Holds(lines, "Rika Steinbeck und Bodo Kesselring  ·  |cffffd100Feste Krol'dok|r geschafft")
+    and not Holds(lines, "Krol'dok Stronghold"),
+    "Bodo's English first kill in Krol'dok Stronghold yields to the German group line that names him there")
+  check(Holds(lines, "Mira Sturmfeder und Ilsa Brunnhold  ·  |cffffd100Todesminen|r geschafft, für Ilsa Brunnhold zum ersten Mal"),
+    "Ilsa's English first run through the Deadmines, reported when her run ended, is in Mira's German group line")
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
+section("Mixed languages: a guild group with a German and an English client is reported once and is one line")
+do
+  local w = World()
+  local lyra = w.join("Lyra Distelbach")
+  local ole, kael = w.join("Ole Fichtental"), w.join("Kael Wintermoor", { locale = "enUS" })
+  w.start()
+  local party = { ole, kael }
+  w.group(party)
+  w.go({ ole }, { name = "Höhlen des Wehklagens", itype = "party", id = 43 })
+  w.go({ kael }, { name = "Wailing Caverns", itype = "party", id = 43 })
+  w.kill(party, 585, "Mutanus")
+  w.go(party, TOWN)
+  w.settle(1200)
+  check(Sent(w, "o") == 1, "one report for the run, although the two clients name the dungeon differently (" .. Sent(w, "o") .. ")")
+  for _, c in ipairs({ lyra, ole, kael }) do
+    local lines = DungeonLines(c)
+    check(#lines == 1, c.name .. ": one line for the run: " .. table.concat(lines, " / "))
+  end
+  check(Errors(w) == 0, "no Lua errors (" .. tostring(select(2, Errors(w))) .. ")")
+end
+
 local function ChronicleRow(c, needle)
   c.RQ:ShowModulePage("Highlights")
   local page = c.env.RavenquillExpeditionOverview.optView.pages.Highlights
