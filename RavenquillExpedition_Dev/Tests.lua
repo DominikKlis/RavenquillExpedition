@@ -362,6 +362,90 @@ Dev:Register("map.state", function(t)
   end)
 end, 20, { manual = true })
 
+local VERSION_WAIT = 75
+
+local function PeerVersionLine(key, heardAt, version, now)
+  local e = RQ:RosterEntry(key)
+  local where = e and (e.online and "online" or "offline") or "not on roster"
+  local days = math.floor((now - heardAt) / 86400)
+  return ("%-28s %-14s %-13s heard %s"):format(key, version or "no version", where,
+    days < 1 and "today" or (days .. " d ago"))
+end
+
+local function NewestFirst(versions)
+  return function(a, b)
+    local va, vb = versions[a] or "", versions[b] or ""
+    if va ~= vb then return va > vb end
+    return a < b
+  end
+end
+
+local function ReportPeerVersions(t)
+  local peers, versions, now = RQ:Peers() or {}, RQ:PeerVersions() or {}, RQ:Now()
+  local keys, tally = {}, {}
+  for key in pairs(peers) do keys[#keys + 1] = key end
+  table.sort(keys, NewestFirst(versions))
+  for _, key in ipairs(keys) do
+    local v = versions[key] or "no version"
+    tally[v] = (tally[v] or 0) + 1
+    t:note(PeerVersionLine(key, peers[key], versions[key], now))
+  end
+  local parts = {}
+  for v, n in pairs(tally) do parts[#parts + 1] = v .. " x" .. n end
+  table.sort(parts)
+  t:note(("%d guildmates heard in 14 days: %s"):format(#keys, table.concat(parts, ", ")))
+  t:note("no version = older than 0.10.0, or not reported since; only releases from the version request on answer it")
+end
+
+Dev:Register("peers.versions", function(t)
+  local asked = RQ.RequestVersions and RQ:RequestVersions()
+  t:note(asked and ("version request sent, collecting answers for %d s"):format(VERSION_WAIT)
+    or "no request sent (asked less than 5 min ago, or core without RequestVersions): showing what is stored")
+  t:after(asked and VERSION_WAIT or 0, function()
+    ReportPeerVersions(t)
+    t:ok(true, "version report written")
+    t:done()
+  end)
+end, VERSION_WAIT + 20, { manual = true })
+
+local FLIGHT_WATCH, FLIGHT_WAIT = 45, 120
+
+local function OnTaxi() return UnitOnTaxi("player") and true or false end
+
+local function WatchFlight(t, M, S)
+  local sent0, samples, reasons = S.sent, 0, {}
+  local function Sample()
+    samples = samples + 1
+    local last = S.last
+    if last then reasons[last.why or "?"] = (reasons[last.why or "?"] or 0) + 1 end
+    local mapID, x, y = M:ReadOwnPosition()
+    t:note(("%2d s: on taxi %s, map %s (%.3f, %.3f), sent %d, last %s flags '%s', skip %s"):format(samples * 5,
+      tostring(OnTaxi()), tostring(mapID), x or -1, y or -1, S.sent - sent0, last and tostring(last.why) or "-",
+      last and tostring(last.flags) or "-", tostring(S.skip)))
+    if samples * 5 < FLIGHT_WATCH then return t:after(5, Sample) end
+    local sends = S.sent - sent0
+    t:ok(sends >= 3, ("own position sent %d times in %d s of flight"):format(sends, FLIGHT_WATCH))
+    t:ok(S.last and tostring(S.last.flags):find("t", 1, true) ~= nil, "last send carries the flight flag t")
+    t:ok((reasons.moved or 0) + (reasons.zone or 0) > 0, "sends during the flight are position updates (moved/zone)")
+    t:done()
+  end
+  t:after(5, Sample)
+end
+
+Dev:Register("map.flight", function(t)
+  local M = rawget(_G, "RavenquillExpeditionMap")
+  if not M or not M.sync then t:note("Map not loaded") t:done() return end
+  if not (M.settings and M.settings.share) then t:note("sharing is off: turn it on in /rq > Map") end
+  local waited = 0
+  local function WaitForTaxi()
+    if OnTaxi() then return WatchFlight(t, M, M.sync) end
+    waited = waited + 1
+    if waited > FLIGHT_WAIT then t:ok(false, "no flight started within " .. FLIGHT_WAIT .. " s") t:done() return end
+    t:after(1, WaitForTaxi)
+  end
+  WaitForTaxi()
+end, FLIGHT_WATCH + FLIGHT_WAIT + 15, { manual = true })
+
 local function CraftErrorSince(gca, before)
   local le = gca.db and gca.db.diag and gca.db.diag.lastError
   if le and le.at ~= before then return tostring(le.where) .. ": " .. tostring(le.msg):match("^[^\n]*") end
